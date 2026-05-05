@@ -22,7 +22,7 @@ export type CreateReservationResult =
       message: string;
     };
 
-export function createReservation({
+export async function createReservation({
   gym,
   draft,
   now = new Date(),
@@ -32,7 +32,7 @@ export function createReservation({
   draft: ReservationDraft;
   now?: Date;
   repository?: ReservationRepository;
-}): CreateReservationResult {
+}): Promise<CreateReservationResult> {
   const current = repository.read();
 
   if (!current.ok) {
@@ -71,9 +71,28 @@ export function createReservation({
   }
 
   const reservation = repository.build(draft);
-  const writeResult = repository.replace([reservation, ...current.reservations]);
+  const writeResult = await repository.create(reservation);
 
-  if (!writeResult.ok) {
+  if (writeResult.ok) {
+    return {
+      ok: true,
+      status: "created",
+      message:
+        "예약이 생성되었습니다. 내 예약 화면에서 QR 입장권을 확인할 수 있습니다.",
+      reservation,
+    };
+  }
+
+  if (writeResult.status === "duplicate") {
+    return {
+      ok: false,
+      status: "duplicate",
+      message: writeResult.message,
+      reservation: writeResult.reservation,
+    };
+  }
+
+  if (writeResult.status === "failed") {
     return {
       ok: false,
       status: "rejected",
@@ -82,9 +101,8 @@ export function createReservation({
   }
 
   return {
-    ok: true,
-    status: "created",
-    message: "예약이 생성되었습니다. 내 예약 화면에서 QR 입장권을 확인할 수 있습니다.",
-    reservation,
+    ok: false,
+    status: "rejected",
+    message: "예약 처리 결과를 확인할 수 없습니다.",
   };
 }

@@ -1,15 +1,24 @@
 import {
   EMPTY_RESERVATION_SNAPSHOT,
+  findActiveReservationDuplicate,
   parseReservationSnapshot,
+  type ReservationCreateResult,
   type ReservationCancelResult,
   type ReservationRepository,
   type ReservationRepositoryFailure,
-  type ReservationWriteResult,
 } from "@/lib/reservation-repository";
+import { getReservationRuleMessage } from "@/lib/reservation-rules";
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
 const STORAGE_KEY = "gym-reservation-web:reservations";
 const STORAGE_EVENT = "gym-reservation-web:reservations-changed";
+
+type ReservationWriteResult =
+  | {
+      ok: true;
+      reservations: Reservation[];
+    }
+  | ReservationRepositoryFailure;
 
 function canUseStorage() {
   return typeof window !== "undefined" && Boolean(window.localStorage);
@@ -44,6 +53,55 @@ function replaceReservations(
   return {
     ok: true,
     reservations,
+  };
+}
+
+async function createReservation(
+  reservation: Reservation,
+): Promise<ReservationCreateResult> {
+  const current = readReservations();
+
+  if (!current.ok) {
+    return {
+      ok: false,
+      status: "failed",
+      message: current.message,
+      reason: current.reason,
+    };
+  }
+
+  const duplicate = findActiveReservationDuplicate(
+    current.reservations,
+    reservation,
+  );
+
+  if (duplicate) {
+    return {
+      ok: false,
+      status: "duplicate",
+      message: getReservationRuleMessage("duplicate-active-reservation"),
+      reservation: duplicate,
+      reservations: current.reservations,
+    };
+  }
+
+  const nextReservations = [reservation, ...current.reservations];
+  const writeResult = replaceReservations(nextReservations);
+
+  if (!writeResult.ok) {
+    return {
+      ok: false,
+      status: "failed",
+      message: writeResult.message,
+      reason: writeResult.reason,
+    };
+  }
+
+  return {
+    ok: true,
+    status: "created",
+    reservation,
+    reservations: nextReservations,
   };
 }
 
@@ -88,7 +146,9 @@ function buildReservation(draft: ReservationDraft): Reservation {
   };
 }
 
-function cancelReservation(reservationId: string): ReservationCancelResult {
+async function cancelReservation(
+  reservationId: string,
+): Promise<ReservationCancelResult> {
   const current = readReservations();
 
   if (!current.ok) {
@@ -162,9 +222,10 @@ function cancelReservation(reservationId: string): ReservationCancelResult {
 
 export const localReservationRepository: ReservationRepository = {
   read: readReservations,
-  replace: replaceReservations,
+  create: createReservation,
   build: buildReservation,
   cancel: cancelReservation,
   getSnapshot: getReservationSnapshot,
+  getServerSnapshot: () => EMPTY_RESERVATION_SNAPSHOT,
   subscribe: subscribeReservations,
 };

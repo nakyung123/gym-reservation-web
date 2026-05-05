@@ -1,18 +1,22 @@
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
 export const EMPTY_RESERVATION_SNAPSHOT = "[]";
+export const LOADING_RESERVATION_SNAPSHOT = JSON.stringify({
+  status: "loading",
+  message: "예약 정보를 불러오고 있습니다.",
+});
 
-export type ReservationRepositoryFailure =
-  | {
-      ok: false;
-      reason: "storage-unavailable";
-      message: string;
-    }
-  | {
-      ok: false;
-      reason: "invalid-storage-data";
-      message: string;
-    };
+export type ReservationRepositoryFailureReason =
+  | "storage-unavailable"
+  | "invalid-storage-data"
+  | "not-ready"
+  | "remote-unavailable";
+
+export type ReservationRepositoryFailure = {
+  ok: false;
+  reason: ReservationRepositoryFailureReason;
+  message: string;
+};
 
 export type ReservationReadResult =
   | {
@@ -21,12 +25,26 @@ export type ReservationReadResult =
     }
   | ReservationRepositoryFailure;
 
-export type ReservationWriteResult =
+export type ReservationCreateResult =
   | {
       ok: true;
+      status: "created";
+      reservation: Reservation;
+      reservations?: Reservation[];
+    }
+  | {
+      ok: false;
+      status: "duplicate";
+      message: string;
+      reservation: Reservation;
       reservations: Reservation[];
     }
-  | ReservationRepositoryFailure;
+  | {
+      ok: false;
+      status: "failed";
+      message: string;
+      reason: ReservationRepositoryFailureReason;
+    };
 
 export type ReservationCancelResult =
   | {
@@ -47,17 +65,33 @@ export type ReservationCancelResult =
       ok: false;
       status: "failed";
       message: string;
-      reason: ReservationRepositoryFailure["reason"];
+      reason: ReservationRepositoryFailureReason;
     };
 
 export type ReservationRepository = {
   read(): ReservationReadResult;
-  replace(reservations: Reservation[]): ReservationWriteResult;
+  create(reservation: Reservation): Promise<ReservationCreateResult>;
   build(draft: ReservationDraft): Reservation;
-  cancel(reservationId: string): ReservationCancelResult;
+  cancel(reservationId: string): Promise<ReservationCancelResult>;
   getSnapshot(): string;
+  getServerSnapshot(): string;
   subscribe(listener: () => void): () => void;
 };
+
+type ReservationSnapshot =
+  | {
+      status: "ready";
+      reservations: unknown;
+    }
+  | {
+      status: "loading";
+      message: unknown;
+    }
+  | {
+      status: "failed";
+      reason: unknown;
+      message: unknown;
+    };
 
 export function invalidReservationData(): ReservationRepositoryFailure {
   return {
@@ -68,7 +102,71 @@ export function invalidReservationData(): ReservationRepositoryFailure {
   };
 }
 
-function isReservation(value: unknown): value is Reservation {
+export function reservationsNotReady(
+  message = "예약 정보를 불러오고 있습니다.",
+): ReservationRepositoryFailure {
+  return {
+    ok: false,
+    reason: "not-ready",
+    message,
+  };
+}
+
+export function remoteReservationUnavailable(
+  message = "Firebase 예약 저장소에 연결할 수 없습니다.",
+): ReservationRepositoryFailure {
+  return {
+    ok: false,
+    reason: "remote-unavailable",
+    message,
+  };
+}
+
+export function createReservationsReadySnapshot(
+  reservations: Reservation[],
+): string {
+  return JSON.stringify({
+    status: "ready",
+    reservations,
+  });
+}
+
+export function createReservationsFailedSnapshot(
+  failure: ReservationRepositoryFailure,
+): string {
+  return JSON.stringify({
+    status: "failed",
+    reason: failure.reason,
+    message: failure.message,
+  });
+}
+
+export function getReservationActiveKey(
+  reservation: Reservation | ReservationDraft,
+): string {
+  return [
+    reservation.userId,
+    reservation.gymId,
+    reservation.sport,
+    reservation.date,
+    reservation.time,
+  ]
+    .map(encodeURIComponent)
+    .join("__");
+}
+
+export function findActiveReservationDuplicate(
+  reservations: Reservation[],
+  target: Reservation | ReservationDraft,
+): Reservation | undefined {
+  return reservations.find(
+    (reservation) =>
+      reservation.status === "reserved" &&
+      getReservationActiveKey(reservation) === getReservationActiveKey(target),
+  );
+}
+
+export function isReservation(value: unknown): value is Reservation {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -91,24 +189,71 @@ function isReservation(value: unknown): value is Reservation {
   );
 }
 
+function isSnapshotObject(value: unknown): value is ReservationSnapshot {
+  return value !== null && typeof value === "object" && "status" in value;
+}
+
+function isFailureReason(
+  value: unknown,
+): value is ReservationRepositoryFailureReason {
+  return (
+    value === "storage-unavailable" ||
+    value === "invalid-storage-data" ||
+    value === "not-ready" ||
+    value === "remote-unavailable"
+  );
+}
+
+function parseReservations(value: unknown): ReservationReadResult {
+  if (!Array.isArray(value)) {
+    return invalidReservationData();
+  }
+
+  if (!value.every(isReservation)) {
+    return invalidReservationData();
+  }
+
+  return {
+    ok: true,
+    reservations: value,
+  };
+}
+
 export function parseReservationSnapshot(
   snapshot: string,
 ): ReservationReadResult {
   try {
     const parsed = JSON.parse(snapshot);
 
-    if (!Array.isArray(parsed)) {
+    if (Array.isArray(parsed)) {
+      return parseReservations(parsed);
+    }
+
+    if (!isSnapshotObject(parsed)) {
       return invalidReservationData();
     }
 
-    if (!parsed.every(isReservation)) {
-      return invalidReservationData();
+    if (parsed.status === "ready") {
+      return parseReservations(parsed.reservations);
     }
 
-    return {
-      ok: true,
-      reservations: parsed,
-    };
+    if (parsed.status === "loading" && typeof parsed.message === "string") {
+      return reservationsNotReady(parsed.message);
+    }
+
+    if (
+      parsed.status === "failed" &&
+      isFailureReason(parsed.reason) &&
+      typeof parsed.message === "string"
+    ) {
+      return {
+        ok: false,
+        reason: parsed.reason,
+        message: parsed.message,
+      };
+    }
+
+    return invalidReservationData();
   } catch {
     return invalidReservationData();
   }

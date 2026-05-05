@@ -43,6 +43,10 @@ const reservationRuleMessages: Record<ReservationRuleFailure, string> = {
     "이미 같은 조건의 예약이 있습니다. 내 예약 화면에서 확인해주세요.",
 };
 
+export function getReservationRuleMessage(reason: ReservationRuleFailure) {
+  return reservationRuleMessages[reason];
+}
+
 function fail(
   reason: ReservationRuleFailure,
   reservation?: Reservation,
@@ -50,7 +54,7 @@ function fail(
   return {
     ok: false,
     reason,
-    message: reservationRuleMessages[reason],
+    message: getReservationRuleMessage(reason),
     reservation,
   };
 }

@@ -8,10 +8,8 @@ import {
   type ReservationTimeState,
 } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
-import {
-  EMPTY_RESERVATION_SNAPSHOT,
-  parseReservationSnapshot,
-} from "@/lib/reservation-repository";
+import { parseReservationSnapshot } from "@/lib/reservation-repository";
+import { DEMO_USER_ID } from "@/lib/demo-user";
 import type { Gym, Sport } from "@/types/domain";
 
 type ReservationFormProps = {
@@ -25,7 +23,6 @@ type DateOption = {
 
 type NoticeTone = "success" | "warning" | "error";
 
-const mockUserId = "local-demo-user";
 const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
 const unavailableTimeLabels = {
   "gym-mismatch": "선택 불가",
@@ -132,10 +129,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [createdReservationId, setCreatedReservationId] = useState<
     string | null
   >(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const reservationSnapshot = useSyncExternalStore(
     reservationRepository.subscribe,
     reservationRepository.getSnapshot,
-    () => EMPTY_RESERVATION_SNAPSHOT,
+    reservationRepository.getServerSnapshot,
   );
   const todayValue = useSyncExternalStore(
     subscribeDateSnapshot,
@@ -182,7 +180,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           gym,
           reservations,
           draft: {
-            userId: mockUserId,
+            userId: DEMO_USER_ID,
             gymId: gym.id,
             sport: selectedSport,
             date: effectiveSelectedDate,
@@ -212,48 +210,72 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         reason: "invalid-date-time" as const,
         message: "예약 날짜를 준비하고 있습니다.",
       };
-  const submitDisabledReason = !isDateReady
-    ? "예약 날짜를 준비하고 있습니다."
-    : !reservationReadResult.ok
-      ? reservationReadResult.message
-      : selectedTimeState.available
-        ? null
-      : selectedTimeState.message;
+  const submitDisabledReason = isSubmitting
+    ? "예약을 처리하고 있습니다."
+    : !isDateReady
+      ? "예약 날짜를 준비하고 있습니다."
+      : !reservationReadResult.ok
+        ? reservationReadResult.message
+        : selectedTimeState.available
+          ? null
+          : selectedTimeState.message;
+  const timeSelectionDisabledReason = reservationReadResult.ok
+    ? null
+    : reservationReadResult.message;
+  const timeSelectionDisabledLabel =
+    !reservationReadResult.ok && reservationReadResult.reason === "not-ready"
+      ? "확인 중"
+      : "확인 불가";
 
   const resetNotice = () => {
     setNotice(null);
     setCreatedReservationId(null);
   };
 
-  const handleReserve = () => {
-    const result = createReservation({
-      gym,
-      draft: {
-        userId: mockUserId,
-        gymId: gym.id,
-        sport: selectedSport,
-        date: effectiveSelectedDate,
-        time: selectedTime,
-        price,
-      },
-    });
-
-    setNotice(result.message);
-
-    if (result.ok) {
-      setNoticeTone("success");
-      setCreatedReservationId(result.reservation.id);
+  const handleReserve = async () => {
+    if (isSubmitting) {
       return;
     }
 
-    if (result.status === "duplicate") {
-      setNoticeTone("warning");
-      setCreatedReservationId(result.reservation.id);
-      return;
-    }
+    setIsSubmitting(true);
+    resetNotice();
 
-    setNoticeTone("error");
-    setCreatedReservationId(null);
+    try {
+      const result = await createReservation({
+        gym,
+        draft: {
+          userId: DEMO_USER_ID,
+          gymId: gym.id,
+          sport: selectedSport,
+          date: effectiveSelectedDate,
+          time: selectedTime,
+          price,
+        },
+      });
+
+      setNotice(result.message);
+
+      if (result.ok) {
+        setNoticeTone("success");
+        setCreatedReservationId(result.reservation.id);
+        return;
+      }
+
+      if (result.status === "duplicate") {
+        setNoticeTone("warning");
+        setCreatedReservationId(result.reservation.id);
+        return;
+      }
+
+      setNoticeTone("error");
+      setCreatedReservationId(null);
+    } catch {
+      setNotice("예약 처리 중 예상하지 못한 오류가 발생했습니다.");
+      setNoticeTone("error");
+      setCreatedReservationId(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -331,26 +353,34 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
                     };
                     const isSelected = selectedTime === time;
+                    const timeButtonStateClass = timeSelectionDisabledReason
+                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                      : getTimeButtonClass(timeState, isSelected);
 
                     return (
                       <button
                         key={time}
                         type="button"
-                        disabled={!timeState.available}
+                        disabled={
+                          Boolean(timeSelectionDisabledReason) ||
+                          !timeState.available
+                        }
                         onClick={() => {
                           setSelectedTime(time);
                           resetNotice();
                         }}
-                        className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition ${getTimeButtonClass(
-                          timeState,
-                          isSelected,
-                        )}`}
+                        className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition ${timeButtonStateClass}`}
                         title={
-                          timeState.available ? "예약 가능" : timeState.message
+                          timeSelectionDisabledReason ??
+                          (timeState.available ? "예약 가능" : timeState.message)
                         }
                       >
                         <span className="block">{time}</span>
-                        {!timeState.available ? (
+                        {timeSelectionDisabledReason ? (
+                          <span className="mt-1 block text-[11px] leading-4">
+                            {timeSelectionDisabledLabel}
+                          </span>
+                        ) : !timeState.available ? (
                           <span className="mt-1 block text-[11px] leading-4">
                             {unavailableTimeLabels[timeState.reason]}
                           </span>
@@ -408,7 +438,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           disabled={Boolean(submitDisabledReason)}
           className="mt-6 h-11 w-full rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
         >
-          예약하기
+          {isSubmitting ? "예약 처리 중" : "예약하기"}
         </button>
 
         {submitDisabledReason ? (

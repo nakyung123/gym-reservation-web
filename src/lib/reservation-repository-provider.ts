@@ -1,3 +1,3 @@
-import { localReservationRepository } from "@/lib/reservation-storage";
+import { firebaseReservationRepository } from "@/lib/firebase-reservation-repository";
 
-export const reservationRepository = localReservationRepository;
+export const reservationRepository = firebaseReservationRepository;

@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import {
-  EMPTY_RESERVATION_SNAPSHOT,
-  parseReservationSnapshot,
-} from "@/lib/reservation-repository";
+import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { gyms } from "@/lib/mock-data";
 import type { Reservation } from "@/types/domain";
@@ -51,10 +48,13 @@ export function ReservationsView() {
     tone: keyof typeof noticeStyles;
     message: string;
   } | null>(null);
+  const [cancellingReservationId, setCancellingReservationId] = useState<
+    string | null
+  >(null);
   const reservationSnapshot = useSyncExternalStore(
     reservationRepository.subscribe,
     reservationRepository.getSnapshot,
-    () => EMPTY_RESERVATION_SNAPSHOT,
+    reservationRepository.getServerSnapshot,
   );
   const reservationReadResult = useMemo(
     () => parseReservationSnapshot(reservationSnapshot),
@@ -71,16 +71,45 @@ export function ReservationsView() {
     [reservations],
   );
 
-  const handleCancel = (reservationId: string) => {
-    const result = reservationRepository.cancel(reservationId);
+  const handleCancel = async (reservationId: string) => {
+    if (cancellingReservationId) {
+      return;
+    }
 
-    setActionNotice({
-      tone: result.ok ? "success" : "error",
-      message: result.message,
-    });
+    setCancellingReservationId(reservationId);
+
+    try {
+      const result = await reservationRepository.cancel(reservationId);
+
+      setActionNotice({
+        tone: result.ok ? "success" : "error",
+        message: result.message,
+      });
+    } catch {
+      setActionNotice({
+        tone: "error",
+        message: "예약 취소 중 예상하지 못한 오류가 발생했습니다.",
+      });
+    } finally {
+      setCancellingReservationId(null);
+    }
   };
 
   if (!reservationReadResult.ok) {
+    if (reservationReadResult.reason === "not-ready") {
+      return (
+        <section className="mx-auto w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-sm font-semibold text-sky-700">내 예약</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-950">
+            예약 정보를 불러오고 있습니다
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Firebase에 저장된 예약 목록을 확인하는 중입니다.
+          </p>
+        </section>
+      );
+    }
+
     return (
       <section className="mx-auto w-full max-w-4xl rounded-lg border border-rose-200 bg-rose-50 p-8 text-center text-rose-800 shadow-sm">
         <p className="text-sm font-semibold">내 예약</p>
@@ -121,8 +150,8 @@ export function ReservationsView() {
               예약 {activeReservations.length}건
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              현재 브라우저에 저장된 mock 예약입니다. Firebase 연결 전 예약
-              흐름 검증용으로 사용합니다.
+              현재 Firebase에 저장된 개발용 예약입니다. 로그인 연결 전까지는
+              데모 사용자 기준으로 표시합니다.
             </p>
           </div>
           <Link
@@ -204,9 +233,12 @@ export function ReservationsView() {
                   <button
                     type="button"
                     onClick={() => handleCancel(reservation.id)}
+                    disabled={Boolean(cancellingReservationId)}
                     className="mt-5 h-10 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
                   >
-                    예약 취소
+                    {cancellingReservationId === reservation.id
+                      ? "취소 중"
+                      : "예약 취소"}
                   </button>
                 ) : null}
               </div>
