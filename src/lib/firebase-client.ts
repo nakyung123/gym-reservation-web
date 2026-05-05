@@ -1,8 +1,10 @@
 import { getApps, initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 type FirebaseClient = {
   app: FirebaseApp;
+  auth: Auth;
   db: Firestore;
 };
 
@@ -61,6 +63,7 @@ export function getFirebaseClient(): FirebaseClient {
 
   cachedClient = {
     app,
+    auth: getAuth(app),
     db: getFirestore(app),
   };
 

@@ -19,6 +19,7 @@ localStorage 기반 `localReservationRepository`는 비교와 임시 롤백을 �
 - 생성, 취소 같은 mutation은 성공, 중복, 거절, 실패를 명시적인 result로
   반환합니다.
 - 같은 예약 취소 요청은 반복되어도 안전해야 합니다.
+- 사용자 식별 SSOT는 Firebase Auth의 `auth.uid`입니다.
 
 ## Firebase 컬렉션 초안
 
@@ -76,4 +77,5 @@ mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
 3. `src/lib/firebase-reservation-repository.ts` 구현 완료
 4. `reservation-repository-provider.ts`에서 Firestore 구현 선택 완료
 5. Firestore transaction으로 중복 활성 예약 생성 방지 완료
-6. 인증 추가 후 `DEMO_USER_ID`를 실제 `uid`로 교체
+6. Anonymous Auth 연결과 실제 `auth.uid` 교체 완료
+7. Firestore Rules를 `request.auth.uid == userId` 기준으로 강화

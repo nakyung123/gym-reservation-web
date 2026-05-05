@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import {
+  getFirebaseAuthSessionServerSnapshot,
+  getFirebaseAuthSessionSnapshot,
+  parseFirebaseAuthSessionSnapshot,
+  subscribeFirebaseAuthSession,
+} from "@/lib/firebase-auth-session";
 import { createReservation } from "@/lib/reservation-service";
 import {
   getReservationTimeState,
@@ -9,7 +15,6 @@ import {
 } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
-import { DEMO_USER_ID } from "@/lib/demo-user";
 import type { Gym, Sport } from "@/types/domain";
 
 type ReservationFormProps = {
@@ -130,6 +135,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     string | null
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const authSessionSnapshot = useSyncExternalStore(
+    subscribeFirebaseAuthSession,
+    getFirebaseAuthSessionSnapshot,
+    getFirebaseAuthSessionServerSnapshot,
+  );
   const reservationSnapshot = useSyncExternalStore(
     reservationRepository.subscribe,
     reservationRepository.getSnapshot,
@@ -144,6 +154,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     () => parseReservationSnapshot(reservationSnapshot),
     [reservationSnapshot],
   );
+  const authSession = useMemo(
+    () => parseFirebaseAuthSessionSnapshot(authSessionSnapshot),
+    [authSessionSnapshot],
+  );
+  const reservationUserId = authSession.ok ? authSession.userId : "";
   const reservations = useMemo(
     () => (reservationReadResult.ok ? reservationReadResult.reservations : []),
     [reservationReadResult],
@@ -167,7 +182,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const timeStates = useMemo<
     Map<string, ReservationTimeState>
   >(() => {
-    if (!isDateReady) {
+    if (!isDateReady || !authSession.ok) {
       return new Map();
     }
 
@@ -180,7 +195,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           gym,
           reservations,
           draft: {
-            userId: DEMO_USER_ID,
+            userId: authSession.userId,
             gymId: gym.id,
             sport: selectedSport,
             date: effectiveSelectedDate,
@@ -193,6 +208,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     );
   }, [
     effectiveSelectedDate,
+    authSession,
     gym,
     isDateReady,
     price,
@@ -212,18 +228,23 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       };
   const submitDisabledReason = isSubmitting
     ? "예약을 처리하고 있습니다."
-    : !isDateReady
-      ? "예약 날짜를 준비하고 있습니다."
-      : !reservationReadResult.ok
-        ? reservationReadResult.message
-        : selectedTimeState.available
-          ? null
-          : selectedTimeState.message;
-  const timeSelectionDisabledReason = reservationReadResult.ok
-    ? null
-    : reservationReadResult.message;
+    : !authSession.ok
+      ? authSession.message
+      : !isDateReady
+        ? "예약 날짜를 준비하고 있습니다."
+        : !reservationReadResult.ok
+          ? reservationReadResult.message
+          : selectedTimeState.available
+            ? null
+            : selectedTimeState.message;
+  const timeSelectionDisabledReason = !authSession.ok
+    ? authSession.message
+    : reservationReadResult.ok
+      ? null
+      : reservationReadResult.message;
   const timeSelectionDisabledLabel =
-    !reservationReadResult.ok && reservationReadResult.reason === "not-ready"
+    (!authSession.ok && authSession.reason === "not-ready") ||
+    (!reservationReadResult.ok && reservationReadResult.reason === "not-ready")
       ? "확인 중"
       : "확인 불가";
 
@@ -237,6 +258,13 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       return;
     }
 
+    if (!authSession.ok) {
+      setNotice(authSession.message);
+      setNoticeTone("error");
+      setCreatedReservationId(null);
+      return;
+    }
+
     setIsSubmitting(true);
     resetNotice();
 
@@ -244,7 +272,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       const result = await createReservation({
         gym,
         draft: {
-          userId: DEMO_USER_ID,
+          userId: reservationUserId,
           gymId: gym.id,
           sport: selectedSport,
           date: effectiveSelectedDate,

@@ -1,15 +1,24 @@
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
 export const EMPTY_RESERVATION_SNAPSHOT = "[]";
-export const LOADING_RESERVATION_SNAPSHOT = JSON.stringify({
-  status: "loading",
-  message: "예약 정보를 불러오고 있습니다.",
-});
+
+export function createReservationsLoadingSnapshot(
+  message = "예약 정보를 불러오고 있습니다.",
+): string {
+  return JSON.stringify({
+    status: "loading",
+    message,
+  });
+}
+
+export const LOADING_RESERVATION_SNAPSHOT =
+  createReservationsLoadingSnapshot();
 
 export type ReservationRepositoryFailureReason =
   | "storage-unavailable"
   | "invalid-storage-data"
   | "not-ready"
+  | "auth-required"
   | "remote-unavailable";
 
 export type ReservationRepositoryFailure = {
@@ -112,6 +121,16 @@ export function reservationsNotReady(
   };
 }
 
+export function reservationAuthRequired(
+  message = "로그인 정보를 확인할 수 없어 예약을 처리할 수 없습니다.",
+): ReservationRepositoryFailure {
+  return {
+    ok: false,
+    reason: "auth-required",
+    message,
+  };
+}
+
 export function remoteReservationUnavailable(
   message = "Firebase 예약 저장소에 연결할 수 없습니다.",
 ): ReservationRepositoryFailure {
@@ -200,6 +219,7 @@ function isFailureReason(
     value === "storage-unavailable" ||
     value === "invalid-storage-data" ||
     value === "not-ready" ||
+    value === "auth-required" ||
     value === "remote-unavailable"
   );
 }

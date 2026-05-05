@@ -9,16 +9,23 @@ import {
   type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import {
+  getCurrentFirebaseAuthSession,
+  subscribeFirebaseAuthSession,
+  type FirebaseAuthSessionResult,
+} from "@/lib/firebase-auth-session";
 import { getFirebaseClient } from "@/lib/firebase-client";
-import { DEMO_USER_ID } from "@/lib/demo-user";
 import {
   createReservationsFailedSnapshot,
+  createReservationsLoadingSnapshot,
   createReservationsReadySnapshot,
   getReservationActiveKey,
   invalidReservationData,
   isReservation,
   LOADING_RESERVATION_SNAPSHOT,
   parseReservationSnapshot,
+  reservationAuthRequired,
+  reservationsNotReady,
   remoteReservationUnavailable,
   type ReservationCancelResult,
   type ReservationCreateResult,
@@ -39,7 +46,9 @@ type ReservationLock = {
 };
 
 let currentSnapshot = LOADING_RESERVATION_SNAPSHOT;
+let authUnsubscribe: (() => void) | null = null;
 let remoteUnsubscribe: (() => void) | null = null;
+let subscribedUserId: string | null = null;
 
 const listeners = new Set<() => void>();
 
@@ -93,6 +102,34 @@ function getFirebaseFailure(error: unknown): ReservationRepositoryFailure {
   return remoteReservationUnavailable(
     `Firebase 예약 저장소 처리 중 오류가 발생했습니다.${detail}`,
   );
+}
+
+function getAuthFailure(
+  authSession: Exclude<FirebaseAuthSessionResult, { ok: true }>,
+): ReservationRepositoryFailure {
+  if (authSession.reason === "not-ready") {
+    return reservationsNotReady(authSession.message);
+  }
+
+  return reservationAuthRequired(authSession.message);
+}
+
+function getCurrentUserIdResult():
+  | {
+      ok: true;
+      userId: string;
+    }
+  | ReservationRepositoryFailure {
+  const authSession = getCurrentFirebaseAuthSession();
+
+  if (!authSession.ok) {
+    return getAuthFailure(authSession);
+  }
+
+  return {
+    ok: true,
+    userId: authSession.userId,
+  };
 }
 
 function parseReservationDocument(
@@ -165,18 +202,43 @@ function upsertCurrentReservation(reservation: Reservation) {
   );
 }
 
-function startRemoteSubscription() {
+function stopRemoteSubscription() {
   if (remoteUnsubscribe) {
+    remoteUnsubscribe();
+    remoteUnsubscribe = null;
+  }
+
+  subscribedUserId = null;
+}
+
+function syncRemoteSubscriptionWithAuth() {
+  const authSession = getCurrentFirebaseAuthSession();
+
+  if (!authSession.ok) {
+    stopRemoteSubscription();
+
+    if (authSession.reason === "not-ready") {
+      setCurrentSnapshot(createReservationsLoadingSnapshot(authSession.message));
+      return;
+    }
+
+    setCurrentSnapshot(createReservationsFailedSnapshot(getAuthFailure(authSession)));
     return;
   }
 
+  if (remoteUnsubscribe && subscribedUserId === authSession.userId) {
+    return;
+  }
+
+  stopRemoteSubscription();
+  subscribedUserId = authSession.userId;
   setCurrentSnapshot(LOADING_RESERVATION_SNAPSHOT);
 
   try {
     const { db } = getFirebaseClient();
     const reservationsQuery = query(
       collection(db, RESERVATIONS_COLLECTION),
-      where("userId", "==", DEMO_USER_ID),
+      where("userId", "==", authSession.userId),
     );
 
     remoteUnsubscribe = onSnapshot(
@@ -202,12 +264,25 @@ function startRemoteSubscription() {
         );
       },
       (error) => {
-        setCurrentSnapshot(createReservationsFailedSnapshot(getFirebaseFailure(error)));
+        setCurrentSnapshot(
+          createReservationsFailedSnapshot(getFirebaseFailure(error)),
+        );
       },
     );
   } catch (error) {
     setCurrentSnapshot(createReservationsFailedSnapshot(getFirebaseFailure(error)));
   }
+}
+
+function startRemoteSubscription() {
+  if (authUnsubscribe) {
+    return;
+  }
+
+  authUnsubscribe = subscribeFirebaseAuthSession(
+    syncRemoteSubscriptionWithAuth,
+  );
+  syncRemoteSubscriptionWithAuth();
 }
 
 function subscribeReservations(listener: () => void) {
@@ -217,9 +292,15 @@ function subscribeReservations(listener: () => void) {
   return () => {
     listeners.delete(listener);
 
-    if (listeners.size === 0 && remoteUnsubscribe) {
-      remoteUnsubscribe();
-      remoteUnsubscribe = null;
+    if (listeners.size === 0) {
+      stopRemoteSubscription();
+
+      if (authUnsubscribe) {
+        authUnsubscribe();
+        authUnsubscribe = null;
+      }
+
+      setCurrentSnapshot(LOADING_RESERVATION_SNAPSHOT);
     }
   };
 }
@@ -237,6 +318,20 @@ async function createReservation(
   reservation: Reservation,
 ): Promise<ReservationCreateResult> {
   try {
+    const userIdResult = getCurrentUserIdResult();
+
+    if (!userIdResult.ok) {
+      return failedCreateResult(userIdResult);
+    }
+
+    if (reservation.userId !== userIdResult.userId) {
+      return failedCreateResult(
+        reservationAuthRequired(
+          "로그인 사용자와 예약 사용자 정보가 일치하지 않습니다.",
+        ),
+      );
+    }
+
     const { db } = getFirebaseClient();
     const activeKey = getReservationActiveKey(reservation);
     const reservationRef = doc(db, RESERVATIONS_COLLECTION, reservation.id);
@@ -312,6 +407,12 @@ async function cancelReservation(
   reservationId: string,
 ): Promise<ReservationCancelResult> {
   try {
+    const userIdResult = getCurrentUserIdResult();
+
+    if (!userIdResult.ok) {
+      return failedCancelResult(userIdResult);
+    }
+
     const { db } = getFirebaseClient();
     const reservationRef = doc(db, RESERVATIONS_COLLECTION, reservationId);
 
@@ -333,6 +434,14 @@ async function cancelReservation(
 
         if (!reservation) {
           return failedCancelResult(invalidReservationData());
+        }
+
+        if (reservation.userId !== userIdResult.userId) {
+          return failedCancelResult(
+            reservationAuthRequired(
+              "로그인 사용자와 예약 소유자가 일치하지 않습니다.",
+            ),
+          );
         }
 
         if (reservation.status === "cancelled") {
