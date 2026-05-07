@@ -35,6 +35,7 @@
 - [스프린트 계획](docs/sprint-plan.md)
 - [Firebase 연결 계획](docs/firebase-plan.md)
 - [Firestore 보안 규칙](docs/firestore-rules.md)
+- [Firestore 체육관 초기 데이터](docs/firestore-gyms-seed.md)
 - [MVP 체크리스트](docs/mvp-checklist.md)
 - [배포 계획](docs/deployment-plan.md)
 
