@@ -13,6 +13,7 @@
 - 사용자별 예약 조회와 Firestore Rules 적용
 - 예약 내역 필터, 취소 확인, 모바일 입장권 UI 구현
 - 체육관 데이터 조회 provider 분리
+- Firestore 체육관 조회 repository 추가
 - GitHub Actions CI에서 lint, build 검증
 
 ## 출시 전 확인
@@ -28,6 +29,7 @@
 ## MVP 이후 후보
 
 - 체육관 데이터도 Firestore `gyms` 컬렉션으로 이전
+- `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore` 전환 후 주요 화면 확인
 - 베타 전 로그인 정책 결정
 - 카카오 로그인 우선 검토
 - 네이버 로그인은 서버 기반 custom auth 필요 여부 검토

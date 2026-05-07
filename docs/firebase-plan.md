@@ -10,7 +10,8 @@
 체육관 조회 흐름은 `src/lib/gym-repository.ts`의 `GymRepository` 계약을
 기준으로 동작합니다. 현재 provider는 mock 체육관 저장소를 선택하고,
 Firestore `gyms` 이전 시 선택 지점은 `src/lib/gym-repository-provider.ts`로
-유지합니다.
+유지합니다. `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를 설정하면
+Firestore 기반 `firebaseGymRepository`를 선택합니다.
 
 localStorage 기반 `localReservationRepository`는 비교와 임시 롤백을 위한
 대체 구현으로 남겨둡니다. provider에서 조용히 fallback하지 않습니다.
@@ -84,10 +85,12 @@ mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
 5. Firestore transaction으로 중복 활성 예약 생성 방지 완료
 6. Anonymous Auth 연결과 실제 `auth.uid` 교체 완료
 7. Firestore Rules를 `request.auth.uid == userId` 기준으로 강화 완료
+8. `firebaseGymRepository` 추가와 `gyms` 데이터 원본 선택 env 추가 완료
 
 ## 남은 결정
 
-- 체육관 데이터까지 Firestore로 옮길지 결정합니다.
+- Firestore `gyms` 초기 데이터 입력 후 `NEXT_PUBLIC_GYM_DATA_SOURCE`를
+  `firestore`로 바꿀지 결정합니다.
 - MVP와 프로토타입 단계에서는 익명 세션을 유지합니다.
 - 카카오 로그인은 Firebase Identity Platform의 OIDC provider 후보로 둡니다.
 - 네이버 로그인은 OAuth 인증 후 Firebase custom token을 발급하는 서버 흐름이

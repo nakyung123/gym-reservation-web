@@ -50,10 +50,15 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_GYM_DATA_SOURCE=mock
 ```
 
 Firebase Analytics를 쓰지 않기 때문에 `measurementId`는 현재 필수값이
 아닙니다.
+
+`NEXT_PUBLIC_GYM_DATA_SOURCE`는 체육관 데이터 원본을 고릅니다. 기본값은
+`mock`이고, Firestore `gyms` 컬렉션과 공개 읽기 규칙을 준비한 뒤
+`firestore`로 바꿉니다.
 
 ## 로컬 실행
 

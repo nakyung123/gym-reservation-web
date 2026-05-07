@@ -16,6 +16,11 @@ service cloud.firestore {
       return lockId.matches('^' + request.auth.uid + '__.*');
     }
 
+    match /gyms/{gymId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /reservations/{reservationId} {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
 

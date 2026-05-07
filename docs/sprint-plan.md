@@ -40,6 +40,7 @@
 - 완료: 반응형 화면 점검
 - 완료: README와 MVP 문서 정리
 - 완료: 체육관 데이터 조회 provider 분리
+- 완료: Firestore 체육관 조회 repository 추가
 - 진행 중: 배포 방식 결정
 
 ## 5주차 - 배포 준비

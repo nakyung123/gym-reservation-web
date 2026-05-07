@@ -40,6 +40,8 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 현재 `gyms` 데이터 원본은 `src/lib/mock-data.ts`입니다. 화면은
 `src/lib/gym-repository-provider.ts`를 통해 체육관 데이터를 읽고, Firestore
 이전 전까지 provider는 mock 체육관 저장소를 선택합니다.
+`NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를 설정하면 Firestore `gyms`
+컬렉션을 읽습니다.
 
 ### reservations
 
