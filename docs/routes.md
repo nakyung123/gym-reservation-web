@@ -16,7 +16,9 @@
 
 `/gyms` -> `/gyms/[id]` -> `/reserve/[gymId]` -> `/reservations`
 
-## 첫 구현 기준
+## 현재 구현 기준
 
-UI, 라우트 구조, 도메인 모델이 안정될 때까지 mock 데이터를 사용합니다.
-예약 흐름이 명확해진 뒤 Firebase를 연결합니다.
+체육관 데이터는 아직 mock 데이터를 사용합니다. 예약 생성, 조회, 취소는
+Firebase Auth 익명 세션과 Cloud Firestore를 기준으로 동작합니다.
+
+로그인, 회원가입, 프로필 화면은 MVP 이후 확장 후보입니다.

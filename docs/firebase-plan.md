@@ -70,7 +70,7 @@ mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
 - `status`
 - `updatedAt`
 
-## 다음 구현 순서
+## 구현 완료
 
 1. Firebase SDK 설치 완료
 2. `src/lib/firebase-client.ts`에서 공개 환경변수 검증과 앱 초기화 완료
@@ -78,4 +78,11 @@ mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
 4. `reservation-repository-provider.ts`에서 Firestore 구현 선택 완료
 5. Firestore transaction으로 중복 활성 예약 생성 방지 완료
 6. Anonymous Auth 연결과 실제 `auth.uid` 교체 완료
-7. Firestore Rules를 `request.auth.uid == userId` 기준으로 강화
+7. Firestore Rules를 `request.auth.uid == userId` 기준으로 강화 완료
+
+## 남은 결정
+
+- 체육관 데이터까지 Firestore로 옮길지 결정합니다.
+- MVP에서는 익명 세션을 유지하고, 이후 로그인과 회원가입을 붙일지 결정합니다.
+- 배포는 Firebase Hosting, Vercel, GitHub Pages 중 프로젝트 성격에 맞춰
+  선택합니다.

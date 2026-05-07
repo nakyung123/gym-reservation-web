@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  formatGymPrice,
+  getGymLowestPrice,
+  getGymSportPrice,
+} from "@/lib/gym-utils";
 import { gyms } from "@/lib/mock-data";
 
 type GymDetailPageProps = {
@@ -20,13 +25,15 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
     notFound();
   }
 
+  const lowestPrice = getGymLowestPrice(gym);
+
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
       <section className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.4fr_0.8fr]">
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <Link
             href="/gyms"
-            className="text-sm font-semibold text-sky-700 hover:text-sky-900"
+            className="rounded text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
             체육관 목록으로
           </Link>
@@ -36,6 +43,29 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           <p className="mt-3 text-base leading-7 text-slate-600">
             {gym.description}
           </p>
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-xs font-semibold text-emerald-700">
+                최저 이용료
+              </p>
+              <p className="mt-1 text-lg font-bold text-emerald-900">
+                {formatGymPrice(lowestPrice)}부터
+              </p>
+            </div>
+            <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
+              <p className="text-xs font-semibold text-sky-700">거리</p>
+              <p className="mt-1 text-lg font-bold text-sky-900">
+                {gym.distanceKm}km
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500">종목</p>
+              <p className="mt-1 text-lg font-bold text-slate-950">
+                {gym.sports.length}개
+              </p>
+            </div>
+          </div>
 
           <dl className="mt-6 grid gap-4 sm:grid-cols-2">
             <div>
@@ -52,15 +82,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-slate-500">
-                거리
-              </dt>
-              <dd className="mt-1 text-sm text-slate-800">
-                현재 위치 기준 {gym.distanceKm}km
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase text-slate-500">
-                휴관
+                휴관일
               </dt>
               <dd className="mt-1 text-sm text-slate-800">
                 {gym.closedDays.join(", ")}
@@ -68,19 +90,17 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             </div>
           </dl>
 
-          <div className="mt-6 h-44 rounded-lg border border-slate-200 bg-[linear-gradient(135deg,#e0f2fe_0%,#f8fafc_50%,#dcfce7_100%)]" />
-
-          <h2 className="mt-6 text-lg font-bold text-slate-950">이용 종목</h2>
+          <h2 className="mt-6 text-lg font-bold text-slate-950">
+            종목별 이용료
+          </h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {gym.sports.map((sport) => (
               <div
                 key={sport}
-                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700"
+                className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700"
               >
                 <span className="font-semibold text-slate-950">{sport}</span>
-                <span className="ml-2">
-                  {(gym.sportPrices[sport] ?? gym.basePrice).toLocaleString()}원
-                </span>
+                <span>{formatGymPrice(getGymSportPrice(gym, sport))}</span>
               </div>
             ))}
           </div>
@@ -101,13 +121,22 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
         <aside className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-semibold text-emerald-700">예약 가능</p>
           <h2 className="mt-2 text-xl font-bold text-slate-950">
-            오늘 남은 시간
+            운영 시간대
           </h2>
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {gym.availableTimes.slice(0, 6).map((time) => (
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            실제 예약 가능 여부는 날짜와 종목을 선택한 뒤 예약 내역과 함께
+            확인합니다.
+          </p>
+          <div
+            className="mt-4 grid grid-cols-3 gap-2"
+            role="list"
+            aria-label="운영 시간대 목록"
+          >
+            {gym.availableTimes.map((time) => (
               <span
                 key={time}
-                className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-2 text-center text-sm font-semibold text-emerald-800"
+                role="listitem"
+                className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 text-center text-sm font-semibold text-slate-700"
               >
                 {time}
               </span>
@@ -115,10 +144,19 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           </div>
           <Link
             href={`/reserve/${gym.id}`}
-            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
             예약하기
           </Link>
+
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <h3 className="text-sm font-bold text-slate-950">예약 전 확인</h3>
+            <ul className="mt-2 grid gap-2 text-sm leading-6 text-slate-600">
+              <li>휴관일: {gym.closedDays.join(", ")}</li>
+              <li>운영시간: {gym.openHours}</li>
+              <li>최저 이용료: {formatGymPrice(lowestPrice)}</li>
+            </ul>
+          </div>
         </aside>
       </section>
     </main>

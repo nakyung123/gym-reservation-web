@@ -10,18 +10,22 @@
 
 ## MVP 범위
 
-- 공공체육관 목록 확인
-- 체육관 상세 정보 확인
+- 공공체육관 추천, 목록, 상세 정보 확인
+- 체육관 검색, 종목 필터, 정렬
 - 종목, 날짜, 시간 선택
-- 예약 생성과 관리
-- QR 입장권 확인
+- Firebase Auth 익명 세션 기반 예약 생성과 조회
+- Firestore transaction 기반 중복 예약 방지
+- 예약 취소와 모바일 입장권 확인
 
 ## 기술 스택
 
-- Next.js
+- Next.js 16
+- React 19
 - TypeScript
-- Tailwind CSS
-- Firebase 예정
+- Tailwind CSS 4
+- Firebase Auth
+- Cloud Firestore
+- GitHub Actions
 
 ## 프로젝트 문서
 
@@ -29,6 +33,27 @@
 - [라우트 설계](docs/routes.md)
 - [데이터 모델](docs/data-model.md)
 - [스프린트 계획](docs/sprint-plan.md)
+- [Firebase 연결 계획](docs/firebase-plan.md)
+- [Firestore 보안 규칙](docs/firestore-rules.md)
+- [MVP 체크리스트](docs/mvp-checklist.md)
+- [배포 계획](docs/deployment-plan.md)
+
+## 환경변수
+
+`.env.example`을 기준으로 `.env.local`을 만들고 Firebase 웹 앱 설정값을
+입력합니다.
+
+```bash
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
+
+Firebase Analytics를 쓰지 않기 때문에 `measurementId`는 현재 필수값이
+아닙니다.
 
 ## 로컬 실행
 
@@ -38,3 +63,22 @@ npm run dev
 ```
 
 브라우저에서 `http://localhost:3000`을 엽니다.
+
+## 검증
+
+```bash
+npm run lint
+npm run build
+```
+
+GitHub Actions CI도 `main` 브랜치 push와 pull request에서 같은 검증을
+실행합니다.
+
+## 개발 원칙
+
+- SSOT: 예약 규칙, 저장소 선택, Firebase 설정의 기준 파일을 분리합니다.
+- SRP: UI, 예약 규칙, 저장소 구현, Firebase 초기화를 역할별로 나눕니다.
+- 일관성: 화면 copy와 상태 표현을 같은 기준으로 유지합니다.
+- 원자성: 예약 생성과 취소는 Firestore transaction으로 처리합니다.
+- 멱등성: 이미 취소된 예약 취소처럼 반복 요청해도 안전한 흐름을 유지합니다.
+- 말없는 fallback 금지: Firebase 실패 시 localStorage로 조용히 바꾸지 않습니다.

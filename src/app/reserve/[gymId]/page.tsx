@@ -26,7 +26,7 @@ export default async function ReservePage({ params }: ReservePageProps) {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
         <Link
           href={`/gyms/${gym.id}`}
-          className="w-fit text-sm font-semibold text-sky-700 hover:text-sky-900"
+          className="w-fit rounded text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
         >
           체육관 상세로
         </Link>

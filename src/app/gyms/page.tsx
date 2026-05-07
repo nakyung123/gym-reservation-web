@@ -11,8 +11,8 @@ export default function GymsPage() {
             이용할 체육관을 선택하세요
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            이 페이지는 체육관 검색과 종목 필터의 중심 화면이 됩니다. 지금은
-            실제 서비스 구조를 잡기 위한 기본 데이터를 보여줍니다.
+            지역, 종목, 가격 조건을 비교하고 예약할 체육관을 선택할 수
+            있습니다.
           </p>
         </div>
 
