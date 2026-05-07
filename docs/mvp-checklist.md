@@ -12,6 +12,7 @@
 - `reservationLocks` transaction으로 활성 예약 중복 생성 방지
 - 사용자별 예약 조회와 Firestore Rules 적용
 - 예약 내역 필터, 취소 확인, 모바일 입장권 UI 구현
+- 체육관 데이터 조회 provider 분리
 - GitHub Actions CI에서 lint, build 검증
 
 ## 출시 전 확인
@@ -27,7 +28,9 @@
 ## MVP 이후 후보
 
 - 체육관 데이터도 Firestore `gyms` 컬렉션으로 이전
-- 실제 로그인과 회원가입 추가
+- 베타 전 로그인 정책 결정
+- 카카오 로그인 우선 검토
+- 네이버 로그인은 서버 기반 custom auth 필요 여부 검토
 - 관리자용 체육관, 시간대, 휴관일 관리 화면 추가
 - 실제 QR 값 생성과 현장 검증 흐름 설계
 - Firebase Hosting 또는 Vercel 배포 자동화

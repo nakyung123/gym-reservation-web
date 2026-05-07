@@ -5,7 +5,7 @@ import {
   getGymLowestPrice,
   getGymSportPrice,
 } from "@/lib/gym-utils";
-import { gyms } from "@/lib/mock-data";
+import { gymRepository } from "@/lib/gym-repository-provider";
 
 type GymDetailPageProps = {
   params: Promise<{
@@ -13,13 +13,15 @@ type GymDetailPageProps = {
   }>;
 };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const gyms = await gymRepository.list();
+
   return gyms.map((gym) => ({ id: gym.id }));
 }
 
 export default async function GymDetailPage({ params }: GymDetailPageProps) {
   const { id } = await params;
-  const gym = gyms.find((item) => item.id === id);
+  const gym = await gymRepository.findById(id);
 
   if (!gym) {
     notFound();

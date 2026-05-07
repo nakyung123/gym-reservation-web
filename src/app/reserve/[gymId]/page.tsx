@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ReservationForm } from "@/components/reservation-form";
-import { gyms } from "@/lib/mock-data";
+import { gymRepository } from "@/lib/gym-repository-provider";
 
 type ReservePageProps = {
   params: Promise<{
@@ -9,13 +9,15 @@ type ReservePageProps = {
   }>;
 };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
+  const gyms = await gymRepository.list();
+
   return gyms.map((gym) => ({ gymId: gym.id }));
 }
 
 export default async function ReservePage({ params }: ReservePageProps) {
   const { gymId } = await params;
-  const gym = gyms.find((item) => item.id === gymId);
+  const gym = await gymRepository.findById(gymId);
 
   if (!gym) {
     notFound();

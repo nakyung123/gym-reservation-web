@@ -5,9 +5,10 @@ import {
   getAvailableSports,
   getGymLowestPrice,
 } from "@/lib/gym-utils";
-import { gyms } from "@/lib/mock-data";
+import { gymRepository } from "@/lib/gym-repository-provider";
 
-export default function Home() {
+export default async function Home() {
+  const gyms = await gymRepository.list();
   const availableSports = getAvailableSports(gyms);
   const lowestPrice =
     gyms.length > 0

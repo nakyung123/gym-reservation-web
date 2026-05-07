@@ -5,8 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { formatGymPrice } from "@/lib/gym-utils";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
-import { gyms } from "@/lib/mock-data";
-import type { Reservation } from "@/types/domain";
+import type { Gym, Reservation } from "@/types/domain";
 
 const statusLabel: Record<Reservation["status"], string> = {
   reserved: "예약 완료",
@@ -25,10 +24,6 @@ const reservationFilterLabels: Record<ReservationFilter, string> = {
   reserved: "예약 완료",
   cancelled: "예약 취소",
 };
-
-function getGymName(gymId: string) {
-  return gyms.find((gym) => gym.id === gymId)?.name ?? "알 수 없는 체육관";
-}
 
 function compareReservationsForDisplay(
   left: Reservation,
@@ -116,7 +111,11 @@ function CancelledTicket() {
   );
 }
 
-export function ReservationsView() {
+type ReservationsViewProps = {
+  gyms: Gym[];
+};
+
+export function ReservationsView({ gyms }: ReservationsViewProps) {
   const [actionNotice, setActionNotice] = useState<{
     tone: keyof typeof noticeStyles;
     message: string;
@@ -141,6 +140,10 @@ export function ReservationsView() {
   const reservations = useMemo(
     () => (reservationReadResult.ok ? reservationReadResult.reservations : []),
     [reservationReadResult],
+  );
+  const gymNamesById = useMemo(
+    () => new Map(gyms.map((gym) => [gym.id, gym.name])),
+    [gyms],
   );
 
   const activeReservations = useMemo(
@@ -349,7 +352,8 @@ export function ReservationsView() {
             const isCancelled = reservation.status === "cancelled";
             const isPendingCancel =
               pendingCancelReservationId === reservation.id;
-            const gymName = getGymName(reservation.gymId);
+            const gymName =
+              gymNamesById.get(reservation.gymId) ?? "알 수 없는 체육관";
 
             return (
               <article

@@ -4,16 +4,20 @@
 
 ### users
 
+MVP 이후 로그인 기능을 붙일 때 추가할 후보 컬렉션입니다.
+
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | id | string | 인증 uid |
-| email | string | 로그인 이메일 |
+| provider | string | `kakao`, `naver`, `email` 등 로그인 제공자 |
+| providerUserId | string | 제공자별 사용자 id |
+| email | string | 제공자가 내려주는 이메일. 없을 수 있음 |
 | displayName | string | 사용자 이름 |
 | createdAt | timestamp | 생성일 |
 
 MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세션의
-`auth.uid`를 사용자 식별 기준으로 사용합니다. 로그인과 회원가입을 붙일 때
-확장 후보로 둡니다.
+`auth.uid`를 사용자 식별 기준으로 사용합니다. 카카오, 네이버 같은 소셜
+로그인은 베타 전 사용자 정책을 정한 뒤 확장 후보로 둡니다.
 
 ### gyms
 
@@ -33,8 +37,9 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 | distanceKm | number | 현재 기준 거리 |
 | description | string | 상세 설명 |
 
-현재 `gyms` 데이터는 `src/lib/mock-data.ts`가 기준입니다. Firestore 이전 전까지
-화면과 예약 흐름은 mock 체육관 데이터를 사용합니다.
+현재 `gyms` 데이터 원본은 `src/lib/mock-data.ts`입니다. 화면은
+`src/lib/gym-repository-provider.ts`를 통해 체육관 데이터를 읽고, Firestore
+이전 전까지 provider는 mock 체육관 저장소를 선택합니다.
 
 ### reservations
 

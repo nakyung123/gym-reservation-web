@@ -1,7 +1,9 @@
 import { GymDiscovery } from "@/components/gym-discovery";
-import { gyms } from "@/lib/mock-data";
+import { gymRepository } from "@/lib/gym-repository-provider";
 
-export default function GymsPage() {
+export default async function GymsPage() {
+  const gyms = await gymRepository.list();
+
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">

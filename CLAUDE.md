@@ -2,6 +2,7 @@
 1. SSOT
    - 예약 규칙은 `src/lib/reservation-rules.ts`
    - 저장소 선택은 `src/lib/reservation-repository-provider.ts`
+   - 체육관 데이터 선택은 `src/lib/gym-repository-provider.ts`
    - 체육관 가격/검색/종목 계산은 `src/lib/gym-utils.ts`
    - 같은 기준을 컴포넌트 안에 새로 중복 작성하지 말 것
 
