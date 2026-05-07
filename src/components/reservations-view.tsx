@@ -111,9 +111,41 @@ function CancelledTicket() {
   );
 }
 
+function UnavailableTicket() {
+  return (
+    <div
+      className="flex size-32 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 p-3 text-center text-xs font-semibold leading-5 text-amber-700"
+      aria-label="입장권 시설 정보 확인 필요"
+    >
+      시설 정보
+      <br />
+      확인 필요
+    </div>
+  );
+}
+
 type ReservationsViewProps = {
   gyms: Gym[];
 };
+
+function getReservationGymSummary(
+  gymsById: Map<string, Gym>,
+  reservation: Reservation,
+) {
+  const gym = gymsById.get(reservation.gymId);
+
+  if (gym) {
+    return {
+      name: gym.name,
+      isMissingFromCurrentData: false,
+    };
+  }
+
+  return {
+    name: "현재 시설 목록에서 제외된 체육관",
+    isMissingFromCurrentData: true,
+  };
+}
 
 export function ReservationsView({ gyms }: ReservationsViewProps) {
   const [actionNotice, setActionNotice] = useState<{
@@ -141,9 +173,15 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
     () => (reservationReadResult.ok ? reservationReadResult.reservations : []),
     [reservationReadResult],
   );
-  const gymNamesById = useMemo(
-    () => new Map(gyms.map((gym) => [gym.id, gym.name])),
+  const gymsById = useMemo(
+    () => new Map(gyms.map((gym) => [gym.id, gym])),
     [gyms],
+  );
+  const missingGymReservationCount = useMemo(
+    () =>
+      reservations.filter((reservation) => !gymsById.has(reservation.gymId))
+        .length,
+    [gymsById, reservations],
   );
 
   const activeReservations = useMemo(
@@ -295,6 +333,22 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
           </div>
         ) : null}
 
+        {missingGymReservationCount > 0 ? (
+          <div
+            className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            role="status"
+          >
+            <p className="font-semibold">
+              현재 시설 목록에서 제외된 예약 {missingGymReservationCount}건이
+              있습니다.
+            </p>
+            <p className="mt-1 leading-6">
+              서울 샘플 데이터를 정리하기 전에 만든 예약입니다. 예약 기록은
+              유지되며 필요하면 취소할 수 있습니다.
+            </p>
+          </div>
+        ) : null}
+
         <div
           className="mt-5 flex flex-wrap gap-2"
           role="group"
@@ -352,8 +406,8 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             const isCancelled = reservation.status === "cancelled";
             const isPendingCancel =
               pendingCancelReservationId === reservation.id;
-            const gymName =
-              gymNamesById.get(reservation.gymId) ?? "알 수 없는 체육관";
+            const gymSummary = getReservationGymSummary(gymsById, reservation);
+            const gymName = gymSummary.name;
 
             return (
               <article
@@ -377,11 +431,24 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                     <span className="text-xs font-semibold text-slate-400">
                       예약번호 {reservation.id.slice(0, 8)}
                     </span>
+                    {gymSummary.isMissingFromCurrentData ? (
+                      <span className="rounded-md bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+                        시설 정보 제외됨
+                      </span>
+                    ) : null}
                   </div>
 
                   <h2 className="mt-3 text-2xl font-bold text-slate-950">
                     {gymName}
                   </h2>
+
+                  {gymSummary.isMissingFromCurrentData ? (
+                    <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                      이 예약의 체육관 ID({reservation.gymId})는 현재 서울 샘플
+                      시설 목록에 없습니다. 예약 기록은 유지되며 취소할 수
+                      있습니다.
+                    </p>
+                  ) : null}
 
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                     <div>
@@ -465,7 +532,11 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                 </div>
 
                 {reservation.status === "reserved" ? (
-                  <AdmissionTicket reservation={reservation} />
+                  gymSummary.isMissingFromCurrentData ? (
+                    <UnavailableTicket />
+                  ) : (
+                    <AdmissionTicket reservation={reservation} />
+                  )
                 ) : (
                   <CancelledTicket />
                 )}

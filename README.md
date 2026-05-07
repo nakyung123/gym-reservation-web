@@ -40,6 +40,7 @@
 - [Firestore 보안 규칙](docs/firestore-rules.md)
 - [Firestore 체육관 초기 데이터](docs/firestore-gyms-seed.md)
 - [MVP 체크리스트](docs/mvp-checklist.md)
+- [캡스톤 기능 확장 백로그](docs/capstone-feature-backlog.md)
 - [배포 계획](docs/deployment-plan.md)
 
 ## 환경변수

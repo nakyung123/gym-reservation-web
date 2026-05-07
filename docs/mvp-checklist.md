@@ -14,6 +14,7 @@
 - 예약 내역 필터, 취소 확인, 모바일 입장권 UI 구현
 - 체육관 데이터 조회 provider 분리
 - Firestore 체육관 조회 repository 추가
+- 현재 시설 목록에서 제외된 옛 예약 내역 안내 표시
 - GitHub Actions CI에서 lint, build 검증
 
 ## 출시 전 확인
@@ -24,10 +25,12 @@
 - 새 예약 생성 후 Firestore `reservations`, `reservationLocks` 문서 확인
 - 같은 시간대를 다시 예약할 때 중복 예약 안내 확인
 - 예약 취소 후 입장권 비활성화와 lock 삭제 확인
+- 서울 샘플 데이터 정리 전에 만든 예약이 안내 문구와 함께 표시되는지 확인
 - 모바일 화면에서 목록, 상세, 예약, 예약 내역 흐름 확인
 
 ## MVP 이후 후보
 
+- 확장 기능 목록은 [캡스톤 기능 확장 백로그](capstone-feature-backlog.md)를 기준으로 관리
 - 체육관 데이터도 Firestore `gyms` 컬렉션으로 이전
 - `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore` 전환 후 주요 화면 확인
 - 베타 전 로그인 정책 결정
