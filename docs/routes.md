@@ -18,8 +18,10 @@
 
 ## 현재 구현 기준
 
-체육관 데이터는 아직 mock 데이터를 사용합니다. 예약 생성, 조회, 취소는
-Firebase Auth 익명 세션과 Cloud Firestore를 기준으로 동작합니다.
+체육관 데이터는 `src/data/gyms.json`을 seed/mock 기준으로 사용합니다.
+`NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를 설정하면 Firestore `gyms`
+컬렉션을 읽고, 예약 생성, 조회, 취소는 Firebase Auth 익명 세션과 Cloud
+Firestore를 기준으로 동작합니다.
 
 로그인, 회원가입, 프로필 화면은 MVP 이후 확장 후보입니다.
 프로토타입 단계에서는 익명 세션을 유지하고, 소셜 로그인은 카카오를 우선

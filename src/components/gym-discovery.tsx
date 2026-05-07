@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { GymCard } from "@/components/gym-card";
 import {
+  getAvailableRegions,
   getAvailableSports,
   getGymLowestPrice,
   getGymSearchText,
@@ -14,6 +15,7 @@ type GymDiscoveryProps = {
 };
 
 type SportFilter = Sport | "전체";
+type RegionFilter = string | "전체";
 type GymSort = "distance" | "lowest-price" | "name";
 
 const gymSortLabels: Record<GymSort, string> = {
@@ -46,8 +48,10 @@ function sortGyms(gyms: Gym[], sort: GymSort) {
 
 export function GymDiscovery({ gyms }: GymDiscoveryProps) {
   const [query, setQuery] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
   const [selectedSport, setSelectedSport] = useState<SportFilter>("전체");
   const [selectedSort, setSelectedSort] = useState<GymSort>("distance");
+  const availableRegions = useMemo(() => getAvailableRegions(gyms), [gyms]);
   const availableSports = useMemo(() => getAvailableSports(gyms), [gyms]);
 
   const filteredGyms = useMemo(() => {
@@ -58,26 +62,33 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         normalizedQuery.length === 0 ||
         getGymSearchText(gym).includes(normalizedQuery);
 
+      const matchesRegion =
+        selectedRegion === "전체" || gym.region === selectedRegion;
+
       const matchesSport =
         selectedSport === "전체" || gym.sports.includes(selectedSport);
 
-      return matchesQuery && matchesSport;
+      return matchesQuery && matchesRegion && matchesSport;
     });
 
     return sortGyms(matches, selectedSort);
-  }, [gyms, query, selectedSort, selectedSport]);
+  }, [gyms, query, selectedRegion, selectedSort, selectedSport]);
 
-  const hasActiveFilter = query.trim().length > 0 || selectedSport !== "전체";
+  const hasActiveFilter =
+    query.trim().length > 0 ||
+    selectedRegion !== "전체" ||
+    selectedSport !== "전체";
   const clearFilters = () => {
     setQuery("");
+    setSelectedRegion("전체");
     setSelectedSport("전체");
   };
 
   return (
     <section className="flex flex-col gap-5">
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-          <label className="flex flex-col gap-2">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-end">
+          <label className="flex min-w-0 flex-col gap-2">
             <span className="text-sm font-semibold text-slate-700">
               체육관 검색
             </span>
@@ -89,27 +100,47 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             />
           </label>
 
-          <div className="flex flex-wrap gap-2" role="group" aria-label="종목 필터">
-            {(["전체", ...availableSports] as SportFilter[]).map((sport) => {
-              const isActive = selectedSport === sport;
+          <label className="flex min-w-0 flex-col gap-2">
+            <span className="text-sm font-semibold text-slate-700">지역</span>
+            <select
+              value={selectedRegion}
+              onChange={(event) => setSelectedRegion(event.target.value)}
+              className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+            >
+              <option value="전체">전체 구</option>
+              {availableRegions.map((region) => (
+                <option key={region} value={region}>
+                  {region}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
-              return (
-                <button
-                  key={sport}
-                  type="button"
-                  onClick={() => setSelectedSport(sport)}
-                  aria-pressed={isActive}
-                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
-                  }`}
-                >
-                  {sport}
-                </button>
-              );
-            })}
-          </div>
+        <div
+          className="mt-4 flex flex-wrap gap-2"
+          role="group"
+          aria-label="종목 필터"
+        >
+          {(["전체", ...availableSports] as SportFilter[]).map((sport) => {
+            const isActive = selectedSport === sport;
+
+            return (
+              <button
+                key={sport}
+                type="button"
+                onClick={() => setSelectedSport(sport)}
+                aria-pressed={isActive}
+                className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                  isActive
+                    ? "border-slate-950 bg-slate-950 text-white"
+                    : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                }`}
+              >
+                {sport}
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -165,7 +196,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             조건에 맞는 체육관이 없습니다
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            검색어를 줄이거나 다른 종목을 선택해보세요.
+            검색어를 줄이거나 지역, 종목 조건을 바꿔보세요.
           </p>
           {hasActiveFilter ? (
             <button

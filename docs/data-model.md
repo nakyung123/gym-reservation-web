@@ -27,6 +27,7 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 | name | string | 체육관 이름 |
 | region | string | 검색과 필터 기준 지역 |
 | address | string | 표시 주소 |
+| officialUrl | string | 공식 시설 안내 URL |
 | openHours | string | 운영시간 |
 | basePrice | number | 기본 예약 금액 |
 | sports | string[] | 이용 가능한 종목 |
@@ -40,9 +41,10 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 현재 `gyms` seed/mock 데이터의 기준 파일은 `src/data/gyms.json`이고,
 `src/lib/mock-data.ts`는 이 JSON을 앱의 mock 체육관 데이터로 노출합니다.
 화면은 `src/lib/gym-repository-provider.ts`를 통해 체육관 데이터를 읽고,
-Firestore 이전 전까지 provider는 mock 체육관 저장소를 선택합니다.
-`NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를 설정하면 Firestore `gyms`
-컬렉션을 읽습니다.
+기본값은 mock 체육관 저장소입니다. `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를
+설정하면 Firestore `gyms` 컬렉션을 읽습니다. 현재 seed 데이터는 서울
+공공체육시설 샘플이며, 실제 예약 가능 시간과 요금은 운영기관 공지에 따라
+달라질 수 있습니다.
 
 ### reservations
 

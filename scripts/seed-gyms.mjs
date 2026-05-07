@@ -13,6 +13,7 @@ function parseArgs(argv) {
   const args = {
     dryRun: false,
     help: false,
+    prune: false,
     projectId: undefined,
     serviceAccount: undefined,
   };
@@ -32,6 +33,11 @@ function parseArgs(argv) {
 
     if (arg === "--dry-run") {
       args.dryRun = true;
+      continue;
+    }
+
+    if (arg === "--prune") {
+      args.prune = true;
       continue;
     }
 
@@ -63,11 +69,13 @@ function printHelp() {
 
 Usage:
   npm run seed:gyms -- --service-account "C:\\path\\to\\service-account.json"
+  npm run seed:gyms -- --service-account "C:\\path\\to\\service-account.json" --prune
   npm run seed:gyms -- --service-account "C:\\path\\to\\service-account.json" --dry-run
 
 Options:
   --service-account <path>  Firebase Admin SDK 서비스 계정 JSON 경로
   --project-id <id>         ADC를 사용할 때 명시할 Firebase project id
+  --prune                   seed 목록에 없는 gyms 문서를 삭제
   --dry-run                 Firestore에 쓰지 않고 입력 데이터만 검증
   --help                    도움말 출력
 
@@ -105,6 +113,7 @@ function validateGym(gym, index) {
     "name",
     "region",
     "address",
+    "officialUrl",
     "openHours",
     "description",
   ]) {
@@ -180,14 +189,18 @@ async function loadCredential(serviceAccountPath) {
   };
 }
 
-async function seedGyms({ dryRun, projectId, serviceAccount }) {
+async function seedGyms({ dryRun, projectId, prune, serviceAccount }) {
   const gyms = await loadGyms();
+  const seedIds = new Set(gyms.map((gym) => gym.id));
   const ids = gyms.map((gym) => gym.id).join(", ");
 
   console.log(`[seed:gyms] ${gyms.length}개 문서를 검증했습니다: ${ids}`);
 
   if (dryRun) {
     console.log("[seed:gyms] dry-run이라 Firestore에는 쓰지 않았습니다.");
+    if (prune) {
+      console.log("[seed:gyms] 실제 실행 시 seed 목록에 없는 gyms 문서를 삭제합니다.");
+    }
     return;
   }
 
@@ -200,12 +213,33 @@ async function seedGyms({ dryRun, projectId, serviceAccount }) {
 
   const db = getFirestore();
   const batch = db.batch();
+  const gymsCollection = db.collection("gyms");
+  let deletedCount = 0;
+
+  if (prune) {
+    const gymsSnapshot = await gymsCollection.get();
+
+    for (const snapshot of gymsSnapshot.docs) {
+      if (!seedIds.has(snapshot.id)) {
+        batch.delete(snapshot.ref);
+        deletedCount += 1;
+      }
+    }
+  }
 
   for (const gym of gyms) {
-    batch.set(db.collection("gyms").doc(gym.id), gym);
+    batch.set(gymsCollection.doc(gym.id), gym);
   }
 
   await batch.commit();
+
+  if (prune) {
+    console.log(
+      `[seed:gyms] Firestore gyms 컬렉션에 ${gyms.length}개를 저장하고 ${deletedCount}개를 삭제했습니다.`,
+    );
+    return;
+  }
+
   console.log("[seed:gyms] Firestore gyms 컬렉션에 저장했습니다.");
 }
 

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { GymCard } from "@/components/gym-card";
 import {
   formatGymPrice,
+  getAvailableRegions,
   getAvailableSports,
   getGymLowestPrice,
 } from "@/lib/gym-utils";
@@ -9,6 +10,7 @@ import { gymRepository } from "@/lib/gym-repository-provider";
 
 export default async function Home() {
   const gyms = await gymRepository.list();
+  const availableRegions = getAvailableRegions(gyms);
   const availableSports = getAvailableSports(gyms);
   const lowestPrice =
     gyms.length > 0
@@ -39,14 +41,14 @@ export default async function Home() {
         <div className="grid gap-6 border-b border-slate-200 pb-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold text-sky-700">
-              공공체육관 예약 플랫폼
+              서울 공공체육시설 MVP
             </p>
             <h1 className="mt-3 text-4xl font-bold tracking-normal text-slate-950 sm:text-5xl">
-              공공체육관을 찾고 바로 예약하세요
+              서울 공공체육관을 찾고 예약 흐름을 확인하세요
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-              지역 공공체육관의 종목, 운영시간, 가격, 남은 시간대를 한 흐름에서
-              확인하고 예약 내역까지 관리합니다.
+              서울 공공체육시설의 종목, 운영시간, 가격, 남은 시간대를 한
+              흐름에서 확인하고 예약 내역까지 관리합니다.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
@@ -90,13 +92,19 @@ export default async function Home() {
         </div>
 
         <section
-          className="grid gap-3 sm:grid-cols-3"
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
           aria-label="예약 서비스 요약"
         >
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">등록 체육관</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {gyms.length}곳
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-500">서울 지역구</p>
+            <p className="mt-2 text-2xl font-bold text-slate-950">
+              {availableRegions.length}개
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

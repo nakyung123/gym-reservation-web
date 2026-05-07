@@ -10,6 +10,7 @@ export type Gym = {
   name: string;
   region: string;
   address: string;
+  officialUrl: string;
   openHours: string;
   basePrice: number;
   sports: Sport[];

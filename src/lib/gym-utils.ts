@@ -26,6 +26,18 @@ export function getAvailableSports(gyms: Gym[]) {
   return Array.from(sports);
 }
 
+export function getAvailableRegions(gyms: Gym[]) {
+  const regions = new Set<string>();
+
+  gyms.forEach((gym) => {
+    regions.add(gym.region);
+  });
+
+  return Array.from(regions).sort((left, right) =>
+    left.localeCompare(right, "ko"),
+  );
+}
+
 export function getGymSearchText(gym: Gym) {
   return [
     gym.name,

@@ -73,6 +73,7 @@ function parseGymDocument(
     typeof data.name !== "string" ||
     typeof data.region !== "string" ||
     typeof data.address !== "string" ||
+    typeof data.officialUrl !== "string" ||
     typeof data.openHours !== "string" ||
     typeof data.basePrice !== "number" ||
     !Number.isFinite(data.basePrice) ||
@@ -93,6 +94,7 @@ function parseGymDocument(
     name: data.name,
     region: data.region,
     address: data.address,
+    officialUrl: data.officialUrl,
     openHours: data.openHours,
     basePrice: data.basePrice,
     sports: data.sports,

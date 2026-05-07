@@ -8,10 +8,9 @@
 `src/lib/reservation-repository-provider.ts`입니다.
 
 체육관 조회 흐름은 `src/lib/gym-repository.ts`의 `GymRepository` 계약을
-기준으로 동작합니다. 현재 provider는 mock 체육관 저장소를 선택하고,
-Firestore `gyms` 이전 시 선택 지점은 `src/lib/gym-repository-provider.ts`로
-유지합니다. `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를 설정하면
-Firestore 기반 `firebaseGymRepository`를 선택합니다.
+기준으로 동작합니다. 선택 지점은 `src/lib/gym-repository-provider.ts`입니다.
+기본값은 mock 체육관 저장소이며, `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를
+설정하면 Firestore 기반 `firebaseGymRepository`를 선택합니다.
 
 localStorage 기반 `localReservationRepository`는 비교와 임시 롤백을 위한
 대체 구현으로 남겨둡니다. provider에서 조용히 fallback하지 않습니다.
@@ -89,8 +88,7 @@ mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
 
 ## 남은 결정
 
-- Firestore `gyms` 초기 데이터 입력 후 `NEXT_PUBLIC_GYM_DATA_SOURCE`를
-  `firestore`로 바꿀지 결정합니다. 초기 입력값은 `src/data/gyms.json`이고,
+- Firestore `gyms` 초기 데이터는 `src/data/gyms.json`을 기준으로 seed합니다.
   실행 절차는 `docs/firestore-gyms-seed.md`를 기준으로 합니다.
 - MVP와 프로토타입 단계에서는 익명 세션을 유지합니다.
 - 카카오 로그인은 Firebase Identity Platform의 OIDC provider 후보로 둡니다.

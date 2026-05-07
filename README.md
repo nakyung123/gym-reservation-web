@@ -8,10 +8,13 @@
 포트폴리오를 위해 새로 구현하는 개인 프로젝트이며, 기존 Flutter 코드는
 재사용하지 않습니다.
 
+현재 데이터는 서울 공공체육시설을 참고한 MVP 샘플입니다. 화면에서 생성한
+예약은 실제 시설 예약으로 접수되지 않습니다.
+
 ## MVP 범위
 
-- 공공체육관 추천, 목록, 상세 정보 확인
-- 체육관 검색, 종목 필터, 정렬
+- 서울 공공체육시설 추천, 목록, 상세 정보 확인
+- 체육관 검색, 지역구 필터, 종목 필터, 정렬
 - 종목, 날짜, 시간 선택
 - Firebase Auth 익명 세션 기반 예약 생성과 조회
 - Firestore transaction 기반 중복 예약 방지
@@ -68,7 +71,7 @@ SDK 서비스 계정 키를 준비한 뒤 아래 명령으로 Firestore `gyms` �
 저장합니다.
 
 ```bash
-npm run seed:gyms -- --service-account "C:\path\to\service-account.json"
+npm run seed:gyms -- --service-account "C:\path\to\service-account.json" --prune
 ```
 
 서비스 계정 키는 절대 커밋하지 않습니다. 자세한 절차는

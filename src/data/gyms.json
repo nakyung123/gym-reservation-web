@@ -1,57 +1,206 @@
 [
   {
-    "id": "cheongun-gym",
-    "name": "청운체육관",
+    "id": "jongno-culture-sports-center",
+    "name": "종로문화체육센터",
     "region": "종로구",
-    "address": "서울특별시 종로구",
-    "openHours": "06:00 - 22:00",
-    "basePrice": 4000,
-    "sports": ["배드민턴", "농구", "탁구"],
-    "sportPrices": {
-      "배드민턴": 4000,
-      "농구": 6000,
-      "탁구": 3000
-    },
-    "facilities": ["샤워실", "주차장", "장비 대여"],
-    "availableTimes": ["09:00", "10:00", "13:00", "19:00", "20:00"],
-    "closedDays": ["둘째 월요일"],
-    "distanceKm": 1.8,
-    "description": "동네 주민이 실내 코트를 예약하고 생활체육 모임을 만들 수 있는 공공체육관입니다."
-  },
-  {
-    "id": "sillim-sports-center",
-    "name": "신림스포츠센터",
-    "region": "관악구",
-    "address": "서울특별시 관악구",
+    "address": "서울특별시 종로구 인왕산로1길 21",
     "openHours": "07:00 - 21:00",
     "basePrice": 5000,
-    "sports": ["풋살", "배드민턴"],
+    "sports": ["농구", "배드민턴", "탁구"],
     "sportPrices": {
-      "풋살": 12000,
-      "배드민턴": 5000
+      "농구": 7000,
+      "배드민턴": 5000,
+      "탁구": 4000
     },
-    "facilities": ["야외 구장", "탈의실", "음수대"],
-    "availableTimes": ["08:00", "11:00", "15:00", "18:00", "20:00"],
-    "closedDays": ["매주 일요일"],
-    "distanceKm": 3.4,
-    "description": "개인 사용자와 소규모 팀이 풋살장과 배드민턴 코트를 예약할 수 있는 생활체육 시설입니다."
+    "facilities": ["샤워실", "탈의실", "체온조절실", "주차장"],
+    "availableTimes": ["09:00", "11:00", "14:00", "18:00", "20:00"],
+    "closedDays": ["공휴일"],
+    "distanceKm": 1.6,
+    "description": "인왕산 인근에 있는 종로구 공공체육시설로, 배드민턴과 탁구 등 생활체육 프로그램을 이용할 수 있습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=1209"
   },
   {
-    "id": "guro-community-gym",
-    "name": "구로구민체육관",
-    "region": "구로구",
-    "address": "서울특별시 구로구",
-    "openHours": "06:30 - 22:30",
-    "basePrice": 3500,
-    "sports": ["배구", "농구"],
+    "id": "seongdong-community-sports-center",
+    "name": "성동구민종합체육센터",
+    "region": "성동구",
+    "address": "서울특별시 성동구 왕십리로 89",
+    "openHours": "06:00 - 22:00",
+    "basePrice": 5000,
+    "sports": ["농구", "배드민턴", "탁구"],
     "sportPrices": {
-      "배구": 4500,
-      "농구": 5500
+      "농구": 7000,
+      "배드민턴": 5000,
+      "탁구": 4000
     },
-    "facilities": ["관람석", "샤워실", "개인 사물함"],
-    "availableTimes": ["07:00", "12:00", "14:00", "17:00", "21:00"],
+    "facilities": ["샤워실", "탈의실", "개인 사물함", "편의점"],
+    "availableTimes": ["06:00", "10:00", "13:00", "17:00", "21:00"],
+    "closedDays": ["첫째·셋째·다섯째 일요일", "공휴일"],
+    "distanceKm": 5.8,
+    "description": "성동구도시관리공단이 운영하는 종합체육센터로, 실내 체육관과 생활체육 프로그램을 함께 확인할 수 있습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=880"
+  },
+  {
+    "id": "mapo-community-sports-center",
+    "name": "마포구민체육센터",
+    "region": "마포구",
+    "address": "서울특별시 마포구 월드컵로25길 190",
+    "openHours": "06:00 - 22:00",
+    "basePrice": 5000,
+    "sports": ["농구", "배구", "배드민턴", "탁구", "풋살"],
+    "sportPrices": {
+      "농구": 8000,
+      "배구": 8000,
+      "배드민턴": 5000,
+      "탁구": 4000,
+      "풋살": 12000
+    },
+    "facilities": ["샤워실", "탈의실", "관람석", "주차장"],
+    "availableTimes": ["06:00", "09:00", "12:00", "18:00", "21:00"],
+    "closedDays": ["둘째·넷째 월요일"],
+    "distanceKm": 6.4,
+    "description": "망원유수지체육공원 안에 있는 마포구 생활체육 거점으로, 다양한 실내 종목과 풋살 프로그램을 운영합니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=901"
+  },
+  {
+    "id": "seongbuk-community-sports-center",
+    "name": "성북구민체육센터",
+    "region": "성북구",
+    "address": "서울특별시 성북구 화랑로13길 144",
+    "openHours": "05:30 - 22:00",
+    "basePrice": 4000,
+    "sports": ["농구", "배드민턴", "탁구"],
+    "sportPrices": {
+      "농구": 6500,
+      "배드민턴": 4000,
+      "탁구": 3500
+    },
+    "facilities": ["샤워실", "탈의실", "휴게실", "매점"],
+    "availableTimes": ["06:00", "09:00", "13:00", "17:00", "20:00"],
+    "closedDays": ["일요일"],
+    "distanceKm": 7.2,
+    "description": "성북구 주민을 위한 공공체육센터로, 실내 체육관 기반의 농구, 배드민턴, 탁구 이용 흐름을 확인하기 좋습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=938"
+  },
+  {
+    "id": "sadang-sports-complex",
+    "name": "사당종합체육관",
+    "region": "동작구",
+    "address": "서울특별시 동작구 사당로27길 232",
+    "openHours": "09:00 - 18:00",
+    "basePrice": 5000,
+    "sports": ["농구", "배구", "배드민턴", "탁구"],
+    "sportPrices": {
+      "농구": 7000,
+      "배구": 7000,
+      "배드민턴": 5000,
+      "탁구": 4000
+    },
+    "facilities": ["샤워실", "탈의실", "수유실", "주차장"],
+    "availableTimes": ["09:00", "10:00", "14:00", "16:00", "17:00"],
+    "closedDays": ["주말", "공휴일"],
+    "distanceKm": 10.2,
+    "description": "동작구시설관리공단이 운영하는 다목적 체육관으로, 단체 운동과 생활체육 프로그램을 함께 담을 수 있습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=871"
+  },
+  {
+    "id": "jayang-culture-sports-center",
+    "name": "자양문화체육센터",
+    "region": "광진구",
+    "address": "서울특별시 광진구 뚝섬로52길 66",
+    "openHours": "06:00 - 21:40",
+    "basePrice": 5000,
+    "sports": ["농구", "배드민턴", "탁구"],
+    "sportPrices": {
+      "농구": 7000,
+      "배드민턴": 5000,
+      "탁구": 4000
+    },
+    "facilities": ["샤워실", "탈의실", "주차장", "문화강의실"],
+    "availableTimes": ["06:00", "09:00", "12:00", "18:00", "21:00"],
+    "closedDays": ["둘째·넷째 일요일", "법정공휴일"],
+    "distanceKm": 10.6,
+    "description": "광진구 자양동에 있는 문화체육센터로, 다목적체육관 중심의 농구와 라켓 스포츠 데이터를 담았습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=1609"
+  },
+  {
+    "id": "geumcheon-culture-sports-center",
+    "name": "금천구민문화체육센터",
+    "region": "금천구",
+    "address": "서울특별시 금천구 독산로54길 188",
+    "openHours": "06:00 - 21:00",
+    "basePrice": 4000,
+    "sports": ["농구", "배드민턴", "탁구"],
+    "sportPrices": {
+      "농구": 6500,
+      "배드민턴": 4000,
+      "탁구": 3500
+    },
+    "facilities": ["샤워실", "탈의실", "파우더룸", "주차장"],
+    "availableTimes": ["06:00", "09:00", "13:00", "18:00", "20:00"],
     "closedDays": ["공휴일"],
-    "distanceKm": 5.1,
-    "description": "합리적인 가격의 코트 예약과 QR 기반 입장 확인을 목표로 하는 구민 체육시설입니다."
+    "distanceKm": 12.8,
+    "description": "금천구시설관리공단이 운영하는 공공체육시설로, 체육관 프로그램과 생활체육 이용 수요를 보여주는 샘플입니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=668"
+  },
+  {
+    "id": "nowon-community-sports-center",
+    "name": "노원구민체육센터",
+    "region": "노원구",
+    "address": "서울특별시 노원구 노원로22길 1",
+    "openHours": "05:00 - 23:00",
+    "basePrice": 5000,
+    "sports": ["농구", "배드민턴", "탁구", "풋살"],
+    "sportPrices": {
+      "농구": 7000,
+      "배드민턴": 5000,
+      "탁구": 4000,
+      "풋살": 12000
+    },
+    "facilities": ["샤워실", "주차장", "실내 체육관", "프로그램실"],
+    "availableTimes": ["05:00", "08:00", "12:00", "18:00", "22:00"],
+    "closedDays": ["첫째 일요일"],
+    "distanceKm": 13.4,
+    "description": "노원구서비스공단이 운영하는 구민체육센터로, 이른 시간부터 늦은 시간까지 운영되는 생활체육 거점입니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=682"
+  },
+  {
+    "id": "haegong-sports-culture-center",
+    "name": "해공체육문화센터",
+    "region": "강동구",
+    "address": "서울특별시 강동구 천중로18길 61",
+    "openHours": "06:00 - 22:00",
+    "basePrice": 2400,
+    "sports": ["농구", "배드민턴", "탁구"],
+    "sportPrices": {
+      "농구": 2400,
+      "배드민턴": 2400,
+      "탁구": 2400
+    },
+    "facilities": ["샤워실", "탈의실", "휴게실", "주차장"],
+    "availableTimes": ["06:00", "09:00", "12:00", "18:00", "21:00"],
+    "closedDays": ["일요일", "추석", "설명절"],
+    "distanceKm": 14.8,
+    "description": "일일입장 중심으로 운영되는 강동구 공공체육시설로, 낮은 이용료의 체육관 예약 흐름을 검증하기 좋습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=817"
+  },
+  {
+    "id": "iljasan-first-gym",
+    "name": "일자산제1체육관",
+    "region": "강동구",
+    "address": "서울특별시 강동구 동남로 660",
+    "openHours": "06:00 - 21:50",
+    "basePrice": 2400,
+    "sports": ["농구", "배드민턴", "탁구"],
+    "sportPrices": {
+      "농구": 2400,
+      "배드민턴": 2400,
+      "탁구": 2400
+    },
+    "facilities": ["샤워실", "탈의실", "휴게실", "주차장"],
+    "availableTimes": ["06:00", "09:00", "13:00", "18:00", "21:00"],
+    "closedDays": ["월요일", "추석", "설명절"],
+    "distanceKm": 15.2,
+    "description": "배드민턴 코트와 농구장을 갖춘 강동구 체육관으로, 저렴한 일일 이용료 기반 예약 화면을 테스트하기 좋습니다.",
+    "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=813"
   }
 ]
