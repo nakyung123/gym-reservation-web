@@ -61,6 +61,19 @@ Firebase Analytics를 쓰지 않기 때문에 `measurementId`는 현재 필수�
 `mock`이고, Firestore `gyms` 컬렉션과 공개 읽기 규칙을 준비한 뒤
 `firestore`로 바꿉니다.
 
+## Firestore 체육관 seed
+
+초기 체육관 데이터는 `src/data/gyms.json`을 기준으로 합니다. Firebase Admin
+SDK 서비스 계정 키를 준비한 뒤 아래 명령으로 Firestore `gyms` 컬렉션에
+저장합니다.
+
+```bash
+npm run seed:gyms -- --service-account "C:\path\to\service-account.json"
+```
+
+서비스 계정 키는 절대 커밋하지 않습니다. 자세한 절차는
+[Firestore 체육관 초기 데이터](docs/firestore-gyms-seed.md)를 봅니다.
+
 ## 로컬 실행
 
 ```bash

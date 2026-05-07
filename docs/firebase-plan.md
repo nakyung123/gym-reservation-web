@@ -90,8 +90,8 @@ mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
 ## 남은 결정
 
 - Firestore `gyms` 초기 데이터 입력 후 `NEXT_PUBLIC_GYM_DATA_SOURCE`를
-  `firestore`로 바꿀지 결정합니다. 초기 입력값은
-  `docs/firestore-gyms-seed.md`를 기준으로 합니다.
+  `firestore`로 바꿀지 결정합니다. 초기 입력값은 `src/data/gyms.json`이고,
+  실행 절차는 `docs/firestore-gyms-seed.md`를 기준으로 합니다.
 - MVP와 프로토타입 단계에서는 익명 세션을 유지합니다.
 - 카카오 로그인은 Firebase Identity Platform의 OIDC provider 후보로 둡니다.
 - 네이버 로그인은 OAuth 인증 후 Firebase custom token을 발급하는 서버 흐름이
