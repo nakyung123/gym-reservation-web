@@ -27,6 +27,7 @@ model Gym {
   availableTimes Json       @map("available_times")
   closedDays     Json       @map("closed_days")
   sports         GymSport[]
+  favorites      Favorite[]
 
   @@map("gyms")
 }
@@ -38,4 +39,16 @@ model GymSport {
 
   @@id([gymId, sport])
   @@map("gym_sports")
+}
+
+// userId는 Firebase Auth uid. 복합 PK로 멱등성 확보.
+model Favorite {
+  userId    String   @map("user_id") @db.VarChar(64)
+  gymId     String   @map("gym_id") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@id([userId, gymId])
+  @@index([userId], map: "idx_favorites_user")
+  @@map("favorites")
 }
