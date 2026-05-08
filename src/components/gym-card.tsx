@@ -1,12 +1,20 @@
+"use client";
+
 import Link from "next/link";
 import { formatGymPrice, getGymLowestPrice } from "@/lib/gym-utils";
 import type { Gym } from "@/types/domain";
 
 type GymCardProps = {
   gym: Gym;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 };
 
-export function GymCard({ gym }: GymCardProps) {
+export function GymCard({
+  gym,
+  isFavorite = false,
+  onToggleFavorite,
+}: GymCardProps) {
   const lowestPrice = getGymLowestPrice(gym);
 
   return (
@@ -20,9 +28,39 @@ export function GymCard({ gym }: GymCardProps) {
                 {gym.name}
               </h3>
             </div>
-            <span className="shrink-0 rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-              {formatGymPrice(lowestPrice)}부터
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {onToggleFavorite !== undefined && (
+                <button
+                  type="button"
+                  onClick={onToggleFavorite}
+                  aria-pressed={isFavorite}
+                  aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                  className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                    isFavorite
+                      ? "text-rose-500 hover:text-rose-700"
+                      : "text-slate-300 hover:text-rose-400"
+                  }`}
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-5 w-5"
+                    fill={isFavorite ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                    />
+                  </svg>
+                </button>
+              )}
+              <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                {formatGymPrice(lowestPrice)}부터
+              </span>
+            </div>
           </div>
           <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
             {gym.description}

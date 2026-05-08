@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { GymCard } from "@/components/gym-card";
+import { useFavorites } from "@/hooks/use-favorites";
 import {
   getAvailableRegions,
   getAvailableSports,
@@ -51,6 +52,9 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
   const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
   const [selectedSport, setSelectedSport] = useState<SportFilter>("전체");
   const [selectedSort, setSelectedSort] = useState<GymSort>("distance");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const { favorites, toggleFavorite, isFavorite } = useFavorites();
+
   const availableRegions = useMemo(() => getAvailableRegions(gyms), [gyms]);
   const availableSports = useMemo(() => getAvailableSports(gyms), [gyms]);
 
@@ -68,20 +72,25 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       const matchesSport =
         selectedSport === "전체" || gym.sports.includes(selectedSport);
 
-      return matchesQuery && matchesRegion && matchesSport;
+      const matchesFavorites = !favoritesOnly || favorites.has(gym.id);
+
+      return matchesQuery && matchesRegion && matchesSport && matchesFavorites;
     });
 
     return sortGyms(matches, selectedSort);
-  }, [gyms, query, selectedRegion, selectedSort, selectedSport]);
+  }, [gyms, query, selectedRegion, selectedSort, selectedSport, favoritesOnly, favorites]);
 
   const hasActiveFilter =
     query.trim().length > 0 ||
     selectedRegion !== "전체" ||
-    selectedSport !== "전체";
+    selectedSport !== "전체" ||
+    favoritesOnly;
+
   const clearFilters = () => {
     setQuery("");
     setSelectedRegion("전체");
     setSelectedSport("전체");
+    setFavoritesOnly(false);
   };
 
   return (
@@ -141,6 +150,33 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => setFavoritesOnly((prev) => !prev)}
+            aria-pressed={favoritesOnly}
+            className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+              favoritesOnly
+                ? "border-rose-400 bg-rose-50 text-rose-700"
+                : "border-slate-300 bg-white text-slate-700 hover:border-rose-300 hover:text-rose-600"
+            }`}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill={favoritesOnly ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+              />
+            </svg>
+            즐겨찾기
+          </button>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -187,16 +223,25 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       {filteredGyms.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredGyms.map((gym) => (
-            <GymCard key={gym.id} gym={gym} />
+            <GymCard
+              key={gym.id}
+              gym={gym}
+              isFavorite={isFavorite(gym.id)}
+              onToggleFavorite={() => toggleFavorite(gym.id)}
+            />
           ))}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="text-base font-bold text-slate-950">
-            조건에 맞는 체육관이 없습니다
+            {favoritesOnly
+              ? "즐겨찾기한 체육관이 없습니다"
+              : "조건에 맞는 체육관이 없습니다"}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            검색어를 줄이거나 지역, 종목 조건을 바꿔보세요.
+            {favoritesOnly
+              ? "체육관 목록에서 하트 버튼을 눌러 즐겨찾기를 추가해 보세요."
+              : "검색어를 줄이거나 지역, 종목 조건을 바꿔보세요."}
           </p>
           {hasActiveFilter ? (
             <button

@@ -6,6 +6,7 @@ import {
   getGymSportPrice,
 } from "@/lib/gym-utils";
 import { gymRepository } from "@/lib/gym-repository-provider";
+import { FavoriteButton } from "@/components/favorite-button";
 
 type GymDetailPageProps = {
   params: Promise<{
@@ -45,14 +46,17 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           <p className="mt-3 text-base leading-7 text-slate-600">
             {gym.description}
           </p>
-          <a
-            href={gym.officialUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-          >
-            공식 시설 안내
-          </a>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href={gym.officialUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              공식 시설 안내
+            </a>
+            <FavoriteButton gymId={gym.id} />
+          </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
