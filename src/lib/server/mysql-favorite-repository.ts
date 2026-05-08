@@ -11,19 +11,20 @@ export async function listFavoriteGymIds(userId: string): Promise<string[]> {
   return rows.map((row) => row.gymId);
 }
 
-// 멱등: 이미 즐겨찾기되어 있으면 무시.
+export type AddFavoriteResult = "added" | "already" | "gym-not-found";
+
+// 멱등: 이미 즐겨찾기되어 있으면 "already". 존재하지 않는 gymId면 "gym-not-found".
 export async function addFavorite(
   userId: string,
   gymId: string,
-): Promise<void> {
+): Promise<AddFavoriteResult> {
   try {
     await prisma.favorite.create({ data: { userId, gymId } });
+    return "added";
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return;
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") return "already";
+      if (error.code === "P2003") return "gym-not-found";
     }
     throw error;
   }

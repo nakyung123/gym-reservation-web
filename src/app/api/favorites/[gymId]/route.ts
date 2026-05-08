@@ -16,7 +16,13 @@ export async function PUT(request: NextRequest, ctx: Context) {
   }
 
   const { gymId } = await ctx.params;
-  await addFavorite(auth.uid, gymId);
+  const result = await addFavorite(auth.uid, gymId);
+  if (result === "gym-not-found") {
+    return Response.json(
+      { message: "존재하지 않는 체육관입니다." },
+      { status: 404 },
+    );
+  }
   return Response.json({ ok: true });
 }
 
