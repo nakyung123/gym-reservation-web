@@ -24,10 +24,11 @@ model Gym {
   distanceKm     Decimal    @map("distance_km") @db.Decimal(5, 2)
   sportPrices    Json       @map("sport_prices")
   facilities     Json
-  availableTimes Json       @map("available_times")
-  closedDays     Json       @map("closed_days")
+  availableTimes Json          @map("available_times")
+  closedDays     Json          @map("closed_days")
   sports         GymSport[]
   favorites      Favorite[]
+  reservations   Reservation[]
 
   @@map("gyms")
 }
@@ -51,4 +52,36 @@ model Favorite {
   @@id([userId, gymId])
   @@index([userId], map: "idx_favorites_user")
   @@map("favorites")
+}
+
+// 예약 본체. status: reserved | cancelled | used.
+// activeKey는 (userId, gymId, sport, date, time) 인코딩으로 만들어진 중복 방지 키.
+model Reservation {
+  id        String           @id @db.VarChar(64)
+  userId    String           @map("user_id") @db.VarChar(64)
+  gymId     String           @map("gym_id") @db.VarChar(64)
+  sport     String           @db.VarChar(20)
+  date      String           @db.VarChar(10)
+  time      String           @db.VarChar(5)
+  price     Int
+  status    String           @db.VarChar(16)
+  createdAt DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  activeKey String           @map("active_key") @db.VarChar(255)
+  gym       Gym              @relation(fields: [gymId], references: [id])
+  lock      ReservationLock?
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_res_user_created")
+  @@map("reservations")
+}
+
+// 같은 사용자 같은 슬롯의 활성 예약을 단 1건으로 강제하는 락.
+// PK가 activeKey라 INSERT 시 P2002로 중복 감지.
+model ReservationLock {
+  activeKey     String      @id @map("active_key") @db.VarChar(255)
+  reservationId String      @unique @map("reservation_id") @db.VarChar(64)
+  status        String      @db.VarChar(16)
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@map("reservation_locks")
 }

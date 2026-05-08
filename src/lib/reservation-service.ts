@@ -79,7 +79,7 @@ export async function createReservation({
       status: "created",
       message:
         "예약이 생성되었습니다. 내 예약 화면에서 QR 입장권을 확인할 수 있습니다.",
-      reservation,
+      reservation: writeResult.reservation,
     };
   }
 
