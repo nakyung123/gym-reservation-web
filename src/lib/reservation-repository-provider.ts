@@ -5,8 +5,9 @@ import type { ReservationRepository } from "@/lib/reservation-repository";
 type ReservationDataSource = "firestore" | "mysql";
 
 function getReservationDataSource(): ReservationDataSource {
+  // 기본은 mysql. firestore는 legacy 어댑터(롤백/시연용)로 보존.
   const value =
-    process.env.NEXT_PUBLIC_RESERVATION_DATA_SOURCE?.trim() || "firestore";
+    process.env.NEXT_PUBLIC_RESERVATION_DATA_SOURCE?.trim() || "mysql";
 
   if (value === "firestore" || value === "mysql") {
     return value;

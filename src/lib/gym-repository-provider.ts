@@ -5,7 +5,8 @@ import { mysqlGymRepository } from "@/lib/mysql-gym-repository";
 type GymDataSource = "mock" | "firestore" | "mysql";
 
 function getGymDataSource(): GymDataSource {
-  const value = process.env.NEXT_PUBLIC_GYM_DATA_SOURCE?.trim() || "mock";
+  // 기본은 mysql. mock/firestore는 옵션으로 보존.
+  const value = process.env.NEXT_PUBLIC_GYM_DATA_SOURCE?.trim() || "mysql";
 
   if (value === "mock" || value === "firestore" || value === "mysql") {
     return value;

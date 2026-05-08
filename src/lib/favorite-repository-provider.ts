@@ -5,8 +5,9 @@ import type { FavoriteRepository } from "@/lib/favorite-repository";
 type FavoriteDataSource = "local" | "mysql";
 
 function getFavoriteDataSource(): FavoriteDataSource {
+  // 기본은 mysql. local은 로그인 없이 빠르게 만져볼 수 있는 데모용으로 보존.
   const value =
-    process.env.NEXT_PUBLIC_FAVORITE_DATA_SOURCE?.trim() || "local";
+    process.env.NEXT_PUBLIC_FAVORITE_DATA_SOURCE?.trim() || "mysql";
 
   if (value === "local" || value === "mysql") {
     return value;
