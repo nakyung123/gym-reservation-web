@@ -1,17 +1,18 @@
 import { firebaseGymRepository } from "@/lib/firebase-gym-repository";
 import { mockGymRepository, type GymRepository } from "@/lib/gym-repository";
+import { mysqlGymRepository } from "@/lib/mysql-gym-repository";
 
-type GymDataSource = "mock" | "firestore";
+type GymDataSource = "mock" | "firestore" | "mysql";
 
 function getGymDataSource(): GymDataSource {
   const value = process.env.NEXT_PUBLIC_GYM_DATA_SOURCE?.trim() || "mock";
 
-  if (value === "mock" || value === "firestore") {
+  if (value === "mock" || value === "firestore" || value === "mysql") {
     return value;
   }
 
   throw new Error(
-    "NEXT_PUBLIC_GYM_DATA_SOURCE는 mock 또는 firestore만 사용할 수 있습니다.",
+    "NEXT_PUBLIC_GYM_DATA_SOURCE는 mock, firestore, mysql만 사용할 수 있습니다.",
   );
 }
 
@@ -20,6 +21,10 @@ function selectGymRepository(): GymRepository {
 
   if (source === "firestore") {
     return firebaseGymRepository;
+  }
+
+  if (source === "mysql") {
+    return mysqlGymRepository;
   }
 
   return mockGymRepository;
