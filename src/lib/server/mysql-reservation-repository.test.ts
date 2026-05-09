@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cancelReservationInMysql,
   createReservationInMysql,
+  listReservationSlotAvailabilities,
 } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-mysql";
@@ -34,8 +35,12 @@ describe("createReservationInMysql", () => {
 
     const reservations = await prisma.reservation.findMany();
     const locks = await prisma.reservationLock.findMany();
+    const slots = await prisma.reservationSlot.findMany();
     expect(reservations).toHaveLength(1);
     expect(locks).toHaveLength(1);
+    expect(slots).toHaveLength(1);
+    expect(slots[0].reservedCount).toBe(1);
+    expect(slots[0].capacity).toBe(4);
     expect(locks[0].activeKey).toBe(reservations[0].activeKey);
     expect(locks[0].reservationId).toBe(reservations[0].id);
   });
@@ -61,6 +66,44 @@ describe("createReservationInMysql", () => {
 
     expect(await prisma.reservation.count()).toBe(1);
     expect(await prisma.reservationLock.count()).toBe(1);
+  });
+
+  it("슬롯 정원이 마감되면 예약을 생성하지 않고 full을 반환한다", async () => {
+    const draft = draftFor("10:00");
+    await prisma.reservationSlot.create({
+      data: {
+        gymId: draft.gymId,
+        sport: draft.sport,
+        date: draft.date,
+        time: draft.time,
+        capacity: 1,
+        reservedCount: 1,
+      },
+    });
+
+    const result = await createReservationInMysql({
+      userId: userA,
+      draft,
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("full");
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: draft.gymId,
+          sport: draft.sport,
+          date: draft.date,
+          time: draft.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
   });
 
   it("같은 슬롯에 동시 호출이 발생해도 최종 상태는 reservation 1건/lock 1건이다 (트랜잭션 롤백 검증)", async () => {
@@ -102,6 +145,79 @@ describe("createReservationInMysql", () => {
     expect(await prisma.reservation.count()).toBe(2);
     expect(await prisma.reservationLock.count()).toBe(2);
   });
+
+  it("마지막 1자리를 동시에 예약하면 한 명만 성공한다", async () => {
+    const draft = draftFor("10:00");
+    await prisma.reservationSlot.create({
+      data: {
+        gymId: draft.gymId,
+        sport: draft.sport,
+        date: draft.date,
+        time: draft.time,
+        capacity: 1,
+      },
+    });
+
+    const [aResult, bResult] = await Promise.all([
+      createReservationInMysql({ userId: userA, draft, gym: TEST_GYM }),
+      createReservationInMysql({ userId: userB, draft, gym: TEST_GYM }),
+    ]);
+
+    const okCount = [aResult, bResult].filter((result) => result.ok).length;
+    const fullCount = [aResult, bResult].filter(
+      (result) => !result.ok && result.status === "full",
+    ).length;
+
+    expect(okCount).toBe(1);
+    expect(fullCount).toBe(1);
+    expect(await prisma.reservation.count()).toBe(1);
+    expect(await prisma.reservationLock.count()).toBe(1);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: draft.gymId,
+          sport: draft.sport,
+          date: draft.date,
+          time: draft.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
+  });
+
+  it("슬롯 조회는 저장된 카운터와 기본 정원을 함께 반환한다", async () => {
+    const draft = draftFor("10:00");
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft,
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+
+    const slots = await listReservationSlotAvailabilities({
+      gym: TEST_GYM,
+      sport: draft.sport,
+      date: draft.date,
+    });
+
+    const reservedSlot = slots.find((slot) => slot.time === "10:00");
+    const emptySlot = slots.find((slot) => slot.time === "11:00");
+
+    expect(slots).toHaveLength(TEST_GYM.availableTimes.length);
+    expect(reservedSlot).toMatchObject({
+      capacity: 4,
+      reservedCount: 1,
+      remaining: 3,
+      status: "available",
+    });
+    expect(emptySlot).toMatchObject({
+      capacity: 4,
+      reservedCount: 0,
+      remaining: 4,
+      status: "available",
+    });
+  });
 });
 
 describe("cancelReservationInMysql", () => {
@@ -133,6 +249,18 @@ describe("cancelReservationInMysql", () => {
       where: { activeKey: reservation?.activeKey ?? "" },
     });
     expect(locks).toHaveLength(0);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(0);
   });
 
   it("취소된 슬롯은 같은 사용자가 다시 예약할 수 있다 (lock 해제 검증)", async () => {

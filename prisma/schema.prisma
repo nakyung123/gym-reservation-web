@@ -26,9 +26,10 @@ model Gym {
   facilities     Json
   availableTimes Json          @map("available_times")
   closedDays     Json          @map("closed_days")
-  sports         GymSport[]
-  favorites      Favorite[]
-  reservations   Reservation[]
+  sports           GymSport[]
+  favorites        Favorite[]
+  reservations     Reservation[]
+  reservationSlots ReservationSlot[]
 
   @@map("gyms")
 }
@@ -84,4 +85,19 @@ model ReservationLock {
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   @@map("reservation_locks")
+}
+
+model ReservationSlot {
+  gymId         String   @map("gym_id") @db.VarChar(64)
+  sport         String   @db.VarChar(20)
+  date          String   @db.VarChar(10)
+  time          String   @db.VarChar(5)
+  capacity      Int
+  reservedCount Int      @default(0) @map("reserved_count")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  gym           Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  @@id([gymId, sport, date, time])
+  @@index([gymId, date], map: "idx_res_slots_gym_date")
+  @@map("reservation_slots")
 }

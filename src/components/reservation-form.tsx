@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -21,7 +22,13 @@ import {
 } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
-import type { Gym, Reservation, Sport } from "@/types/domain";
+import { fetchReservationSlots } from "@/lib/reservation-slot-availability";
+import type {
+  Gym,
+  Reservation,
+  ReservationSlotAvailability,
+  Sport,
+} from "@/types/domain";
 
 type ReservationFormProps = {
   gym: Gym;
@@ -33,6 +40,15 @@ type DateOption = {
 };
 
 type NoticeTone = "success" | "warning" | "error";
+
+type SlotsState =
+  | { status: "idle" }
+  | {
+      status: "ready";
+      key: string;
+      slots: Map<string, ReservationSlotAvailability>;
+    }
+  | { status: "error"; key: string; message: string };
 
 const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
 const unavailableTimeLabels = {
@@ -153,6 +169,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [noticeReservation, setNoticeReservation] =
     useState<Reservation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [slotsState, setSlotsState] = useState<SlotsState>({ status: "idle" });
+  const [slotsRefetchToken, setSlotsRefetchToken] = useState(0);
   const resetNotice = useCallback(() => {
     setNotice(null);
     setNoticeReservation(null);
@@ -239,6 +257,77 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     reservations,
     selectedSport,
   ]);
+
+  const slotsRequestKey =
+    isDateReady && authSession.ok
+      ? [
+          gym.id,
+          selectedSport,
+          effectiveSelectedDate,
+          String(slotsRefetchToken),
+        ].join("__")
+      : null;
+
+  useEffect(() => {
+    if (!slotsRequestKey) return;
+    const controller = new AbortController();
+
+    fetchReservationSlots({
+      gymId: gym.id,
+      sport: selectedSport,
+      date: effectiveSelectedDate,
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        if (result.ok) {
+          setSlotsState({
+            status: "ready",
+            key: slotsRequestKey,
+            slots: new Map(result.slots.map((slot) => [slot.time, slot])),
+          });
+        } else {
+          setSlotsState({
+            status: "error",
+            key: slotsRequestKey,
+            message: result.message,
+          });
+        }
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        const detail = error instanceof Error ? error.message : "";
+        setSlotsState({
+          status: "error",
+          key: slotsRequestKey,
+          message: `예약 가능 인원을 확인할 수 없습니다. ${detail}`.trim(),
+        });
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [
+    effectiveSelectedDate,
+    gym.id,
+    selectedSport,
+    slotsRequestKey,
+  ]);
+
+  const slotsLookup =
+    slotsState.status === "ready" && slotsState.key === slotsRequestKey
+      ? slotsState.slots
+      : null;
+  const slotsFetchError =
+    slotsState.status === "error" && slotsState.key === slotsRequestKey
+      ? slotsState.message
+      : null;
+  const slotsFetchPending =
+    Boolean(slotsRequestKey) && !slotsLookup && !slotsFetchError;
   const hasReservationNotice = noticeReservation !== null;
   const timeSelectionDisabledReason = !authSession.ok
     ? authSession.message
@@ -251,12 +340,18 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     }
 
     return (
-      gym.availableTimes.find((time) => timeStates.get(time)?.available) ?? null
+      gym.availableTimes.find((time) => {
+        const isStaticallyAvailable = timeStates.get(time)?.available ?? false;
+        if (!isStaticallyAvailable) return false;
+        if (!slotsLookup) return false;
+        return slotsLookup.get(time)?.status === "available";
+      }) ?? null
     );
   }, [
     gym.availableTimes,
     hasReservationNotice,
     isDateReady,
+    slotsLookup,
     timeSelectionDisabledReason,
     timeStates,
   ]);
@@ -273,7 +368,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       };
   const effectiveSelectedTime =
     !hasReservationNotice &&
-    !selectedTimeStateCandidate.available &&
+    (!selectedTimeStateCandidate.available ||
+      slotsLookup?.get(selectedTime)?.status === "full") &&
     firstAvailableTime
       ? firstAvailableTime
       : selectedTime;
@@ -284,6 +380,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
       })
     : selectedTimeStateCandidate;
+  const selectedSlot = slotsLookup?.get(effectiveSelectedTime) ?? null;
   const submitDisabledReason = isSubmitting
     ? "예약을 처리하고 있습니다."
     : !authSession.ok
@@ -292,9 +389,15 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         ? "예약 날짜를 준비하고 있습니다."
         : !reservationReadResult.ok
           ? reservationReadResult.message
-          : selectedTimeState.available
-            ? null
-            : selectedTimeState.message;
+          : !selectedTimeState.available
+            ? selectedTimeState.message
+            : slotsFetchPending || !slotsLookup
+              ? "예약 가능 인원을 확인하고 있습니다."
+              : slotsFetchError
+                ? slotsFetchError
+                : selectedSlot?.status === "full"
+                  ? "선택한 시간대는 마감되었습니다."
+                  : null;
   const timeSelectionDisabledLabel =
     (!authSession.ok && authSession.reason === "not-ready") ||
     (!reservationReadResult.ok && reservationReadResult.reason === "not-ready")
@@ -303,14 +406,21 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const shouldShowSubmitDisabledReason =
     Boolean(submitDisabledReason) && !hasReservationNotice;
   const availableTimeCount = useMemo(() => {
-    if (!isDateReady || timeSelectionDisabledReason) {
+    if (!isDateReady || timeSelectionDisabledReason || !slotsLookup) {
       return 0;
     }
 
-    return gym.availableTimes.filter(
-      (time) => timeStates.get(time)?.available,
-    ).length;
-  }, [gym.availableTimes, isDateReady, timeSelectionDisabledReason, timeStates]);
+    return gym.availableTimes.filter((time) => {
+      if (!timeStates.get(time)?.available) return false;
+      return slotsLookup.get(time)?.status === "available";
+    }).length;
+  }, [
+    gym.availableTimes,
+    isDateReady,
+    slotsLookup,
+    timeSelectionDisabledReason,
+    timeStates,
+  ]);
   const reserveButtonLabel = isSubmitting
     ? "예약 처리 중"
     : hasReservationNotice
@@ -357,6 +467,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         setNoticeTone("success");
         setNoticeReservation(result.reservation);
         setSelectedTime(result.reservation.time);
+        setSlotsRefetchToken((token) => token + 1);
         return;
       }
 
@@ -364,6 +475,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         setNoticeTone("warning");
         setNoticeReservation(result.reservation);
         setSelectedTime(result.reservation.time);
+        return;
+      }
+
+      if (result.status === "full") {
+        setNoticeTone("error");
+        setNoticeReservation(null);
+        // 다른 사용자가 같은 시간대를 채운 상황. 슬롯 목록을 다시 불러와 UI에 반영.
+        setSlotsRefetchToken((token) => token + 1);
         return;
       }
 
@@ -455,17 +574,49 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
                     };
                     const isSelected = effectiveSelectedTime === time;
-                    const timeButtonStateClass = timeSelectionDisabledReason
-                      ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                      : getTimeButtonClass(timeState, isSelected);
+                    const slot = slotsLookup?.get(time) ?? null;
+                    const isStaticallyAvailable = timeState.available;
+                    const isFull = slot?.status === "full";
+                    const isSlotBlocked =
+                      isStaticallyAvailable &&
+                      (slotsFetchPending ||
+                        Boolean(slotsFetchError) ||
+                        isFull);
                     const isDisabled =
                       Boolean(timeSelectionDisabledReason) ||
-                      !timeState.available;
-                    const timeLabel = timeSelectionDisabledReason
-                      ? timeSelectionDisabledLabel
-                      : !timeState.available
-                        ? unavailableTimeLabels[timeState.reason]
-                        : null;
+                      !isStaticallyAvailable ||
+                      isSlotBlocked;
+                    const timeButtonStateClass = (() => {
+                      if (timeSelectionDisabledReason || isSlotBlocked) {
+                        return "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400";
+                      }
+                      return getTimeButtonClass(timeState, isSelected);
+                    })();
+                    const timeLabel = (() => {
+                      if (timeSelectionDisabledReason) {
+                        return timeSelectionDisabledLabel;
+                      }
+                      if (!isStaticallyAvailable) {
+                        return unavailableTimeLabels[timeState.reason];
+                      }
+                      if (slotsFetchPending) return "확인 중";
+                      if (slotsFetchError) return "확인 불가";
+                      if (isFull) return "마감";
+                      if (slot) return `잔여 ${slot.remaining}명`;
+                      return null;
+                    })();
+                    const titleMessage = (() => {
+                      if (timeSelectionDisabledReason)
+                        return timeSelectionDisabledReason;
+                      if (!isStaticallyAvailable) return timeState.message;
+                      if (slotsFetchPending)
+                        return "예약 가능 인원을 확인하고 있습니다.";
+                      if (slotsFetchError) return slotsFetchError;
+                      if (isFull) return "이 시간대는 마감되었습니다.";
+                      if (slot)
+                        return `정원 ${slot.capacity}명 중 ${slot.remaining}명 예약 가능`;
+                      return "예약 가능";
+                    })();
 
                     return (
                       <button
@@ -479,10 +630,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                           resetNotice();
                         }}
                         className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${timeButtonStateClass}`}
-                        title={
-                          timeSelectionDisabledReason ??
-                          (timeState.available ? "예약 가능" : timeState.message)
-                        }
+                        title={titleMessage}
                       >
                         <span className="block">{time}</span>
                         {timeLabel ? (
@@ -498,6 +646,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   <p className="mt-3 text-sm font-semibold text-amber-700" role="alert">
                     {timeSelectionDisabledReason}
                   </p>
+                ) : slotsFetchError ? (
+                  <p className="mt-3 text-sm font-semibold text-rose-700" role="alert">
+                    {slotsFetchError}
+                  </p>
+                ) : slotsFetchPending ? (
+                  <p className="mt-3 text-xs leading-5 text-slate-500">
+                    예약 가능 인원을 확인하고 있습니다.
+                  </p>
                 ) : availableTimeCount === 0 ? (
                   <p className="mt-3 text-sm font-semibold text-amber-700" role="alert">
                     선택한 날짜에는 예약 가능한 시간이 없습니다. 다른 날짜를
@@ -505,7 +661,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   </p>
                 ) : (
                   <p className="mt-3 text-xs leading-5 text-slate-500">
-                    {availableTimeCount}개 시간대 예약 가능 · 지난 시간과 내
+                    {availableTimeCount}개 시간대 예약 가능 · 마감/지난 시간/내
                     예약 시간은 선택할 수 없습니다.
                   </p>
                 )}

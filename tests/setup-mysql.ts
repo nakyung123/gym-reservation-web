@@ -36,6 +36,7 @@ beforeEach(async () => {
   // FK 의존 순서: lock → reservation → favorite → gym_sports → gyms.
   await prisma.reservationLock.deleteMany({});
   await prisma.reservation.deleteMany({});
+  await prisma.reservationSlot.deleteMany({});
   await prisma.favorite.deleteMany({});
   await prisma.gymSport.deleteMany({});
   await prisma.gym.deleteMany({});

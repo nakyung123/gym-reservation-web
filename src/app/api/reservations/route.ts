@@ -103,6 +103,16 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
+  if (result.status === "full") {
+    return Response.json(
+      {
+        status: "full",
+        slot: result.slot,
+        message: result.message,
+      },
+      { status: 409 },
+    );
+  }
   return Response.json(
     { status: "rejected", message: result.message },
     { status: 422 },

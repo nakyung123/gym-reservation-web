@@ -40,3 +40,14 @@ export type ReservationDraft = Omit<
   Reservation,
   "id" | "status" | "createdAt"
 >;
+
+export type ReservationSlotAvailability = {
+  gymId: string;
+  sport: Sport;
+  date: string;
+  time: string;
+  capacity: number;
+  reservedCount: number;
+  remaining: number;
+  status: "available" | "full";
+};

@@ -20,6 +20,7 @@ import {
   type ReservationRepository,
   type ReservationRepositoryFailure,
 } from "@/lib/reservation-repository";
+import { isReservationSlotAvailability } from "@/lib/reservation-slot-availability";
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
 let currentSnapshot = LOADING_RESERVATION_SNAPSHOT;
@@ -209,6 +210,7 @@ function buildReservation(draft: ReservationDraft): Reservation {
 type ApiCreateResponse = {
   status?: unknown;
   reservation?: unknown;
+  slot?: unknown;
   message?: unknown;
 };
 
@@ -285,6 +287,22 @@ async function createReservation(
           : "이미 같은 조건의 예약이 있습니다.",
       reservation: data.reservation,
       reservations: getCurrentReservations(),
+    };
+  }
+
+  if (
+    response.status === 409 &&
+    data.status === "full" &&
+    isReservationSlotAvailability(data.slot)
+  ) {
+    return {
+      ok: false,
+      status: "full",
+      message:
+        typeof data.message === "string"
+          ? data.message
+          : "선택한 시간이 마감되었습니다.",
+      slot: data.slot,
     };
   }
 

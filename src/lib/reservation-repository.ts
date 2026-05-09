@@ -1,4 +1,8 @@
-import type { Reservation, ReservationDraft } from "@/types/domain";
+import type {
+  Reservation,
+  ReservationDraft,
+  ReservationSlotAvailability,
+} from "@/types/domain";
 
 export const EMPTY_RESERVATION_SNAPSHOT = "[]";
 
@@ -47,6 +51,12 @@ export type ReservationCreateResult =
       message: string;
       reservation: Reservation;
       reservations: Reservation[];
+    }
+  | {
+      ok: false;
+      status: "full";
+      message: string;
+      slot: ReservationSlotAvailability;
     }
   | {
       ok: false;

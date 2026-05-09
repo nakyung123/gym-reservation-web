@@ -1,7 +1,12 @@
 import { validateReservationDraft } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import type { ReservationRepository } from "@/lib/reservation-repository";
-import type { Gym, Reservation, ReservationDraft } from "@/types/domain";
+import type {
+  Gym,
+  Reservation,
+  ReservationDraft,
+  ReservationSlotAvailability,
+} from "@/types/domain";
 
 export type CreateReservationResult =
   | {
@@ -15,6 +20,12 @@ export type CreateReservationResult =
       status: "duplicate";
       message: string;
       reservation: Reservation;
+    }
+  | {
+      ok: false;
+      status: "full";
+      message: string;
+      slot: ReservationSlotAvailability;
     }
   | {
       ok: false;
@@ -89,6 +100,15 @@ export async function createReservation({
       status: "duplicate",
       message: writeResult.message,
       reservation: writeResult.reservation,
+    };
+  }
+
+  if (writeResult.status === "full") {
+    return {
+      ok: false,
+      status: "full",
+      message: writeResult.message,
+      slot: writeResult.slot,
     };
   }
 
