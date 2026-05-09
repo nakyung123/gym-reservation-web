@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchReservationSlots } from "@/lib/reservation-slot-availability";
 import { updateReservationSlotPolicy } from "@/lib/admin/admin-reservation-slot-client";
@@ -241,13 +242,30 @@ export function AdminReservationSlotsForm({
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header>
-          <h1 className="text-2xl font-bold text-slate-950">
-            관리자 슬롯 관리
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            체육관·종목·날짜를 선택해 시간대별 정원과 마감 여부를 관리합니다.
-          </p>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-sky-700">관리자</p>
+            <h1 className="mt-1 text-2xl font-bold text-slate-950">
+              슬롯 관리
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">
+              체육관·종목·날짜를 선택해 시간대별 정원과 마감 여부를 관리합니다.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              관리자 홈
+            </Link>
+            <Link
+              href="/admin/reservations"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              예약 관리
+            </Link>
+          </div>
         </header>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

@@ -264,12 +264,20 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               예약 관리
             </h1>
           </div>
-          <Link
-            href="/admin/reservation-slots"
-            className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-          >
-            슬롯 관리
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              관리자 홈
+            </Link>
+            <Link
+              href="/admin/reservation-slots"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              슬롯 관리
+            </Link>
+          </div>
         </header>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">

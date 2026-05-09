@@ -3,6 +3,7 @@ import {
   cancelReservationAsAdminInMysql,
   cancelReservationInMysql,
   createReservationInMysql,
+  getAdminReservationOverview,
   listAdminReservations,
   listReservationSlotAvailabilities,
   markReservationUsedInMysql,
@@ -493,6 +494,66 @@ describe("listAdminReservations", () => {
     expect(onlyReserved).toHaveLength(1);
     expect(onlyReserved[0].status).toBe("reserved");
     expect(byDate).toHaveLength(2);
+  });
+});
+
+describe("getAdminReservationOverview", () => {
+  it("날짜별 예약 상태, 매출, 슬롯 현황을 집계한다", async () => {
+    const date = futureDate();
+    const reservedDraft = { ...draftFor("10:00"), date };
+    const cancelledDraft = { ...draftFor("11:00"), date };
+    const usedDraft = { ...draftFor("12:00"), date };
+
+    const reserved = await createReservationInMysql({
+      userId: userA,
+      draft: reservedDraft,
+      gym: TEST_GYM,
+    });
+    const cancelled = await createReservationInMysql({
+      userId: userB,
+      draft: cancelledDraft,
+      gym: TEST_GYM,
+    });
+    const used = await createReservationInMysql({
+      userId: "user-c",
+      draft: usedDraft,
+      gym: TEST_GYM,
+    });
+    expect(reserved.ok).toBe(true);
+    expect(cancelled.ok).toBe(true);
+    expect(used.ok).toBe(true);
+    if (!cancelled.ok || !used.ok) return;
+
+    await cancelReservationAsAdminInMysql(cancelled.reservation.id);
+    await markReservationUsedInMysql(used.reservation.id);
+    await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draftFor("14:00"),
+      date,
+      capacity: 2,
+      isClosed: true,
+    });
+
+    const overview = await getAdminReservationOverview(date);
+
+    expect(overview.reservations).toEqual({
+      total: 3,
+      reserved: 1,
+      cancelled: 1,
+      used: 1,
+    });
+    expect(overview.revenue).toEqual({
+      expected: 24000,
+      used: 12000,
+    });
+    expect(overview.slots).toMatchObject({
+      total: 4,
+      available: 3,
+      full: 0,
+      closed: 1,
+      reservedCount: 2,
+      capacity: 14,
+    });
   });
 });
 

@@ -311,6 +311,114 @@ export async function listAdminReservations({
   return rows.map(toDomainReservation);
 }
 
+export type AdminReservationOverview = {
+  date: string;
+  reservations: {
+    total: number;
+    reserved: number;
+    cancelled: number;
+    used: number;
+  };
+  revenue: {
+    expected: number;
+    used: number;
+  };
+  slots: {
+    total: number;
+    available: number;
+    full: number;
+    closed: number;
+    reservedCount: number;
+    capacity: number;
+  };
+};
+
+export async function getAdminReservationOverview(
+  date: string,
+): Promise<AdminReservationOverview> {
+  const [reservationRows, expectedRevenue, usedRevenue, slotRows] =
+    await Promise.all([
+      prisma.reservation.groupBy({
+        by: ["status"],
+        where: { date },
+        _count: { _all: true },
+      }),
+      prisma.reservation.aggregate({
+        where: {
+          date,
+          status: { in: ["reserved", "used"] },
+        },
+        _sum: { price: true },
+      }),
+      prisma.reservation.aggregate({
+        where: {
+          date,
+          status: "used",
+        },
+        _sum: { price: true },
+      }),
+      prisma.reservationSlot.findMany({
+        where: { date },
+        select: {
+          capacity: true,
+          reservedCount: true,
+          isClosed: true,
+        },
+      }),
+    ]);
+
+  const reservations = {
+    total: 0,
+    reserved: 0,
+    cancelled: 0,
+    used: 0,
+  };
+
+  reservationRows.forEach((row) => {
+    if (!isReservationStatus(row.status)) {
+      throw new Error(`알 수 없는 예약 상태입니다: ${row.status}`);
+    }
+    reservations[row.status] = row._count._all;
+    reservations.total += row._count._all;
+  });
+
+  const slots = slotRows.reduce(
+    (summary, slot) => {
+      const status = slot.isClosed
+        ? "closed"
+        : slot.reservedCount >= slot.capacity
+          ? "full"
+          : "available";
+
+      return {
+        ...summary,
+        total: summary.total + 1,
+        [status]: summary[status] + 1,
+        reservedCount: summary.reservedCount + slot.reservedCount,
+        capacity: summary.capacity + slot.capacity,
+      };
+    },
+    {
+      total: 0,
+      available: 0,
+      full: 0,
+      closed: 0,
+      reservedCount: 0,
+      capacity: 0,
+    },
+  );
+
+  return {
+    date,
+    reservations,
+    revenue: {
+      expected: expectedRevenue._sum.price ?? 0,
+      used: usedRevenue._sum.price ?? 0,
+    },
+    slots,
+  };
+}
+
 export type CreateReservationInput = {
   userId: string;
   draft: { gymId: string; sport: Sport; date: string; time: string };
