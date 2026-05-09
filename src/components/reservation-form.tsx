@@ -9,6 +9,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
+  formatDateValue,
+  useCurrentMinuteValue,
+} from "@/hooks/use-current-minute";
+import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
   parseFirebaseAuthSessionSnapshot,
@@ -57,6 +61,7 @@ const unavailableTimeLabels = {
   "time-unavailable": "시간 불가",
   "invalid-date-time": "형식 오류",
   "past-time": "지난 시간",
+  "closed-day": "휴관일",
   "duplicate-active-reservation": "내 예약",
 };
 
@@ -80,40 +85,6 @@ const reservationNoticeButtonStyles: Record<NoticeTone, string> = {
   error:
     "mt-6 h-11 w-full rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
 };
-
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function formatDateValue(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function formatMinuteValue(date: Date) {
-  return `${formatDateValue(date)}T${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
-}
-
-function getCurrentMinuteSnapshot() {
-  return formatMinuteValue(new Date());
-}
-
-function getServerMinuteSnapshot() {
-  return "";
-}
-
-function subscribeMinuteSnapshot(listener: () => void) {
-  if (typeof window === "undefined") {
-    return () => undefined;
-  }
-
-  const mountTimer = window.setTimeout(listener, 0);
-  const intervalTimer = window.setInterval(listener, 60_000);
-
-  return () => {
-    window.clearTimeout(mountTimer);
-    window.clearInterval(intervalTimer);
-  };
-}
 
 function createDateOptions(todayValue: string): DateOption[] {
   const [year, month, day] = todayValue.split("-").map(Number);
@@ -185,11 +156,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     reservationRepository.getSnapshot,
     reservationRepository.getServerSnapshot,
   );
-  const currentMinuteValue = useSyncExternalStore(
-    subscribeMinuteSnapshot,
-    getCurrentMinuteSnapshot,
-    getServerMinuteSnapshot,
-  );
+  const currentMinuteValue = useCurrentMinuteValue();
   const reservationReadResult = useMemo(
     () => parseReservationSnapshot(reservationSnapshot),
     [reservationSnapshot],

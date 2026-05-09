@@ -8,13 +8,9 @@ dotenv.config({ path: ".env.test.local", override: true });
 export default defineConfig({
   test: {
     environment: "node",
-    // Prisma 커넥션 공유 + 동시성 시뮬레이션을 위해 단일 워커로 직렬 실행.
+    // Prisma 커넥션 공유 + 동시성 시뮬레이션을 위해 테스트 파일을 직렬 실행.
     pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    fileParallelism: false,
     sequence: {
       concurrent: false,
     },

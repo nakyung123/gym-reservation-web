@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import { formatGymPrice } from "@/lib/gym-utils";
+import {
+  getUserReservationCancellationDeadline,
+  validateUserReservationCancellation,
+} from "@/lib/reservation-rules";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import type { Gym, Reservation } from "@/types/domain";
@@ -12,16 +17,22 @@ const statusLabel: Record<Reservation["status"], string> = {
   cancelled: "예약 취소",
   used: "이용 완료",
 };
+const statusBadgeStyles: Record<Reservation["status"], string> = {
+  reserved: "bg-emerald-50 text-emerald-700",
+  cancelled: "bg-slate-100 text-slate-500",
+  used: "bg-sky-50 text-sky-700",
+};
 const noticeStyles = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800",
   error: "border-rose-200 bg-rose-50 text-rose-800",
 };
 
-type ReservationFilter = "all" | "reserved" | "cancelled";
+type ReservationFilter = "all" | "reserved" | "used" | "cancelled";
 
 const reservationFilterLabels: Record<ReservationFilter, string> = {
   all: "전체",
   reserved: "예약 완료",
+  used: "이용 완료",
   cancelled: "예약 취소",
 };
 
@@ -98,15 +109,35 @@ function AdmissionTicket({ reservation }: { reservation: Reservation }) {
   );
 }
 
-function CancelledTicket() {
+function InactiveTicket({
+  status,
+}: {
+  status: Exclude<Reservation["status"], "reserved">;
+}) {
+  const isUsed = status === "used";
+
   return (
     <div
-      className="flex size-32 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-center text-xs font-semibold leading-5 text-slate-400"
-      aria-label="입장권 비활성화됨"
+      className={`flex size-32 items-center justify-center rounded-lg border p-3 text-center text-xs font-semibold leading-5 ${
+        isUsed
+          ? "border-sky-200 bg-sky-50 text-sky-700"
+          : "border-slate-200 bg-slate-50 text-slate-400"
+      }`}
+      aria-label={isUsed ? "입장권 이용 완료됨" : "입장권 비활성화됨"}
     >
-      입장권
-      <br />
-      비활성화
+      {isUsed ? (
+        <>
+          이용
+          <br />
+          완료
+        </>
+      ) : (
+        <>
+          입장권
+          <br />
+          비활성화
+        </>
+      )}
     </div>
   );
 }
@@ -147,6 +178,13 @@ function getReservationGymSummary(
   };
 }
 
+function formatCancellationDeadline(deadline: Date) {
+  return deadline.toLocaleString("ko-KR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
 export function ReservationsView({ gyms }: ReservationsViewProps) {
   const [actionNotice, setActionNotice] = useState<{
     tone: keyof typeof noticeStyles;
@@ -165,6 +203,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
     reservationRepository.getSnapshot,
     reservationRepository.getServerSnapshot,
   );
+  const currentMinuteValue = useCurrentMinuteValue();
   const reservationReadResult = useMemo(
     () => parseReservationSnapshot(reservationSnapshot),
     [reservationSnapshot],
@@ -194,9 +233,14 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
       reservations.filter((reservation) => reservation.status === "cancelled"),
     [reservations],
   );
+  const usedReservations = useMemo(
+    () => reservations.filter((reservation) => reservation.status === "used"),
+    [reservations],
+  );
   const filterCounts: Record<ReservationFilter, number> = {
     all: reservations.length,
     reserved: activeReservations.length,
+    used: usedReservations.length,
     cancelled: cancelledReservations.length,
   };
   const displayReservations = useMemo(
@@ -403,28 +447,43 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
       ) : (
         <div className="grid gap-4">
           {displayReservations.map((reservation) => {
-            const isCancelled = reservation.status === "cancelled";
+            const isInactive = reservation.status !== "reserved";
             const isPendingCancel =
               pendingCancelReservationId === reservation.id;
             const gymSummary = getReservationGymSummary(gymsById, reservation);
             const gymName = gymSummary.name;
+            const now = currentMinuteValue
+              ? new Date(currentMinuteValue)
+              : new Date();
+            const cancellationDeadline =
+              reservation.status === "reserved"
+                ? getUserReservationCancellationDeadline(reservation)
+                : null;
+            const cancellationMessage =
+              reservation.status === "reserved"
+                ? (() => {
+                    const result = validateUserReservationCancellation({
+                      reservation,
+                      now,
+                    });
+                    return result.ok ? null : result.message;
+                  })()
+                : null;
+            const canCancelReservation =
+              reservation.status === "reserved" && cancellationMessage === null;
 
             return (
               <article
                 key={reservation.id}
                 className={`grid gap-5 rounded-lg border bg-white p-5 shadow-sm lg:grid-cols-[1fr_auto] ${
-                  isCancelled ? "border-slate-200 opacity-60" : "border-slate-200"
+                  isInactive ? "border-slate-200 opacity-70" : "border-slate-200"
                 }`}
                 aria-label={`${gymName} ${reservation.sport} 예약 - ${statusLabel[reservation.status]}`}
               >
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
-                      className={`rounded-md px-2.5 py-1 text-xs font-bold ${
-                        isCancelled
-                          ? "bg-slate-100 text-slate-500"
-                          : "bg-emerald-50 text-emerald-700"
-                      }`}
+                      className={`rounded-md px-2.5 py-1 text-xs font-bold ${statusBadgeStyles[reservation.status]}`}
                     >
                       {statusLabel[reservation.status]}
                     </span>
@@ -481,7 +540,14 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                   </dl>
 
                   {reservation.status === "reserved" ? (
-                    isPendingCancel ? (
+                    !canCancelReservation ? (
+                      <p
+                        className="mt-5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
+                        role="status"
+                      >
+                        {cancellationMessage}
+                      </p>
+                    ) : isPendingCancel ? (
                       <div
                         className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
                         role="alert"
@@ -516,17 +582,28 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => requestCancel(reservation.id)}
-                        disabled={Boolean(cancellingReservationId)}
-                        aria-label={`${gymName} ${reservation.date} ${reservation.time} 예약 취소`}
-                        className="mt-5 h-10 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-                      >
-                        {cancellingReservationId === reservation.id
-                          ? "취소 중"
-                          : "예약 취소"}
-                      </button>
+                      <div className="mt-5 flex flex-col items-start gap-2">
+                        {cancellationDeadline ? (
+                          <p className="text-xs font-semibold text-slate-500">
+                            {formatCancellationDeadline(cancellationDeadline)}
+                            까지 취소 가능
+                          </p>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => requestCancel(reservation.id)}
+                          disabled={
+                            Boolean(cancellingReservationId) ||
+                            !canCancelReservation
+                          }
+                          aria-label={`${gymName} ${reservation.date} ${reservation.time} 예약 취소`}
+                          className="h-10 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                        >
+                          {cancellingReservationId === reservation.id
+                            ? "취소 중"
+                            : "예약 취소"}
+                        </button>
+                      </div>
                     )
                   ) : null}
                 </div>
@@ -538,7 +615,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                     <AdmissionTicket reservation={reservation} />
                   )
                 ) : (
-                  <CancelledTicket />
+                  <InactiveTicket status={reservation.status} />
                 )}
               </article>
             );

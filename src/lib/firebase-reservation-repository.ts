@@ -32,7 +32,10 @@ import {
   type ReservationRepository,
   type ReservationRepositoryFailure,
 } from "@/lib/reservation-repository";
-import { getReservationRuleMessage } from "@/lib/reservation-rules";
+import {
+  getReservationRuleMessage,
+  validateUserReservationCancellation,
+} from "@/lib/reservation-rules";
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
 const RESERVATIONS_COLLECTION = "reservations";
@@ -459,6 +462,20 @@ async function cancelReservation(
             ok: false,
             status: "not-cancellable",
             message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
+            reservation,
+            reservations: getCurrentReservations(),
+          };
+        }
+
+        const cancellationRule = validateUserReservationCancellation({
+          reservation,
+        });
+
+        if (!cancellationRule.ok) {
+          return {
+            ok: false,
+            status: "not-cancellable",
+            message: cancellationRule.message,
             reservation,
             reservations: getCurrentReservations(),
           };

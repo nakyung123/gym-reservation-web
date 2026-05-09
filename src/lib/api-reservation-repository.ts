@@ -401,6 +401,8 @@ async function cancelReservation(
     data.status === "not-cancellable" &&
     isReservation(data.reservation)
   ) {
+    upsertCurrentReservation(data.reservation);
+
     return {
       ok: false,
       status: "not-cancellable",

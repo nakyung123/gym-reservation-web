@@ -2,7 +2,10 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/prisma-client";
 import { getReservationActiveKey } from "@/lib/reservation-repository";
-import { validateReservationDraft } from "@/lib/reservation-rules";
+import {
+  validateReservationDraft,
+  validateUserReservationCancellation,
+} from "@/lib/reservation-rules";
 import { getGymSportPrice } from "@/lib/gym-utils";
 import type {
   Gym,
@@ -661,6 +664,7 @@ async function cancelAuthorizedReservation(
 export async function cancelReservationInMysql(
   userId: string,
   reservationId: string,
+  { now = new Date() }: { now?: Date } = {},
 ): Promise<CancelReservationOutput> {
   const target = await prisma.reservation.findUnique({
     where: { id: reservationId },
@@ -680,6 +684,22 @@ export async function cancelReservationInMysql(
       status: "auth-required",
       message: "다른 사용자의 예약은 취소할 수 없습니다.",
     };
+  }
+
+  if (target.status === "reserved") {
+    const cancellationRule = validateUserReservationCancellation({
+      reservation: target,
+      now,
+    });
+
+    if (!cancellationRule.ok) {
+      return {
+        ok: false,
+        status: "not-cancellable",
+        reservation: toDomainReservation(target),
+        message: cancellationRule.message,
+      };
+    }
   }
 
   return cancelAuthorizedReservation(target);

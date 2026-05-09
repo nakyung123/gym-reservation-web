@@ -6,6 +6,7 @@ export type ReservationRuleFailure =
   | "time-unavailable"
   | "invalid-date-time"
   | "past-time"
+  | "closed-day"
   | "duplicate-active-reservation";
 
 export type ReservationRuleResult =
@@ -17,6 +18,21 @@ export type ReservationRuleResult =
       reason: ReservationRuleFailure;
       message: string;
       reservation?: Reservation;
+    };
+
+export type ReservationCancellationRuleFailure =
+  | "invalid-date-time"
+  | "past-time"
+  | "cancel-deadline-passed";
+
+export type ReservationCancellationRuleResult =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      reason: ReservationCancellationRuleFailure;
+      message: string;
     };
 
 export type ReservationTimeState =
@@ -39,8 +55,20 @@ const reservationRuleMessages: Record<ReservationRuleFailure, string> = {
   "time-unavailable": "선택한 시간은 이 체육관에서 예약할 수 없습니다.",
   "invalid-date-time": "예약 날짜 또는 시간 형식이 올바르지 않습니다.",
   "past-time": "이미 지난 시간대는 예약할 수 없습니다.",
+  "closed-day": "선택한 날짜는 체육관 휴관일입니다.",
   "duplicate-active-reservation":
     "이미 같은 조건의 예약이 있습니다. 내 예약 화면에서 확인해주세요.",
+};
+
+const USER_CANCEL_CUTOFF_MINUTES = 120;
+
+const reservationCancellationRuleMessages: Record<
+  ReservationCancellationRuleFailure,
+  string
+> = {
+  "invalid-date-time": "예약 날짜 또는 시간 형식이 올바르지 않습니다.",
+  "past-time": "이미 시작된 예약은 취소할 수 없습니다.",
+  "cancel-deadline-passed": `이용 시작 ${USER_CANCEL_CUTOFF_MINUTES / 60}시간 전까지만 취소할 수 있습니다.`,
 };
 
 export function getReservationRuleMessage(reason: ReservationRuleFailure) {
@@ -56,6 +84,16 @@ function fail(
     reason,
     message: getReservationRuleMessage(reason),
     reservation,
+  };
+}
+
+function cancelFail(
+  reason: ReservationCancellationRuleFailure,
+): ReservationCancellationRuleResult {
+  return {
+    ok: false,
+    reason,
+    message: reservationCancellationRuleMessages[reason],
   };
 }
 
@@ -87,6 +125,115 @@ function parseReservationDateTime(dateValue: string, timeValue: string) {
   }
 
   return parsed;
+}
+
+const weekdayLabels = [
+  "일요일",
+  "월요일",
+  "화요일",
+  "수요일",
+  "목요일",
+  "금요일",
+  "토요일",
+];
+const ordinalLabels = [
+  "첫째",
+  "둘째",
+  "셋째",
+  "넷째",
+  "다섯째",
+] as const;
+
+function getWeekdayOrdinalInMonth(date: Date) {
+  return Math.floor((date.getDate() - 1) / 7) + 1;
+}
+
+function isClosedDayRuleMatch(date: Date, rule: string) {
+  const normalizedRule = rule.trim();
+  const day = date.getDay();
+  const weekdayLabel = weekdayLabels[day];
+  const ordinal = getWeekdayOrdinalInMonth(date);
+  const hasOrdinal = ordinalLabels.some((label) =>
+    normalizedRule.includes(label),
+  );
+
+  if (normalizedRule === "주말") {
+    return day === 0 || day === 6;
+  }
+
+  if (!normalizedRule.includes(weekdayLabel)) {
+    return false;
+  }
+
+  if (!hasOrdinal) {
+    return true;
+  }
+
+  const ordinalLabel = ordinalLabels[ordinal - 1];
+  return Boolean(ordinalLabel && normalizedRule.includes(ordinalLabel));
+}
+
+export function isGymClosedOnDate(gym: Gym, dateValue: string) {
+  const parsedDate = parseReservationDateTime(dateValue, "00:00");
+
+  if (!parsedDate) {
+    return false;
+  }
+
+  return gym.closedDays.some((rule) => isClosedDayRuleMatch(parsedDate, rule));
+}
+
+export function validateUserReservationCancellation({
+  reservation,
+  now = new Date(),
+}: {
+  reservation: Pick<Reservation, "date" | "time">;
+  now?: Date;
+}): ReservationCancellationRuleResult {
+  const cancelDeadline = getUserReservationCancellationDeadline(reservation);
+
+  if (!cancelDeadline) {
+    return cancelFail("invalid-date-time");
+  }
+
+  const reservationDateTime = parseReservationDateTime(
+    reservation.date,
+    reservation.time,
+  );
+
+  if (!reservationDateTime) {
+    return cancelFail("invalid-date-time");
+  }
+
+  if (reservationDateTime.getTime() <= now.getTime()) {
+    return cancelFail("past-time");
+  }
+
+  if (now.getTime() > cancelDeadline.getTime()) {
+    return cancelFail("cancel-deadline-passed");
+  }
+
+  return { ok: true };
+}
+
+export function getUserReservationCancellationDeadline(
+  reservation: Pick<Reservation, "date" | "time">,
+) {
+  const reservationDateTime = parseReservationDateTime(
+    reservation.date,
+    reservation.time,
+  );
+
+  if (!reservationDateTime) {
+    return null;
+  }
+
+  const cancelDeadline = new Date(reservationDateTime);
+  cancelDeadline.setMinutes(
+    cancelDeadline.getMinutes() - USER_CANCEL_CUTOFF_MINUTES,
+  );
+
+  return cancelDeadline;
 }
 
 function findActiveDuplicate(
@@ -135,6 +282,10 @@ export function validateReservationDraft({
 
   if (reservationDateTime.getTime() <= now.getTime()) {
     return fail("past-time");
+  }
+
+  if (isGymClosedOnDate(gym, draft.date)) {
+    return fail("closed-day");
   }
 
   const duplicate = findActiveDuplicate(reservations, draft);

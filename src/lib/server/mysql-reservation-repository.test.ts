@@ -14,6 +14,15 @@ import { TEST_GYM, futureDate } from "@tests/setup-mysql";
 
 const userA = "user-a";
 const userB = "user-b";
+const weekdayLabels = [
+  "일요일",
+  "월요일",
+  "화요일",
+  "수요일",
+  "목요일",
+  "금요일",
+  "토요일",
+] as const;
 
 function draftFor(time: string, sport: "배드민턴" | "농구" = "배드민턴") {
   return {
@@ -22,6 +31,22 @@ function draftFor(time: string, sport: "배드민턴" | "농구" = "배드민턴
     date: futureDate(),
     time,
   };
+}
+
+function futureDateForWeekday(weekday: number) {
+  const date = new Date();
+  const daysUntilWeekday = (weekday - date.getDay() + 7) % 7 || 7;
+  date.setDate(date.getDate() + daysUntilWeekday);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function dateTimeFor(date: string, time: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
 describe("createReservationInMysql", () => {
@@ -134,6 +159,31 @@ describe("createReservationInMysql", () => {
     expect(result.slot.isClosed).toBe(true);
     expect(await prisma.reservation.count()).toBe(0);
     expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
+  it("체육관 휴관일에는 예약을 생성하지 않고 rejected를 반환한다", async () => {
+    const closedWeekday = 0;
+    const draft = {
+      ...draftFor("10:00"),
+      date: futureDateForWeekday(closedWeekday),
+    };
+
+    const result = await createReservationInMysql({
+      userId: userA,
+      draft,
+      gym: {
+        ...TEST_GYM,
+        closedDays: [weekdayLabels[closedWeekday]],
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(result.message).toBe("선택한 날짜는 체육관 휴관일입니다.");
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+    expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
   it("같은 슬롯에 동시 호출이 발생해도 최종 상태는 reservation 1건/lock 1건이다 (트랜잭션 롤백 검증)", async () => {
@@ -430,6 +480,43 @@ describe("cancelReservationInMysql", () => {
     });
     expect(reservation?.status).toBe("cancelled");
     expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
+  it("이용 시작 2시간 이내에는 사용자가 예약을 취소할 수 없다", async () => {
+    const draft = draftFor("10:00");
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft,
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const now = dateTimeFor(draft.date, "08:01");
+    const result = await cancelReservationInMysql(
+      userA,
+      created.reservation.id,
+      { now },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("not-cancellable");
+    expect(result.message).toBe("이용 시작 2시간 전까지만 취소할 수 있습니다.");
+    expect(result.reservation?.status).toBe("reserved");
+    expect(await prisma.reservationLock.count()).toBe(1);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
   });
 
   it("다른 사용자가 취소하면 auth-required로 거부된다", async () => {
