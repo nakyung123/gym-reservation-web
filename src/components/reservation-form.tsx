@@ -369,7 +369,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const effectiveSelectedTime =
     !hasReservationNotice &&
     (!selectedTimeStateCandidate.available ||
-      slotsLookup?.get(selectedTime)?.status === "full") &&
+      slotsLookup?.get(selectedTime)?.status !== "available") &&
     firstAvailableTime
       ? firstAvailableTime
       : selectedTime;
@@ -393,9 +393,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             ? selectedTimeState.message
             : slotsFetchPending || !slotsLookup
               ? "예약 가능 인원을 확인하고 있습니다."
-              : slotsFetchError
-                ? slotsFetchError
-                : selectedSlot?.status === "full"
+                : slotsFetchError
+                  ? slotsFetchError
+                : selectedSlot && selectedSlot.status !== "available"
                   ? "선택한 시간대는 마감되었습니다."
                   : null;
   const timeSelectionDisabledLabel =
@@ -576,12 +576,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     const isSelected = effectiveSelectedTime === time;
                     const slot = slotsLookup?.get(time) ?? null;
                     const isStaticallyAvailable = timeState.available;
+                    const isClosed = slot?.status === "closed";
                     const isFull = slot?.status === "full";
                     const isSlotBlocked =
                       isStaticallyAvailable &&
                       (slotsFetchPending ||
                         Boolean(slotsFetchError) ||
-                        isFull);
+                        isFull ||
+                        isClosed);
                     const isDisabled =
                       Boolean(timeSelectionDisabledReason) ||
                       !isStaticallyAvailable ||
@@ -601,6 +603,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       }
                       if (slotsFetchPending) return "확인 중";
                       if (slotsFetchError) return "확인 불가";
+                      if (isClosed) return "마감";
                       if (isFull) return "마감";
                       if (slot) return `잔여 ${slot.remaining}명`;
                       return null;
@@ -612,6 +615,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       if (slotsFetchPending)
                         return "예약 가능 인원을 확인하고 있습니다.";
                       if (slotsFetchError) return slotsFetchError;
+                      if (isClosed) return "운영자가 마감한 시간대입니다.";
                       if (isFull) return "이 시간대는 마감되었습니다.";
                       if (slot)
                         return `정원 ${slot.capacity}명 중 ${slot.remaining}명 예약 가능`;

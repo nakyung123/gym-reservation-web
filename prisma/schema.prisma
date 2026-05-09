@@ -94,6 +94,7 @@ model ReservationSlot {
   time          String   @db.VarChar(5)
   capacity      Int
   reservedCount Int      @default(0) @map("reserved_count")
+  isClosed      Boolean  @default(false) @map("is_closed")
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
   gym           Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
 

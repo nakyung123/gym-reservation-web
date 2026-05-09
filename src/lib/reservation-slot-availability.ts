@@ -26,7 +26,10 @@ export function isReservationSlotAvailability(
     Number.isFinite(candidate.reservedCount) &&
     typeof candidate.remaining === "number" &&
     Number.isFinite(candidate.remaining) &&
-    (candidate.status === "available" || candidate.status === "full")
+    typeof candidate.isClosed === "boolean" &&
+    (candidate.status === "available" ||
+      candidate.status === "full" ||
+      candidate.status === "closed")
   );
 }
 

@@ -49,5 +49,6 @@ export type ReservationSlotAvailability = {
   capacity: number;
   reservedCount: number;
   remaining: number;
-  status: "available" | "full";
+  isClosed: boolean;
+  status: "available" | "full" | "closed";
 };

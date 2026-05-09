@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  cancelReservationAsAdminInMysql,
   cancelReservationInMysql,
   createReservationInMysql,
+  listAdminReservations,
   listReservationSlotAvailabilities,
+  markReservationUsedInMysql,
+  updateReservationSlotPolicy,
 } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-mysql";
@@ -104,6 +108,31 @@ describe("createReservationInMysql", () => {
       },
     });
     expect(slot.reservedCount).toBe(1);
+  });
+
+  it("운영자가 마감한 슬롯은 예약을 생성하지 않고 full을 반환한다", async () => {
+    const draft = draftFor("10:00");
+    const updated = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draft,
+      isClosed: true,
+    });
+    expect(updated.ok).toBe(true);
+
+    const result = await createReservationInMysql({
+      userId: userA,
+      draft,
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("full");
+    if (result.status !== "full") return;
+    expect(result.slot.status).toBe("closed");
+    expect(result.slot.isClosed).toBe(true);
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
   });
 
   it("같은 슬롯에 동시 호출이 발생해도 최종 상태는 reservation 1건/lock 1건이다 (트랜잭션 롤백 검증)", async () => {
@@ -215,8 +244,86 @@ describe("createReservationInMysql", () => {
       capacity: 4,
       reservedCount: 0,
       remaining: 4,
+      isClosed: false,
       status: "available",
     });
+  });
+});
+
+describe("updateReservationSlotPolicy", () => {
+  it("운영자가 슬롯 정원과 마감 상태를 변경할 수 있다", async () => {
+    const draft = draftFor("10:00");
+
+    const result = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draft,
+      capacity: 2,
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.slot).toMatchObject({
+      capacity: 2,
+      reservedCount: 0,
+      remaining: 0,
+      isClosed: true,
+      status: "closed",
+    });
+
+    const reopened = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draft,
+      isClosed: false,
+    });
+
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    expect(reopened.slot).toMatchObject({
+      capacity: 2,
+      remaining: 2,
+      isClosed: false,
+      status: "available",
+    });
+  });
+
+  it("이미 예약된 인원보다 낮은 정원으로 줄이는 것은 거부한다", async () => {
+    const draft = draftFor("11:00");
+    const first = await createReservationInMysql({
+      userId: userA,
+      draft,
+      gym: TEST_GYM,
+    });
+    const second = await createReservationInMysql({
+      userId: userB,
+      draft,
+      gym: TEST_GYM,
+    });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+
+    const result = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draft,
+      capacity: 1,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("conflict");
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: draft.gymId,
+          sport: draft.sport,
+          date: draft.date,
+          time: draft.time,
+        },
+      },
+    });
+    expect(slot.capacity).toBe(4);
+    expect(slot.reservedCount).toBe(2);
   });
 });
 
@@ -354,5 +461,192 @@ describe("cancelReservationInMysql", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe("not-found");
+  });
+});
+
+describe("listAdminReservations", () => {
+  it("관리자는 전체 예약을 조회하고 상태/날짜로 필터링할 수 있다", async () => {
+    const reservedDraft = draftFor("10:00");
+    const cancelledDraft = draftFor("11:00");
+
+    const reserved = await createReservationInMysql({
+      userId: userA,
+      draft: reservedDraft,
+      gym: TEST_GYM,
+    });
+    const cancelled = await createReservationInMysql({
+      userId: userB,
+      draft: cancelledDraft,
+      gym: TEST_GYM,
+    });
+    expect(reserved.ok).toBe(true);
+    expect(cancelled.ok).toBe(true);
+    if (!cancelled.ok) return;
+
+    await cancelReservationInMysql(userB, cancelled.reservation.id);
+
+    const all = await listAdminReservations();
+    const onlyReserved = await listAdminReservations({ status: "reserved" });
+    const byDate = await listAdminReservations({ date: reservedDraft.date });
+
+    expect(all).toHaveLength(2);
+    expect(onlyReserved).toHaveLength(1);
+    expect(onlyReserved[0].status).toBe("reserved");
+    expect(byDate).toHaveLength(2);
+  });
+});
+
+describe("cancelReservationAsAdminInMysql", () => {
+  it("관리자가 예약을 취소하면 lock이 해제되고 슬롯 카운터가 감소한다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const cancelled = await cancelReservationAsAdminInMysql(
+      created.reservation.id,
+    );
+
+    expect(cancelled.ok).toBe(true);
+    if (!cancelled.ok) return;
+    expect(cancelled.status).toBe("cancelled");
+    expect(cancelled.reservation.status).toBe("cancelled");
+    expect(await prisma.reservationLock.count()).toBe(0);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(0);
+  });
+
+  it("이미 취소된 예약을 다시 취소하면 unchanged로 멱등 처리된다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("11:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await cancelReservationAsAdminInMysql(created.reservation.id);
+    const second = await cancelReservationAsAdminInMysql(
+      created.reservation.id,
+    );
+
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.status).toBe("unchanged");
+    expect(second.reservation.status).toBe("cancelled");
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
+  it("이용 완료된 예약은 관리자도 취소할 수 없다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("12:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await markReservationUsedInMysql(created.reservation.id);
+    const result = await cancelReservationAsAdminInMysql(created.reservation.id);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("not-cancellable");
+    expect(result.reservation?.status).toBe("used");
+    expect(await prisma.reservationLock.count()).toBe(0);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
+  });
+});
+
+describe("markReservationUsedInMysql", () => {
+  it("예약을 이용 완료 처리하면 status가 used가 되고 lock은 해제되지만 슬롯 카운터는 유지된다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const used = await markReservationUsedInMysql(created.reservation.id);
+
+    expect(used.ok).toBe(true);
+    if (!used.ok) return;
+    expect(used.status).toBe("used");
+    expect(used.reservation.status).toBe("used");
+    expect(await prisma.reservationLock.count()).toBe(0);
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
+  });
+
+  it("이미 이용 완료된 예약을 다시 처리하면 unchanged로 멱등 처리된다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("11:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const first = await markReservationUsedInMysql(created.reservation.id);
+    const second = await markReservationUsedInMysql(created.reservation.id);
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.status).toBe("unchanged");
+    expect(second.reservation.status).toBe("used");
+  });
+
+  it("취소된 예약은 이용 완료 처리할 수 없다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("12:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await cancelReservationInMysql(userA, created.reservation.id);
+    const result = await markReservationUsedInMysql(created.reservation.id);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("not-usable");
+    expect(result.reservation?.status).toBe("cancelled");
   });
 });

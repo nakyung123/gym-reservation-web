@@ -88,14 +88,16 @@ function toSlotAvailability(
 ): ReservationSlotAvailability {
   const capacity = slot?.capacity ?? DEFAULT_SLOT_CAPACITY;
   const reservedCount = slot?.reservedCount ?? 0;
-  const remaining = Math.max(0, capacity - reservedCount);
+  const isClosed = slot?.isClosed ?? false;
+  const remaining = isClosed ? 0 : Math.max(0, capacity - reservedCount);
 
   return {
     ...key,
     capacity,
     reservedCount,
     remaining,
-    status: remaining > 0 ? "available" : "full",
+    isClosed,
+    status: isClosed ? "closed" : remaining > 0 ? "available" : "full",
   };
 }
 
@@ -129,6 +131,7 @@ async function reserveSlot(
         AND sport = ${key.sport}
         AND \`date\` = ${key.date}
         AND \`time\` = ${key.time}
+        AND is_closed = false
         AND reserved_count < capacity
     `,
   );
@@ -184,12 +187,126 @@ export async function listReservationSlotAvailabilities({
   );
 }
 
+export type UpdateReservationSlotPolicyInput = ReservationSlotKey & {
+  gym: Gym;
+  capacity?: number;
+  isClosed?: boolean;
+};
+
+export type UpdateReservationSlotPolicyOutput =
+  | { ok: true; slot: ReservationSlotAvailability }
+  | { ok: false; status: "rejected" | "conflict"; message: string };
+
+export async function updateReservationSlotPolicy({
+  gym,
+  capacity,
+  isClosed,
+  ...key
+}: UpdateReservationSlotPolicyInput): Promise<UpdateReservationSlotPolicyOutput> {
+  if (!gym.sports.includes(key.sport)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "선택한 종목은 이 체육관에서 예약할 수 없습니다.",
+    };
+  }
+
+  if (!gym.availableTimes.includes(key.time)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "선택한 시간은 이 체육관의 예약 가능 시간이 아닙니다.",
+    };
+  }
+
+  if (capacity === undefined && isClosed === undefined) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "변경할 정원 또는 마감 상태가 필요합니다.",
+    };
+  }
+
+  if (capacity !== undefined && (!Number.isInteger(capacity) || capacity < 1)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "정원은 1명 이상의 정수여야 합니다.",
+    };
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.reservationSlot.findUnique({
+      where: { gymId_sport_date_time: key },
+    });
+    const reservedCount = current?.reservedCount ?? 0;
+    const nextCapacity = capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
+
+    if (nextCapacity < reservedCount) {
+      return {
+        ok: false,
+        status: "conflict",
+        message: `이미 ${reservedCount}명이 예약한 시간대라 정원을 ${nextCapacity}명으로 줄일 수 없습니다.`,
+      };
+    }
+
+    const slot = await tx.reservationSlot.upsert({
+      where: {
+        gymId_sport_date_time: key,
+      },
+      create: {
+        ...key,
+        capacity: nextCapacity,
+        isClosed: isClosed ?? false,
+      },
+      update: {
+        capacity: nextCapacity,
+        ...(isClosed === undefined ? {} : { isClosed }),
+      },
+    });
+
+    return {
+      ok: true,
+      slot: toSlotAvailability(key, slot),
+    };
+  });
+}
+
 export async function listUserReservations(
   userId: string,
 ): Promise<Reservation[]> {
   const rows = await prisma.reservation.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
+  });
+  return rows.map(toDomainReservation);
+}
+
+export type ListAdminReservationsInput = {
+  status?: ReservationStatus;
+  gymId?: string;
+  date?: string;
+  userId?: string;
+  limit?: number;
+};
+
+export async function listAdminReservations({
+  status,
+  gymId,
+  date,
+  userId,
+  limit = 100,
+}: ListAdminReservationsInput = {}): Promise<Reservation[]> {
+  const where: Prisma.ReservationWhereInput = {};
+  if (status) where.status = status;
+  if (gymId) where.gymId = gymId;
+  if (date) where.date = date;
+  if (userId) where.userId = userId;
+
+  const rows = await prisma.reservation.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: limit,
   });
   return rows.map(toDomainReservation);
 }
@@ -297,7 +414,10 @@ export async function createReservationInMysql(
         ok: false,
         status: "full",
         slot: toSlotAvailability(error.key, slot),
-        message: "선택한 시간대의 예약 정원이 마감되었습니다.",
+        message:
+          slot?.isClosed === true
+            ? "선택한 시간대는 운영자에 의해 마감되었습니다."
+            : "선택한 시간대의 예약 정원이 마감되었습니다.",
       };
     }
 
@@ -335,6 +455,101 @@ export type CancelReservationOutput =
       message: string;
     };
 
+type CancelAuthorizedReservationOutput =
+  | {
+      ok: true;
+      status: "cancelled" | "unchanged";
+      reservation: Reservation;
+      message: string;
+    }
+  | {
+      ok: false;
+      status: "not-cancellable";
+      reservation: Reservation;
+      message: string;
+    };
+
+async function cancelAuthorizedReservation(
+  target: ReservationRow,
+): Promise<CancelAuthorizedReservationOutput> {
+  const domainTarget = toDomainReservation(target);
+
+  if (target.status === "cancelled") {
+    return {
+      ok: true,
+      status: "unchanged",
+      reservation: domainTarget,
+      message: "이미 취소된 예약입니다.",
+    };
+  }
+
+  if (target.status !== "reserved") {
+    return {
+      ok: false,
+      status: "not-cancellable",
+      reservation: domainTarget,
+      message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
+    };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const changed = await tx.reservation.updateMany({
+      where: { id: target.id, status: "reserved" },
+      data: { status: "cancelled" },
+    });
+
+    if (changed.count === 0) {
+      const latest = await tx.reservation.findUnique({
+        where: { id: target.id },
+      });
+      return {
+        status: latest?.status === "cancelled" ? "unchanged" : "not-cancellable",
+        reservation: latest ?? target,
+      } as const;
+    }
+
+    await tx.reservationLock.deleteMany({
+      where: { activeKey: target.activeKey },
+    });
+
+    await releaseSlot(tx, {
+      gymId: target.gymId,
+      sport: domainTarget.sport,
+      date: target.date,
+      time: target.time,
+    });
+
+    const latest = await tx.reservation.findUniqueOrThrow({
+      where: { id: target.id },
+    });
+
+    return {
+      status: "cancelled" as const,
+      reservation: latest,
+    };
+  });
+
+  const reservation = toDomainReservation(result.reservation);
+  if (result.status === "not-cancellable") {
+    return {
+      ok: false,
+      status: "not-cancellable",
+      reservation,
+      message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
+    };
+  }
+
+  return {
+    ok: true,
+    status: result.status,
+    reservation,
+    message:
+      result.status === "cancelled"
+        ? "예약이 취소되었습니다."
+        : "이미 취소된 예약입니다.",
+  };
+}
+
 export async function cancelReservationInMysql(
   userId: string,
   reservationId: string,
@@ -359,30 +574,94 @@ export async function cancelReservationInMysql(
     };
   }
 
+  return cancelAuthorizedReservation(target);
+}
+
+export type CancelReservationAsAdminOutput =
+  | {
+      ok: true;
+      status: "cancelled" | "unchanged";
+      reservation: Reservation;
+      message: string;
+    }
+  | {
+      ok: false;
+      status: "not-found" | "not-cancellable";
+      reservation?: Reservation;
+      message: string;
+    };
+
+export async function cancelReservationAsAdminInMysql(
+  reservationId: string,
+): Promise<CancelReservationAsAdminOutput> {
+  const target = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+  });
+
+  if (!target) {
+    return {
+      ok: false,
+      status: "not-found",
+      message: "취소할 예약을 찾을 수 없습니다.",
+    };
+  }
+
+  return cancelAuthorizedReservation(target);
+}
+
+export type MarkReservationUsedOutput =
+  | {
+      ok: true;
+      status: "used" | "unchanged";
+      reservation: Reservation;
+      message: string;
+    }
+  | {
+      ok: false;
+      status: "not-found" | "not-usable";
+      reservation?: Reservation;
+      message: string;
+    };
+
+export async function markReservationUsedInMysql(
+  reservationId: string,
+): Promise<MarkReservationUsedOutput> {
+  const target = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+  });
+
+  if (!target) {
+    return {
+      ok: false,
+      status: "not-found",
+      message: "이용 완료 처리할 예약을 찾을 수 없습니다.",
+    };
+  }
+
   const domainTarget = toDomainReservation(target);
 
-  if (target.status === "cancelled") {
+  if (target.status === "used") {
     return {
       ok: true,
       status: "unchanged",
       reservation: domainTarget,
-      message: "이미 취소된 예약입니다.",
+      message: "이미 이용 완료 처리된 예약입니다.",
     };
   }
 
   if (target.status !== "reserved") {
     return {
       ok: false,
-      status: "not-cancellable",
+      status: "not-usable",
       reservation: domainTarget,
-      message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
+      message: "예약 완료 상태의 예약만 이용 완료 처리할 수 있습니다.",
     };
   }
 
   const result = await prisma.$transaction(async (tx) => {
     const changed = await tx.reservation.updateMany({
-      where: { id: reservationId, userId, status: "reserved" },
-      data: { status: "cancelled" },
+      where: { id: reservationId, status: "reserved" },
+      data: { status: "used" },
     });
 
     if (changed.count === 0) {
@@ -399,19 +678,12 @@ export async function cancelReservationInMysql(
       where: { activeKey: target.activeKey },
     });
 
-    await releaseSlot(tx, {
-      gymId: target.gymId,
-      sport: target.sport as Sport,
-      date: target.date,
-      time: target.time,
-    });
-
     const latest = await tx.reservation.findUniqueOrThrow({
       where: { id: reservationId },
     });
 
     return {
-      status: "cancelled" as const,
+      status: "used" as const,
       reservation: latest,
     };
   });
@@ -421,8 +693,8 @@ export async function cancelReservationInMysql(
     status: result.status,
     reservation: toDomainReservation(result.reservation),
     message:
-      result.status === "cancelled"
-        ? "예약이 취소되었습니다."
-        : "이미 취소된 예약입니다.",
+      result.status === "used"
+        ? "예약을 이용 완료 처리했습니다."
+        : "이미 이용 완료 처리된 예약입니다.",
   };
 }
