@@ -25,6 +25,7 @@ async function upsertGym(gym) {
     facilities: gym.facilities,
     availableTimes: gym.availableTimes,
     closedDays: gym.closedDays,
+    isActive: gym.isActive ?? true,
   };
 
   const sportRows = gym.sports.map((sport) => ({ sport }));

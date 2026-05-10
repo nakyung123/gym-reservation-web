@@ -22,6 +22,10 @@ export type Gym = {
   description: string;
 };
 
+export type AdminGym = Gym & {
+  isActive: boolean;
+};
+
 export type ReservationStatus = "reserved" | "cancelled" | "used";
 
 export type Reservation = {

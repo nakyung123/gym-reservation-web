@@ -3,6 +3,12 @@ import { AdminOverviewPanel } from "@/components/admin/admin-overview-panel";
 
 const adminLinks = [
   {
+    href: "/admin/gyms",
+    title: "시설 관리",
+    description: "체육관 데이터를 추가하고 운영 상태와 기본 정보를 수정합니다.",
+    meta: "시설 CRUD",
+  },
+  {
     href: "/admin/reservations",
     title: "예약 관리",
     description: "예약 목록을 조회하고 이용 완료 또는 관리자 취소를 처리합니다.",

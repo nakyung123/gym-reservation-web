@@ -26,6 +26,7 @@ model Gym {
   facilities     Json
   availableTimes Json          @map("available_times")
   closedDays     Json          @map("closed_days")
+  isActive       Boolean       @default(true) @map("is_active")
   sports           GymSport[]
   favorites        Favorite[]
   reservations     Reservation[]
