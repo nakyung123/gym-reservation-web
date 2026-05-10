@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "공공체육관 예약",
   description:
-    "서울 공공체육관의 종목, 운영시간, 가격, 남은 시간대를 한 흐름에서 확인하는 포트폴리오용 MVP입니다.",
+    "서울 공공체육관의 종목, 운영시간, 가격, 남은 시간대를 한 흐름에서 확인합니다.",
 };
 
 export default function RootLayout({
@@ -56,8 +56,7 @@ export default function RootLayout({
         </header>
         <div className="border-b border-amber-200 bg-amber-50">
           <p className="mx-auto max-w-6xl px-4 py-2 text-xs font-semibold leading-5 text-amber-900 sm:px-8 lg:px-10">
-            포트폴리오용 MVP입니다. 화면에서 생성한 예약은 실제 시설 예약으로
-            접수되지 않습니다.
+            화면에서 생성한 예약은 실제 시설 예약으로 접수되지 않습니다.
           </p>
         </div>
         {children}

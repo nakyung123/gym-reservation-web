@@ -41,7 +41,7 @@ export default async function Home() {
         <div className="grid gap-6 border-b border-slate-200 pb-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold text-sky-700">
-              서울 공공체육시설 MVP
+              서울 공공체육시설 예약
             </p>
             <h1 className="mt-3 text-4xl font-bold tracking-normal text-slate-950 sm:text-5xl">
               서울 공공체육관을 찾고 예약 흐름을 확인하세요

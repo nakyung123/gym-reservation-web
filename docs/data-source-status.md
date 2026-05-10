@@ -35,7 +35,7 @@
 ## mock / local은 왜 남는가
 
 - `mockGymRepository` (`gym-repository.ts` + `mock-data.ts`): `src/data/gyms.json`만 있으면 DB 연결 없이도 화면을 띄울 수 있다. 실패 격리, 디자인 검토, 신규 환경 셋업 첫 단계에서 유용.
-- `localStorageFavoriteRepository`: 로그인 없이 즐겨찾기 토글이 가능. 데모/리뷰어가 로컬에서 빠르게 만져볼 때 진입 장벽 제거.
+- `localStorageFavoriteRepository`: 로그인 없이 즐겨찾기 토글이 가능. 로컬 환경에서 빠르게 기능을 확인할 때 진입 장벽 제거.
 
 ## Firestore 어댑터 — 보존 vs 제거 판단
 
@@ -49,7 +49,7 @@
 | **합계 (전용 코드)** | **~660** |
 
 ### 보존 근거
-- 다중 어댑터 패턴(repository pattern)을 실제로 두 개 이상의 백엔드로 구현해본 사례로 시연 가치.
+- 다중 어댑터 패턴(repository pattern)을 두 개 이상의 백엔드로 검증할 수 있다.
 - MySQL 환경 장애 시 환경변수 한 줄로 즉시 롤백 가능.
 - Prisma 스키마 마이그레이션 중 비교 대상.
 
@@ -60,7 +60,7 @@
 - 어댑터 인터페이스가 진화할 때 firebase 어댑터의 결함이 늦게 드러날 위험.
 
 ### 판단 체크리스트
-- [ ] 포트폴리오 발표/면접에서 "다중 어댑터 시연"을 활용할 의향이 있나?
+- [ ] 다중 어댑터 구조를 앞으로도 유지할 필요가 있나?
 - [ ] 향후 Firebase Auth 외에 Firestore 기반 기능을 추가할 계획이 있나?
 - [ ] MySQL 어댑터 관련 변경 시 firebase 어댑터를 함께 유지할 시간 여유가 있나?
 
