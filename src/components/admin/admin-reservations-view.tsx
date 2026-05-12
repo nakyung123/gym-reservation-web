@@ -1,14 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  fetchAdminReservation,
   fetchAdminReservations,
   updateAdminReservationStatus,
 } from "@/lib/admin/admin-reservation-client";
 import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
 import type { Gym, Reservation, ReservationStatus } from "@/types/domain";
+
+type DetailState =
+  | { status: "idle" }
+  | { status: "loading"; reservationId: string }
+  | { status: "ready"; reservation: Reservation }
+  | { status: "error"; reservationId: string; message: string };
+
+function isAbortError(error: unknown): boolean {
+  return (
+    (error instanceof DOMException && error.name === "AbortError") ||
+    (error instanceof Error && error.name === "AbortError")
+  );
+}
 
 type AdminReservationsViewProps = {
   gyms: Gym[];
@@ -110,6 +124,15 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [actionState, setActionState] = useState<ActionState | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [detailState, setDetailState] = useState<DetailState>({
+    status: "idle",
+  });
+  const detailAbortRef = useRef<AbortController | null>(null);
+  const listAbortRef = useRef<AbortController | null>(null);
+  const actionAbortRef = useRef<AbortController | null>(null);
+  // 필터 변경 시점에는 abort가 트리거되지 않으므로, 응답 도착 시 현재 필터 키와
+  // 비교해 stale 응답이 새 필터 화면을 덮지 않게 한다.
+  const listQueryKeyRef = useRef<string>("");
 
   const gymsById = useMemo(
     () => new Map(gyms.map((gym) => [gym.id, gym])),
@@ -126,6 +149,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
   const canQuery =
     Boolean(savedToken) &&
     isLimitValid &&
+    !actionState &&
     reservationsState.status !== "loading";
 
   // hydration 이후 sessionStorage의 토큰을 한 번만 읽는다.
@@ -142,18 +166,153 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     return () => window.clearTimeout(timer);
   }, []);
 
-  const updateReservationRow = useCallback((reservation: Reservation) => {
-    setReservationsState((prev) => {
-      if (prev.status !== "ready") {
-        return prev;
-      }
-      return {
-        status: "ready",
-        reservations: prev.reservations.map((current) =>
-          current.id === reservation.id ? reservation : current,
-        ),
-      };
+  // 현재 필터 값을 키 문자열로 보관. handleQuery에서 fetch 전 캡처해
+  // 응답 도착 시 stale 여부를 비교한다.
+  useEffect(() => {
+    listQueryKeyRef.current = JSON.stringify({
+      status: selectedStatus,
+      gymId: selectedGymId,
+      date: selectedDate,
+      userId: userIdInput.trim(),
+      limit: parsedLimit,
     });
+  }, [
+    selectedStatus,
+    selectedGymId,
+    selectedDate,
+    userIdInput,
+    parsedLimit,
+  ]);
+
+  const reservationMatchesCurrentFilters = useCallback(
+    (reservation: Reservation) => {
+      if (selectedStatus !== "all" && reservation.status !== selectedStatus) {
+        return false;
+      }
+      if (selectedGymId && reservation.gymId !== selectedGymId) {
+        return false;
+      }
+      if (selectedDate && reservation.date !== selectedDate) {
+        return false;
+      }
+
+      const selectedUserId = userIdInput.trim();
+      return !selectedUserId || reservation.userId === selectedUserId;
+    },
+    [selectedDate, selectedGymId, selectedStatus, userIdInput],
+  );
+
+  const updateReservationRow = useCallback(
+    (reservation: Reservation) => {
+      setReservationsState((prev) => {
+        if (prev.status !== "ready") {
+          return prev;
+        }
+
+        const shouldKeepReservation =
+          reservationMatchesCurrentFilters(reservation);
+        return {
+          status: "ready",
+          reservations: prev.reservations.flatMap((current) => {
+            if (current.id !== reservation.id) {
+              return [current];
+            }
+            return shouldKeepReservation ? [reservation] : [];
+          }),
+        };
+      });
+      // 같은 예약의 상세 패널이 열려 있다면 함께 갱신해 행과 상세 표시를 일치시킨다.
+      setDetailState((prev) => {
+        if (
+          prev.status === "ready" &&
+          prev.reservation.id === reservation.id
+        ) {
+          return { status: "ready", reservation };
+        }
+        return prev;
+      });
+    },
+    [reservationMatchesCurrentFilters],
+  );
+
+  const handleCloseDetail = useCallback(() => {
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = null;
+    setDetailState({ status: "idle" });
+  }, []);
+
+  const handleOpenDetail = useCallback(
+    async (reservationId: string) => {
+      if (!savedToken) {
+        setDetailState({
+          status: "error",
+          reservationId,
+          message: "관리자 토큰을 저장한 뒤 상세를 조회할 수 있습니다.",
+        });
+        return;
+      }
+
+      // 직전 상세 요청은 abort. 응답 도착 시점에 사용자가 다른 행을 눌렀거나
+      // 닫았다면 그 응답이 현재 화면을 덮지 않게 한다.
+      detailAbortRef.current?.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
+
+      setDetailState({ status: "loading", reservationId });
+
+      let result;
+      try {
+        result = await fetchAdminReservation(
+          reservationId,
+          savedToken,
+          controller.signal,
+        );
+      } catch (error) {
+        if (isAbortError(error)) {
+          return;
+        }
+        // helper가 abort 외 예외는 result로 변환하므로 여기는 사실상 도달하지 않음.
+        setDetailState({
+          status: "error",
+          reservationId,
+          message:
+            error instanceof Error
+              ? error.message
+              : "예약 상세를 불러오지 못했습니다.",
+        });
+        return;
+      }
+
+      // 응답 도착 시점에 controller가 교체되었다면(다른 요청이 시작됐다면) 무시.
+      if (detailAbortRef.current !== controller) {
+        return;
+      }
+      detailAbortRef.current = null;
+
+      if (result.ok) {
+        setDetailState({ status: "ready", reservation: result.reservation });
+        return;
+      }
+
+      setDetailState({
+        status: "error",
+        reservationId,
+        message: result.message,
+      });
+    },
+    [savedToken],
+  );
+
+  // unmount 시 진행 중 목록/상세/상태 변경 요청을 모두 abort.
+  useEffect(() => {
+    return () => {
+      listAbortRef.current?.abort();
+      listAbortRef.current = null;
+      detailAbortRef.current?.abort();
+      detailAbortRef.current = null;
+      actionAbortRef.current?.abort();
+      actionAbortRef.current = null;
+    };
   }, []);
 
   const handleSaveToken = useCallback(() => {
@@ -172,9 +331,21 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     setReservationsState({ status: "idle" });
     setNotice(null);
     setConfirmCancelId(null);
+    listAbortRef.current?.abort();
+    listAbortRef.current = null;
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = null;
+    actionAbortRef.current?.abort();
+    actionAbortRef.current = null;
+    setDetailState({ status: "idle" });
+    setActionState(null);
   }, []);
 
   const handleQuery = useCallback(async () => {
+    if (actionState) {
+      return;
+    }
+
     if (!savedToken) {
       setReservationsState({
         status: "error",
@@ -191,20 +362,68 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
       return;
     }
 
+    // 직전 목록 요청은 abort. 사용자가 필터를 바꾸고 다시 조회했을 때
+    // 늦게 도착한 이전 응답이 현재 화면을 덮지 않도록 한다.
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
+    // 조회 버튼을 다시 누르지 않고 필터만 바꾼 경우엔 abort가 발동하지 않으므로,
+    // requestKey로 응답 도착 시점의 필터 상태와 비교해 stale을 한 번 더 막는다.
+    const requestKey = listQueryKeyRef.current;
+
     setReservationsState({ status: "loading" });
     setNotice(null);
     setConfirmCancelId(null);
+    actionAbortRef.current?.abort();
+    actionAbortRef.current = null;
+    setActionState(null);
+    // 목록을 새로 조회하면 이전 선택은 stale 가능성이 있으므로 상세 패널을 닫는다.
+    detailAbortRef.current?.abort();
+    detailAbortRef.current = null;
+    setDetailState({ status: "idle" });
 
-    const result = await fetchAdminReservations(
-      {
-        status: selectedStatus === "all" ? undefined : selectedStatus,
-        gymId: selectedGymId || undefined,
-        date: selectedDate || undefined,
-        userId: userIdInput.trim() || undefined,
-        limit: parsedLimit,
-      },
-      savedToken,
-    );
+    let result;
+    try {
+      result = await fetchAdminReservations(
+        {
+          status: selectedStatus === "all" ? undefined : selectedStatus,
+          gymId: selectedGymId || undefined,
+          date: selectedDate || undefined,
+          userId: userIdInput.trim() || undefined,
+          limit: parsedLimit,
+        },
+        savedToken,
+        controller.signal,
+      );
+    } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+      // helper가 abort 외 예외는 result로 변환하므로 여기는 사실상 도달하지 않음.
+      if (
+        listAbortRef.current === controller &&
+        listQueryKeyRef.current === requestKey
+      ) {
+        listAbortRef.current = null;
+        setReservationsState({
+          status: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "예약 목록을 불러오지 못했습니다.",
+        });
+      }
+      return;
+    }
+
+    // 응답 도착 시점에 controller가 교체되었거나 필터가 바뀌었다면 무시.
+    if (
+      listAbortRef.current !== controller ||
+      listQueryKeyRef.current !== requestKey
+    ) {
+      return;
+    }
+    listAbortRef.current = null;
 
     if (result.ok) {
       setReservationsState({
@@ -218,6 +437,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
   }, [
     isLimitValid,
     parsedLimit,
+    actionState,
     savedToken,
     selectedDate,
     selectedGymId,
@@ -237,11 +457,40 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     setNotice(null);
     setConfirmCancelId(null);
 
-    const result = await updateAdminReservationStatus(
-      reservation.id,
-      nextStatus,
-      savedToken,
-    );
+    actionAbortRef.current?.abort();
+    const controller = new AbortController();
+    actionAbortRef.current = controller;
+
+    let result;
+    try {
+      result = await updateAdminReservationStatus(
+        reservation.id,
+        nextStatus,
+        savedToken,
+        controller.signal,
+      );
+    } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
+      if (actionAbortRef.current === controller) {
+        actionAbortRef.current = null;
+        setNotice({
+          tone: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "예약 상태를 변경하지 못했습니다.",
+        });
+        setActionState(null);
+      }
+      return;
+    }
+
+    if (actionAbortRef.current !== controller) {
+      return;
+    }
+    actionAbortRef.current = null;
 
     if (result.reservation) {
       updateReservationRow(result.reservation);
@@ -253,6 +502,84 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     });
     setActionState(null);
   };
+
+  // 행 액션과 상세 액션이 같은 표현을 쓰도록 한 곳에서 렌더링한다.
+  const renderReservationActions = (reservation: Reservation) => {
+    const actionIsPending = actionState?.reservationId === reservation.id;
+    const isCancelling =
+      actionIsPending && actionState.nextStatus === "cancelled";
+    const isMarkingUsed =
+      actionIsPending && actionState.nextStatus === "used";
+    const canAct =
+      reservation.status === "reserved" &&
+      Boolean(savedToken) &&
+      !actionState;
+
+    if (reservation.status !== "reserved") {
+      return (
+        <span className="text-xs font-semibold text-slate-400">
+          처리 완료
+        </span>
+      );
+    }
+
+    if (confirmCancelId === reservation.id) {
+      return (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold text-rose-700">
+            이 예약을 취소할까요?
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => handleUpdateStatus(reservation, "cancelled")}
+              disabled={!canAct}
+              className="h-8 rounded-md bg-rose-700 px-3 text-xs font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+            >
+              {isCancelling ? "취소 중" : "취소 확정"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmCancelId(null)}
+              disabled={Boolean(actionState)}
+              className="h-8 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              유지
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => handleUpdateStatus(reservation, "used")}
+          disabled={!canAct}
+          className="h-8 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+        >
+          {isMarkingUsed ? "처리 중" : "이용 완료"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setConfirmCancelId(reservation.id)}
+          disabled={!canAct}
+          className="h-8 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+        >
+          관리자 취소
+        </button>
+      </div>
+    );
+  };
+
+  const selectedDetailId =
+    detailState.status === "loading" ||
+    detailState.status === "error"
+      ? detailState.reservationId
+      : detailState.status === "ready"
+        ? detailState.reservation.id
+        : null;
 
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
@@ -418,6 +745,130 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           </div>
         ) : null}
 
+        {detailState.status !== "idle" ? (
+          <section className="rounded-lg border border-sky-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-950">
+                  선택된 예약 상세
+                </h2>
+                {detailState.status === "loading" ? (
+                  <p className="mt-1 text-xs text-slate-500">
+                    예약 상세를 불러오는 중입니다.
+                  </p>
+                ) : null}
+                {detailState.status === "error" ? (
+                  <p
+                    className="mt-1 font-mono text-xs text-slate-500"
+                    aria-label="요청한 예약 ID"
+                  >
+                    {detailState.reservationId}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseDetail}
+                className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                닫기
+              </button>
+            </div>
+
+            {detailState.status === "error" ? (
+              <p
+                className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+                role="alert"
+              >
+                {detailState.message}
+              </p>
+            ) : null}
+
+            {detailState.status === "ready" ? (
+              <>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      예약번호
+                    </p>
+                    <p className="mt-1 break-all font-mono text-sm text-slate-900">
+                      {detailState.reservation.id}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      사용자 ID
+                    </p>
+                    <p className="mt-1 break-all font-mono text-sm text-slate-900">
+                      {detailState.reservation.userId}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      시설
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {gymsById.get(detailState.reservation.gymId)?.name ??
+                        "시설 정보 없음"}
+                    </p>
+                    <p className="mt-1 font-mono text-xs text-slate-500">
+                      {detailState.reservation.gymId}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      종목
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {detailState.reservation.sport}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      이용 일시
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {detailState.reservation.date}{" "}
+                      {detailState.reservation.time}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      금액
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {formatGymPrice(detailState.reservation.price)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      상태
+                    </p>
+                    <p className="mt-1">
+                      <span
+                        className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-semibold ${statusBadgeStyles[detailState.reservation.status]}`}
+                      >
+                        {statusLabels[detailState.reservation.status]}
+                      </span>
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600">
+                      생성일
+                    </p>
+                    <p className="mt-1 text-sm text-slate-900">
+                      {formatCreatedAt(detailState.reservation.createdAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  {renderReservationActions(detailState.reservation)}
+                </div>
+              </>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -491,22 +942,18 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                   <tbody>
                     {reservations.map((reservation) => {
                       const gym = gymsById.get(reservation.gymId);
-                      const actionIsPending =
-                        actionState?.reservationId === reservation.id;
-                      const isCancelling =
-                        actionIsPending &&
-                        actionState.nextStatus === "cancelled";
-                      const isMarkingUsed =
-                        actionIsPending && actionState.nextStatus === "used";
-                      const canAct =
-                        reservation.status === "reserved" &&
-                        Boolean(savedToken) &&
-                        !actionState;
+                      const isSelectedDetail =
+                        selectedDetailId === reservation.id;
+                      const isDetailLoading =
+                        detailState.status === "loading" &&
+                        detailState.reservationId === reservation.id;
 
                       return (
                         <tr
                           key={reservation.id}
-                          className="border-b border-slate-100 align-top"
+                          className={`border-b border-slate-100 align-top ${
+                            isSelectedDetail ? "bg-sky-50/60" : ""
+                          }`}
                         >
                           <td className="px-3 py-3">
                             <p className="font-mono text-xs font-bold text-slate-950">
@@ -515,6 +962,15 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                             <p className="mt-1 text-xs text-slate-500">
                               {formatCreatedAt(reservation.createdAt)}
                             </p>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDetail(reservation.id)}
+                              disabled={!savedToken || isDetailLoading}
+                              className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                              aria-pressed={isSelectedDetail}
+                            >
+                              {isDetailLoading ? "여는 중" : "상세"}
+                            </button>
                           </td>
                           <td className="px-3 py-3">
                             <p className="font-semibold text-slate-950">
@@ -548,65 +1004,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                             </span>
                           </td>
                           <td className="min-w-44 px-3 py-3">
-                            {reservation.status === "reserved" ? (
-                              confirmCancelId === reservation.id ? (
-                                <div className="flex flex-col gap-2">
-                                  <p className="text-xs font-semibold text-rose-700">
-                                    이 예약을 취소할까요?
-                                  </p>
-                                  <div className="flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleUpdateStatus(
-                                          reservation,
-                                          "cancelled",
-                                        )
-                                      }
-                                      disabled={!canAct}
-                                      className="h-8 rounded-md bg-rose-700 px-3 text-xs font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-                                    >
-                                      {isCancelling ? "취소 중" : "취소 확정"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setConfirmCancelId(null)}
-                                      disabled={Boolean(actionState)}
-                                      className="h-8 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-                                    >
-                                      유지
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex flex-wrap gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleUpdateStatus(reservation, "used")
-                                    }
-                                    disabled={!canAct}
-                                    className="h-8 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
-                                  >
-                                    {isMarkingUsed ? "처리 중" : "이용 완료"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setConfirmCancelId(reservation.id)
-                                    }
-                                    disabled={!canAct}
-                                    className="h-8 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-                                  >
-                                    관리자 취소
-                                  </button>
-                                </div>
-                              )
-                            ) : (
-                              <span className="text-xs font-semibold text-slate-400">
-                                처리 완료
-                              </span>
-                            )}
+                            {renderReservationActions(reservation)}
                           </td>
                         </tr>
                       );

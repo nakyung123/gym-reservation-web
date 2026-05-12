@@ -26,7 +26,7 @@ import type { Reservation, ReservationDraft } from "@/types/domain";
 let currentSnapshot = LOADING_RESERVATION_SNAPSHOT;
 let authUnsubscribe: (() => void) | null = null;
 let lastFetchedUserId: string | null = null;
-let inflightFetch: Promise<void> | null = null;
+const pendingReservationsById = new Map<string, Reservation>();
 
 const listeners = new Set<() => void>();
 
@@ -62,17 +62,56 @@ function sortReservations(reservations: Reservation[]): Reservation[] {
   );
 }
 
-function upsertCurrentReservation(reservation: Reservation) {
-  const current = parseReservationSnapshot(currentSnapshot);
-  if (!current.ok) {
-    return;
+function isSameReservation(left: Reservation, right: Reservation): boolean {
+  return (
+    left.id === right.id &&
+    left.userId === right.userId &&
+    left.gymId === right.gymId &&
+    left.sport === right.sport &&
+    left.date === right.date &&
+    left.time === right.time &&
+    left.price === right.price &&
+    left.status === right.status &&
+    left.createdAt === right.createdAt
+  );
+}
+
+function mergePendingReservations(reservations: Reservation[]): Reservation[] {
+  const byId = new Map(
+    reservations.map((reservation) => [reservation.id, reservation]),
+  );
+
+  for (const [reservationId, pendingReservation] of pendingReservationsById) {
+    if (pendingReservation.userId !== lastFetchedUserId) {
+      continue;
+    }
+
+    const serverReservation = byId.get(reservationId);
+    if (
+      serverReservation &&
+      isSameReservation(serverReservation, pendingReservation)
+    ) {
+      pendingReservationsById.delete(reservationId);
+      continue;
+    }
+
+    byId.set(reservationId, pendingReservation);
   }
-  const exists = current.reservations.some((item) => item.id === reservation.id);
+
+  return sortReservations([...byId.values()]);
+}
+
+function upsertCurrentReservation(reservation: Reservation) {
+  pendingReservationsById.set(reservation.id, reservation);
+
+  const current = parseReservationSnapshot(currentSnapshot);
+  const currentReservations = current.ok ? current.reservations : [];
+  const exists = currentReservations.some((item) => item.id === reservation.id);
   const next = exists
-    ? current.reservations.map((item) =>
+    ? currentReservations.map((item) =>
         item.id === reservation.id ? reservation : item,
       )
-    : [reservation, ...current.reservations];
+    : [reservation, ...currentReservations];
 
   setCurrentSnapshot(createReservationsReadySnapshot(sortReservations(next)));
 }
@@ -93,6 +132,15 @@ async function getIdToken(): Promise<string | null> {
 async function fetchReservations(userId: string): Promise<void> {
   const idToken = await getIdToken();
   if (!idToken) {
+    if (lastFetchedUserId === userId) {
+      setCurrentSnapshot(
+        createReservationsFailedSnapshot(
+          reservationAuthRequired(
+            "로그인 정보가 없어 예약 목록을 불러올 수 없습니다.",
+          ),
+        ),
+      );
+    }
     return;
   }
 
@@ -102,6 +150,9 @@ async function fetchReservations(userId: string): Promise<void> {
       headers: { Authorization: `Bearer ${idToken}` },
     });
   } catch (error) {
+    if (lastFetchedUserId !== userId) {
+      return;
+    }
     setCurrentSnapshot(
       createReservationsFailedSnapshot(
         remoteReservationUnavailable(
@@ -113,6 +164,9 @@ async function fetchReservations(userId: string): Promise<void> {
   }
 
   if (!response.ok) {
+    if (lastFetchedUserId !== userId) {
+      return;
+    }
     setCurrentSnapshot(
       createReservationsFailedSnapshot(
         remoteReservationUnavailable(
@@ -127,6 +181,9 @@ async function fetchReservations(userId: string): Promise<void> {
   try {
     data = (await response.json()) as { reservations?: unknown };
   } catch {
+    if (lastFetchedUserId !== userId) {
+      return;
+    }
     setCurrentSnapshot(
       createReservationsFailedSnapshot(
         remoteReservationUnavailable("예약 응답 형식이 올바르지 않습니다."),
@@ -139,6 +196,9 @@ async function fetchReservations(userId: string): Promise<void> {
     !Array.isArray(data.reservations) ||
     !data.reservations.every(isReservation)
   ) {
+    if (lastFetchedUserId !== userId) {
+      return;
+    }
     setCurrentSnapshot(
       createReservationsFailedSnapshot(
         remoteReservationUnavailable("예약 응답 형식이 올바르지 않습니다."),
@@ -152,7 +212,7 @@ async function fetchReservations(userId: string): Promise<void> {
   }
 
   setCurrentSnapshot(
-    createReservationsReadySnapshot(sortReservations(data.reservations)),
+    createReservationsReadySnapshot(mergePendingReservations(data.reservations)),
   );
 }
 
@@ -162,6 +222,7 @@ function syncWithAuth() {
   if (!session.ok) {
     if (lastFetchedUserId !== null) {
       lastFetchedUserId = null;
+      pendingReservationsById.clear();
     }
     if (session.reason === "not-ready") {
       setCurrentSnapshot(createReservationsLoadingSnapshot(session.message));
@@ -175,14 +236,11 @@ function syncWithAuth() {
     return;
   }
 
+  pendingReservationsById.clear();
   lastFetchedUserId = session.userId;
   setCurrentSnapshot(LOADING_RESERVATION_SNAPSHOT);
 
-  if (!inflightFetch) {
-    inflightFetch = fetchReservations(session.userId).finally(() => {
-      inflightFetch = null;
-    });
-  }
+  void fetchReservations(session.userId);
 }
 
 function ensureAuthSubscription() {
@@ -444,6 +502,7 @@ function subscribeReservations(listener: () => void) {
       authUnsubscribe();
       authUnsubscribe = null;
       lastFetchedUserId = null;
+      pendingReservationsById.clear();
       setCurrentSnapshot(LOADING_RESERVATION_SNAPSHOT);
     }
   };

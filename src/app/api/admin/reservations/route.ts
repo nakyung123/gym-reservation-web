@@ -1,24 +1,11 @@
 import type { NextRequest } from "next/server";
+import { isReservationStatus } from "@/lib/domain-constants";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { listAdminReservations } from "@/lib/server/mysql-reservation-repository";
-import type { ReservationStatus } from "@/types/domain";
 
 export const dynamic = "force-dynamic";
 
-const reservationStatuses: readonly ReservationStatus[] = [
-  "reserved",
-  "cancelled",
-  "used",
-];
-
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
-function isReservationStatus(value: unknown): value is ReservationStatus {
-  return (
-    typeof value === "string" &&
-    (reservationStatuses as readonly string[]).includes(value)
-  );
-}
 
 function parseLimit(value: string | null): number | undefined {
   if (!value) return undefined;

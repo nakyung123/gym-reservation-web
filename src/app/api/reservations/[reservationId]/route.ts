@@ -1,10 +1,31 @@
 import type { NextRequest } from "next/server";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
-import { cancelReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import {
+  cancelReservationInMysql,
+  getUserReservationById,
+} from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
 
 type Context = { params: Promise<{ reservationId: string }> };
+
+export async function GET(request: NextRequest, ctx: Context) {
+  const auth = await verifyIdTokenFromRequest(request);
+  if (!auth.ok) {
+    return Response.json({ message: auth.message }, { status: auth.status });
+  }
+
+  const { reservationId } = await ctx.params;
+  const reservation = await getUserReservationById(auth.uid, reservationId);
+  if (!reservation) {
+    return Response.json(
+      { message: "예약을 찾을 수 없습니다." },
+      { status: 404 },
+    );
+  }
+
+  return Response.json({ reservation });
+}
 
 export async function DELETE(request: NextRequest, ctx: Context) {
   const auth = await verifyIdTokenFromRequest(request);

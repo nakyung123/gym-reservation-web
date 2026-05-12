@@ -1,12 +1,8 @@
+import { SPORTS, isSport } from "@/lib/domain-constants";
 import type { AdminGym, Sport } from "@/types/domain";
 
-export const ADMIN_GYM_SPORTS = [
-  "배드민턴",
-  "농구",
-  "풋살",
-  "탁구",
-  "배구",
-] as const satisfies readonly Sport[];
+export const ADMIN_GYM_SPORTS = SPORTS;
+export { isSport };
 
 export type AdminGymUpdateInput = Omit<AdminGym, "id">;
 
@@ -19,13 +15,6 @@ const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-export function isSport(value: unknown): value is Sport {
-  return (
-    typeof value === "string" &&
-    (ADMIN_GYM_SPORTS as readonly string[]).includes(value)
-  );
 }
 
 function parseText(

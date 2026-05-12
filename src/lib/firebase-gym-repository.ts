@@ -10,11 +10,11 @@ import {
   type Firestore,
 } from "firebase/firestore/lite";
 import { getFirebaseApp } from "@/lib/firebase-app";
+import { isSport } from "@/lib/domain-constants";
 import type { Gym, Sport } from "@/types/domain";
 import type { GymRepository } from "@/lib/gym-repository";
 
 const GYMS_COLLECTION = "gyms";
-const sports: Sport[] = ["배드민턴", "농구", "풋살", "탁구", "배구"];
 let cachedGymDb: Firestore | null = null;
 
 function getFirebaseGymDb(): Firestore {
@@ -25,10 +25,6 @@ function getFirebaseGymDb(): Firestore {
   cachedGymDb = getFirestore(getFirebaseApp());
 
   return cachedGymDb;
-}
-
-function isSport(value: unknown): value is Sport {
-  return typeof value === "string" && sports.includes(value as Sport);
 }
 
 function isStringArray(value: unknown): value is string[] {

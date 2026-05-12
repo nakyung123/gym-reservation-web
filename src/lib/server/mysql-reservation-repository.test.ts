@@ -4,9 +4,12 @@ import {
   cancelReservationInMysql,
   createReservationInMysql,
   getAdminReservationOverview,
+  getAdminReservationById,
+  getUserReservationById,
   listAdminReservations,
   listReservationSlotAvailabilities,
   markReservationUsedInMysql,
+  updateReservationSlotPolicies,
   updateReservationSlotPolicy,
 } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -301,6 +304,42 @@ describe("createReservationInMysql", () => {
   });
 });
 
+describe("getUserReservationById", () => {
+  it("사용자는 본인 예약을 ID로 조회할 수 있다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const reservation = await getUserReservationById(
+      userA,
+      created.reservation.id,
+    );
+
+    expect(reservation).toEqual(created.reservation);
+  });
+
+  it("다른 사용자의 예약은 조회하지 않는다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const reservation = await getUserReservationById(
+      userB,
+      created.reservation.id,
+    );
+
+    expect(reservation).toBeNull();
+  });
+});
+
 describe("updateReservationSlotPolicy", () => {
   it("운영자가 슬롯 정원과 마감 상태를 변경할 수 있다", async () => {
     const draft = draftFor("10:00");
@@ -375,6 +414,168 @@ describe("updateReservationSlotPolicy", () => {
     });
     expect(slot.capacity).toBe(4);
     expect(slot.reservedCount).toBe(2);
+  });
+
+  it("체육관 정보와 슬롯 대상이 다르면 변경하지 않는다", async () => {
+    const result = await updateReservationSlotPolicy({
+      gym: { ...TEST_GYM, id: "another-gym" },
+      ...draftFor("10:00"),
+      capacity: 5,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("정원 상한을 넘긴 슬롯 정책 변경을 거부한다", async () => {
+    const result = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draftFor("10:00"),
+      capacity: 1000,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+});
+
+describe("updateReservationSlotPolicies", () => {
+  it("운영자가 여러 날짜와 시간대의 슬롯 정책을 한 번에 변경할 수 있다", async () => {
+    const firstDate = futureDate();
+    const secondDate = futureDate(8);
+
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: "배드민턴",
+      dates: [firstDate, secondDate],
+      times: ["10:00", "11:00"],
+      capacity: 6,
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.updatedCount).toBe(4);
+    expect(result.slots).toHaveLength(4);
+    expect(result.slots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          date: firstDate,
+          time: "10:00",
+          capacity: 6,
+          isClosed: true,
+          status: "closed",
+        }),
+        expect.objectContaining({
+          date: secondDate,
+          time: "11:00",
+          capacity: 6,
+          isClosed: true,
+          status: "closed",
+        }),
+      ]),
+    );
+
+    const rows = await prisma.reservationSlot.findMany({
+      where: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: { in: [firstDate, secondDate] },
+        time: { in: ["10:00", "11:00"] },
+      },
+    });
+    expect(rows).toHaveLength(4);
+    expect(rows.every((row) => row.capacity === 6)).toBe(true);
+    expect(rows.every((row) => row.isClosed)).toBe(true);
+  });
+
+  it("일괄 변경 중 충돌이 있으면 전체 변경을 거부한다", async () => {
+    const date = futureDate();
+    const reservedDraft = {
+      gymId: TEST_GYM.id,
+      sport: "배드민턴" as const,
+      date,
+      time: "10:00",
+    };
+    const first = await createReservationInMysql({
+      userId: userA,
+      draft: reservedDraft,
+      gym: TEST_GYM,
+    });
+    const second = await createReservationInMysql({
+      userId: userB,
+      draft: reservedDraft,
+      gym: TEST_GYM,
+    });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: "배드민턴",
+      dates: [date],
+      times: ["10:00", "11:00"],
+      capacity: 1,
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("conflict");
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts?.[0]).toMatchObject({
+      date,
+      time: "10:00",
+      reservedCount: 2,
+      capacity: 4,
+    });
+
+    const untouchedSlot = await prisma.reservationSlot.findUnique({
+      where: {
+        gymId_sport_date_time: {
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date,
+          time: "11:00",
+        },
+      },
+    });
+    expect(untouchedSlot).toBeNull();
+
+    const reservedSlot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date,
+          time: "10:00",
+        },
+      },
+    });
+    expect(reservedSlot.capacity).toBe(4);
+    expect(reservedSlot.isClosed).toBe(false);
+  });
+
+  it("체육관 정보와 일괄 변경 대상이 다르면 변경하지 않는다", async () => {
+    const result = await updateReservationSlotPolicies({
+      gym: { ...TEST_GYM, id: "another-gym" },
+      gymId: TEST_GYM.id,
+      sport: "배드민턴",
+      dates: [futureDate()],
+      times: ["10:00", "11:00"],
+      capacity: 5,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
   });
 });
 
@@ -581,6 +782,28 @@ describe("listAdminReservations", () => {
     expect(onlyReserved).toHaveLength(1);
     expect(onlyReserved[0].status).toBe("reserved");
     expect(byDate).toHaveLength(2);
+  });
+});
+
+describe("getAdminReservationById", () => {
+  it("관리자는 예약 ID로 단건 예약을 조회할 수 있다", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const reservation = await getAdminReservationById(created.reservation.id);
+
+    expect(reservation).toEqual(created.reservation);
+  });
+
+  it("존재하지 않는 예약 ID는 null을 반환한다", async () => {
+    await expect(getAdminReservationById("missing-reservation")).resolves.toBe(
+      null,
+    );
   });
 });
 

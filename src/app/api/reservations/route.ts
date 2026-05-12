@@ -5,23 +5,9 @@ import {
   listUserReservations,
 } from "@/lib/server/mysql-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
-import type { Sport } from "@/types/domain";
+import { isSport } from "@/lib/domain-constants";
 
 export const dynamic = "force-dynamic";
-
-const sports: readonly Sport[] = [
-  "배드민턴",
-  "농구",
-  "풋살",
-  "탁구",
-  "배구",
-];
-
-function isSport(value: unknown): value is Sport {
-  return (
-    typeof value === "string" && (sports as readonly string[]).includes(value)
-  );
-}
 
 export async function GET(request: NextRequest) {
   const auth = await verifyIdTokenFromRequest(request);

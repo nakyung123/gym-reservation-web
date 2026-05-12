@@ -15,6 +15,10 @@ export type AdminReservationListResult =
   | { ok: true; reservations: Reservation[] }
   | { ok: false; message: string; status?: number };
 
+export type AdminReservationDetailResult =
+  | { ok: true; reservation: Reservation }
+  | { ok: false; message: string; status?: number };
+
 export type AdminReservationActionStatus =
   | "used"
   | "cancelled"
@@ -56,6 +60,56 @@ function buildReservationsUrl(filters: AdminReservationFilters): string {
 
   const query = params.toString();
   return query ? `/api/admin/reservations?${query}` : "/api/admin/reservations";
+}
+
+export async function fetchAdminReservation(
+  reservationId: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<AdminReservationDetailResult> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/admin/reservations/${encodeURIComponent(reservationId)}`,
+      {
+        headers: { "x-admin-token": token },
+        signal,
+      },
+    );
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return {
+      ok: false,
+      message:
+        `관리자 예약 상세 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+    };
+  }
+
+  let data: { reservation?: unknown; message?: unknown };
+  try {
+    data = (await response.json()) as {
+      reservation?: unknown;
+      message?: unknown;
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
+  if (response.ok && isReservation(data.reservation)) {
+    return { ok: true, reservation: data.reservation };
+  }
+
+  return {
+    ok: false,
+    message: getMessage(data, `관리자 예약 상세 조회 실패: status=${response.status}`),
+    status: response.status,
+  };
 }
 
 export async function fetchAdminReservations(

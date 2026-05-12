@@ -1,6 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/prisma-client";
+import { isReservationStatus, isSport } from "@/lib/domain-constants";
 import { getReservationActiveKey } from "@/lib/reservation-repository";
 import {
   validateReservationDraft,
@@ -17,24 +18,7 @@ import type {
 } from "@/types/domain";
 
 const DEFAULT_SLOT_CAPACITY = 4;
-
-const reservationStatuses: ReservationStatus[] = [
-  "reserved",
-  "cancelled",
-  "used",
-];
-const sports: Sport[] = ["배드민턴", "농구", "풋살", "탁구", "배구"];
-
-function isReservationStatus(value: unknown): value is ReservationStatus {
-  return (
-    typeof value === "string" &&
-    reservationStatuses.includes(value as ReservationStatus)
-  );
-}
-
-function isSport(value: unknown): value is Sport {
-  return typeof value === "string" && sports.includes(value as Sport);
-}
+const MAX_SLOT_CAPACITY = 999;
 
 type ReservationRow = Prisma.ReservationGetPayload<Prisma.ReservationDefaultArgs>;
 type ReservationSlotRow = Prisma.ReservationSlotGetPayload<
@@ -46,6 +30,9 @@ type ReservationSlotKey = {
   date: string;
   time: string;
 };
+
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+export const RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT = 200;
 
 class ReservationSlotFullError extends Error {
   constructor(readonly key: ReservationSlotKey) {
@@ -102,6 +89,10 @@ function toSlotAvailability(
     isClosed,
     status: isClosed ? "closed" : remaining > 0 ? "available" : "full",
   };
+}
+
+function slotKeyId(key: ReservationSlotKey): string {
+  return `${key.gymId}\u0000${key.sport}\u0000${key.date}\u0000${key.time}`;
 }
 
 async function ensureReservationSlot(
@@ -200,25 +191,40 @@ export type UpdateReservationSlotPolicyOutput =
   | { ok: true; slot: ReservationSlotAvailability }
   | { ok: false; status: "rejected" | "conflict"; message: string };
 
-export async function updateReservationSlotPolicy({
+type SlotPolicyValidationError = {
+  ok: false;
+  status: "rejected";
+  message: string;
+};
+
+type SlotPolicyValidationInput = {
+  gym: Gym;
+  gymId: string;
+  sport: Sport;
+  capacity?: number;
+  isClosed?: boolean;
+};
+
+function validateSlotPolicyChange({
   gym,
+  gymId,
+  sport,
   capacity,
   isClosed,
-  ...key
-}: UpdateReservationSlotPolicyInput): Promise<UpdateReservationSlotPolicyOutput> {
-  if (!gym.sports.includes(key.sport)) {
+}: SlotPolicyValidationInput): SlotPolicyValidationError | null {
+  if (gym.id !== gymId) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "체육관 정보와 슬롯 변경 대상이 일치하지 않습니다.",
+    };
+  }
+
+  if (!gym.sports.includes(sport)) {
     return {
       ok: false,
       status: "rejected",
       message: "선택한 종목은 이 체육관에서 예약할 수 없습니다.",
-    };
-  }
-
-  if (!gym.availableTimes.includes(key.time)) {
-    return {
-      ok: false,
-      status: "rejected",
-      message: "선택한 시간은 이 체육관의 예약 가능 시간이 아닙니다.",
     };
   }
 
@@ -230,11 +236,40 @@ export async function updateReservationSlotPolicy({
     };
   }
 
-  if (capacity !== undefined && (!Number.isInteger(capacity) || capacity < 1)) {
+  if (
+    capacity !== undefined &&
+    (!Number.isInteger(capacity) || capacity < 1 || capacity > MAX_SLOT_CAPACITY)
+  ) {
     return {
       ok: false,
       status: "rejected",
-      message: "정원은 1명 이상의 정수여야 합니다.",
+      message: `정원은 1명 이상 ${MAX_SLOT_CAPACITY}명 이하의 정수여야 합니다.`,
+    };
+  }
+
+  return null;
+}
+
+export async function updateReservationSlotPolicy({
+  gym,
+  capacity,
+  isClosed,
+  ...key
+}: UpdateReservationSlotPolicyInput): Promise<UpdateReservationSlotPolicyOutput> {
+  const validationError = validateSlotPolicyChange({
+    gym,
+    gymId: key.gymId,
+    sport: key.sport,
+    capacity,
+    isClosed,
+  });
+  if (validationError) return validationError;
+
+  if (!gym.availableTimes.includes(key.time)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "선택한 시간은 이 체육관의 예약 가능 시간이 아닙니다.",
     };
   }
 
@@ -275,6 +310,164 @@ export async function updateReservationSlotPolicy({
   });
 }
 
+export type UpdateReservationSlotPoliciesInput = {
+  gym: Gym;
+  gymId: string;
+  sport: Sport;
+  dates: string[];
+  times: string[];
+  capacity?: number;
+  isClosed?: boolean;
+};
+
+export type UpdateReservationSlotPoliciesOutput =
+  | {
+      ok: true;
+      slots: ReservationSlotAvailability[];
+      updatedCount: number;
+    }
+  | {
+      ok: false;
+      status: "rejected" | "conflict";
+      message: string;
+      conflicts?: ReservationSlotAvailability[];
+    };
+
+export async function updateReservationSlotPolicies({
+  gym,
+  gymId,
+  sport,
+  dates,
+  times,
+  capacity,
+  isClosed,
+}: UpdateReservationSlotPoliciesInput): Promise<UpdateReservationSlotPoliciesOutput> {
+  const validationError = validateSlotPolicyChange({
+    gym,
+    gymId,
+    sport,
+    capacity,
+    isClosed,
+  });
+  if (validationError) return validationError;
+
+  const uniqueDates = Array.from(new Set(dates));
+  const uniqueTimes = Array.from(new Set(times));
+  const targetCount = uniqueDates.length * uniqueTimes.length;
+
+  if (uniqueDates.length === 0 || uniqueTimes.length === 0) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "변경할 날짜와 시간대를 1개 이상 선택해야 합니다.",
+    };
+  }
+
+  if (uniqueDates.some((date) => !datePattern.test(date))) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "날짜는 YYYY-MM-DD 형식이어야 합니다.",
+    };
+  }
+
+  const invalidTime = uniqueTimes.find((time) => !gym.availableTimes.includes(time));
+  if (invalidTime) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: `${invalidTime}은 이 체육관의 예약 가능 시간이 아닙니다.`,
+    };
+  }
+
+  if (targetCount > RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: `한 번에 변경할 수 있는 슬롯은 최대 ${RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT}개입니다.`,
+    };
+  }
+
+  const keys = uniqueDates.flatMap((date) =>
+    uniqueTimes.map((time) => ({
+      gymId,
+      sport,
+      date,
+      time,
+    })),
+  );
+
+  return prisma.$transaction(async (tx) => {
+    const currentRows = await tx.reservationSlot.findMany({
+      where: {
+        gymId,
+        sport,
+        date: { in: uniqueDates },
+        time: { in: uniqueTimes },
+      },
+    });
+    const currentByKey = new Map(
+      currentRows.map((row) => [
+        slotKeyId({
+          gymId: row.gymId,
+          sport,
+          date: row.date,
+          time: row.time,
+        }),
+        row,
+      ]),
+    );
+
+    const conflicts = keys.flatMap((key) => {
+      const current = currentByKey.get(slotKeyId(key));
+      const reservedCount = current?.reservedCount ?? 0;
+      const nextCapacity =
+        capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
+
+      if (nextCapacity >= reservedCount) return [];
+      return [toSlotAvailability(key, current)];
+    });
+
+    if (conflicts.length > 0) {
+      return {
+        ok: false,
+        status: "conflict",
+        message: `이미 예약된 인원보다 낮은 정원으로 줄일 수 없는 슬롯이 ${conflicts.length}개 있습니다.`,
+        conflicts,
+      };
+    }
+
+    const slots: ReservationSlotAvailability[] = [];
+    for (const key of keys) {
+      const current = currentByKey.get(slotKeyId(key));
+      const nextCapacity =
+        capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
+      const slot = await tx.reservationSlot.upsert({
+        where: {
+          gymId_sport_date_time: key,
+        },
+        create: {
+          ...key,
+          capacity: nextCapacity,
+          isClosed: isClosed ?? false,
+        },
+        update: {
+          capacity: nextCapacity,
+          ...(isClosed === undefined ? {} : { isClosed }),
+        },
+      });
+
+      slots.push(toSlotAvailability(key, slot));
+    }
+
+    return {
+      ok: true,
+      slots,
+      updatedCount: slots.length,
+    };
+  });
+}
+
 export async function listUserReservations(
   userId: string,
 ): Promise<Reservation[]> {
@@ -283,6 +476,17 @@ export async function listUserReservations(
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toDomainReservation);
+}
+
+export async function getUserReservationById(
+  userId: string,
+  reservationId: string,
+): Promise<Reservation | null> {
+  const row = await prisma.reservation.findFirst({
+    where: { id: reservationId, userId },
+  });
+
+  return row ? toDomainReservation(row) : null;
 }
 
 export type ListAdminReservationsInput = {
@@ -312,6 +516,16 @@ export async function listAdminReservations({
     take: limit,
   });
   return rows.map(toDomainReservation);
+}
+
+export async function getAdminReservationById(
+  reservationId: string,
+): Promise<Reservation | null> {
+  const row = await prisma.reservation.findUnique({
+    where: { id: reservationId },
+  });
+
+  return row ? toDomainReservation(row) : null;
 }
 
 export type AdminReservationOverview = {
