@@ -49,6 +49,17 @@ function getMessage(data: { message?: unknown }, fallback: string) {
   return typeof data.message === "string" ? data.message : fallback;
 }
 
+function isActionReservationStatusConsistent(
+  actionStatus: AdminReservationActionStatus,
+  requestedStatus: "used" | "cancelled",
+  reservation: Reservation,
+): boolean {
+  const expectedStatus =
+    actionStatus === "unchanged" ? requestedStatus : actionStatus;
+
+  return reservation.status === expectedStatus;
+}
+
 function buildReservationsUrl(filters: AdminReservationFilters): string {
   const params = new URLSearchParams();
 
@@ -213,16 +224,26 @@ export async function updateAdminReservationStatus(
     };
   }
 
+  const actionStatus =
+    data.status === "used" ||
+    data.status === "cancelled" ||
+    data.status === "unchanged"
+      ? data.status
+      : null;
+
   if (
     response.ok &&
-    (data.status === "used" ||
-      data.status === "cancelled" ||
-      data.status === "unchanged") &&
-    isReservation(data.reservation)
+    actionStatus !== null &&
+    isReservation(data.reservation) &&
+    isActionReservationStatusConsistent(
+      actionStatus,
+      status,
+      data.reservation,
+    )
   ) {
     return {
       ok: true,
-      status: data.status,
+      status: actionStatus,
       reservation: data.reservation,
       message: getMessage(data, "예약 상태가 변경되었습니다."),
     };

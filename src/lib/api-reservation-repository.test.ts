@@ -11,13 +11,19 @@ const {
   getCurrentFirebaseAuthSession: vi.fn<
     () =>
       | { ok: true; userId: string }
-      | { ok: false; reason: "not-ready"; message: string }
+      | {
+          ok: false;
+          reason: "not-ready" | "auth-unavailable";
+          message: string;
+        }
   >(() => ({
     ok: false,
     reason: "not-ready",
     message: "인증 상태를 확인하는 중입니다.",
   })),
-  subscribeFirebaseAuthSession: vi.fn(() => vi.fn()),
+  subscribeFirebaseAuthSession: vi.fn<(listener: () => void) => () => void>(
+    () => vi.fn(),
+  ),
 }));
 
 vi.mock("@/lib/firebase-client", () => ({
@@ -69,6 +75,24 @@ function mockFetch(response: Response) {
   return fetchMock;
 }
 
+function createDeferred<T>() {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
+  });
+
+  return { promise, resolve };
+}
+
+function resetRepositoryState() {
+  const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+  unsubscribe();
+}
+
+function waitForAsyncWork() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("apiReservationRepository", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -81,6 +105,7 @@ describe("apiReservationRepository", () => {
     });
     subscribeFirebaseAuthSession.mockReset();
     subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    resetRepositoryState();
   });
 
   it("returns auth-required when creating without a signed-in user", async () => {
@@ -165,6 +190,166 @@ describe("apiReservationRepository", () => {
       ok: true,
       status: "created",
       reservation: foreignReservation,
+    });
+    expect(apiReservationRepository.read()).toEqual({
+      ok: true,
+      reservations: [],
+    });
+
+    unsubscribe();
+  });
+
+  it("ignores stale reservation list responses after switching users", async () => {
+    const firstUserReservation = {
+      ...reservation,
+      id: "first-user-reservation",
+      userId: "first-user",
+      createdAt: "2026-05-01T00:00:00.000Z",
+    };
+    const secondUserReservation = {
+      ...reservation,
+      id: "second-user-reservation",
+      userId: "second-user",
+      createdAt: "2026-05-02T00:00:00.000Z",
+    };
+    const firstFetch = createDeferred<Response>();
+    const secondFetch = createDeferred<Response>();
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstFetch.promise)
+      .mockReturnValueOnce(secondFetch.promise);
+    let syncAuth: () => void = () => undefined;
+
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "first-user",
+    });
+    subscribeFirebaseAuthSession.mockImplementation((listener: () => void) => {
+      syncAuth = listener;
+      return vi.fn();
+    });
+    mockCurrentUser();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "second-user",
+    });
+    syncAuth();
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    secondFetch.resolve(Response.json({ reservations: [secondUserReservation] }));
+    await vi.waitFor(() => {
+      expect(apiReservationRepository.read()).toEqual({
+        ok: true,
+        reservations: [secondUserReservation],
+      });
+    });
+
+    firstFetch.resolve(Response.json({ reservations: [firstUserReservation] }));
+    await firstFetch.promise;
+    await waitForAsyncWork();
+    expect(apiReservationRepository.read()).toEqual({
+      ok: true,
+      reservations: [secondUserReservation],
+    });
+
+    unsubscribe();
+  });
+
+  it("keeps the auth failure snapshot when a pending list response finishes after auth becomes unavailable", async () => {
+    const pendingFetch = createDeferred<Response>();
+    const fetchMock = vi.fn().mockReturnValueOnce(pendingFetch.promise);
+    let syncAuth: () => void = () => undefined;
+
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: reservation.userId,
+    });
+    subscribeFirebaseAuthSession.mockImplementation((listener: () => void) => {
+      syncAuth = listener;
+      return vi.fn();
+    });
+    mockCurrentUser();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: false,
+      reason: "auth-unavailable",
+      message: "auth unavailable",
+    });
+    syncAuth();
+    expect(apiReservationRepository.read()).toMatchObject({
+      ok: false,
+      reason: "auth-required",
+      message: "auth unavailable",
+    });
+
+    pendingFetch.resolve(Response.json({ reservations: [reservation] }));
+    await pendingFetch.promise;
+    await waitForAsyncWork();
+    expect(apiReservationRepository.read()).toMatchObject({
+      ok: false,
+      reason: "auth-required",
+      message: "auth unavailable",
+    });
+
+    unsubscribe();
+  });
+
+  it("does not merge cancel responses from a different signed-in user", async () => {
+    const foreignCancelled = {
+      ...reservation,
+      id: "foreign-cancelled-reservation",
+      userId: "foreign-user",
+      status: "cancelled" as const,
+    };
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "current-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ reservations: [] }))
+        .mockResolvedValueOnce(
+          Response.json({
+            status: "cancelled",
+            reservation: foreignCancelled,
+          }),
+        ),
+    );
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+    await vi.waitFor(() => {
+      expect(apiReservationRepository.read()).toEqual({
+        ok: true,
+        reservations: [],
+      });
+    });
+
+    await expect(
+      apiReservationRepository.cancel(foreignCancelled.id),
+    ).resolves.toMatchObject({
+      ok: true,
+      status: "cancelled",
+      reservation: foreignCancelled,
+      reservations: [],
     });
     expect(apiReservationRepository.read()).toEqual({
       ok: true,

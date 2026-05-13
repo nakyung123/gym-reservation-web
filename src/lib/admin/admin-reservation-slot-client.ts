@@ -43,6 +43,15 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
+function isValidUpdatedCount(value: unknown, slots: unknown[]): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value === slots.length
+  );
+}
+
 export async function updateReservationSlotPolicy(
   input: AdminUpdateSlotInput,
   token: string,
@@ -188,8 +197,7 @@ export async function bulkUpdateReservationSlotPolicy(
     if (
       rawSlots !== null &&
       rawSlots.every(isReservationSlotAvailability) &&
-      typeof data.updatedCount === "number" &&
-      Number.isFinite(data.updatedCount)
+      isValidUpdatedCount(data.updatedCount, rawSlots)
     ) {
       return {
         ok: true,

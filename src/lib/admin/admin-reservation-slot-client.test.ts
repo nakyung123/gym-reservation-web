@@ -82,6 +82,77 @@ describe("admin reservation slot client", () => {
     });
   });
 
+  it("maps valid bulk success responses", async () => {
+    const secondSlot = { ...slot, date: "2026-05-21", time: "11:00" };
+    const fetchMock = mockFetch(
+      Response.json({
+        slots: [slot, secondSlot],
+        updatedCount: 2,
+      }),
+    );
+
+    await expect(
+      bulkUpdateReservationSlotPolicy(
+        {
+          gymId: slot.gymId,
+          sport,
+          dates: [slot.date, secondSlot.date],
+          times: [slot.time],
+          isClosed: true,
+        },
+        "admin-token",
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      slots: [slot, secondSlot],
+      updatedCount: 2,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/admin/reservation-slots/bulk",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": "admin-token",
+        },
+        body: JSON.stringify({
+          gymId: slot.gymId,
+          sport,
+          dates: [slot.date, secondSlot.date],
+          times: [slot.time],
+          isClosed: true,
+        }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it("rejects bulk success responses with mismatched update counts", async () => {
+    mockFetch(
+      Response.json({
+        slots: [slot],
+        updatedCount: 2,
+      }),
+    );
+
+    await expect(
+      bulkUpdateReservationSlotPolicy(
+        {
+          gymId: slot.gymId,
+          sport,
+          dates: [slot.date],
+          times: [slot.time],
+          isClosed: true,
+        },
+        "admin-token",
+      ),
+    ).resolves.toMatchObject({
+      ok: false,
+      kind: "error",
+      status: 200,
+    });
+  });
+
   it("maps valid bulk conflict responses without losing conflict details", async () => {
     mockFetch(
       Response.json(

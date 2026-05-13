@@ -138,6 +138,25 @@ describe("admin reservation client", () => {
     });
   });
 
+  it("rejects successful status update responses with mismatched reservation status", async () => {
+    mockFetch(
+      Response.json({
+        status: "used",
+        reservation,
+        message: "status mismatch",
+      }),
+    );
+
+    await expect(
+      updateAdminReservationStatus(reservation.id, "used", "admin-token"),
+    ).resolves.toEqual({
+      ok: false,
+      message: "status mismatch",
+      status: 200,
+      reservation,
+    });
+  });
+
   it("rethrows abort errors so callers can ignore cancelled requests", async () => {
     const abortError = new Error("aborted");
     abortError.name = "AbortError";
