@@ -9,6 +9,7 @@ import {
   validateUserReservationCancellation,
 } from "@/lib/reservation-rules";
 import { getGymSportPrice } from "@/lib/gym-utils";
+import { ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT } from "@/lib/admin/admin-reservation-slot-policy";
 import type {
   Gym,
   Reservation,
@@ -32,7 +33,8 @@ type ReservationSlotKey = {
   time: string;
 };
 
-export const RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT = 200;
+export const RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT =
+  ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT;
 
 class ReservationSlotFullError extends Error {
   constructor(readonly key: ReservationSlotKey) {

@@ -8,10 +8,17 @@ import {
   updateReservationSlotPolicy,
   type AdminBulkUpdateSlotInput,
 } from "@/lib/admin/admin-reservation-slot-client";
+import {
+  ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT,
+  addAdminBulkSlotDate,
+  getAdminBulkSlotTargetCount,
+  isAdminBulkSlotDateValue,
+  isAdminBulkSlotTargetOverLimit,
+  normalizeAdminBulkSlotDates,
+} from "@/lib/admin/admin-reservation-slot-policy";
 import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import type { Gym, ReservationSlotAvailability, Sport } from "@/types/domain";
 
-const BULK_LIMIT = 200;
 const BULK_DEFAULT_CAPACITY = 10;
 const BULK_MIN_CAPACITY = 1;
 const BULK_MAX_CAPACITY = 999;
@@ -40,6 +47,8 @@ type RowDraft = { capacity: number; isClosed: boolean };
 type RowSaveState =
   | { status: "saving" }
   | { status: "error"; message: string };
+
+type BulkDateNotice = { tone: "error" | "info"; message: string };
 
 type AdminReservationSlotsFormProps = {
   gyms: Gym[];
@@ -103,6 +112,10 @@ export function AdminReservationSlotsForm({
     Map<string, RowSaveState>
   >(new Map());
   const [selectedTimes, setSelectedTimes] = useState<Set<string>>(new Set());
+  const [bulkAdditionalDates, setBulkAdditionalDates] = useState<string[]>([]);
+  const [bulkDateInput, setBulkDateInput] = useState("");
+  const [bulkDateNotice, setBulkDateNotice] =
+    useState<BulkDateNotice | null>(null);
   const [bulkCapacityEnabled, setBulkCapacityEnabled] = useState(false);
   const [bulkCapacity, setBulkCapacity] = useState<number>(
     BULK_DEFAULT_CAPACITY,
@@ -169,6 +182,9 @@ export function AdminReservationSlotsForm({
     setRowDrafts(new Map());
     setRowSaveStates(new Map());
     setSelectedTimes(new Set());
+    setBulkAdditionalDates([]);
+    setBulkDateInput("");
+    setBulkDateNotice(null);
     setBulkSaveState({ status: "idle" });
   }, [abortSlotRequests]);
 
@@ -465,22 +481,74 @@ export function AdminReservationSlotsForm({
     );
   };
 
+  const bulkTargetDates = useMemo(
+    () => normalizeAdminBulkSlotDates([selectedDate, ...bulkAdditionalDates]),
+    [selectedDate, bulkAdditionalDates],
+  );
+  const hasInvalidBulkTargetDate = !bulkTargetDates.every(
+    isAdminBulkSlotDateValue,
+  );
+  const bulkTargetCount = getAdminBulkSlotTargetCount({
+    dateCount: bulkTargetDates.length,
+    timeCount: selectedTimes.size,
+  });
+
+  const handleAddBulkDate = () => {
+    if (isSavingSlotChange) return;
+
+    const nextDate = bulkDateInput.trim();
+    const result = addAdminBulkSlotDate(bulkTargetDates, nextDate);
+    if (!result.ok) {
+      setBulkDateNotice({ tone: "error", message: result.message });
+      return;
+    }
+
+    setBulkAdditionalDates(
+      result.dates.filter((date) => date !== selectedDate),
+    );
+    setBulkDateInput("");
+    setBulkDateNotice({
+      tone: "info",
+      message: `${nextDate} 날짜가 추가되었습니다.`,
+    });
+    setBulkSaveState((prev) =>
+      prev.status === "idle" || prev.status === "saving"
+        ? prev
+        : { status: "idle" },
+    );
+  };
+
+  const handleRemoveBulkDate = (date: string) => {
+    if (isSavingSlotChange) return;
+    setBulkAdditionalDates((prev) => prev.filter((item) => item !== date));
+    setBulkDateNotice(null);
+    setBulkSaveState((prev) =>
+      prev.status === "idle" || prev.status === "saving"
+        ? prev
+        : { status: "idle" },
+    );
+  };
+
   const isAllSelected =
     slotsState.status === "ready" &&
     slotsState.slots.length > 0 &&
     slotsState.slots.every((slot) => selectedTimes.has(slot.time));
 
-  const hasBulkChange =
-    bulkCapacityEnabled || bulkClosedMode !== "none";
+  const hasBulkChange = bulkCapacityEnabled || bulkClosedMode !== "none";
 
   const isBulkCapacityValid =
     !bulkCapacityEnabled || isValidCapacity(bulkCapacity);
 
-  const isOverBulkLimit = selectedTimes.size > BULK_LIMIT;
+  const isOverBulkLimit = isAdminBulkSlotTargetOverLimit({
+    dateCount: bulkTargetDates.length,
+    timeCount: selectedTimes.size,
+  });
 
   const canBulkApply =
     Boolean(savedToken) &&
     selectedTimes.size > 0 &&
+    bulkTargetDates.length > 0 &&
+    !hasInvalidBulkTargetDate &&
     !isOverBulkLimit &&
     isBulkCapacityValid &&
     hasBulkChange &&
@@ -492,6 +560,8 @@ export function AdminReservationSlotsForm({
     if (bulkAbortRef.current || rowSaveAbortRefs.current.size > 0) return;
     if (
       selectedTimes.size === 0 ||
+      bulkTargetDates.length === 0 ||
+      hasInvalidBulkTargetDate ||
       isOverBulkLimit ||
       !isBulkCapacityValid ||
       hasRowSaving ||
@@ -503,7 +573,7 @@ export function AdminReservationSlotsForm({
     const input: AdminBulkUpdateSlotInput = {
       gymId: selectedGym.id,
       sport: selectedSport,
-      dates: [selectedDate],
+      dates: bulkTargetDates,
       times: [...selectedTimes],
     };
     if (bulkCapacityEnabled) {
@@ -800,8 +870,71 @@ export function AdminReservationSlotsForm({
                     </p>
                     <p className="text-xs font-semibold text-slate-600">
                       선택된 시간 {selectedTimes.size}개
-                      {selectedTimes.size > 0 ? ` · 날짜 ${selectedDate}` : ""}
+                      {selectedTimes.size > 0
+                        ? ` · 적용 날짜 ${bulkTargetDates.length}개 · 대상 ${bulkTargetCount}건`
+                        : ""}
                     </p>
+                  </div>
+                  <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                      <div className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                        추가 날짜
+                        <input
+                          type="date"
+                          value={bulkDateInput}
+                          onChange={(event) => {
+                            setBulkDateInput(event.target.value);
+                            setBulkDateNotice(null);
+                          }}
+                          disabled={isSavingSlotChange}
+                          className="h-9 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAddBulkDate}
+                        disabled={isSavingSlotChange}
+                        className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      >
+                        날짜 추가
+                      </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="inline-flex h-7 items-center rounded-full border border-sky-200 bg-sky-50 px-3 text-xs font-semibold text-sky-800">
+                        조회 날짜 {selectedDate}
+                      </span>
+                      {bulkAdditionalDates.map((date) => (
+                        <span
+                          key={date}
+                          className="inline-flex h-7 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700"
+                        >
+                          {date}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBulkDate(date)}
+                            disabled={isSavingSlotChange}
+                            aria-label={`${date} 적용 날짜 제거`}
+                            className="rounded text-slate-500 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    {bulkDateNotice ? (
+                      <p
+                        className={`mt-2 text-xs font-semibold ${
+                          bulkDateNotice.tone === "error"
+                            ? "text-rose-700"
+                            : "text-emerald-700"
+                        }`}
+                        role={
+                          bulkDateNotice.tone === "error" ? "alert" : "status"
+                        }
+                      >
+                        {bulkDateNotice.message}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                     <div className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -878,6 +1011,14 @@ export function AdminReservationSlotsForm({
                       정원 변경 또는 마감 옵션 중 하나를 선택하세요.
                     </p>
                   ) : null}
+                  {hasInvalidBulkTargetDate ? (
+                    <p
+                      className="mt-2 text-xs font-semibold text-rose-700"
+                      role="alert"
+                    >
+                      적용 날짜는 YYYY-MM-DD 형식이어야 합니다.
+                    </p>
+                  ) : null}
                   {!isBulkCapacityValid ? (
                     <p
                       className="mt-2 text-xs font-semibold text-rose-700"
@@ -892,7 +1033,9 @@ export function AdminReservationSlotsForm({
                       className="mt-2 text-xs font-semibold text-rose-700"
                       role="alert"
                     >
-                      한 번에 최대 {BULK_LIMIT}건까지만 적용할 수 있습니다.
+                      한 번에 최대{" "}
+                      {ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT}건까지만
+                      적용할 수 있습니다.
                     </p>
                   ) : null}
                   {bulkSaveState.status === "success" ? (
