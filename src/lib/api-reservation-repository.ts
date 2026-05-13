@@ -102,6 +102,10 @@ function mergePendingReservations(reservations: Reservation[]): Reservation[] {
 }
 
 function upsertCurrentReservation(reservation: Reservation) {
+  if (lastFetchedUserId !== null && reservation.userId !== lastFetchedUserId) {
+    return;
+  }
+
   pendingReservationsById.set(reservation.id, reservation);
 
   const current = parseReservationSnapshot(currentSnapshot);

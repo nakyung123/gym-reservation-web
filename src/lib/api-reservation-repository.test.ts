@@ -2,8 +2,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiReservationRepository } from "@/lib/api-reservation-repository";
 import type { Reservation, ReservationSlotAvailability } from "@/types/domain";
 
-const { getFirebaseClient } = vi.hoisted(() => ({
+const {
+  getFirebaseClient,
+  getCurrentFirebaseAuthSession,
+  subscribeFirebaseAuthSession,
+} = vi.hoisted(() => ({
   getFirebaseClient: vi.fn(),
+  getCurrentFirebaseAuthSession: vi.fn<
+    () =>
+      | { ok: true; userId: string }
+      | { ok: false; reason: "not-ready"; message: string }
+  >(() => ({
+    ok: false,
+    reason: "not-ready",
+    message: "인증 상태를 확인하는 중입니다.",
+  })),
+  subscribeFirebaseAuthSession: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@/lib/firebase-client", () => ({
@@ -11,12 +25,8 @@ vi.mock("@/lib/firebase-client", () => ({
 }));
 
 vi.mock("@/lib/firebase-auth-session", () => ({
-  getCurrentFirebaseAuthSession: vi.fn(() => ({
-    ok: false,
-    reason: "not-ready",
-    message: "인증 상태를 확인하는 중입니다.",
-  })),
-  subscribeFirebaseAuthSession: vi.fn(() => vi.fn()),
+  getCurrentFirebaseAuthSession,
+  subscribeFirebaseAuthSession,
 }));
 
 const reservation: Reservation = {
@@ -63,6 +73,14 @@ describe("apiReservationRepository", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     getFirebaseClient.mockReset();
+    getCurrentFirebaseAuthSession.mockReset();
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: false,
+      reason: "not-ready",
+      message: "인증 상태를 확인하는 중입니다.",
+    });
+    subscribeFirebaseAuthSession.mockReset();
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
   });
 
   it("returns auth-required when creating without a signed-in user", async () => {
@@ -106,6 +124,54 @@ describe("apiReservationRepository", () => {
         time: reservation.time,
       }),
     });
+  });
+
+  it("does not merge mutation responses from a different signed-in user", async () => {
+    const foreignReservation = {
+      ...reservation,
+      id: "foreign-user-reservation",
+      userId: "foreign-user",
+    };
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "current-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ reservations: [] }))
+        .mockResolvedValueOnce(
+          Response.json(
+            { status: "created", reservation: foreignReservation },
+            { status: 201 },
+          ),
+        ),
+    );
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+    await vi.waitFor(() => {
+      expect(apiReservationRepository.read()).toEqual({
+        ok: true,
+        reservations: [],
+      });
+    });
+
+    await expect(
+      apiReservationRepository.create(foreignReservation),
+    ).resolves.toEqual({
+      ok: true,
+      status: "created",
+      reservation: foreignReservation,
+    });
+    expect(apiReservationRepository.read()).toEqual({
+      ok: true,
+      reservations: [],
+    });
+
+    unsubscribe();
   });
 
   it("maps full slot responses without creating a local success", async () => {
