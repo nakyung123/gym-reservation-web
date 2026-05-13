@@ -130,6 +130,36 @@ describe("apiFavoriteRepository", () => {
     unsubscribe();
   });
 
+  it("releases the auth subscription when the last listener unsubscribes", async () => {
+    const unsubscribeAuth = vi.fn();
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "favorite-cleanup-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(unsubscribeAuth);
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ gymIds: ["gym-a"] })),
+    );
+
+    const repository = await loadRepository();
+    const unsubscribeFirst = repository.subscribe(vi.fn());
+    const unsubscribeSecond = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
+    });
+    expect(subscribeFirebaseAuthSession).toHaveBeenCalledTimes(1);
+
+    unsubscribeFirst();
+    expect(unsubscribeAuth).not.toHaveBeenCalled();
+
+    unsubscribeSecond();
+    expect(unsubscribeAuth).toHaveBeenCalledTimes(1);
+    expect([...repository.getSnapshot()]).toEqual([]);
+  });
+
   it("keeps an optimistic favorite after a successful toggle request", async () => {
     mockCurrentUser();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ok: true })));

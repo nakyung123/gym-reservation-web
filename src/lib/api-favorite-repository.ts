@@ -162,6 +162,13 @@ export const apiFavoriteRepository: FavoriteRepository = {
     ensureAuthSubscription();
     return () => {
       listeners.delete(listener);
+
+      if (listeners.size === 0 && authUnsubscribe) {
+        authUnsubscribe();
+        authUnsubscribe = null;
+        lastFetchedUserId = null;
+        setCurrentSet(new Set());
+      }
     };
   },
 };
