@@ -1,12 +1,13 @@
 "use client";
 
 import { getFirebaseClient } from "@/lib/firebase-client";
+import { isGym } from "@/lib/gym-utils";
 import {
   isUserReservationDetail,
   type UserReservationDetail,
 } from "@/lib/reservation-detail";
 import { isReservation } from "@/lib/reservation-repository";
-import type { Reservation } from "@/types/domain";
+import type { Gym, Reservation } from "@/types/domain";
 
 export type FetchUserReservationFailureKind =
   | "not-found"
@@ -14,7 +15,12 @@ export type FetchUserReservationFailureKind =
   | "error";
 
 export type FetchUserReservationResult =
-  | { ok: true; reservation: Reservation; detail: UserReservationDetail }
+  | {
+      ok: true;
+      reservation: Reservation;
+      detail: UserReservationDetail;
+      gym: Gym | null;
+    }
   | {
       ok: false;
       kind: FetchUserReservationFailureKind;
@@ -75,13 +81,14 @@ export async function fetchUserReservation(
     };
   }
 
-  let data: { reservation?: unknown; detail?: unknown; message?: unknown };
+  let data: {
+    reservation?: unknown;
+    detail?: unknown;
+    gym?: unknown;
+    message?: unknown;
+  };
   try {
-    data = (await response.json()) as {
-      reservation?: unknown;
-      detail?: unknown;
-      message?: unknown;
-    };
+    data = (await response.json()) as typeof data;
   } catch {
     return {
       ok: false,
@@ -94,12 +101,14 @@ export async function fetchUserReservation(
   if (
     response.ok &&
     isReservation(data.reservation) &&
-    isUserReservationDetail(data.detail)
+    isUserReservationDetail(data.detail) &&
+    (data.gym === null || isGym(data.gym))
   ) {
     return {
       ok: true,
       reservation: data.reservation,
       detail: data.detail,
+      gym: data.gym,
     };
   }
 

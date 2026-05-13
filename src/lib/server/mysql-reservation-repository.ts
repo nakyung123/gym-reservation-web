@@ -10,6 +10,7 @@ import {
 } from "@/lib/reservation-rules";
 import { getGymSportPrice } from "@/lib/gym-utils";
 import { ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT } from "@/lib/admin/admin-reservation-slot-policy";
+import { toDomainGym } from "@/lib/server/mysql-gym-mapper";
 import type {
   Gym,
   Reservation,
@@ -26,6 +27,9 @@ type ReservationRow = Prisma.ReservationGetPayload<Prisma.ReservationDefaultArgs
 type ReservationSlotRow = Prisma.ReservationSlotGetPayload<
   Prisma.ReservationSlotDefaultArgs
 >;
+type ReservationRowWithGym = Prisma.ReservationGetPayload<{
+  include: { gym: { include: { sports: true } } };
+}>;
 type ReservationSlotKey = {
   gymId: string;
   sport: Sport;
@@ -497,6 +501,32 @@ export async function getUserReservationById(
   });
 
   return row ? toDomainReservation(row) : null;
+}
+
+export type UserReservationDetailRecord = {
+  reservation: Reservation;
+  gym: Gym;
+};
+
+function toUserReservationDetailRecord(
+  row: ReservationRowWithGym,
+): UserReservationDetailRecord {
+  return {
+    reservation: toDomainReservation(row),
+    gym: toDomainGym(row.gym),
+  };
+}
+
+export async function getUserReservationDetailById(
+  userId: string,
+  reservationId: string,
+): Promise<UserReservationDetailRecord | null> {
+  const row = await prisma.reservation.findFirst({
+    where: { id: reservationId, userId },
+    include: { gym: { include: { sports: true } } },
+  });
+
+  return row ? toUserReservationDetailRecord(row) : null;
 }
 
 export type ListAdminReservationsInput = {

@@ -57,6 +57,7 @@ describe("GET /api/reservations/[reservationId]", () => {
     );
     const body = (await response.json()) as {
       reservation?: { id?: unknown; userId?: unknown };
+      gym?: { id?: unknown; name?: unknown };
       detail?: {
         cancellation?: { canCancel?: unknown; deadline?: unknown };
         admission?: { active?: unknown; entryCode?: unknown };
@@ -77,7 +78,55 @@ describe("GET /api/reservations/[reservationId]", () => {
         entryCode: created.reservation.id.slice(0, 10).toUpperCase(),
       },
     });
+    expect(body.gym).toMatchObject({
+      id: TEST_GYM.id,
+      name: TEST_GYM.name,
+    });
     expect(typeof body.detail?.cancellation?.deadline).toBe("string");
+  });
+
+  it("비활성 시설의 지난 예약도 체육관 정보를 함께 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "inactive-gym-detail-user" });
+    const created = await createReservationInMysql({
+      userId: "inactive-gym-detail-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await prisma.reservation.update({
+      where: { id: created.reservation.id },
+      data: { status: "cancelled" },
+    });
+    await prisma.gym.update({
+      where: { id: TEST_GYM.id },
+      data: { isActive: false },
+    });
+
+    const response = await GET(
+      requestFor(created.reservation.id),
+      contextFor(created.reservation.id),
+    );
+    const body = (await response.json()) as {
+      reservation?: { id?: unknown; status?: unknown };
+      gym?: { id?: unknown; name?: unknown };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.reservation).toMatchObject({
+      id: created.reservation.id,
+      status: "cancelled",
+    });
+    expect(body.gym).toMatchObject({
+      id: TEST_GYM.id,
+      name: TEST_GYM.name,
+    });
   });
 
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {

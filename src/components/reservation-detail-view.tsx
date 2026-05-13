@@ -68,6 +68,7 @@ type DetailFetchState =
       reservationId: string;
       reservation: Reservation;
       detail: UserReservationDetail;
+      gym: Gym | null;
     }
   | {
       status: "failed";
@@ -240,6 +241,7 @@ export function ReservationDetailView({
           reservationId,
           reservation: result.reservation,
           detail: result.detail,
+          gym: result.gym,
         });
         return;
       }
@@ -303,8 +305,17 @@ export function ReservationDetailView({
       : null;
   }, [reservationId, reservations, currentDetailFetch]);
   const gymsById = useMemo(
-    () => new Map(gyms.map((gym) => [gym.id, gym])),
-    [gyms],
+    () => {
+      const map = new Map(gyms.map((gym) => [gym.id, gym]));
+      if (
+        currentDetailFetch?.status === "fetched" &&
+        currentDetailFetch.gym
+      ) {
+        map.set(currentDetailFetch.gym.id, currentDetailFetch.gym);
+      }
+      return map;
+    },
+    [currentDetailFetch, gyms],
   );
 
   // 단건 fetch가 성공해 reservation이 결정된 경우엔 목록 구독이 not-ready여도 정상 표시.
@@ -443,6 +454,10 @@ export function ReservationDetailView({
           detail: createUserReservationDetail(nextReservation, {
             now: new Date(),
           }),
+          gym:
+            currentDetailFetch?.status === "fetched"
+              ? currentDetailFetch.gym
+              : null,
         });
       }
 

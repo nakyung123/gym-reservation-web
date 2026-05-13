@@ -3,7 +3,7 @@ import { createUserReservationDetail } from "@/lib/reservation-detail";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   cancelReservationInMysql,
-  getUserReservationById,
+  getUserReservationDetailById,
 } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
@@ -17,8 +17,8 @@ export async function GET(request: NextRequest, ctx: Context) {
   }
 
   const { reservationId } = await ctx.params;
-  const reservation = await getUserReservationById(auth.uid, reservationId);
-  if (!reservation) {
+  const record = await getUserReservationDetailById(auth.uid, reservationId);
+  if (!record) {
     return Response.json(
       { message: "예약을 찾을 수 없습니다." },
       { status: 404 },
@@ -26,8 +26,9 @@ export async function GET(request: NextRequest, ctx: Context) {
   }
 
   return Response.json({
-    reservation,
-    detail: createUserReservationDetail(reservation),
+    reservation: record.reservation,
+    detail: createUserReservationDetail(record.reservation),
+    gym: record.gym,
   });
 }
 

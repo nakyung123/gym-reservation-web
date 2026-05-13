@@ -5,6 +5,7 @@ import {
   createReservationInMysql,
   getAdminReservationOverview,
   getAdminReservationById,
+  getUserReservationDetailById,
   getUserReservationById,
   listAdminReservations,
   listReservationSlotAvailabilities,
@@ -338,6 +339,57 @@ describe("getUserReservationById", () => {
     );
 
     expect(reservation).toBeNull();
+  });
+});
+
+describe("getUserReservationDetailById", () => {
+  it("returns the reservation with gym metadata even when the gym is inactive", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await prisma.reservation.update({
+      where: { id: created.reservation.id },
+      data: { status: "cancelled" },
+    });
+    await prisma.gym.update({
+      where: { id: TEST_GYM.id },
+      data: { isActive: false },
+    });
+
+    const detail = await getUserReservationDetailById(
+      userA,
+      created.reservation.id,
+    );
+
+    expect(detail).toMatchObject({
+      reservation: {
+        id: created.reservation.id,
+        status: "cancelled",
+      },
+      gym: {
+        id: TEST_GYM.id,
+        name: TEST_GYM.name,
+      },
+    });
+  });
+
+  it("does not return another user's reservation detail", async () => {
+    const created = await createReservationInMysql({
+      userId: userA,
+      draft: draftFor("11:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await expect(
+      getUserReservationDetailById(userB, created.reservation.id),
+    ).resolves.toBeNull();
   });
 });
 

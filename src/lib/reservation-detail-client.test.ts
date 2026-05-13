@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchUserReservation } from "@/lib/reservation-detail-client";
 import { createUserReservationDetail } from "@/lib/reservation-detail";
-import type { Reservation } from "@/types/domain";
+import type { Gym, Reservation } from "@/types/domain";
 
 const { getFirebaseClient } = vi.hoisted(() => ({
   getFirebaseClient: vi.fn(),
@@ -25,6 +25,22 @@ const reservation: Reservation = {
 const detail = createUserReservationDetail(reservation, {
   now: new Date("2026-05-19T00:00:00.000Z"),
 });
+const gym: Gym = {
+  id: reservation.gymId,
+  name: "Reservation Detail Gym",
+  region: "Reservation Detail Region",
+  address: "1 Detail Road",
+  officialUrl: "https://example.com/detail-gym",
+  openHours: "09:00-22:00",
+  basePrice: 10000,
+  description: "Reservation detail client test gym",
+  distanceKm: 1.25,
+  sports: [reservation.sport],
+  sportPrices: { [reservation.sport]: reservation.price },
+  facilities: ["locker"],
+  availableTimes: [reservation.time],
+  closedDays: [],
+};
 
 function mockCurrentUser(token = "id-token") {
   getFirebaseClient.mockReturnValue({
@@ -62,12 +78,13 @@ describe("fetchUserReservation", () => {
 
   it("returns the reservation from a valid API response", async () => {
     mockCurrentUser();
-    const fetchMock = mockFetch(Response.json({ reservation, detail }));
+    const fetchMock = mockFetch(Response.json({ reservation, detail, gym }));
 
     await expect(fetchUserReservation(reservation.id)).resolves.toEqual({
       ok: true,
       reservation,
       detail,
+      gym,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/reservations/${reservation.id}`,
@@ -118,6 +135,7 @@ describe("fetchUserReservation", () => {
       Response.json({
         reservation: { ...reservation, status: "bad" },
         detail,
+        gym,
       }),
     );
 
@@ -132,10 +150,29 @@ describe("fetchUserReservation", () => {
     mockFetch(
       Response.json({
         reservation,
+        gym,
         detail: {
           ...detail,
           admission: { ...detail.admission, active: "yes" },
         },
+      }),
+    );
+
+    await expect(fetchUserReservation(reservation.id)).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "예약 상세 응답 형식이 올바르지 않습니다.",
+      status: 200,
+    });
+  });
+
+  it("rejects malformed gym response shapes", async () => {
+    mockCurrentUser();
+    mockFetch(
+      Response.json({
+        reservation,
+        detail,
+        gym: { ...gym, sports: ["baseball"] },
       }),
     );
 
