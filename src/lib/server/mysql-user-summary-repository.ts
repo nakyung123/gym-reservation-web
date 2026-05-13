@@ -1,30 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/server/prisma-client";
-import { isReservationStatus } from "@/lib/domain-constants";
-import type { ReservationStatus } from "@/types/domain";
-
-export type UserReservationSummary = Record<ReservationStatus, number> & {
-  total: number;
-};
-
-export type UserFavoriteSummary = {
-  activeGymCount: number;
-};
-
-export type UserSummary = {
-  userId: string;
-  reservations: UserReservationSummary;
-  favorites: UserFavoriteSummary;
-};
-
-function emptyReservationSummary(): UserReservationSummary {
-  return {
-    total: 0,
-    reserved: 0,
-    cancelled: 0,
-    used: 0,
-  };
-}
+import {
+  addReservationStatusCount,
+  createEmptyUserReservationSummary,
+  type UserSummary,
+} from "@/lib/user-summary";
 
 export async function getUserSummary(userId: string): Promise<UserSummary> {
   const [reservationRows, activeFavoriteGymCount] = await Promise.all([
@@ -38,13 +18,9 @@ export async function getUserSummary(userId: string): Promise<UserSummary> {
     }),
   ]);
 
-  const reservations = emptyReservationSummary();
+  const reservations = createEmptyUserReservationSummary();
   for (const row of reservationRows) {
-    if (!isReservationStatus(row.status)) {
-      throw new Error(`알 수 없는 예약 상태입니다: ${row.status}`);
-    }
-    reservations[row.status] = row._count._all;
-    reservations.total += row._count._all;
+    addReservationStatusCount(reservations, row.status, row._count._all);
   }
 
   return {
