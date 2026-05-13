@@ -4,10 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import { formatGymPrice } from "@/lib/gym-utils";
-import {
-  getUserReservationCancellationDeadline,
-  validateUserReservationCancellation,
-} from "@/lib/reservation-rules";
+import { createUserReservationDetail } from "@/lib/reservation-detail";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import {
@@ -331,22 +328,19 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             const now = currentMinuteValue
               ? new Date(currentMinuteValue)
               : new Date();
-            const cancellationDeadline =
-              reservation.status === "reserved"
-                ? getUserReservationCancellationDeadline(reservation)
-                : null;
-            const cancellationMessage =
-              reservation.status === "reserved"
-                ? (() => {
-                    const result = validateUserReservationCancellation({
-                      reservation,
-                      now,
-                    });
-                    return result.ok ? null : result.message;
-                  })()
-                : null;
-            const canCancelReservation =
-              reservation.status === "reserved" && cancellationMessage === null;
+            // 화면 행마다 동일 SSOT 함수로 detail을 재구성해 단건 상세 화면과 일관성을 맞춘다.
+            // deadline은 detail.cancellation.deadline(ISO 문자열)을 Date로 환산해 사용.
+            const liveDetail = createUserReservationDetail(reservation, {
+              now,
+            });
+            const cancellationDeadline = liveDetail.cancellation.deadline
+              ? (() => {
+                  const parsed = new Date(liveDetail.cancellation.deadline);
+                  return Number.isNaN(parsed.getTime()) ? null : parsed;
+                })()
+              : null;
+            const cancellationMessage = liveDetail.cancellation.message;
+            const canCancelReservation = liveDetail.cancellation.canCancel;
 
             return (
               <article

@@ -17,9 +17,9 @@ import {
 } from "@/lib/firebase-auth-session";
 import { formatGymPrice } from "@/lib/gym-utils";
 import {
-  getUserReservationCancellationDeadline,
-  validateUserReservationCancellation,
-} from "@/lib/reservation-rules";
+  createUserReservationDetail,
+  type UserReservationDetail,
+} from "@/lib/reservation-detail";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import {
@@ -38,6 +38,15 @@ import {
 } from "@/components/reservation-ticket";
 import type { Gym, Reservation } from "@/types/domain";
 
+// 서버 detail.cancellation.deadline은 ISO 문자열이므로 Date로 환산.
+function parseCancellationDeadline(value: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 const noticeStyles = {
   success: "border-emerald-200 bg-emerald-50 text-emerald-800",
   error: "border-rose-200 bg-rose-50 text-rose-800",
@@ -54,7 +63,12 @@ type ReservationDetailViewProps = {
 // (React 19의 react-hooks/set-state-in-effect 규칙을 피하기 위함)
 type DetailFetchState =
   | { status: "idle" }
-  | { status: "fetched"; reservationId: string; reservation: Reservation }
+  | {
+      status: "fetched";
+      reservationId: string;
+      reservation: Reservation;
+      detail: UserReservationDetail;
+    }
   | {
       status: "failed";
       reservationId: string;
@@ -123,9 +137,11 @@ function DetailState({
 function TicketPanel({
   reservation,
   hasGym,
+  entryCode,
 }: {
   reservation: Reservation;
   hasGym: boolean;
+  entryCode?: string | null;
 }) {
   if (reservation.status !== "reserved") {
     return <ReservationInactiveTicket status={reservation.status} />;
@@ -135,7 +151,12 @@ function TicketPanel({
     return <ReservationUnavailableTicket />;
   }
 
-  return <ReservationAdmissionTicket reservation={reservation} />;
+  return (
+    <ReservationAdmissionTicket
+      reservation={reservation}
+      entryCode={entryCode}
+    />
+  );
 }
 
 export function ReservationDetailView({
@@ -218,6 +239,7 @@ export function ReservationDetailView({
           status: "fetched",
           reservationId,
           reservation: result.reservation,
+          detail: result.detail,
         });
         return;
       }
@@ -378,22 +400,25 @@ export function ReservationDetailView({
 
   const gymSummary = getReservationGymSummary(gymsById, reservation);
   const now = currentMinuteValue ? new Date(currentMinuteValue) : new Date();
-  const cancellationDeadline =
-    reservation.status === "reserved"
-      ? getUserReservationCancellationDeadline(reservation)
+  // 시간 의존(canCancel/deadline 통과)은 매 분 클라이언트에서 재평가해야 하므로,
+  // 동일 SSOT 함수(createUserReservationDetail)로 화면용 detail을 재구성한다.
+  // 서버 detail은 admission.entryCode 같은 비-시간 의존 필드 우선 사용에 활용한다.
+  // useMemo는 early-return 이후라 Rules of Hooks 위반이라서 일반 계산으로 둔다.
+  const liveDetail = createUserReservationDetail(reservation, { now });
+  const serverDetail =
+    currentDetailFetch?.status === "fetched" &&
+    currentDetailFetch.reservation.id === reservation.id &&
+    currentDetailFetch.reservation.status === reservation.status
+      ? currentDetailFetch.detail
       : null;
-  const cancellationMessage =
-    reservation.status === "reserved"
-      ? (() => {
-          const result = validateUserReservationCancellation({
-            reservation,
-            now,
-          });
-          return result.ok ? null : result.message;
-        })()
-      : null;
-  const canCancelReservation =
-    reservation.status === "reserved" && cancellationMessage === null;
+  const cancellationDeadline = parseCancellationDeadline(
+    liveDetail.cancellation.deadline,
+  );
+  const cancellationMessage = liveDetail.cancellation.message;
+  const canCancelReservation = liveDetail.cancellation.canCancel;
+  // entryCode는 서버 응답을 우선 사용하고, 없으면 클라이언트 SSOT 함수 결과로 폴백.
+  const admissionEntryCode =
+    serverDetail?.admission.entryCode ?? liveDetail.admission.entryCode;
 
   const handleCancel = async () => {
     if (isCancelling || !canCancelReservation) {
@@ -407,12 +432,17 @@ export function ReservationDetailView({
 
       // 목록 snapshot이 not-ready면 repository의 upsert가 early-return하므로
       // 단건 fetch fallback에 머무는 동안 화면이 cancelled 상태로 갱신되지 않는다.
-      // result에 갱신된 reservation이 포함돼 있으면 detailFetchState도 함께 맞춰준다.
+      // result에 갱신된 reservation이 포함돼 있으면 detail도 동일 SSOT 함수로
+      // 재구성해 함께 저장한다. (Repository 계약은 그대로 두고 클라이언트에서 통합)
       if ("reservation" in result && result.reservation) {
+        const nextReservation = result.reservation;
         setDetailFetchState({
           status: "fetched",
-          reservationId: result.reservation.id,
-          reservation: result.reservation,
+          reservationId: nextReservation.id,
+          reservation: nextReservation,
+          detail: createUserReservationDetail(nextReservation, {
+            now: new Date(),
+          }),
         });
       }
 
@@ -652,6 +682,7 @@ export function ReservationDetailView({
           <TicketPanel
             reservation={reservation}
             hasGym={!gymSummary.isMissingFromCurrentData}
+            entryCode={admissionEntryCode}
           />
         </div>
       </aside>

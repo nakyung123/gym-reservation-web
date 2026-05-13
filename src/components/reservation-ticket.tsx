@@ -47,10 +47,17 @@ function QrPreview({ reservation }: { reservation: Reservation }) {
 
 export function ReservationAdmissionTicket({
   reservation,
+  entryCode: entryCodeProp,
 }: {
   reservation: Reservation;
+  entryCode?: string | null;
 }) {
-  const entryCode = getReservationEntryCode(reservation);
+  // 서버 detail.admission.entryCode가 전달되면 그 값을 우선 사용한다.
+  // 비어 있으면 기존 폴백(getReservationEntryCode)으로 표시한다.
+  const entryCode =
+    entryCodeProp && entryCodeProp.length > 0
+      ? entryCodeProp
+      : getReservationEntryCode(reservation);
 
   return (
     <div className="flex flex-col items-start gap-3 lg:items-center">
