@@ -81,6 +81,64 @@ describe("validateAdminGymPayload", () => {
     expect(result.message).toContain("지원하지 않는 종목입니다");
   });
 
+  it("rejects invalid gym ids when creating a gym", () => {
+    const result = validateAdminGymPayload(
+      {
+        ...validPayload,
+        id: "Schema Test Gym",
+      },
+      { requireId: true },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toContain("시설 ID");
+  });
+
+  it("rejects non-http official URLs", () => {
+    const result = validateAdminGymPayload(
+      {
+        ...validPayload,
+        officialUrl: "ftp://example.com/gym",
+      },
+      { requireId: true },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toBe("공식 URL은 http 또는 https 주소여야 합니다.");
+  });
+
+  it("rejects missing sport prices for selected sports", () => {
+    const result = validateAdminGymPayload(
+      {
+        ...validPayload,
+        sportPrices: {
+          [primarySport]: 12000,
+        },
+      },
+      { requireId: true },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toContain(`${secondarySport} 이용료`);
+  });
+
+  it("rejects invalid available time values", () => {
+    const result = validateAdminGymPayload(
+      {
+        ...validPayload,
+        availableTimes: ["10:00", "24:00"],
+      },
+      { requireId: true },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.message).toContain("HH:mm");
+  });
+
   it("rejects payloads without a boolean isActive", () => {
     const result = validateAdminGymPayload(
       {

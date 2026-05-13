@@ -9,6 +9,7 @@ import {
   listAdminReservations,
   listReservationSlotAvailabilities,
   markReservationUsedInMysql,
+  RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
   updateReservationSlotPolicies,
   updateReservationSlotPolicy,
 } from "@/lib/server/mysql-reservation-repository";
@@ -456,6 +457,31 @@ describe("updateReservationSlotPolicy", () => {
     expect(result.message).toBe("날짜는 YYYY-MM-DD 형식이어야 합니다.");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
+
+  it("rejects a slot policy change without a capacity or closed flag", async () => {
+    const result = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draftFor("10:00"),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("rejects a slot policy change for a time the gym does not expose", async () => {
+    const result = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draftFor("09:00"),
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
 });
 
 describe("updateReservationSlotPolicies", () => {
@@ -507,6 +533,25 @@ describe("updateReservationSlotPolicies", () => {
     expect(rows).toHaveLength(4);
     expect(rows.every((row) => row.capacity === 6)).toBe(true);
     expect(rows.every((row) => row.isClosed)).toBe(true);
+  });
+
+  it("deduplicates repeated dates and times before applying bulk slot policies", async () => {
+    const date = futureDate();
+
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: TEST_GYM.sports[0],
+      dates: [date, date],
+      times: ["10:00", "10:00"],
+      capacity: 6,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.updatedCount).toBe(1);
+    expect(result.slots).toHaveLength(1);
+    expect(await prisma.reservationSlot.count()).toBe(1);
   });
 
   it("일괄 변경 중 충돌이 있으면 전체 변경을 거부한다", async () => {
@@ -607,6 +652,74 @@ describe("updateReservationSlotPolicies", () => {
     if (result.ok) return;
     expect(result.status).toBe("rejected");
     expect(result.message).toBe("날짜는 YYYY-MM-DD 형식이어야 합니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("rejects bulk slot policies without a capacity or closed flag", async () => {
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: TEST_GYM.sports[0],
+      dates: [futureDate()],
+      times: ["10:00"],
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("rejects bulk slot policies with empty targets", async () => {
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: TEST_GYM.sports[0],
+      dates: [],
+      times: ["10:00"],
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("rejects bulk slot policies for times the gym does not expose", async () => {
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: TEST_GYM.sports[0],
+      dates: [futureDate()],
+      times: ["09:00"],
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("rejects bulk slot policies over the target limit", async () => {
+    const dates = Array.from(
+      { length: RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT + 1 },
+      (_, index) => futureDate(index + 1),
+    );
+
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: TEST_GYM.sports[0],
+      dates,
+      times: ["10:00"],
+      isClosed: true,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 });

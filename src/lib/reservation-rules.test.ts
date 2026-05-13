@@ -6,7 +6,7 @@ import {
   validateUserReservationCancellation,
   validateReservationDraft,
 } from "@/lib/reservation-rules";
-import type { Gym, ReservationDraft } from "@/types/domain";
+import type { Gym, Reservation, ReservationDraft } from "@/types/domain";
 
 const baseGym: Gym = {
   id: "gym-rules-test",
@@ -33,6 +33,22 @@ function draftFor(date: string): ReservationDraft {
     date,
     time: "10:00",
     price: 12000,
+  };
+}
+
+function reservationFor(overrides: Partial<Reservation> = {}): Reservation {
+  const draft = draftFor("2026-05-20");
+  return {
+    id: "rules-reservation",
+    userId: draft.userId,
+    gymId: draft.gymId,
+    sport: draft.sport,
+    date: draft.date,
+    time: draft.time,
+    price: draft.price,
+    status: "reserved",
+    createdAt: "2026-05-01T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -76,6 +92,80 @@ describe("isGymClosedOnDate", () => {
 });
 
 describe("validateReservationDraft", () => {
+  it("accepts a valid future reservation draft", () => {
+    const result = validateReservationDraft({
+      gym: baseGym,
+      reservations: [],
+      draft: draftFor("2026-05-20"),
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a draft for a different gym", () => {
+    const result = validateReservationDraft({
+      gym: baseGym,
+      reservations: [],
+      draft: { ...draftFor("2026-05-20"), gymId: "another-gym" },
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("gym-mismatch");
+  });
+
+  it("rejects a sport the gym does not expose", () => {
+    const result = validateReservationDraft({
+      gym: { ...baseGym, sports: [] },
+      reservations: [],
+      draft: draftFor("2026-05-20"),
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("sport-unavailable");
+  });
+
+  it("rejects a time the gym does not expose", () => {
+    const result = validateReservationDraft({
+      gym: baseGym,
+      reservations: [],
+      draft: { ...draftFor("2026-05-20"), time: "09:00" },
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("time-unavailable");
+  });
+
+  it("rejects invalid and past reservation date-times", () => {
+    const invalid = validateReservationDraft({
+      gym: baseGym,
+      reservations: [],
+      draft: draftFor("2026-02-30"),
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+    const past = validateReservationDraft({
+      gym: baseGym,
+      reservations: [],
+      draft: draftFor("2026-05-20"),
+      now: new Date(2026, 4, 20, 10, 0, 0),
+    });
+
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) {
+      expect(invalid.reason).toBe("invalid-date-time");
+    }
+    expect(past.ok).toBe(false);
+    if (!past.ok) {
+      expect(past.reason).toBe("past-time");
+    }
+  });
+
   it("휴관일 예약을 rejected 규칙으로 차단한다", () => {
     const gym = { ...baseGym, closedDays: ["일요일"] };
 
@@ -90,6 +180,36 @@ describe("validateReservationDraft", () => {
     if (result.ok) return;
     expect(result.reason).toBe("closed-day");
     expect(result.message).toBe("선택한 날짜는 체육관 휴관일입니다.");
+  });
+
+  it("rejects an active duplicate reservation and returns the matching reservation", () => {
+    const duplicate = reservationFor();
+
+    const result = validateReservationDraft({
+      gym: baseGym,
+      reservations: [
+        reservationFor({ id: "cancelled-duplicate", status: "cancelled" }),
+        duplicate,
+      ],
+      draft: draftFor("2026-05-20"),
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("duplicate-active-reservation");
+    expect(result.reservation).toBe(duplicate);
+  });
+
+  it("allows a draft when the only matching reservation is cancelled", () => {
+    const result = validateReservationDraft({
+      gym: baseGym,
+      reservations: [reservationFor({ status: "cancelled" })],
+      draft: draftFor("2026-05-20"),
+      now: new Date(2026, 4, 1, 0, 0, 0),
+    });
+
+    expect(result.ok).toBe(true);
   });
 });
 
