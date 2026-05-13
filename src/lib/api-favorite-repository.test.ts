@@ -68,6 +68,68 @@ describe("apiFavoriteRepository", () => {
     unsubscribe();
   });
 
+  it("fetches the next user's favorites even if the previous fetch is still pending", async () => {
+    let authListener: (() => void) | null = null;
+    let currentSession = {
+      ok: true,
+      userId: "favorite-user-a",
+    };
+    let resolveFirstFetch!: (response: Response) => void;
+    let resolveSecondFetch!: (response: Response) => void;
+    const firstFetch = new Promise<Response>((resolve) => {
+      resolveFirstFetch = resolve;
+    });
+    const secondFetch = new Promise<Response>((resolve) => {
+      resolveSecondFetch = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(firstFetch)
+      .mockReturnValueOnce(secondFetch);
+    const getAuthListener = () => {
+      if (!authListener) {
+        throw new Error("auth listener was not registered");
+      }
+      return authListener;
+    };
+
+    getCurrentFirebaseAuthSession.mockImplementation(() => currentSession);
+    subscribeFirebaseAuthSession.mockImplementation((listener) => {
+      authListener = listener;
+      return vi.fn();
+    });
+    mockCurrentUser();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const repository = await loadRepository();
+    const unsubscribe = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    currentSession = {
+      ok: true,
+      userId: "favorite-user-b",
+    };
+    getAuthListener()();
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    resolveSecondFetch(Response.json({ gymIds: ["gym-b"] }));
+    await vi.waitFor(() => {
+      expect([...repository.getSnapshot()]).toEqual(["gym-b"]);
+    });
+
+    resolveFirstFetch(Response.json({ gymIds: ["gym-a"] }));
+    await Promise.resolve();
+    expect([...repository.getSnapshot()]).toEqual(["gym-b"]);
+
+    unsubscribe();
+  });
+
   it("keeps an optimistic favorite after a successful toggle request", async () => {
     mockCurrentUser();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ok: true })));

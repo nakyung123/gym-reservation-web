@@ -11,7 +11,6 @@ const emptyFavoriteSnapshot: ReadonlySet<string> = new Set();
 let currentFavoriteIds = new Set<string>();
 let currentFavoriteSnapshot: ReadonlySet<string> = emptyFavoriteSnapshot;
 let lastFetchedUserId: string | null = null;
-let inflightFetch: Promise<void> | null = null;
 let authUnsubscribe: (() => void) | null = null;
 
 const listeners = new Set<() => void>();
@@ -95,11 +94,7 @@ function handleAuthChange() {
   lastFetchedUserId = session.userId;
   setCurrentSet(new Set());
 
-  if (!inflightFetch) {
-    inflightFetch = fetchFavorites(session.userId).finally(() => {
-      inflightFetch = null;
-    });
-  }
+  void fetchFavorites(session.userId);
 }
 
 function ensureAuthSubscription() {
