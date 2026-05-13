@@ -69,4 +69,14 @@ describe("GET /api/favorites", () => {
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
+
+  it("ID 토큰 검증에 실패하면 401을 반환한다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await GET(requestFor());
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+  });
 });

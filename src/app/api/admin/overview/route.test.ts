@@ -129,6 +129,14 @@ describe("GET /api/admin/overview", () => {
     expect(response.status).toBe(403);
   });
 
+  it("returns 503 when the admin token is not configured", async () => {
+    delete process.env.ADMIN_API_TOKEN;
+
+    const response = await GET(requestFor({ date: futureDate() }));
+
+    expect(response.status).toBe(503);
+  });
+
   it("date가 없으면 400을 반환한다", async () => {
     const response = await GET(requestFor());
     const body = (await response.json()) as { message?: unknown };

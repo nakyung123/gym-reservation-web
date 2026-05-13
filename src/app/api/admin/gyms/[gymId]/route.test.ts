@@ -92,6 +92,22 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
     expect(row.name).toBe(TEST_GYM.name);
   });
 
+  it("관리자 토큰이 설정되지 않았으면 503을 반환하고 수정하지 않는다", async () => {
+    delete process.env.ADMIN_API_TOKEN;
+
+    const response = await PATCH(
+      patchRequest(updateBody),
+      contextFor(TEST_GYM.id),
+    );
+
+    expect(response.status).toBe(503);
+
+    const row = await prisma.gym.findUniqueOrThrow({
+      where: { id: TEST_GYM.id },
+    });
+    expect(row.name).toBe(TEST_GYM.name);
+  });
+
   it("요청 본문이 JSON 형식이 아니면 400을 반환한다", async () => {
     const response = await PATCH(
       new NextRequest(`http://localhost:3000/api/admin/gyms/${TEST_GYM.id}`, {
@@ -108,6 +124,11 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
 
     expect(response.status).toBe(400);
     expect(body.message).toBe("요청 본문이 JSON 형식이 아닙니다.");
+
+    const row = await prisma.gym.findUniqueOrThrow({
+      where: { id: TEST_GYM.id },
+    });
+    expect(row.name).toBe(TEST_GYM.name);
   });
 
   it("본문 검증에 실패하면 400을 반환하고 수정하지 않는다", async () => {

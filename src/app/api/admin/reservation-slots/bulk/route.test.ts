@@ -141,6 +141,23 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
+  it("returns 503 and does not change slots when the admin token is not configured", async () => {
+    delete process.env.ADMIN_API_TOKEN;
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        dates: [futureDate()],
+        times: ["10:00"],
+        isClosed: true,
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
   it("요청 본문이 JSON 형식이 아니면 400을 반환하고 변경하지 않는다", async () => {
     const response = await PATCH(
       new NextRequest(

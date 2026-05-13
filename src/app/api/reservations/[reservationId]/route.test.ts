@@ -76,6 +76,19 @@ describe("GET /api/reservations/[reservationId]", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
+  it("ID 토큰 검증에 실패하면 401을 반환한다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await GET(
+      requestFor("reservation-a"),
+      contextFor("reservation-a"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+  });
+
   it("다른 사용자의 예약은 404로 응답한다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "detail-user-b" });
     const created = await createReservationInMysql({
@@ -238,6 +251,50 @@ describe("DELETE /api/reservations/[reservationId]", () => {
 
     expect(response.status).toBe(404);
     expect(body.message).toBe("취소할 예약을 찾을 수 없습니다.");
+  });
+
+  it("ID 토큰 검증에 실패하면 401을 반환하고 예약을 취소하지 않는다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+    const date = futureDate();
+    const created = await createReservationInMysql({
+      userId: "cancel-auth-failed-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const response = await DELETE(
+      requestFor(created.reservation.id, "test-id-token", "DELETE"),
+      contextFor(created.reservation.id),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+
+    const row = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    expect(row.status).toBe("reserved");
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date,
+          time: "10:00",
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
+    expect(await prisma.reservationLock.count()).toBe(1);
   });
 
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {

@@ -103,6 +103,26 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
     expect(response.status).toBe(401);
   });
 
+  it("returns 503 when the admin token is not configured", async () => {
+    delete process.env.ADMIN_API_TOKEN;
+
+    const response = await GET(
+      requestFor("missing-reservation"),
+      contextFor("missing-reservation"),
+    );
+
+    expect(response.status).toBe(503);
+  });
+
+  it("관리자 토큰이 틀리면 403을 반환한다", async () => {
+    const response = await GET(
+      requestFor("missing-reservation", "wrong-token"),
+      contextFor("missing-reservation"),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
   it("존재하지 않는 예약 ID는 404를 반환한다", async () => {
     const response = await GET(
       requestFor("missing-reservation"),
@@ -158,13 +178,35 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     ).resolves.toBeNull();
   });
 
-  it("지원하지 않는 상태 변경 요청은 400을 반환한다", async () => {
+  it("지원하지 않는 상태 변경 요청은 400을 반환하고 변경하지 않는다", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-invalid-status-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(9),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
     const response = await PATCH(
-      patchRequestFor("reservation-a", "reserved"),
-      contextFor("reservation-a"),
+      patchRequestFor(created.reservation.id, "reserved"),
+      contextFor(created.reservation.id),
     );
 
     expect(response.status).toBe(400);
+    const row = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    expect(row.status).toBe("reserved");
+    await expect(
+      prisma.reservationLock.findUnique({
+        where: { activeKey: row.activeKey },
+      }),
+    ).resolves.not.toBeNull();
   });
 
   it("관리자 토큰이 없으면 예약 상태를 변경하지 않는다", async () => {
@@ -220,6 +262,38 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     );
 
     expect(response.status).toBe(403);
+    const row = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    expect(row.status).toBe("reserved");
+    await expect(
+      prisma.reservationLock.findUnique({
+        where: { activeKey: row.activeKey },
+      }),
+    ).resolves.not.toBeNull();
+  });
+
+  it("returns 503 and keeps the reservation unchanged when the admin token is not configured", async () => {
+    delete process.env.ADMIN_API_TOKEN;
+    const created = await createReservationInMysql({
+      userId: "admin-patch-missing-config-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(16),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const response = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+
+    expect(response.status).toBe(503);
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
     });

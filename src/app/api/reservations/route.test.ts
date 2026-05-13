@@ -89,6 +89,16 @@ describe("GET /api/reservations", () => {
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
+
+  it("ID 토큰 검증에 실패하면 401을 반환한다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await GET(getRequest());
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+  });
 });
 
 describe("POST /api/reservations", () => {
@@ -227,6 +237,27 @@ describe("POST /api/reservations", () => {
     expect(await prisma.reservation.count()).toBe(0);
   });
 
+  it("malformed JSON returns 400 and does not create a reservation", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "malformed-json-route-user" });
+
+    const response = await POST(
+      new NextRequest("http://localhost:3000/api/reservations", {
+        method: "POST",
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: "{invalid-json",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("요청 본문이 JSON 형식이 아닙니다.");
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
   it("체육관이 없으면 404를 반환하고 예약을 만들지 않는다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "missing-gym-route-user" });
 
@@ -290,6 +321,25 @@ describe("POST /api/reservations", () => {
     expect(body.message).toBe(
       "예약 날짜 또는 시간 형식이 올바르지 않습니다.",
     );
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
+  it("ID 토큰 검증에 실패하면 401을 반환하고 예약을 만들지 않는다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "10:00",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
     expect(await prisma.reservation.count()).toBe(0);
     expect(await prisma.reservationLock.count()).toBe(0);
   });

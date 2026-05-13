@@ -82,6 +82,20 @@ describe("PUT /api/favorites/[gymId]", () => {
     expect(await prisma.favorite.count()).toBe(0);
   });
 
+  it("ID 토큰 검증에 실패하면 401을 반환하고 추가하지 않는다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await PUT(
+      requestFor(TEST_GYM.id, "PUT"),
+      contextFor(TEST_GYM.id),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(await prisma.favorite.count()).toBe(0);
+  });
+
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {
     const response = await PUT(
       new NextRequest(`http://localhost:3000/api/favorites/${TEST_GYM.id}`, {
@@ -133,6 +147,23 @@ describe("DELETE /api/favorites/[gymId]", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(await prisma.favorite.count()).toBe(1);
+  });
+
+  it("ID 토큰 검증에 실패하면 401을 반환하고 삭제하지 않는다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+    await prisma.favorite.create({
+      data: { userId: "favorite-delete-user", gymId: TEST_GYM.id },
+    });
+
+    const response = await DELETE(
+      requestFor(TEST_GYM.id, "DELETE"),
+      contextFor(TEST_GYM.id),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
     expect(await prisma.favorite.count()).toBe(1);
   });
 

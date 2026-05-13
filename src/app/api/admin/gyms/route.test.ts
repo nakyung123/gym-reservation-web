@@ -75,6 +75,16 @@ describe("GET /api/admin/gyms", () => {
 
     expect(response.status).toBe(403);
   });
+
+  it("returns 503 when the admin token is not configured", async () => {
+    delete process.env.ADMIN_API_TOKEN;
+
+    const response = await GET(
+      adminRequest("http://localhost:3000/api/admin/gyms"),
+    );
+
+    expect(response.status).toBe(503);
+  });
 });
 
 describe("POST /api/admin/gyms", () => {
@@ -117,6 +127,13 @@ describe("POST /api/admin/gyms", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(await prisma.gym.count()).toBe(1);
+  });
+
+  it("returns 403 and does not create a gym when the admin token is wrong", async () => {
+    const response = await POST(postRequest(newAdminGym, "wrong-token"));
+
+    expect(response.status).toBe(403);
     expect(await prisma.gym.count()).toBe(1);
   });
 
