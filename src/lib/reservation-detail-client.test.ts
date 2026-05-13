@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchUserReservation } from "@/lib/reservation-detail-client";
+import { createUserReservationDetail } from "@/lib/reservation-detail";
 import type { Reservation } from "@/types/domain";
 
 const { getFirebaseClient } = vi.hoisted(() => ({
@@ -21,6 +22,9 @@ const reservation: Reservation = {
   status: "reserved",
   createdAt: "2026-05-01T00:00:00.000Z",
 };
+const detail = createUserReservationDetail(reservation, {
+  now: new Date("2026-05-19T00:00:00.000Z"),
+});
 
 function mockCurrentUser(token = "id-token") {
   getFirebaseClient.mockReturnValue({
@@ -58,11 +62,12 @@ describe("fetchUserReservation", () => {
 
   it("returns the reservation from a valid API response", async () => {
     mockCurrentUser();
-    const fetchMock = mockFetch(Response.json({ reservation }));
+    const fetchMock = mockFetch(Response.json({ reservation, detail }));
 
     await expect(fetchUserReservation(reservation.id)).resolves.toEqual({
       ok: true,
       reservation,
+      detail,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/reservations/${reservation.id}`,
@@ -109,11 +114,36 @@ describe("fetchUserReservation", () => {
 
   it("rejects malformed reservation response shapes", async () => {
     mockCurrentUser();
-    mockFetch(Response.json({ reservation: { ...reservation, status: "bad" } }));
+    mockFetch(
+      Response.json({
+        reservation: { ...reservation, status: "bad" },
+        detail,
+      }),
+    );
 
     await expect(fetchUserReservation(reservation.id)).resolves.toMatchObject({
       ok: false,
       kind: "error",
+    });
+  });
+
+  it("rejects malformed detail response shapes", async () => {
+    mockCurrentUser();
+    mockFetch(
+      Response.json({
+        reservation,
+        detail: {
+          ...detail,
+          admission: { ...detail.admission, active: "yes" },
+        },
+      }),
+    );
+
+    await expect(fetchUserReservation(reservation.id)).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "예약 상세 응답 형식이 올바르지 않습니다.",
+      status: 200,
     });
   });
 

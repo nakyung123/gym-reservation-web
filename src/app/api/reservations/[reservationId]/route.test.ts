@@ -57,6 +57,10 @@ describe("GET /api/reservations/[reservationId]", () => {
     );
     const body = (await response.json()) as {
       reservation?: { id?: unknown; userId?: unknown };
+      detail?: {
+        cancellation?: { canCancel?: unknown; deadline?: unknown };
+        admission?: { active?: unknown; entryCode?: unknown };
+      };
     };
 
     expect(response.status).toBe(200);
@@ -64,6 +68,16 @@ describe("GET /api/reservations/[reservationId]", () => {
       id: created.reservation.id,
       userId: "detail-user-a",
     });
+    expect(body.detail).toMatchObject({
+      cancellation: {
+        canCancel: true,
+      },
+      admission: {
+        active: true,
+        entryCode: created.reservation.id.slice(0, 10).toUpperCase(),
+      },
+    });
+    expect(typeof body.detail?.cancellation?.deadline).toBe("string");
   });
 
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {
@@ -143,11 +157,25 @@ describe("DELETE /api/reservations/[reservationId]", () => {
     const firstBody = (await firstResponse.json()) as {
       status?: unknown;
       reservation?: { status?: unknown };
+      detail?: {
+        cancellation?: { canCancel?: unknown; reason?: unknown };
+        admission?: { active?: unknown; entryCode?: unknown };
+      };
     };
 
     expect(firstResponse.status).toBe(200);
     expect(firstBody.status).toBe("cancelled");
     expect(firstBody.reservation).toMatchObject({ status: "cancelled" });
+    expect(firstBody.detail).toMatchObject({
+      cancellation: {
+        canCancel: false,
+        reason: "not-reserved",
+      },
+      admission: {
+        active: false,
+        entryCode: null,
+      },
+    });
 
     const secondResponse = await DELETE(
       requestFor(created.reservation.id, "test-id-token", "DELETE"),
@@ -156,11 +184,20 @@ describe("DELETE /api/reservations/[reservationId]", () => {
     const secondBody = (await secondResponse.json()) as {
       status?: unknown;
       reservation?: { status?: unknown };
+      detail?: {
+        cancellation?: { canCancel?: unknown; reason?: unknown };
+      };
     };
 
     expect(secondResponse.status).toBe(200);
     expect(secondBody.status).toBe("unchanged");
     expect(secondBody.reservation).toMatchObject({ status: "cancelled" });
+    expect(secondBody.detail).toMatchObject({
+      cancellation: {
+        canCancel: false,
+        reason: "not-reserved",
+      },
+    });
 
     const slot = await prisma.reservationSlot.findUniqueOrThrow({
       where: {
@@ -233,11 +270,15 @@ describe("DELETE /api/reservations/[reservationId]", () => {
     const body = (await response.json()) as {
       status?: unknown;
       reservation?: { status?: unknown };
+      detail?: { cancellation?: { reason?: unknown } };
     };
 
     expect(response.status).toBe(409);
     expect(body.status).toBe("not-cancellable");
     expect(body.reservation).toMatchObject({ status: "used" });
+    expect(body.detail).toMatchObject({
+      cancellation: { reason: "not-reserved" },
+    });
   });
 
   it("예약이 없으면 404를 반환한다", async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { getReservationEntryCode } from "@/lib/reservation-detail";
 import type { Gym, Reservation } from "@/types/domain";
 
 export const reservationStatusLabel: Record<Reservation["status"], string> = {
@@ -49,7 +50,7 @@ export function ReservationAdmissionTicket({
 }: {
   reservation: Reservation;
 }) {
-  const entryCode = reservation.id.slice(0, 10).toUpperCase();
+  const entryCode = getReservationEntryCode(reservation);
 
   return (
     <div className="flex flex-col items-start gap-3 lg:items-center">

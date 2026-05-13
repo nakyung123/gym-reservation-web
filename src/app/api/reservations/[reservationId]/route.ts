@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { createUserReservationDetail } from "@/lib/reservation-detail";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   cancelReservationInMysql,
@@ -24,7 +25,10 @@ export async function GET(request: NextRequest, ctx: Context) {
     );
   }
 
-  return Response.json({ reservation });
+  return Response.json({
+    reservation,
+    detail: createUserReservationDetail(reservation),
+  });
 }
 
 export async function DELETE(request: NextRequest, ctx: Context) {
@@ -40,6 +44,7 @@ export async function DELETE(request: NextRequest, ctx: Context) {
     return Response.json({
       status: result.status,
       reservation: result.reservation,
+      detail: createUserReservationDetail(result.reservation),
       message: result.message,
     });
   }
@@ -54,6 +59,9 @@ export async function DELETE(request: NextRequest, ctx: Context) {
     {
       status: result.status,
       reservation: result.reservation,
+      detail: result.reservation
+        ? createUserReservationDetail(result.reservation)
+        : null,
       message: result.message,
     },
     { status: 409 },

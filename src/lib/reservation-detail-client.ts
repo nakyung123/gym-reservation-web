@@ -1,6 +1,10 @@
 "use client";
 
 import { getFirebaseClient } from "@/lib/firebase-client";
+import {
+  isUserReservationDetail,
+  type UserReservationDetail,
+} from "@/lib/reservation-detail";
 import { isReservation } from "@/lib/reservation-repository";
 import type { Reservation } from "@/types/domain";
 
@@ -10,7 +14,7 @@ export type FetchUserReservationFailureKind =
   | "error";
 
 export type FetchUserReservationResult =
-  | { ok: true; reservation: Reservation }
+  | { ok: true; reservation: Reservation; detail: UserReservationDetail }
   | {
       ok: false;
       kind: FetchUserReservationFailureKind;
@@ -71,10 +75,11 @@ export async function fetchUserReservation(
     };
   }
 
-  let data: { reservation?: unknown; message?: unknown };
+  let data: { reservation?: unknown; detail?: unknown; message?: unknown };
   try {
     data = (await response.json()) as {
       reservation?: unknown;
+      detail?: unknown;
       message?: unknown;
     };
   } catch {
@@ -86,8 +91,25 @@ export async function fetchUserReservation(
     };
   }
 
-  if (response.ok && isReservation(data.reservation)) {
-    return { ok: true, reservation: data.reservation };
+  if (
+    response.ok &&
+    isReservation(data.reservation) &&
+    isUserReservationDetail(data.detail)
+  ) {
+    return {
+      ok: true,
+      reservation: data.reservation,
+      detail: data.detail,
+    };
+  }
+
+  if (response.ok) {
+    return {
+      ok: false,
+      kind: "error",
+      message: "예약 상세 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
   }
 
   if (response.status === 404) {
