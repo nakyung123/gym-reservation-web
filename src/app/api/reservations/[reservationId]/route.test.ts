@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GET } from "@/app/api/reservations/[reservationId]/route";
+import { DELETE, GET } from "@/app/api/reservations/[reservationId]/route";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-mysql";
 
 const { verifyIdToken } = vi.hoisted(() => ({
@@ -12,10 +13,15 @@ vi.mock("@/lib/server/firebase-admin", () => ({
   getAdminAuth: () => ({ verifyIdToken }),
 }));
 
-function requestFor(reservationId: string, idToken = "test-id-token") {
+function requestFor(
+  reservationId: string,
+  idToken = "test-id-token",
+  method = "GET",
+) {
   return new NextRequest(
     `http://localhost:3000/api/reservations/${encodeURIComponent(reservationId)}`,
     {
+      method,
       headers: { Authorization: `Bearer ${idToken}` },
     },
   );
@@ -93,5 +99,156 @@ describe("GET /api/reservations/[reservationId]", () => {
 
     expect(response.status).toBe(404);
     expect(body.message).toBe("예약을 찾을 수 없습니다.");
+  });
+});
+
+describe("DELETE /api/reservations/[reservationId]", () => {
+  beforeEach(() => {
+    verifyIdToken.mockReset();
+  });
+
+  it("본인 예약을 취소하고 같은 요청을 반복하면 unchanged로 응답한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "cancel-route-user-a" });
+    const date = futureDate();
+    const created = await createReservationInMysql({
+      userId: "cancel-route-user-a",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const firstResponse = await DELETE(
+      requestFor(created.reservation.id, "test-id-token", "DELETE"),
+      contextFor(created.reservation.id),
+    );
+    const firstBody = (await firstResponse.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(firstResponse.status).toBe(200);
+    expect(firstBody.status).toBe("cancelled");
+    expect(firstBody.reservation).toMatchObject({ status: "cancelled" });
+
+    const secondResponse = await DELETE(
+      requestFor(created.reservation.id, "test-id-token", "DELETE"),
+      contextFor(created.reservation.id),
+    );
+    const secondBody = (await secondResponse.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(secondResponse.status).toBe(200);
+    expect(secondBody.status).toBe("unchanged");
+    expect(secondBody.reservation).toMatchObject({ status: "cancelled" });
+
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date,
+          time: "10:00",
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
+  it("다른 사용자의 예약은 403으로 응답하고 변경하지 않는다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "cancel-route-user-b" });
+    const created = await createReservationInMysql({
+      userId: "cancel-route-user-a",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const response = await DELETE(
+      requestFor(created.reservation.id, "test-id-token", "DELETE"),
+      contextFor(created.reservation.id),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(403);
+    expect(body.message).toBe("다른 사용자의 예약은 취소할 수 없습니다.");
+
+    const row = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    expect(row.status).toBe("reserved");
+  });
+
+  it("이미 이용 완료된 예약은 409로 응답하고 변경하지 않는다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "used-cancel-route-user" });
+    const created = await createReservationInMysql({
+      userId: "used-cancel-route-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    await prisma.reservation.update({
+      where: { id: created.reservation.id },
+      data: { status: "used" },
+    });
+
+    const response = await DELETE(
+      requestFor(created.reservation.id, "test-id-token", "DELETE"),
+      contextFor(created.reservation.id),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(response.status).toBe(409);
+    expect(body.status).toBe("not-cancellable");
+    expect(body.reservation).toMatchObject({ status: "used" });
+  });
+
+  it("예약이 없으면 404를 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "missing-cancel-route-user" });
+
+    const response = await DELETE(
+      requestFor("missing-reservation", "test-id-token", "DELETE"),
+      contextFor("missing-reservation"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(404);
+    expect(body.message).toBe("취소할 예약을 찾을 수 없습니다.");
+  });
+
+  it("Authorization 헤더가 없으면 401을 반환한다", async () => {
+    const response = await DELETE(
+      new NextRequest("http://localhost:3000/api/reservations/reservation-a", {
+        method: "DELETE",
+      }),
+      contextFor("reservation-a"),
+    );
+
+    expect(response.status).toBe(401);
+    expect(verifyIdToken).not.toHaveBeenCalled();
   });
 });

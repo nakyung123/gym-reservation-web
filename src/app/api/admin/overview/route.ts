@@ -1,10 +1,9 @@
 import type { NextRequest } from "next/server";
+import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { getAdminReservationOverview } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
-
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
   const auth = verifyAdminTokenFromRequest(request);
@@ -13,7 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   const date = request.nextUrl.searchParams.get("date");
-  if (!date || !datePattern.test(date)) {
+  if (!date || !isValidReservationDateValue(date)) {
     return Response.json(
       { message: "date는 YYYY-MM-DD 형식이어야 합니다." },
       { status: 400 },

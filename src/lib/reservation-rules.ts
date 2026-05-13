@@ -127,6 +127,10 @@ function parseReservationDateTime(dateValue: string, timeValue: string) {
   return parsed;
 }
 
+export function isValidReservationDateValue(dateValue: string) {
+  return parseReservationDateTime(dateValue, "00:00") !== null;
+}
+
 const weekdayLabels = [
   "일요일",
   "월요일",

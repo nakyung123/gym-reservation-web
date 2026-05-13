@@ -1,16 +1,20 @@
 import type { NextRequest } from "next/server";
 import { isReservationStatus } from "@/lib/domain-constants";
+import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { listAdminReservations } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
 
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
 function parseLimit(value: string | null): number | undefined {
   if (!value) return undefined;
 
-  const limit = Number.parseInt(value, 10);
+  const normalizedValue = value.trim();
+  if (!/^\d+$/.test(normalizedValue)) {
+    throw new Error("limit은 1 이상 200 이하의 정수여야 합니다.");
+  }
+
+  const limit = Number(normalizedValue);
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new Error("limit은 1 이상 200 이하의 정수여야 합니다.");
   }
@@ -35,7 +39,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (date !== null && !datePattern.test(date)) {
+  if (date !== null && !isValidReservationDateValue(date)) {
     return Response.json(
       { message: "date는 YYYY-MM-DD 형식이어야 합니다." },
       { status: 400 },

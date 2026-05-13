@@ -16,7 +16,7 @@ type SlotPolicyBody = {
   isClosed?: boolean;
 };
 
-function requestFor(body: SlotPolicyBody, token = adminToken): NextRequest {
+function rawRequestFor(body: unknown, token = adminToken): NextRequest {
   return new NextRequest("http://localhost:3000/api/admin/reservation-slots", {
     method: "PATCH",
     headers: {
@@ -25,6 +25,10 @@ function requestFor(body: SlotPolicyBody, token = adminToken): NextRequest {
     },
     body: JSON.stringify(body),
   });
+}
+
+function requestFor(body: SlotPolicyBody, token = adminToken): NextRequest {
+  return rawRequestFor(body, token);
 }
 
 describe("PATCH /api/admin/reservation-slots", () => {
@@ -89,6 +93,92 @@ describe("PATCH /api/admin/reservation-slots", () => {
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
+  it("관리자 토큰이 틀리면 403을 반환하고 변경하지 않는다", async () => {
+    const response = await PATCH(
+      requestFor(
+        {
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date: futureDate(),
+          time: "10:00",
+          isClosed: true,
+        },
+        "wrong-token",
+      ),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("요청 본문이 JSON 형식이 아니면 400을 반환하고 변경하지 않는다", async () => {
+    const response = await PATCH(
+      new NextRequest("http://localhost:3000/api/admin/reservation-slots", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-token": adminToken,
+        },
+        body: "{",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("요청 본문이 JSON 형식이 아닙니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("변경할 정원 또는 마감 상태가 없으면 400을 반환한다", async () => {
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("변경할 정원 또는 마감 상태가 필요합니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("isClosed가 boolean이 아니면 400을 반환한다", async () => {
+    const response = await PATCH(
+      rawRequestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+        isClosed: "true",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("isClosed는 boolean이어야 합니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("존재하지 않는 날짜면 400을 반환하고 변경하지 않는다", async () => {
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: "2026-02-30",
+        time: "10:00",
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("슬롯 변경 요청 본문이 올바르지 않습니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
   it("정원 범위가 올바르지 않으면 400을 반환하고 변경하지 않는다", async () => {
     const response = await PATCH(
       requestFor({
@@ -101,6 +191,69 @@ describe("PATCH /api/admin/reservation-slots", () => {
     );
 
     expect(response.status).toBe(400);
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("체육관이 없으면 404를 반환하고 변경하지 않는다", async () => {
+    const response = await PATCH(
+      requestFor({
+        gymId: "missing-gym",
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(404);
+    expect(body.message).toBe("체육관 정보를 찾을 수 없습니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("체육관에서 지원하지 않는 종목이면 422를 반환하고 변경하지 않는다", async () => {
+    const response = await PATCH(
+      rawRequestFor({
+        gymId: TEST_GYM.id,
+        sport: "배구",
+        date: futureDate(),
+        time: "10:00",
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      message?: unknown;
+    };
+
+    expect(response.status).toBe(422);
+    expect(body.status).toBe("rejected");
+    expect(body.message).toBe(
+      "선택한 종목은 이 체육관에서 예약할 수 없습니다.",
+    );
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("예약 가능 시간이 아니면 422를 반환하고 변경하지 않는다", async () => {
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "09:00",
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      message?: unknown;
+    };
+
+    expect(response.status).toBe(422);
+    expect(body.status).toBe("rejected");
+    expect(body.message).toBe(
+      "선택한 시간은 이 체육관의 예약 가능 시간이 아닙니다.",
+    );
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 

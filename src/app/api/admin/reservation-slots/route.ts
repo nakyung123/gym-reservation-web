@@ -1,12 +1,11 @@
 import type { NextRequest } from "next/server";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
+import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { updateReservationSlotPolicy } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
-
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 type UpdateSlotBody = {
   gymId?: unknown;
@@ -52,7 +51,7 @@ export async function PATCH(request: NextRequest) {
     typeof body.gymId !== "string" ||
     !isSport(body.sport) ||
     typeof body.date !== "string" ||
-    !datePattern.test(body.date) ||
+    !isValidReservationDateValue(body.date) ||
     typeof body.time !== "string"
   ) {
     return Response.json(

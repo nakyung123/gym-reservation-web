@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getUserReservationCancellationDeadline,
   isGymClosedOnDate,
+  isValidReservationDateValue,
   validateUserReservationCancellation,
   validateReservationDraft,
 } from "@/lib/reservation-rules";
@@ -34,6 +35,14 @@ function draftFor(date: string): ReservationDraft {
     price: 12000,
   };
 }
+
+describe("isValidReservationDateValue", () => {
+  it("존재하는 날짜만 YYYY-MM-DD 예약 날짜로 인정한다", () => {
+    expect(isValidReservationDateValue("2026-02-28")).toBe(true);
+    expect(isValidReservationDateValue("2026-02-30")).toBe(false);
+    expect(isValidReservationDateValue("2026/02/28")).toBe(false);
+  });
+});
 
 describe("isGymClosedOnDate", () => {
   it("매주 휴관 요일을 판정한다", () => {

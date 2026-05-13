@@ -21,6 +21,14 @@ function patchRequestFor(
   status: unknown,
   token = adminToken,
 ): NextRequest {
+  return rawPatchRequestFor(reservationId, JSON.stringify({ status }), token);
+}
+
+function rawPatchRequestFor(
+  reservationId: string,
+  body: BodyInit,
+  token = adminToken,
+): NextRequest {
   return new NextRequest(
     `http://localhost:3000/api/admin/reservations/${encodeURIComponent(reservationId)}`,
     {
@@ -29,13 +37,25 @@ function patchRequestFor(
         "Content-Type": "application/json",
         "x-admin-token": token,
       },
-      body: JSON.stringify({ status }),
+      body,
     },
   );
 }
 
 function contextFor(reservationId: string) {
   return { params: Promise.resolve({ reservationId }) };
+}
+
+async function expectReservationLockToBeCleared(reservationId: string) {
+  const row = await prisma.reservation.findUniqueOrThrow({
+    where: { id: reservationId },
+  });
+
+  await expect(
+    prisma.reservationLock.findUnique({
+      where: { activeKey: row.activeKey },
+    }),
+  ).resolves.toBeNull();
 }
 
 describe("GET /api/admin/reservations/[reservationId]", () => {
@@ -178,5 +198,216 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
       where: { id: created.reservation.id },
     });
     expect(row.status).toBe("reserved");
+  });
+
+  it("wrong admin token returns 403 and keeps the reservation unchanged", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-wrong-token-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(10),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const response = await PATCH(
+      patchRequestFor(created.reservation.id, "used", "wrong-token"),
+      contextFor(created.reservation.id),
+    );
+
+    expect(response.status).toBe(403);
+    const row = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    expect(row.status).toBe("reserved");
+    await expect(
+      prisma.reservationLock.findUnique({
+        where: { activeKey: row.activeKey },
+      }),
+    ).resolves.not.toBeNull();
+  });
+
+  it("malformed JSON returns 400 and keeps the reservation unchanged", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-json-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(11),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const response = await PATCH(
+      rawPatchRequestFor(created.reservation.id, "{"),
+      contextFor(created.reservation.id),
+    );
+
+    expect(response.status).toBe(400);
+    const row = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    expect(row.status).toBe("reserved");
+    await expect(
+      prisma.reservationLock.findUnique({
+        where: { activeKey: row.activeKey },
+      }),
+    ).resolves.not.toBeNull();
+  });
+
+  it("missing reservation returns 404", async () => {
+    const response = await PATCH(
+      patchRequestFor("missing-reservation", "used"),
+      contextFor("missing-reservation"),
+    );
+    const body = (await response.json()) as { status?: unknown };
+
+    expect(response.status).toBe(404);
+    expect(body.status).toBe("not-found");
+  });
+
+  it("using an already used reservation is idempotent", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-used-repeat-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(12),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const first = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+    const second = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+    const secondBody = (await second.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(secondBody.status).toBe("unchanged");
+    expect(secondBody.reservation?.status).toBe("used");
+    await expectReservationLockToBeCleared(created.reservation.id);
+  });
+
+  it("cancelling an already cancelled reservation is idempotent", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-cancel-repeat-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(13),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const first = await PATCH(
+      patchRequestFor(created.reservation.id, "cancelled"),
+      contextFor(created.reservation.id),
+    );
+    const second = await PATCH(
+      patchRequestFor(created.reservation.id, "cancelled"),
+      contextFor(created.reservation.id),
+    );
+    const secondBody = (await second.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(secondBody.status).toBe("unchanged");
+    expect(secondBody.reservation?.status).toBe("cancelled");
+    await expectReservationLockToBeCleared(created.reservation.id);
+  });
+
+  it("using a cancelled reservation returns 409 and keeps it cancelled", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-cancelled-to-used-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(14),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const cancelled = await PATCH(
+      patchRequestFor(created.reservation.id, "cancelled"),
+      contextFor(created.reservation.id),
+    );
+    expect(cancelled.status).toBe(200);
+
+    const response = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(response.status).toBe(409);
+    expect(body.status).toBe("not-usable");
+    expect(body.reservation?.status).toBe("cancelled");
+    await expectReservationLockToBeCleared(created.reservation.id);
+  });
+
+  it("cancelling a used reservation returns 409 and keeps it used", async () => {
+    const created = await createReservationInMysql({
+      userId: "admin-patch-used-to-cancel-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(15),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const used = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+    expect(used.status).toBe(200);
+
+    const response = await PATCH(
+      patchRequestFor(created.reservation.id, "cancelled"),
+      contextFor(created.reservation.id),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      reservation?: { status?: unknown };
+    };
+
+    expect(response.status).toBe(409);
+    expect(body.status).toBe("not-cancellable");
+    expect(body.reservation?.status).toBe("used");
+    await expectReservationLockToBeCleared(created.reservation.id);
   });
 });

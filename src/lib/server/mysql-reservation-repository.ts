@@ -4,6 +4,7 @@ import { prisma } from "@/lib/server/prisma-client";
 import { isReservationStatus, isSport } from "@/lib/domain-constants";
 import { getReservationActiveKey } from "@/lib/reservation-repository";
 import {
+  isValidReservationDateValue,
   validateReservationDraft,
   validateUserReservationCancellation,
 } from "@/lib/reservation-rules";
@@ -31,7 +32,6 @@ type ReservationSlotKey = {
   time: string;
 };
 
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 export const RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT = 200;
 
 class ReservationSlotFullError extends Error {
@@ -265,6 +265,14 @@ export async function updateReservationSlotPolicy({
   });
   if (validationError) return validationError;
 
+  if (!isValidReservationDateValue(key.date)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "날짜는 YYYY-MM-DD 형식이어야 합니다.",
+    };
+  }
+
   if (!gym.availableTimes.includes(key.time)) {
     return {
       ok: false,
@@ -363,7 +371,7 @@ export async function updateReservationSlotPolicies({
     };
   }
 
-  if (uniqueDates.some((date) => !datePattern.test(date))) {
+  if (uniqueDates.some((date) => !isValidReservationDateValue(date))) {
     return {
       ok: false,
       status: "rejected",

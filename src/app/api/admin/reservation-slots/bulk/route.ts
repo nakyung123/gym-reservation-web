@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
+import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import {
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
@@ -8,8 +9,6 @@ import {
 } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
-
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 type BulkUpdateSlotBody = {
   gymId?: unknown;
@@ -77,7 +76,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  if (dates.some((date) => !datePattern.test(date))) {
+  if (dates.some((date) => !isValidReservationDateValue(date))) {
     return Response.json(
       { message: "dates는 YYYY-MM-DD 형식의 배열이어야 합니다." },
       { status: 400 },

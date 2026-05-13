@@ -48,6 +48,9 @@ describe("mysql gym admin repository", () => {
 
     const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
     expect(publicGym).toBeNull();
+
+    const publicGyms = await mysqlGymRepository.list();
+    expect(publicGyms.some((gym) => gym.id === TEST_GYM.id)).toBe(false);
   });
 
   it("예약 완료 상태의 예약이 남아 있으면 시설 비활성화를 거부한다", async () => {
@@ -74,5 +77,68 @@ describe("mysql gym admin repository", () => {
 
     const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
     expect(publicGym?.id).toBe(TEST_GYM.id);
+  });
+
+  it("예약 완료 상태의 예약 종목은 시설 정보에서 제거할 수 없다", async () => {
+    const reservedSport = TEST_GYM.sports[0];
+    const created = await createReservationInMysql({
+      userId: "admin-gym-sport-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: reservedSport,
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+
+    const updated = await updateAdminGym(TEST_GYM.id, {
+      ...TEST_GYM,
+      sports: TEST_GYM.sports.filter((sport) => sport !== reservedSport),
+      sportPrices: Object.fromEntries(
+        Object.entries(TEST_GYM.sportPrices).filter(
+          ([sport]) => sport !== reservedSport,
+        ),
+      ),
+      isActive: true,
+    });
+
+    expect(updated.ok).toBe(false);
+    if (updated.ok) return;
+    expect(updated.status).toBe("conflict");
+
+    const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
+    expect(publicGym?.sports).toContain(reservedSport);
+  });
+
+  it("예약 완료 상태의 예약 시간은 시설 정보에서 제거할 수 없다", async () => {
+    const reservedTime = "10:00";
+    const created = await createReservationInMysql({
+      userId: "admin-gym-time-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: reservedTime,
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+
+    const updated = await updateAdminGym(TEST_GYM.id, {
+      ...TEST_GYM,
+      availableTimes: TEST_GYM.availableTimes.filter(
+        (time) => time !== reservedTime,
+      ),
+      isActive: true,
+    });
+
+    expect(updated.ok).toBe(false);
+    if (updated.ok) return;
+    expect(updated.status).toBe("conflict");
+
+    const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
+    expect(publicGym?.availableTimes).toContain(reservedTime);
   });
 });

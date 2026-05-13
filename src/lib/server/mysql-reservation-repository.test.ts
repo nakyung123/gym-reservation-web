@@ -441,6 +441,21 @@ describe("updateReservationSlotPolicy", () => {
     expect(result.status).toBe("rejected");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
+
+  it("존재하지 않는 날짜의 슬롯 정책 변경을 거부한다", async () => {
+    const result = await updateReservationSlotPolicy({
+      gym: TEST_GYM,
+      ...draftFor("10:00"),
+      date: "2026-02-30",
+      capacity: 5,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(result.message).toBe("날짜는 YYYY-MM-DD 형식이어야 합니다.");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
 });
 
 describe("updateReservationSlotPolicies", () => {
@@ -575,6 +590,23 @@ describe("updateReservationSlotPolicies", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe("rejected");
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("존재하지 않는 날짜가 포함된 일괄 변경을 거부한다", async () => {
+    const result = await updateReservationSlotPolicies({
+      gym: TEST_GYM,
+      gymId: TEST_GYM.id,
+      sport: "배드민턴",
+      dates: ["2026-02-30"],
+      times: ["10:00"],
+      capacity: 5,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+    expect(result.message).toBe("날짜는 YYYY-MM-DD 형식이어야 합니다.");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 });

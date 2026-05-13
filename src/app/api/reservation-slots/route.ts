@@ -1,18 +1,17 @@
 import type { NextRequest } from "next/server";
 import { gymRepository } from "@/lib/gym-repository-provider";
+import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { listReservationSlotAvailabilities } from "@/lib/server/mysql-reservation-repository";
 import { isSport } from "@/lib/domain-constants";
 
 export const dynamic = "force-dynamic";
-
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
   const gymId = request.nextUrl.searchParams.get("gymId");
   const sport = request.nextUrl.searchParams.get("sport");
   const date = request.nextUrl.searchParams.get("date");
 
-  if (!gymId || !isSport(sport) || !date || !datePattern.test(date)) {
+  if (!gymId || !isSport(sport) || !date || !isValidReservationDateValue(date)) {
     return Response.json(
       { message: "슬롯 조회 조건이 올바르지 않습니다." },
       { status: 400 },
