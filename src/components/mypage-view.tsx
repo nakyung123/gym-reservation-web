@@ -447,79 +447,57 @@ export function MypageView() {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-sky-700">내 정보</p>
-          <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-center gap-4">
-              <span
-                className="flex size-16 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 bg-cover bg-center text-xl font-bold text-slate-700"
-                style={profileImageStyle}
-                role="img"
-                aria-label={`${account.displayName} 프로필 이미지`}
-              >
-                {account.photoURL ? null : account.initial}
-              </span>
-              <div className="min-w-0">
-                <h1 className="break-words text-3xl font-bold text-slate-950">
-                  {account.displayName}
-                </h1>
-                <p className="mt-1 break-all text-sm text-slate-600">
-                  {account.email}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {account.isAnonymous ? (
-                    <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                      익명 계정
-                    </span>
-                  ) : null}
-                  <span className="rounded-md bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
-                    UID {formatUserId(account.uid)}
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-sm font-semibold text-sky-700">내 정보</p>
+        <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <span
+              className="flex size-16 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 bg-cover bg-center text-xl font-bold text-slate-700"
+              style={profileImageStyle}
+              role="img"
+              aria-label={`${account.displayName} 프로필 이미지`}
+            >
+              {account.photoURL ? null : account.initial}
+            </span>
+            <div className="min-w-0">
+              <h1 className="break-words text-3xl font-bold text-slate-950">
+                {account.displayName}
+              </h1>
+              <p className="mt-1 break-all text-sm text-slate-600">
+                {account.email}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {account.isAnonymous ? (
+                  <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+                    익명 계정
                   </span>
-                </div>
+                ) : null}
+                <span className="rounded-md bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
+                  UID {formatUserId(account.uid)}
+                </span>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              className="inline-flex h-10 w-fit shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-            >
-              {isSigningOut ? "로그아웃 중" : "로그아웃"}
-            </button>
           </div>
 
-          {notice ? (
-            <div
-              className={`mt-5 rounded-md border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
-              role={notice.tone === "error" ? "alert" : "status"}
-            >
-              {notice.message}
-            </div>
-          ) : null}
-        </section>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            className="inline-flex h-10 w-fit shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          >
+            {isSigningOut ? "로그아웃 중" : "로그아웃"}
+          </button>
+        </div>
 
-        <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-slate-500">빠른 이동</p>
-          <div className="mt-4 grid gap-2">
-            <Link
-              href="/reservations"
-              className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-            >
-              <span>내 예약</span>
-              <span aria-hidden="true">→</span>
-            </Link>
-            <Link
-              href="/gyms"
-              className="flex min-h-12 items-center justify-between gap-3 rounded-md border border-slate-200 px-3 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-            >
-              <span>체육관</span>
-              <span aria-hidden="true">→</span>
-            </Link>
+        {notice ? (
+          <div
+            className={`mt-5 rounded-md border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
+            role={notice.tone === "error" ? "alert" : "status"}
+          >
+            {notice.message}
           </div>
-        </aside>
-      </div>
+        ) : null}
+      </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
