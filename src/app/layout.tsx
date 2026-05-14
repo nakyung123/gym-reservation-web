@@ -51,6 +51,12 @@ export default function RootLayout({
               >
                 내 예약
               </Link>
+              <Link
+                href="/mypage"
+                className="inline-flex h-9 items-center rounded px-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:px-3"
+              >
+                내 정보
+              </Link>
             </div>
           </nav>
         </header>
