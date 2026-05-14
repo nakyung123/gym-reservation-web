@@ -33,7 +33,8 @@ export const TEST_GYM: Gym = {
 };
 
 beforeEach(async () => {
-  // FK 의존 순서: lock → reservation → favorite → gym_sports → gyms.
+  // userProfile은 FK가 없고, 나머지는 FK 의존 순서: lock → reservation → favorite → gym_sports → gyms.
+  await prisma.userProfile.deleteMany({});
   await prisma.reservationLock.deleteMany({});
   await prisma.reservation.deleteMany({});
   await prisma.reservationSlot.deleteMany({});
