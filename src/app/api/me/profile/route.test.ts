@@ -81,6 +81,23 @@ describe("GET /api/me/profile", () => {
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
+
+  it("프로필 조회 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "profile-route-get-error-user" });
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.spyOn(prisma.userProfile, "findUnique").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(requestFor("GET"));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("프로필 설정을 불러오지 못했습니다.");
+    errorSpy.mockRestore();
+  });
 });
 
 describe("PUT /api/me/profile", () => {
@@ -181,5 +198,22 @@ describe("PUT /api/me/profile", () => {
     expect(response.status).toBe(401);
     expect(body.message).toEqual(expect.stringContaining("expired token"));
     expect(await prisma.userProfile.count()).toBe(0);
+  });
+
+  it("프로필 저장 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "profile-route-put-error-user" });
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.spyOn(prisma.userProfile, "upsert").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PUT(requestFor("PUT", profileInput));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("프로필 설정을 저장하지 못했습니다.");
+    errorSpy.mockRestore();
   });
 });

@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   getUserProfile,
@@ -14,7 +15,17 @@ export async function GET(request: NextRequest) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
 
-  const profile = await getUserProfile(auth.uid);
+  let profile: Awaited<ReturnType<typeof getUserProfile>>;
+  try {
+    profile = await getUserProfile(auth.uid);
+  } catch (error) {
+    return serverErrorResponse(
+      "프로필 설정을 불러오지 못했습니다.",
+      "Failed to fetch user profile",
+      error,
+    );
+  }
+
   return Response.json({
     user: { uid: auth.uid },
     profile,
@@ -42,7 +53,17 @@ export async function PUT(request: NextRequest) {
     return Response.json({ message: validation.message }, { status: 400 });
   }
 
-  const profile = await upsertUserProfile(auth.uid, validation.input);
+  let profile: Awaited<ReturnType<typeof upsertUserProfile>>;
+  try {
+    profile = await upsertUserProfile(auth.uid, validation.input);
+  } catch (error) {
+    return serverErrorResponse(
+      "프로필 설정을 저장하지 못했습니다.",
+      "Failed to save user profile",
+      error,
+    );
+  }
+
   return Response.json({
     user: { uid: auth.uid },
     profile,

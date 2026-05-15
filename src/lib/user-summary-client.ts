@@ -12,11 +12,21 @@ export type FetchUserSummaryResult =
       status?: number;
     };
 
+type IdTokenResult =
+  | { ok: true; idToken: string }
+  | { ok: false; kind: "auth-required" | "error"; message: string };
+
 function isAbortError(error: unknown): boolean {
   return (
     (error instanceof DOMException && error.name === "AbortError") ||
     (error instanceof Error && error.name === "AbortError")
   );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "알 수 없는 오류";
 }
 
 function isUser(value: unknown): value is { uid: string } {
@@ -27,34 +37,38 @@ function isUser(value: unknown): value is { uid: string } {
   return typeof (value as { uid?: unknown }).uid === "string";
 }
 
-async function getIdToken(): Promise<string | null> {
+async function getIdToken(): Promise<IdTokenResult> {
   try {
     const { auth } = getFirebaseClient();
     if (!auth.currentUser) {
-      return null;
+      return {
+        ok: false,
+        kind: "auth-required",
+        message: "로그인 정보가 없어 내 정보를 불러올 수 없습니다.",
+      };
     }
-    return await auth.currentUser.getIdToken();
-  } catch {
-    return null;
+    return { ok: true, idToken: await auth.currentUser.getIdToken() };
+  } catch (error) {
+    return {
+      ok: false,
+      kind: "error",
+      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+    };
   }
 }
 
 export async function fetchUserSummary(
   signal?: AbortSignal,
 ): Promise<FetchUserSummaryResult> {
-  const idToken = await getIdToken();
-  if (!idToken) {
-    return {
-      ok: false,
-      kind: "auth-required",
-      message: "로그인 정보가 없어 내 정보를 불러올 수 없습니다.",
-    };
+  const token = await getIdToken();
+  if (!token.ok) {
+    return token;
   }
 
   let response: Response;
   try {
     response = await fetch("/api/me", {
-      headers: { Authorization: `Bearer ${idToken}` },
+      headers: { Authorization: `Bearer ${token.idToken}` },
       signal,
     });
   } catch (error) {
@@ -64,8 +78,7 @@ export async function fetchUserSummary(
     return {
       ok: false,
       kind: "error",
-      message:
-        `내 정보 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: `내 정보 요청에 실패했습니다. ${getErrorMessage(error)}`.trim(),
     };
   }
 

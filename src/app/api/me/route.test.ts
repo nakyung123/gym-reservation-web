@@ -89,4 +89,21 @@ describe("GET /api/me", () => {
     expect(response.status).toBe(401);
     expect(body.message).toEqual(expect.stringContaining("expired token"));
   });
+
+  it("요약 조회 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "me-route-db-error-user" });
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.spyOn(prisma.reservation, "groupBy").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(requestFor());
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("내 정보 요약을 불러오지 못했습니다.");
+    errorSpy.mockRestore();
+  });
 });
