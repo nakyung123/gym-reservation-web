@@ -34,6 +34,16 @@ function mockCurrentUser(token = "id-token") {
   });
 }
 
+function mockCurrentUserTokenError(message = "token unavailable") {
+  getFirebaseClient.mockReturnValue({
+    auth: {
+      currentUser: {
+        getIdToken: vi.fn().mockRejectedValue(new Error(message)),
+      },
+    },
+  });
+}
+
 describe("apiFavoriteRepository", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -171,10 +181,10 @@ describe("apiFavoriteRepository", () => {
     await vi.waitFor(() => {
       expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
     });
+    expect(repository.getErrorSnapshot()).toBeNull();
   });
 
   it("rolls back an optimistic favorite when the toggle request fails", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     mockCurrentUser();
     vi.stubGlobal(
       "fetch",
@@ -188,10 +198,26 @@ describe("apiFavoriteRepository", () => {
     await vi.waitFor(() => {
       expect([...repository.getSnapshot()]).toEqual([]);
     });
+    expect(repository.getErrorSnapshot()).toBe("failed");
+  });
+
+  it("rolls back an optimistic favorite when reading the ID token fails", async () => {
+    mockCurrentUserTokenError();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const repository = await loadRepository();
+    repository.toggle("gym-a");
+
+    expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
+    await vi.waitFor(() => {
+      expect([...repository.getSnapshot()]).toEqual([]);
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(repository.getErrorSnapshot()).toContain("token unavailable");
   });
 
   it("rolls back an optimistic favorite when no user is signed in", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
     getFirebaseClient.mockReturnValue({ auth: { currentUser: null } });
 
     const repository = await loadRepository();
@@ -201,5 +227,197 @@ describe("apiFavoriteRepository", () => {
     await vi.waitFor(() => {
       expect([...repository.getSnapshot()]).toEqual([]);
     });
+    expect(repository.getErrorSnapshot()).toBeTruthy();
+  });
+
+  it("clears the previous error when a new toggle starts", async () => {
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(Response.json({ message: "failed" }, { status: 500 }))
+        .mockResolvedValue(Response.json({ ok: true })),
+    );
+
+    const repository = await loadRepository();
+    repository.toggle("gym-a");
+
+    await vi.waitFor(() => {
+      expect(repository.getErrorSnapshot()).toBeTruthy();
+    });
+
+    repository.toggle("gym-a");
+    expect(repository.getErrorSnapshot()).toBeNull();
+  });
+
+  it("does not overwrite toggle result when a stale initial fetch resolves late", async () => {
+    let resolveInitialFetch!: (response: Response) => void;
+    const initialFetch = new Promise<Response>((resolve) => {
+      resolveInitialFetch = resolve;
+    });
+    // 1st: initial GET (pending), 2nd: toggle PUT, 3rd+: re-fetch GET
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(initialFetch)
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValue(Response.json({ gymIds: ["gym-a"] }));
+
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "race-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const repository = await loadRepository();
+    const unsubscribe = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    repository.toggle("gym-a");
+    expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
+
+    // 토글 PUT(2번째) + 재조회 GET(3번째)이 모두 호출될 때까지 대기
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    resolveInitialFetch(Response.json({ gymIds: [] }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
+    expect(repository.getErrorSnapshot()).toBeNull();
+
+    unsubscribe();
+  });
+
+  it("includes base favorites from re-fetch after toggle when initial fetch was stale", async () => {
+    let resolveInitialFetch!: (response: Response) => void;
+    const initialFetch = new Promise<Response>((resolve) => {
+      resolveInitialFetch = resolve;
+    });
+    // 1st: initial GET (pending), 2nd: toggle PUT (success), 3rd: re-fetch GET (has both)
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(initialFetch)
+      .mockResolvedValueOnce(Response.json({ ok: true }))
+      .mockResolvedValue(Response.json({ gymIds: ["gym-a", "gym-b"] }));
+
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "recon-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const repository = await loadRepository();
+    const unsubscribe = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    // initial GET 대기 중인 상태에서 gym-a 토글
+    repository.toggle("gym-a");
+    expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
+
+    // 토글 PUT과 재조회 GET이 완료되어 서버 상태가 반영될 때까지 대기
+    await vi.waitFor(() => {
+      expect([...repository.getSnapshot()]).toEqual(["gym-a", "gym-b"]);
+    });
+
+    // 뒤늦게 도착한 초기 GET 응답(빈 목록)이 상태를 덮어쓰지 않아야 함
+    resolveInitialFetch(Response.json({ gymIds: [] }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect([...repository.getSnapshot()]).toEqual(["gym-a", "gym-b"]);
+    expect(repository.getErrorSnapshot()).toBeNull();
+    expect(repository.getLoadErrorSnapshot()).toBeNull();
+
+    unsubscribe();
+  });
+
+  it("exposes a load error when the initial fetch returns a non-2xx status", async () => {
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "load-error-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({ message: "서버 오류" }, { status: 500 }),
+      ),
+    );
+
+    const repository = await loadRepository();
+    const unsubscribe = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(repository.getLoadErrorSnapshot()).toBeTruthy();
+    });
+    expect([...repository.getSnapshot()]).toEqual([]);
+
+    unsubscribe();
+  });
+
+  it("exposes a load error when reading the ID token fails during initial load", async () => {
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: "token-fail-load-user",
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUserTokenError("load token expired");
+    vi.stubGlobal("fetch", vi.fn());
+
+    const repository = await loadRepository();
+    const unsubscribe = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(repository.getLoadErrorSnapshot()).toContain("load token expired");
+    });
+
+    unsubscribe();
+  });
+
+  it("clears the load error when a subsequent fetch succeeds", async () => {
+    let authListener: (() => void) | null = null;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ message: "오류" }, { status: 500 }))
+      .mockResolvedValue(Response.json({ gymIds: ["gym-a"] }));
+
+    let currentSession = { ok: true as const, userId: "reload-user-first" };
+    getCurrentFirebaseAuthSession.mockImplementation(() => currentSession);
+    subscribeFirebaseAuthSession.mockImplementation((listener) => {
+      authListener = listener;
+      return vi.fn();
+    });
+    mockCurrentUser();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const repository = await loadRepository();
+    const unsubscribe = repository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(repository.getLoadErrorSnapshot()).toBeTruthy();
+    });
+
+    currentSession = { ok: true, userId: "reload-user-second" };
+    authListener!();
+
+    await vi.waitFor(() => {
+      expect(repository.getLoadErrorSnapshot()).toBeNull();
+      expect([...repository.getSnapshot()]).toEqual(["gym-a"]);
+    });
+
+    unsubscribe();
   });
 });

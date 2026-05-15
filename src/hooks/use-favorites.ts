@@ -12,6 +12,18 @@ export function useFavorites() {
     favoriteRepository.getServerSnapshot,
   );
 
+  const toggleError = useSyncExternalStore(
+    favoriteRepository.subscribe,
+    favoriteRepository.getErrorSnapshot,
+    favoriteRepository.getServerErrorSnapshot,
+  );
+
+  const loadError = useSyncExternalStore(
+    favoriteRepository.subscribe,
+    favoriteRepository.getLoadErrorSnapshot,
+    favoriteRepository.getServerLoadErrorSnapshot,
+  );
+
   const toggleFavorite = useCallback((gymId: string) => {
     favoriteRepository.toggle(gymId);
   }, []);
@@ -21,5 +33,5 @@ export function useFavorites() {
     [favorites],
   );
 
-  return { favorites, toggleFavorite, isFavorite };
+  return { favorites, toggleFavorite, isFavorite, toggleError, loadError };
 }

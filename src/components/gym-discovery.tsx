@@ -53,7 +53,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
   const [selectedSport, setSelectedSport] = useState<SportFilter>("전체");
   const [selectedSort, setSelectedSort] = useState<GymSort>("distance");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const { favorites, toggleFavorite, isFavorite } = useFavorites();
+  const { favorites, toggleFavorite, isFavorite, toggleError, loadError } = useFavorites();
 
   const availableRegions = useMemo(() => getAvailableRegions(gyms), [gyms]);
   const availableSports = useMemo(() => getAvailableSports(gyms), [gyms]);
@@ -220,6 +220,17 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         </div>
       </div>
 
+      {toggleError && (
+        <p role="alert" className="text-sm font-semibold text-rose-700">
+          {toggleError}
+        </p>
+      )}
+      {loadError && (
+        <p role="alert" className="text-sm font-semibold text-rose-700">
+          {loadError}
+        </p>
+      )}
+
       {filteredGyms.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredGyms.map((gym) => (
@@ -235,12 +246,16 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
           <p className="text-base font-bold text-slate-950">
             {favoritesOnly
-              ? "즐겨찾기한 체육관이 없습니다"
+              ? loadError
+                ? "즐겨찾기 목록을 불러오지 못했습니다"
+                : "즐겨찾기한 체육관이 없습니다"
               : "조건에 맞는 체육관이 없습니다"}
           </p>
           <p className="mt-2 text-sm text-slate-600">
             {favoritesOnly
-              ? "체육관 목록에서 하트 버튼을 눌러 즐겨찾기를 추가해 보세요."
+              ? loadError
+                ? "잠시 후 다시 시도해 주세요."
+                : "체육관 목록에서 하트 버튼을 눌러 즐겨찾기를 추가해 보세요."
               : "검색어를 줄이거나 지역, 종목 조건을 바꿔보세요."}
           </p>
           {hasActiveFilter ? (

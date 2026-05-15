@@ -95,6 +95,22 @@ export const localStorageFavoriteRepository: FavoriteRepository = {
     return emptyFavoriteSnapshot;
   },
 
+  getErrorSnapshot() {
+    return null;
+  },
+
+  getServerErrorSnapshot() {
+    return null;
+  },
+
+  getLoadErrorSnapshot() {
+    return null;
+  },
+
+  getServerLoadErrorSnapshot() {
+    return null;
+  },
+
   toggle(gymId) {
     loadFavoriteIds();
 
