@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { isReservationStatus } from "@/lib/domain-constants";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { listAdminReservations } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
@@ -61,13 +62,22 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const reservations = await listAdminReservations({
-    status: status ?? undefined,
-    gymId: gymId ?? undefined,
-    date: date ?? undefined,
-    userId: userId ?? undefined,
-    limit,
-  });
+  let reservations: Awaited<ReturnType<typeof listAdminReservations>>;
+  try {
+    reservations = await listAdminReservations({
+      status: status ?? undefined,
+      gymId: gymId ?? undefined,
+      date: date ?? undefined,
+      userId: userId ?? undefined,
+      limit,
+    });
+  } catch (error) {
+    return serverErrorResponse(
+      "관리자 예약 목록을 불러오지 못했습니다.",
+      "Failed to list admin reservations",
+      error,
+    );
+  }
 
   return Response.json({ reservations });
 }

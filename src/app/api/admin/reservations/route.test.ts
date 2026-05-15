@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/admin/reservations/route";
 import {
   cancelReservationAsAdminInMysql,
   createReservationInMysql,
   markReservationUsedInMysql,
 } from "@/lib/server/mysql-reservation-repository";
+import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-mysql";
 
 const adminToken = "test-admin-token";
@@ -48,6 +49,10 @@ async function createReservation({
 describe("GET /api/admin/reservations", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰이 있으면 필터 조건에 맞는 예약 목록을 반환한다", async () => {
@@ -203,5 +208,18 @@ describe("GET /api/admin/reservations", () => {
         status: "cancelled",
       }),
     ]);
+  });
+
+  it("관리자 예약 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findMany").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(requestFor());
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("관리자 예약 목록을 불러오지 못했습니다.");
   });
 });

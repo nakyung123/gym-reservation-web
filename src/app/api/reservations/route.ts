@@ -6,6 +6,7 @@ import {
 } from "@/lib/server/mysql-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,16 @@ export async function GET(request: NextRequest) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
 
-  const reservations = await listUserReservations(auth.uid);
+  let reservations: Awaited<ReturnType<typeof listUserReservations>>;
+  try {
+    reservations = await listUserReservations(auth.uid);
+  } catch (error) {
+    return serverErrorResponse(
+      "예약 목록을 불러오지 못했습니다.",
+      "Failed to list user reservations",
+      error,
+    );
+  }
   return Response.json({ reservations });
 }
 
@@ -54,7 +64,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const gym = await gymRepository.findById(body.gymId);
+  let gym: Awaited<ReturnType<typeof gymRepository.findById>>;
+  try {
+    gym = await gymRepository.findById(body.gymId);
+  } catch (error) {
+    return serverErrorResponse(
+      "체육관 정보를 불러오지 못했습니다.",
+      "Failed to fetch gym for reservation creation",
+      error,
+    );
+  }
   if (!gym) {
     return Response.json(
       { message: "체육관 정보를 찾을 수 없습니다." },
@@ -62,16 +81,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await createReservationInMysql({
-    userId: auth.uid,
-    draft: {
-      gymId: body.gymId,
-      sport: body.sport,
-      date: body.date,
-      time: body.time,
-    },
-    gym,
-  });
+  let result: Awaited<ReturnType<typeof createReservationInMysql>>;
+  try {
+    result = await createReservationInMysql({
+      userId: auth.uid,
+      draft: {
+        gymId: body.gymId,
+        sport: body.sport,
+        date: body.date,
+        time: body.time,
+      },
+      gym,
+    });
+  } catch (error) {
+    return serverErrorResponse(
+      "예약 요청을 처리하지 못했습니다.",
+      "Failed to create reservation",
+      error,
+    );
+  }
 
   if (result.ok) {
     return Response.json(

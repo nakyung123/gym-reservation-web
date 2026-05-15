@@ -23,6 +23,14 @@ import {
 import { isReservationSlotAvailability } from "@/lib/reservation-slot-availability";
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
+type IdTokenResult =
+  | { ok: true; idToken: string }
+  | {
+      ok: false;
+      reason: "auth-required" | "remote-unavailable";
+      message: string;
+    };
+
 let currentSnapshot = LOADING_RESERVATION_SNAPSHOT;
 let authUnsubscribe: (() => void) | null = null;
 let lastFetchedUserId: string | null = null;
@@ -60,6 +68,12 @@ function sortReservations(reservations: Reservation[]): Reservation[] {
   return [...reservations].sort((left, right) =>
     right.createdAt.localeCompare(left.createdAt),
   );
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "알 수 없는 오류";
 }
 
 function isSameReservation(left: Reservation, right: Reservation): boolean {
@@ -120,28 +134,37 @@ function upsertCurrentReservation(reservation: Reservation) {
   setCurrentSnapshot(createReservationsReadySnapshot(sortReservations(next)));
 }
 
-async function getIdToken(): Promise<string | null> {
+async function getIdToken(authRequiredMessage: string): Promise<IdTokenResult> {
   try {
     const { auth } = getFirebaseClient();
     if (!auth.currentUser) {
-      return null;
+      return {
+        ok: false,
+        reason: "auth-required",
+        message: authRequiredMessage,
+      };
     }
-    return await auth.currentUser.getIdToken();
+    return { ok: true, idToken: await auth.currentUser.getIdToken() };
   } catch (error) {
-    console.error("ID 토큰을 가져오지 못했습니다.", error);
-    return null;
+    return {
+      ok: false,
+      reason: "remote-unavailable",
+      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+    };
   }
 }
 
 async function fetchReservations(userId: string): Promise<void> {
-  const idToken = await getIdToken();
-  if (!idToken) {
+  const token = await getIdToken(
+    "로그인 정보가 없어 예약 목록을 불러올 수 없습니다.",
+  );
+  if (!token.ok) {
     if (lastFetchedUserId === userId) {
       setCurrentSnapshot(
         createReservationsFailedSnapshot(
-          reservationAuthRequired(
-            "로그인 정보가 없어 예약 목록을 불러올 수 없습니다.",
-          ),
+          token.reason === "auth-required"
+            ? reservationAuthRequired(token.message)
+            : remoteReservationUnavailable(token.message),
         ),
       );
     }
@@ -151,7 +174,7 @@ async function fetchReservations(userId: string): Promise<void> {
   let response: Response;
   try {
     response = await fetch("/api/reservations", {
-      headers: { Authorization: `Bearer ${idToken}` },
+      headers: { Authorization: `Bearer ${token.idToken}` },
     });
   } catch (error) {
     if (lastFetchedUserId !== userId) {
@@ -279,13 +302,13 @@ type ApiCreateResponse = {
 async function createReservation(
   reservation: Reservation,
 ): Promise<ReservationCreateResult> {
-  const idToken = await getIdToken();
-  if (!idToken) {
+  const token = await getIdToken("로그인 정보가 없어 예약을 처리할 수 없습니다.");
+  if (!token.ok) {
     return {
       ok: false,
       status: "failed",
-      message: "로그인 정보가 없어 예약을 처리할 수 없습니다.",
-      reason: "auth-required",
+      message: token.message,
+      reason: token.reason,
     };
   }
 
@@ -294,7 +317,7 @@ async function createReservation(
     response = await fetch("/api/reservations", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${idToken}`,
+        Authorization: `Bearer ${token.idToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -388,13 +411,13 @@ type ApiCancelResponse = {
 async function cancelReservation(
   reservationId: string,
 ): Promise<ReservationCancelResult> {
-  const idToken = await getIdToken();
-  if (!idToken) {
+  const token = await getIdToken("로그인 정보가 없어 예약을 취소할 수 없습니다.");
+  if (!token.ok) {
     return {
       ok: false,
       status: "failed",
-      message: "로그인 정보가 없어 예약을 취소할 수 없습니다.",
-      reason: "auth-required",
+      message: token.message,
+      reason: token.reason,
     };
   }
 
@@ -404,7 +427,7 @@ async function cancelReservation(
       `/api/reservations/${encodeURIComponent(reservationId)}`,
       {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers: { Authorization: `Bearer ${token.idToken}` },
       },
     );
   } catch (error) {

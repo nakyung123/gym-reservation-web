@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/admin/overview/route";
 import {
   cancelReservationAsAdminInMysql,
@@ -7,6 +7,7 @@ import {
   markReservationUsedInMysql,
   updateReservationSlotPolicy,
 } from "@/lib/server/mysql-reservation-repository";
+import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-mysql";
 
 const adminToken = "test-admin-token";
@@ -49,6 +50,10 @@ async function createReservation({
 describe("GET /api/admin/overview", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰과 날짜가 있으면 예약, 매출, 슬롯 요약을 반환한다", async () => {
@@ -159,5 +164,18 @@ describe("GET /api/admin/overview", () => {
 
     expect(response.status).toBe(400);
     expect(body.message).toBe("date는 YYYY-MM-DD 형식이어야 합니다.");
+  });
+
+  it("관리자 운영 요약 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "groupBy").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(requestFor({ date: futureDate() }));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("관리자 운영 요약을 불러오지 못했습니다.");
   });
 });

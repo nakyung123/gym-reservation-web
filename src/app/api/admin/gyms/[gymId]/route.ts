@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { validateAdminGymPayload } from "@/lib/admin/admin-gym-schema";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,16 @@ export async function PATCH(
   }
 
   const { gymId } = await params;
-  const result = await updateAdminGym(gymId, validation.input);
+  let result: Awaited<ReturnType<typeof updateAdminGym>>;
+  try {
+    result = await updateAdminGym(gymId, validation.input);
+  } catch (error) {
+    return serverErrorResponse(
+      "시설 정보를 저장하지 못했습니다.",
+      "Failed to update admin gym",
+      error,
+    );
+  }
   if (!result.ok) {
     return Response.json(
       { status: result.status, message: result.message },

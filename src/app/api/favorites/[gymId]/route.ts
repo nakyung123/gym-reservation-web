@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   addFavorite,
@@ -16,7 +17,16 @@ export async function PUT(request: NextRequest, ctx: Context) {
   }
 
   const { gymId } = await ctx.params;
-  const result = await addFavorite(auth.uid, gymId);
+  let result: Awaited<ReturnType<typeof addFavorite>>;
+  try {
+    result = await addFavorite(auth.uid, gymId);
+  } catch (error) {
+    return serverErrorResponse(
+      "즐겨찾기를 추가하지 못했습니다.",
+      "Failed to add favorite gym",
+      error,
+    );
+  }
   if (result === "gym-not-found") {
     return Response.json(
       { message: "존재하지 않는 체육관입니다." },
@@ -33,6 +43,14 @@ export async function DELETE(request: NextRequest, ctx: Context) {
   }
 
   const { gymId } = await ctx.params;
-  await removeFavorite(auth.uid, gymId);
+  try {
+    await removeFavorite(auth.uid, gymId);
+  } catch (error) {
+    return serverErrorResponse(
+      "즐겨찾기를 해제하지 못했습니다.",
+      "Failed to remove favorite gym",
+      error,
+    );
+  }
   return Response.json({ ok: true });
 }

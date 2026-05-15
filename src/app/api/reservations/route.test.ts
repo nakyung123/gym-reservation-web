@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/reservations/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
@@ -38,6 +38,10 @@ function postRequest(body: unknown, idToken = "test-id-token") {
 describe("GET /api/reservations", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("로그인한 사용자의 예약만 반환한다", async () => {
@@ -99,11 +103,29 @@ describe("GET /api/reservations", () => {
     expect(response.status).toBe(401);
     expect(body.message).toEqual(expect.stringContaining("expired token"));
   });
+
+  it("예약 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "list-error-route-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findMany").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(getRequest());
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("예약 목록을 불러오지 못했습니다.");
+  });
 });
 
 describe("POST /api/reservations", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("올바른 요청이면 예약을 생성하고 슬롯 카운터를 증가시킨다", async () => {
@@ -361,5 +383,26 @@ describe("POST /api/reservations", () => {
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
     expect(await prisma.reservation.count()).toBe(0);
+  });
+
+  it("예약 생성 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "create-error-route-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findMany").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("예약 요청을 처리하지 못했습니다.");
   });
 });

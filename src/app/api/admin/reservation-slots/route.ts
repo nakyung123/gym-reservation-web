@@ -3,6 +3,7 @@ import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { updateReservationSlotPolicy } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +90,16 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const gym = await gymRepository.findById(body.gymId);
+  let gym: Awaited<ReturnType<typeof gymRepository.findById>>;
+  try {
+    gym = await gymRepository.findById(body.gymId);
+  } catch (error) {
+    return serverErrorResponse(
+      "체육관 정보를 불러오지 못했습니다.",
+      "Failed to fetch gym for slot policy update",
+      error,
+    );
+  }
   if (!gym) {
     return Response.json(
       { message: "체육관 정보를 찾을 수 없습니다." },
@@ -97,15 +107,24 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const result = await updateReservationSlotPolicy({
-    gym,
-    gymId: body.gymId,
-    sport: body.sport,
-    date: body.date,
-    time: body.time,
-    capacity,
-    isClosed: body.isClosed,
-  });
+  let result: Awaited<ReturnType<typeof updateReservationSlotPolicy>>;
+  try {
+    result = await updateReservationSlotPolicy({
+      gym,
+      gymId: body.gymId,
+      sport: body.sport,
+      date: body.date,
+      time: body.time,
+      capacity,
+      isClosed: body.isClosed,
+    });
+  } catch (error) {
+    return serverErrorResponse(
+      "슬롯 정책을 변경하지 못했습니다.",
+      "Failed to update reservation slot policy",
+      error,
+    );
+  }
 
   if (!result.ok) {
     return Response.json(

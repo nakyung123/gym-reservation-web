@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/favorites/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -22,6 +22,10 @@ function requestFor(idToken = "test-id-token") {
 describe("GET /api/favorites", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("로그인한 사용자의 즐겨찾기 체육관 ID만 반환한다", async () => {
@@ -78,5 +82,19 @@ describe("GET /api/favorites", () => {
 
     expect(response.status).toBe(401);
     expect(body.message).toEqual(expect.stringContaining("expired token"));
+  });
+
+  it("즐겨찾기 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "favorite-list-error-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.favorite, "findMany").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(requestFor());
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("즐겨찾기 목록을 불러오지 못했습니다.");
   });
 });

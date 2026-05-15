@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { validateAdminGymPayload } from "@/lib/admin/admin-gym-schema";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import {
   createAdminGym,
   listAdminGyms,
@@ -21,7 +22,16 @@ export async function GET(request: NextRequest) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
 
-  const gyms = await listAdminGyms();
+  let gyms: Awaited<ReturnType<typeof listAdminGyms>>;
+  try {
+    gyms = await listAdminGyms();
+  } catch (error) {
+    return serverErrorResponse(
+      "시설 목록을 불러오지 못했습니다.",
+      "Failed to list admin gyms",
+      error,
+    );
+  }
   return Response.json({ gyms });
 }
 
@@ -46,7 +56,16 @@ export async function POST(request: NextRequest) {
     return Response.json({ message: validation.message }, { status: 400 });
   }
 
-  const result = await createAdminGym(validation.input);
+  let result: Awaited<ReturnType<typeof createAdminGym>>;
+  try {
+    result = await createAdminGym(validation.input);
+  } catch (error) {
+    return serverErrorResponse(
+      "시설을 추가하지 못했습니다.",
+      "Failed to create admin gym",
+      error,
+    );
+  }
   if (!result.ok) {
     return Response.json(
       { status: result.status, message: result.message },

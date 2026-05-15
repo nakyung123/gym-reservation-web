@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/reservation-slots/route";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -34,6 +34,10 @@ function requestFor(body: SlotPolicyBody, token = adminToken): NextRequest {
 describe("PATCH /api/admin/reservation-slots", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰이 있으면 단일 슬롯 정책을 변경한다", async () => {
@@ -321,5 +325,47 @@ describe("PATCH /api/admin/reservation-slots", () => {
     });
     expect(slot.capacity).toBe(4);
     expect(slot.reservedCount).toBe(2);
+  });
+
+  it("체육관 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.gym, "findFirst").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("체육관 정보를 불러오지 못했습니다.");
+  });
+
+  it("슬롯 정책 변경 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+        time: "10:00",
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("슬롯 정책을 변경하지 못했습니다.");
   });
 });

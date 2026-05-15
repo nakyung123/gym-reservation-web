@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET } from "@/app/api/reservations/[reservationId]/route";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -34,6 +34,10 @@ function contextFor(reservationId: string) {
 describe("GET /api/reservations/[reservationId]", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("로그인한 사용자는 본인 예약 단건을 조회한다", async () => {
@@ -176,11 +180,32 @@ describe("GET /api/reservations/[reservationId]", () => {
     expect(response.status).toBe(404);
     expect(body.message).toBe("예약을 찾을 수 없습니다.");
   });
+
+  it("예약 상세 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "detail-error-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findFirst").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(
+      requestFor("reservation-error"),
+      contextFor("reservation-error"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("예약 상세를 불러오지 못했습니다.");
+  });
 });
 
 describe("DELETE /api/reservations/[reservationId]", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("본인 예약을 취소하고 같은 요청을 반복하면 unchanged로 응답한다", async () => {
@@ -397,5 +422,22 @@ describe("DELETE /api/reservations/[reservationId]", () => {
 
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it("예약 취소 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "cancel-error-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findUnique").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await DELETE(
+      requestFor("reservation-error", "test-id-token", "DELETE"),
+      contextFor("reservation-error"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("예약을 취소하지 못했습니다.");
   });
 });

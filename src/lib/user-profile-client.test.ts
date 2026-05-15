@@ -57,6 +57,25 @@ describe("user-profile-client", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("ID 토큰을 가져오지 못하면 API를 호출하지 않고 error를 반환한다", async () => {
+    getFirebaseClient.mockReturnValue({
+      auth: {
+        currentUser: {
+          getIdToken: vi.fn().mockRejectedValue(new Error("token unavailable")),
+        },
+      },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchUserProfile()).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "ID 토큰을 가져오지 못했습니다. token unavailable",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("프로필이 없는 유효 응답을 반환한다", async () => {
     mockCurrentUser();
     const fetchMock = mockFetch(

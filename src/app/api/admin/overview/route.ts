@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { getAdminReservationOverview } from "@/lib/server/mysql-reservation-repository";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const overview = await getAdminReservationOverview(date);
+  let overview: Awaited<ReturnType<typeof getAdminReservationOverview>>;
+  try {
+    overview = await getAdminReservationOverview(date);
+  } catch (error) {
+    return serverErrorResponse(
+      "관리자 운영 요약을 불러오지 못했습니다.",
+      "Failed to fetch admin reservation overview",
+      error,
+    );
+  }
   return Response.json({ overview });
 }

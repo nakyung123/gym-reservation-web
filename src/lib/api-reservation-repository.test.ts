@@ -69,6 +69,16 @@ function mockCurrentUser(token = "id-token") {
   });
 }
 
+function mockCurrentUserTokenError(message = "token unavailable") {
+  getFirebaseClient.mockReturnValue({
+    auth: {
+      currentUser: {
+        getIdToken: vi.fn().mockRejectedValue(new Error(message)),
+      },
+    },
+  });
+}
+
 function mockFetch(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
   vi.stubGlobal("fetch", fetchMock);
@@ -118,6 +128,46 @@ describe("apiReservationRepository", () => {
       status: "failed",
       reason: "auth-required",
     });
+  });
+
+  it("returns remote-unavailable when creating cannot read the ID token", async () => {
+    mockCurrentUserTokenError();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      apiReservationRepository.create(reservation),
+    ).resolves.toMatchObject({
+      ok: false,
+      status: "failed",
+      reason: "remote-unavailable",
+      message: expect.stringContaining("token unavailable"),
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("sets a remote-unavailable snapshot when a reservation list token read fails", async () => {
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: reservation.userId,
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUserTokenError();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(apiReservationRepository.read()).toMatchObject({
+        ok: false,
+        reason: "remote-unavailable",
+        message: expect.stringContaining("token unavailable"),
+      });
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    unsubscribe();
   });
 
   it("maps created reservation responses", async () => {
@@ -397,6 +447,22 @@ describe("apiReservationRepository", () => {
       reason: "remote-unavailable",
       message: expect.stringContaining("network down"),
     });
+  });
+
+  it("returns remote-unavailable when cancelling cannot read the ID token", async () => {
+    mockCurrentUserTokenError();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      apiReservationRepository.cancel(reservation.id),
+    ).resolves.toMatchObject({
+      ok: false,
+      status: "failed",
+      reason: "remote-unavailable",
+      message: expect.stringContaining("token unavailable"),
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("maps cancelled reservation responses", async () => {

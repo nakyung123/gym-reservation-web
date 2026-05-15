@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { createUserReservationDetail } from "@/lib/reservation-detail";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   cancelReservationInMysql,
@@ -17,7 +18,16 @@ export async function GET(request: NextRequest, ctx: Context) {
   }
 
   const { reservationId } = await ctx.params;
-  const record = await getUserReservationDetailById(auth.uid, reservationId);
+  let record: Awaited<ReturnType<typeof getUserReservationDetailById>>;
+  try {
+    record = await getUserReservationDetailById(auth.uid, reservationId);
+  } catch (error) {
+    return serverErrorResponse(
+      "예약 상세를 불러오지 못했습니다.",
+      "Failed to fetch user reservation detail",
+      error,
+    );
+  }
   if (!record) {
     return Response.json(
       { message: "예약을 찾을 수 없습니다." },
@@ -39,7 +49,16 @@ export async function DELETE(request: NextRequest, ctx: Context) {
   }
 
   const { reservationId } = await ctx.params;
-  const result = await cancelReservationInMysql(auth.uid, reservationId);
+  let result: Awaited<ReturnType<typeof cancelReservationInMysql>>;
+  try {
+    result = await cancelReservationInMysql(auth.uid, reservationId);
+  } catch (error) {
+    return serverErrorResponse(
+      "예약을 취소하지 못했습니다.",
+      "Failed to cancel user reservation",
+      error,
+    );
+  }
 
   if (result.ok) {
     return Response.json({

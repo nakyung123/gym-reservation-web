@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/reservation-slots/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { updateReservationSlotPolicy } from "@/lib/server/mysql-reservation-repository";
+import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-mysql";
 
 function requestFor(params: Record<string, string>) {
@@ -15,6 +16,10 @@ function requestFor(params: Record<string, string>) {
 }
 
 describe("GET /api/reservation-slots", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("체육관, 종목, 날짜가 올바르면 예약 가능 슬롯을 조회한다", async () => {
     const date = futureDate();
     await updateReservationSlotPolicy({
@@ -135,5 +140,43 @@ describe("GET /api/reservation-slots", () => {
     expect(body.message).toBe(
       "선택한 종목은 이 체육관에서 예약할 수 없습니다.",
     );
+  });
+
+  it("체육관 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.gym, "findFirst").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("체육관 정보를 불러오지 못했습니다.");
+  });
+
+  it("슬롯 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservationSlot, "findMany").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(),
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("슬롯 정보를 불러오지 못했습니다.");
   });
 });

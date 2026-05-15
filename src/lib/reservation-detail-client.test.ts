@@ -52,6 +52,16 @@ function mockCurrentUser(token = "id-token") {
   });
 }
 
+function mockCurrentUserTokenError(message = "token unavailable") {
+  getFirebaseClient.mockReturnValue({
+    auth: {
+      currentUser: {
+        getIdToken: vi.fn().mockRejectedValue(new Error(message)),
+      },
+    },
+  });
+}
+
 function mockFetch(response: Response) {
   const fetchMock = vi.fn().mockResolvedValue(response);
   vi.stubGlobal("fetch", fetchMock);
@@ -72,6 +82,19 @@ describe("fetchUserReservation", () => {
     await expect(fetchUserReservation(reservation.id)).resolves.toMatchObject({
       ok: false,
       kind: "auth-required",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns error without calling the API when reading the ID token fails", async () => {
+    mockCurrentUserTokenError();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchUserReservation(reservation.id)).resolves.toMatchObject({
+      ok: false,
+      kind: "error",
+      message: expect.stringContaining("token unavailable"),
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

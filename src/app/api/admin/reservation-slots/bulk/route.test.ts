@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/reservation-slots/bulk/route";
 import {
   createReservationInMysql,
@@ -40,6 +40,10 @@ function requestFor(body: BulkSlotPolicyBody, token = adminToken): NextRequest {
 describe("PATCH /api/admin/reservation-slots/bulk", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰이 있으면 여러 슬롯 정책을 한 번에 변경한다", async () => {
@@ -382,5 +386,47 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
       },
     });
     expect(untouchedSlot).toBeNull();
+  });
+
+  it("체육관 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.gym, "findFirst").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        dates: [futureDate()],
+        times: ["10:00"],
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("체육관 정보를 불러오지 못했습니다.");
+  });
+
+  it("슬롯 정책 일괄 변경 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        dates: [futureDate()],
+        times: ["10:00"],
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("슬롯 정책을 일괄 변경하지 못했습니다.");
   });
 });

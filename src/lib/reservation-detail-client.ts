@@ -28,6 +28,10 @@ export type FetchUserReservationResult =
       status?: number;
     };
 
+type IdTokenResult =
+  | { ok: true; idToken: string }
+  | { ok: false; kind: "auth-required" | "error"; message: string };
+
 function isAbortError(error: unknown): boolean {
   return (
     (error instanceof DOMException && error.name === "AbortError") ||
@@ -35,15 +39,29 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
-async function getIdToken(): Promise<string | null> {
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "알 수 없는 오류";
+}
+
+async function getIdToken(): Promise<IdTokenResult> {
   try {
     const { auth } = getFirebaseClient();
     if (!auth.currentUser) {
-      return null;
+      return {
+        ok: false,
+        kind: "auth-required",
+        message: "로그인 정보가 없어 예약 상세를 불러올 수 없습니다.",
+      };
     }
-    return await auth.currentUser.getIdToken();
-  } catch {
-    return null;
+    return { ok: true, idToken: await auth.currentUser.getIdToken() };
+  } catch (error) {
+    return {
+      ok: false,
+      kind: "error",
+      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+    };
   }
 }
 
@@ -51,13 +69,9 @@ export async function fetchUserReservation(
   reservationId: string,
   signal?: AbortSignal,
 ): Promise<FetchUserReservationResult> {
-  const idToken = await getIdToken();
-  if (!idToken) {
-    return {
-      ok: false,
-      kind: "auth-required",
-      message: "로그인 정보가 없어 예약 상세를 불러올 수 없습니다.",
-    };
+  const token = await getIdToken();
+  if (!token.ok) {
+    return token;
   }
 
   let response: Response;
@@ -65,7 +79,7 @@ export async function fetchUserReservation(
     response = await fetch(
       `/api/reservations/${encodeURIComponent(reservationId)}`,
       {
-        headers: { Authorization: `Bearer ${idToken}` },
+        headers: { Authorization: `Bearer ${token.idToken}` },
         signal,
       },
     );
@@ -77,7 +91,7 @@ export async function fetchUserReservation(
       ok: false,
       kind: "error",
       message:
-        `예약 상세 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+        `예약 상세 요청에 실패했습니다. ${getErrorMessage(error)}`.trim(),
     };
   }
 

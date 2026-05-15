@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, PUT } from "@/app/api/favorites/[gymId]/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -30,6 +30,10 @@ function contextFor(gymId: string) {
 describe("PUT /api/favorites/[gymId]", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("즐겨찾기를 추가하고 같은 요청을 반복해도 한 건만 유지한다", async () => {
@@ -108,11 +112,32 @@ describe("PUT /api/favorites/[gymId]", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
     expect(await prisma.favorite.count()).toBe(0);
   });
+
+  it("즐겨찾기 추가 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "favorite-put-error-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.gym, "findFirst").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PUT(
+      requestFor(TEST_GYM.id, "PUT"),
+      contextFor(TEST_GYM.id),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("즐겨찾기를 추가하지 못했습니다.");
+  });
 });
 
 describe("DELETE /api/favorites/[gymId]", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("즐겨찾기를 삭제하고 같은 요청을 반복해도 성공으로 응답한다", async () => {
@@ -177,5 +202,22 @@ describe("DELETE /api/favorites/[gymId]", () => {
 
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
+  });
+
+  it("즐겨찾기 해제 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "favorite-delete-error-user" });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.favorite, "delete").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await DELETE(
+      requestFor(TEST_GYM.id, "DELETE"),
+      contextFor(TEST_GYM.id),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("즐겨찾기를 해제하지 못했습니다.");
   });
 });

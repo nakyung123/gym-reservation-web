@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import { serverErrorResponse } from "@/lib/server/api-error-response";
 import {
   cancelReservationAsAdminInMysql,
   getAdminReservationById,
@@ -22,7 +23,16 @@ export async function GET(
   }
 
   const { reservationId } = await params;
-  const reservation = await getAdminReservationById(reservationId);
+  let reservation: Awaited<ReturnType<typeof getAdminReservationById>>;
+  try {
+    reservation = await getAdminReservationById(reservationId);
+  } catch (error) {
+    return serverErrorResponse(
+      "관리자 예약 상세를 불러오지 못했습니다.",
+      "Failed to fetch admin reservation detail",
+      error,
+    );
+  }
   if (!reservation) {
     return Response.json(
       { message: "예약을 찾을 수 없습니다." },
@@ -60,10 +70,23 @@ export async function PATCH(
   }
 
   const { reservationId } = await params;
-  const result =
-    body.status === "used"
-      ? await markReservationUsedInMysql(reservationId)
-      : await cancelReservationAsAdminInMysql(reservationId);
+  let result: Awaited<
+    ReturnType<
+      typeof markReservationUsedInMysql | typeof cancelReservationAsAdminInMysql
+    >
+  >;
+  try {
+    result =
+      body.status === "used"
+        ? await markReservationUsedInMysql(reservationId)
+        : await cancelReservationAsAdminInMysql(reservationId);
+  } catch (error) {
+    return serverErrorResponse(
+      "관리자 예약 상태를 변경하지 못했습니다.",
+      "Failed to update admin reservation status",
+      error,
+    );
+  }
 
   if (!result.ok) {
     return Response.json(

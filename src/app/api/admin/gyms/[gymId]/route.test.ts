@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/gyms/[gymId]/route";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -36,6 +36,10 @@ function patchRequest(body: unknown, token = adminToken) {
 describe("PATCH /api/admin/gyms/[gymId]", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰과 올바른 본문이 있으면 시설 정보를 수정한다", async () => {
@@ -267,5 +271,18 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
       where: { id: TEST_GYM.id },
     });
     expect(row.availableTimes).toContain(reservedTime);
+  });
+
+  it("시설 수정 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PATCH(patchRequest(updateBody), contextFor(TEST_GYM.id));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("시설 정보를 저장하지 못했습니다.");
   });
 });

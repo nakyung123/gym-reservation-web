@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/admin/gyms/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -35,6 +35,10 @@ function postRequest(body: unknown, token = adminToken) {
 describe("GET /api/admin/gyms", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰이 있으면 비활성 시설까지 조회한다", async () => {
@@ -85,11 +89,30 @@ describe("GET /api/admin/gyms", () => {
 
     expect(response.status).toBe(503);
   });
+
+  it("시설 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.gym, "findMany").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(
+      adminRequest("http://localhost:3000/api/admin/gyms"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("시설 목록을 불러오지 못했습니다.");
+  });
 });
 
 describe("POST /api/admin/gyms", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰과 올바른 본문이 있으면 시설을 추가한다", async () => {
@@ -197,5 +220,18 @@ describe("POST /api/admin/gyms", () => {
     expect(response.status).toBe(503);
     expect(body.message).toBe("관리자 API 토큰이 설정되어 있지 않습니다.");
     expect(await prisma.gym.count()).toBe(1);
+  });
+
+  it("시설 추가 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.gym, "create").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await POST(postRequest(newAdminGym));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("시설을 추가하지 못했습니다.");
   });
 });

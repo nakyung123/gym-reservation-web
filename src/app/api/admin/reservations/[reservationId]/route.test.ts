@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, PATCH } from "@/app/api/admin/reservations/[reservationId]/route";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
@@ -61,6 +61,10 @@ async function expectReservationLockToBeCleared(reservationId: string) {
 describe("GET /api/admin/reservations/[reservationId]", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰이 있으면 예약 단건을 조회한다", async () => {
@@ -133,11 +137,31 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
     expect(response.status).toBe(404);
     expect(body.message).toBe("예약을 찾을 수 없습니다.");
   });
+
+  it("관리자 예약 상세 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findUnique").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await GET(
+      requestFor("reservation-error"),
+      contextFor("reservation-error"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("관리자 예약 상세를 불러오지 못했습니다.");
+  });
 });
 
 describe("PATCH /api/admin/reservations/[reservationId]", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("관리자 토큰이 있으면 예약을 이용 완료 처리한다", async () => {
@@ -483,5 +507,21 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     expect(body.status).toBe("not-cancellable");
     expect(body.reservation?.status).toBe("used");
     await expectReservationLockToBeCleared(created.reservation.id);
+  });
+
+  it("관리자 예약 상태 변경 중 서버 오류가 발생하면 500을 반환한다", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(prisma.reservation, "findUnique").mockRejectedValueOnce(
+      new Error("database offline"),
+    );
+
+    const response = await PATCH(
+      patchRequestFor("reservation-error", "used"),
+      contextFor("reservation-error"),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(500);
+    expect(body.message).toBe("관리자 예약 상태를 변경하지 못했습니다.");
   });
 });
