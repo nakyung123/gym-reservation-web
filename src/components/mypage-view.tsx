@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
 import {
   linkGoogleAccount,
   signInWithGoogle,
@@ -755,6 +756,20 @@ export function MypageView() {
     }
   };
 
+  const handleKakaoLogin = async () => {
+    setIsLinking(true);
+    setNotice(null);
+    setShowSignInPrompt(false);
+
+    const result = await startKakaoLogin();
+    if (result.ok) {
+      // window.location 이동 중. 사용자에게 잠깐의 로딩만 보여준다.
+      return;
+    }
+    setIsLinking(false);
+    setNotice({ tone: "error", message: result.message });
+  };
+
   const handleGoogleSignIn = async () => {
     setIsLinking(true);
     setNotice(null);
@@ -852,6 +867,16 @@ export function MypageView() {
                 className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               >
                 {isLinking ? "Google 계정 연결 중" : "Google 계정으로 연결"}
+              </button>
+            ) : null}
+            {account.isAnonymous ? (
+              <button
+                type="button"
+                onClick={handleKakaoLogin}
+                disabled={isLinking || isSigningOut}
+                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-yellow-400 bg-yellow-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-yellow-500 hover:bg-yellow-400 disabled:cursor-not-allowed disabled:border-yellow-200 disabled:bg-yellow-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2"
+              >
+                {isLinking ? "카카오로 이동 중" : "카카오 계정으로 연결"}
               </button>
             ) : null}
             <button
