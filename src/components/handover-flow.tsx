@@ -2,7 +2,10 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { finalizeKakaoHandover } from "@/lib/firebase-kakao-auth";
+import {
+  finalizeKakaoHandover,
+  retryKakaoFinalize,
+} from "@/lib/firebase-kakao-auth";
 
 type FlowState =
   | { kind: "loading"; ticketId: string }
@@ -25,20 +28,9 @@ export function HandoverFlow() {
   const [state, setState] = useState<FlowState>(() => initialState(searchParams));
   const startedRef = useRef(false);
 
-  useEffect(() => {
-    if (startedRef.current) return;
-    if (state.kind !== "loading") return;
-    startedRef.current = true;
-    void runFinalize(state.ticketId, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function runFinalize(ticketId: string, confirmed: boolean) {
-    setState({
-      kind: confirmed ? "confirming" : "loading",
-      ticketId,
-    });
-    const result = await finalizeKakaoHandover({ ticketId, confirmed });
+  function handleResult(
+    result: Awaited<ReturnType<typeof finalizeKakaoHandover>>,
+  ) {
     if (result.ok) {
       setState({ kind: "success", transferred: result.transferred });
       setTimeout(() => router.replace("/mypage"), 1200);
@@ -64,6 +56,28 @@ export function HandoverFlow() {
       ticketId: null,
     });
   }
+
+  async function runFirst(ticketId: string) {
+    setState({ kind: "loading", ticketId });
+    handleResult(await finalizeKakaoHandover({ ticketId }));
+  }
+
+  async function runRetry(ticketId: string, confirmed: boolean) {
+    setState({
+      kind: confirmed ? "confirming" : "loading",
+      ticketId,
+    });
+    handleResult(await retryKakaoFinalize({ ticketId, confirmed }));
+  }
+
+  useEffect(() => {
+    if (startedRef.current) return;
+    if (state.kind !== "loading") return;
+    startedRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void runFirst(state.ticketId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (state.kind === "loading" || state.kind === "confirming") {
     return (
@@ -105,7 +119,7 @@ export function HandoverFlow() {
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => runFinalize(state.ticketId, true)}
+            onClick={() => runRetry(state.ticketId, true)}
             className="inline-flex h-10 items-center justify-center rounded-md bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
             기존 카카오 계정으로 로그인
@@ -135,7 +149,7 @@ export function HandoverFlow() {
           {state.retryable && state.ticketId ? (
             <button
               type="button"
-              onClick={() => runFinalize(state.ticketId as string, false)}
+              onClick={() => runRetry(state.ticketId as string, false)}
               className="inline-flex h-10 items-center justify-center rounded-md bg-rose-600 px-4 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
             >
               다시 시도

@@ -2,7 +2,9 @@ import { signInWithCustomToken } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 
 // 카카오 OAuth 흐름의 클라이언트 측 helper.
-// /start → window.location → /callback → /auth/handover → /token → signInWithCustomToken → /finalize.
+// 첫 시도: /start → window.location → /callback → /auth/handover →
+//          /token → signInWithCustomToken → /finalize.
+// 재시도/확인 후 진행: /token 재호출 없이 현재 user의 ID token으로 /finalize만.
 // customToken은 절대 URL/스토리지에 남기지 않고 POST response body로만 받는다.
 
 export type StartKakaoLoginResult =
@@ -10,23 +12,15 @@ export type StartKakaoLoginResult =
   | { ok: false; message: string };
 
 export type FinalizeKakaoResult =
-  | { ok: true; transferred: boolean }
-  | {
-      ok: false;
-      reason: "confirm-required";
-      ticketId: string;
-    }
+  | { ok: true; transferred: boolean; profileSynced: boolean }
+  | { ok: false; reason: "confirm-required"; ticketId: string }
   | {
       ok: false;
       reason: "conflict";
       message: string;
       ticketId: string;
     }
-  | {
-      ok: false;
-      reason: "other";
-      message: string;
-    };
+  | { ok: false; reason: "other"; message: string };
 
 export async function startKakaoLogin(): Promise<StartKakaoLoginResult> {
   const { auth } = getFirebaseClient();
@@ -88,11 +82,12 @@ export async function startKakaoLogin(): Promise<StartKakaoLoginResult> {
   return { ok: true };
 }
 
+// 첫 finalize: ticket → customToken → signInWithCustomToken → /finalize.
+// /token은 ticket + handover cookie 둘 다 검증한다.
 export async function finalizeKakaoHandover(input: {
   ticketId: string;
-  confirmed?: boolean;
 }): Promise<FinalizeKakaoResult> {
-  const tokenResult = await exchangeTicketForCustomToken(input);
+  const tokenResult = await exchangeTicketForCustomToken(input.ticketId);
   if (!tokenResult.ok) {
     return tokenResult;
   }
@@ -108,34 +103,63 @@ export async function finalizeKakaoHandover(input: {
     };
   }
 
-  const newUser = auth.currentUser;
-  if (!newUser) {
+  return callFinalize({ ticketId: input.ticketId, confirmed: false });
+}
+
+// 확인 흐름 또는 migration 충돌 retry. signInWithCustomToken은 이미 완료된 상태.
+export async function retryKakaoFinalize(input: {
+  ticketId: string;
+  confirmed: boolean;
+}): Promise<FinalizeKakaoResult> {
+  const { auth } = getFirebaseClient();
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous) {
     return {
       ok: false,
       reason: "other",
-      message: "로그인 후 사용자를 확인하지 못했습니다.",
+      message:
+        "로그인 세션이 만료됐습니다. 카카오 연결을 처음부터 다시 시도해 주세요.",
     };
   }
-  let newIdToken: string;
+  return callFinalize(input);
+}
+
+async function callFinalize(input: {
+  ticketId: string;
+  confirmed: boolean;
+}): Promise<FinalizeKakaoResult> {
+  const { auth } = getFirebaseClient();
+  const user = auth.currentUser;
+  if (!user) {
+    return {
+      ok: false,
+      reason: "other",
+      message: "로그인 세션이 만료됐습니다.",
+    };
+  }
+  let idToken: string;
   try {
-    newIdToken = await newUser.getIdToken();
+    idToken = await user.getIdToken();
   } catch (error) {
     return {
       ok: false,
       reason: "other",
-      message: `새 ID 토큰을 가져오지 못했습니다. ${describeError(error)}`,
+      message: `ID 토큰을 가져오지 못했습니다. ${describeError(error)}`,
     };
   }
 
-  let finalizeResponse: Response;
+  let response: Response;
   try {
-    finalizeResponse = await fetch("/api/auth/kakao/finalize", {
+    response = await fetch("/api/auth/kakao/finalize", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${newIdToken}`,
+        Authorization: `Bearer ${idToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ticketId: input.ticketId }),
+      body: JSON.stringify({
+        ticketId: input.ticketId,
+        confirmed: input.confirmed,
+      }),
     });
   } catch (error) {
     return {
@@ -145,47 +169,72 @@ export async function finalizeKakaoHandover(input: {
     };
   }
 
-  if (finalizeResponse.status === 409) {
-    const message = await readErrorMessage(
-      finalizeResponse,
-      "계정 데이터 이전 충돌이 발생했습니다.",
-    );
+  if (response.status === 409) {
+    const body = (await response.json().catch(() => null)) as
+      | { conflict?: string; retryable?: boolean; message?: string }
+      | null;
+    if (body?.conflict === "existing_account") {
+      return {
+        ok: false,
+        reason: "confirm-required",
+        ticketId: input.ticketId,
+      };
+    }
+    if (body?.retryable) {
+      return {
+        ok: false,
+        reason: "conflict",
+        message: body.message ?? "계정 데이터 이전 충돌이 발생했습니다.",
+        ticketId: input.ticketId,
+      };
+    }
     return {
       ok: false,
-      reason: "conflict",
-      message,
-      ticketId: input.ticketId,
+      reason: "other",
+      message: body?.message ?? "충돌이 발생했습니다.",
     };
   }
-  if (!finalizeResponse.ok) {
+  if (!response.ok) {
     const message = await readErrorMessage(
-      finalizeResponse,
-      `데이터 이전 실패. status=${finalizeResponse.status}`,
+      response,
+      `데이터 이전 실패. status=${response.status}`,
     );
     return { ok: false, reason: "other", message };
   }
 
-  return { ok: true, transferred: tokenResult.needsTransfer };
+  const data = (await response.json().catch(() => null)) as
+    | { ok?: boolean; transferred?: boolean; profileSynced?: boolean }
+    | null;
+
+  // server에서 admin.updateUser로 displayName/email/photoURL을 갱신했지만
+  // client의 auth.currentUser는 signInWithCustomToken 시점 캐시라 stale이다.
+  // 새로고침 없이 즉시 UI에 반영하려면 reload로 server user record를 다시 가져온다.
+  try {
+    await user.reload();
+  } catch (error) {
+    console.warn("[kakao finalize] currentUser.reload failed:", error);
+  }
+
+  return {
+    ok: true,
+    transferred: data?.transferred === true,
+    profileSynced: data?.profileSynced !== false,
+  };
 }
 
 type TokenExchangeResult =
-  | { ok: true; customToken: string; needsTransfer: boolean }
-  | { ok: false; reason: "confirm-required"; ticketId: string }
+  | { ok: true; customToken: string }
   | { ok: false; reason: "other"; message: string };
 
-async function exchangeTicketForCustomToken(input: {
-  ticketId: string;
-  confirmed?: boolean;
-}): Promise<TokenExchangeResult> {
+async function exchangeTicketForCustomToken(
+  ticketId: string,
+): Promise<TokenExchangeResult> {
   let response: Response;
   try {
     response = await fetch("/api/auth/kakao/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ticketId: input.ticketId,
-        confirmed: input.confirmed === true,
-      }),
+      body: JSON.stringify({ ticketId }),
     });
   } catch (error) {
     return {
@@ -195,23 +244,6 @@ async function exchangeTicketForCustomToken(input: {
     };
   }
 
-  if (response.status === 409) {
-    const body = (await response.json().catch(() => null)) as
-      | { confirmRequired?: boolean; message?: string }
-      | null;
-    if (body?.confirmRequired) {
-      return {
-        ok: false,
-        reason: "confirm-required",
-        ticketId: input.ticketId,
-      };
-    }
-    return {
-      ok: false,
-      reason: "other",
-      message: body?.message ?? "토큰 교환에 실패했습니다.",
-    };
-  }
   if (!response.ok) {
     const message = await readErrorMessage(
       response,
@@ -221,20 +253,16 @@ async function exchangeTicketForCustomToken(input: {
   }
 
   const data = (await response.json().catch(() => null)) as
-    | { customToken?: string; needsTransfer?: boolean }
+    | { customToken?: string }
     | null;
-  if (!data?.customToken || typeof data.needsTransfer !== "boolean") {
+  if (!data?.customToken) {
     return {
       ok: false,
       reason: "other",
       message: "토큰 교환 응답이 올바르지 않습니다.",
     };
   }
-  return {
-    ok: true,
-    customToken: data.customToken,
-    needsTransfer: data.needsTransfer,
-  };
+  return { ok: true, customToken: data.customToken };
 }
 
 function describeError(error: unknown): string {

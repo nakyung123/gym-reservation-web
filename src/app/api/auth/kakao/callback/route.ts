@@ -1,16 +1,21 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
-import { getAdminAuth } from "@/lib/server/firebase-admin";
 import { consumePendingAttempt } from "@/lib/server/oauth/attempt-store";
 import { buildExternalAuthUid } from "@/lib/server/oauth/external-auth-uid";
-import { createTicket } from "@/lib/server/oauth/handover-ticket";
+import {
+  createTicket,
+  HANDOVER_TICKET_TTL_MS,
+  type HandoverProfilePayload,
+} from "@/lib/server/oauth/handover-ticket";
 import {
   exchangeKakaoCode,
   fetchKakaoUserInfo,
   type KakaoProfile,
 } from "@/lib/server/oauth/kakao-provider";
 import {
+  generateOpaqueToken,
   OAUTH_ATTEMPT_COOKIE,
+  OAUTH_HANDOVER_COOKIE,
   safeEqualToken,
 } from "@/lib/server/oauth/oauth-state";
 
@@ -18,8 +23,11 @@ export const dynamic = "force-dynamic";
 
 // 카카오에서 돌아오는 redirect callback. 헤더 Authorization은 붙지 않는다.
 // 신뢰 가능한 식별 정보는 cookie attemptId만으로, 거기서 anonUid를 얻는다.
-// 흐름: state 검증 → attempt 1회 소비 → 토큰/유저정보 → user record 생성/갱신
-// → handover ticket 생성 → /auth/handover로 ticket만 노출하는 302 redirect.
+// 흐름: state 검증 → attempt 1회 소비 → 토큰/유저정보 → handoverNonce 발급
+// → ticket 생성(provider profile 저장) → handover cookie set → /auth/handover로
+// ticket만 노출하는 302 redirect.
+// Firebase user record는 만들지 않는다. 신규/기존 판정과 createUser/updateUser는
+// /finalize transaction에서 한다.
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -34,6 +42,8 @@ export async function GET(request: NextRequest) {
   if (attemptCookie) {
     cookieStore.delete(OAUTH_ATTEMPT_COOKIE);
   }
+  // 이전 흐름에 떠 있던 handover cookie도 새 ticket 발급 전 비운다.
+  cookieStore.delete(OAUTH_HANDOVER_COOKIE);
 
   if (oauthError) {
     return errorRedirect(origin, "kakao_oauth_error", oauthError);
@@ -93,63 +103,35 @@ export async function GET(request: NextRequest) {
   // 이메일은 카카오 검수 통과 후에만 사용 가능한 항목이라 MVP에서는 받지 않는다.
   // 식별은 카카오 회원번호(id)만으로 충분하다.
   const targetUid = buildExternalAuthUid("kakao", kakaoProfile.providerUserId);
-
-  // Firebase user record 존재 여부로 신규/기존 가입 판정.
-  let userExists = false;
-  try {
-    await getAdminAuth().getUser(targetUid);
-    userExists = true;
-  } catch (error) {
-    const code = (error as { code?: string }).code ?? "";
-    if (code !== "auth/user-not-found") {
-      console.error("[kakao callback] getUser failed:", error);
-      return errorRedirect(
-        origin,
-        "user_lookup_failed",
-        "사용자 조회에 실패했습니다.",
-      );
-    }
-  }
-
-  // user record는 callback에서 생성/갱신해 client의 displayName/email/photoURL을
-  // signInWithCustomToken 직후 그대로 사용할 수 있게 한다.
-  try {
-    if (userExists) {
-      await getAdminAuth().updateUser(targetUid, {
-        email: kakaoProfile.email ?? undefined,
-        displayName: kakaoProfile.nickname ?? undefined,
-        photoURL: kakaoProfile.profileImageUrl ?? undefined,
-      });
-    } else {
-      await getAdminAuth().createUser({
-        uid: targetUid,
-        email: kakaoProfile.email ?? undefined,
-        displayName: kakaoProfile.nickname ?? undefined,
-        photoURL: kakaoProfile.profileImageUrl ?? undefined,
-      });
-    }
-  } catch (error) {
-    console.error("[kakao callback] create/update user failed:", error);
-    return errorRedirect(
-      origin,
-      "user_record_failed",
-      "사용자 정보 동기화에 실패했습니다.",
-    );
-  }
-
-  const needsTransfer = !userExists;
-  const confirmRequired = userExists;
+  const handoverNonce = generateOpaqueToken();
+  const profilePayload = toProfilePayload(kakaoProfile);
 
   const ticket = await createTicket({
     anonUid: attempt.anonUid,
     targetUid,
     provider: "kakao",
-    needsTransfer,
-    confirmRequired,
+    handoverNonce,
+    profilePayload,
+  });
+
+  cookieStore.set(OAUTH_HANDOVER_COOKIE, handoverNonce, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: Math.floor(HANDOVER_TICKET_TTL_MS / 1000),
+    secure: process.env.NODE_ENV === "production",
   });
 
   const url = buildHandoverRedirect(origin, { ticket: ticket.ticketId });
   return Response.redirect(url, 302);
+}
+
+function toProfilePayload(profile: KakaoProfile): HandoverProfilePayload | null {
+  const payload: HandoverProfilePayload = {};
+  if (profile.email) payload.email = profile.email;
+  if (profile.nickname) payload.nickname = profile.nickname;
+  if (profile.profileImageUrl) payload.photoUrl = profile.profileImageUrl;
+  return Object.keys(payload).length === 0 ? null : payload;
 }
 
 function buildHandoverRedirect(

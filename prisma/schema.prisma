@@ -12,20 +12,20 @@ datasource db {
 // 가변 길이 배열/객체 필드는 JSON 컬럼으로 둔다.
 // sports만 검색/필터에 자주 쓰이므로 별도 테이블로 정규화한다.
 model Gym {
-  id             String     @id @db.VarChar(64)
-  name           String     @db.VarChar(200)
-  region         String     @db.VarChar(100)
-  address        String     @db.VarChar(300)
-  officialUrl    String     @map("official_url") @db.VarChar(500)
-  openHours      String     @map("open_hours") @db.VarChar(100)
-  basePrice      Int        @map("base_price")
-  description    String     @db.Text
-  distanceKm     Decimal    @map("distance_km") @db.Decimal(5, 2)
-  sportPrices    Json       @map("sport_prices")
-  facilities     Json
-  availableTimes Json          @map("available_times")
-  closedDays     Json          @map("closed_days")
-  isActive       Boolean       @default(true) @map("is_active")
+  id               String            @id @db.VarChar(64)
+  name             String            @db.VarChar(200)
+  region           String            @db.VarChar(100)
+  address          String            @db.VarChar(300)
+  officialUrl      String            @map("official_url") @db.VarChar(500)
+  openHours        String            @map("open_hours") @db.VarChar(100)
+  basePrice        Int               @map("base_price")
+  description      String            @db.Text
+  distanceKm       Decimal           @map("distance_km") @db.Decimal(5, 2)
+  sportPrices      Json              @map("sport_prices")
+  facilities       Json
+  availableTimes   Json              @map("available_times")
+  closedDays       Json              @map("closed_days")
+  isActive         Boolean           @default(true) @map("is_active")
   sports           GymSport[]
   favorites        Favorite[]
   reservations     Reservation[]
@@ -135,9 +135,14 @@ model OAuthAttempt {
 // /callback 이후 클라이언트 handover 흐름을 control하는 1회용 ticket.
 // 상태 머신: "pending" -> "token_issued" -> "signed_in" -> "transferred".
 //   pending      : callback 완료, customToken 미발급
-//   token_issued : /token이 customToken 발급
+//   token_issued : /token이 nonce 검증 후 customToken 발급
 //   signed_in    : 클라이언트가 targetUid ID token으로 /finalize에 도달
-//   transferred  : migration 완료(needsTransfer=true) 또는 프로필 동기화 완료(false)
+//   transferred  : finalize transaction 완료(migration 또는 기존 계정 로그인)
+// handoverNonce는 HttpOnly cookie와 1:1 매칭되는 bearer 보강 값이다.
+// 신규/기존 판정(needsTransfer, confirmRequired)은 ticket에 저장하지 않는다.
+// /finalize transaction 안에서 targetUid의 실제 앱 데이터 상태로 결정한다.
+// profilePayload는 callback이 받아온 provider profile snapshot이며,
+// finalize 성공 후 admin.updateUser에 사용된다. 토큰류는 저장하지 않는다.
 // finalizeAttemptCount/lastFinalizeError는 운영/디버깅용.
 // 만료된 행은 진입 시 opportunistic cleanup.
 model AuthHandoverTicket {
@@ -145,8 +150,8 @@ model AuthHandoverTicket {
   anonUid              String   @map("anon_uid") @db.VarChar(64)
   targetUid            String   @map("target_uid") @db.VarChar(64)
   provider             String   @db.VarChar(16)
-  needsTransfer        Boolean  @map("needs_transfer")
-  confirmRequired      Boolean  @map("confirm_required")
+  handoverNonce        String   @map("handover_nonce") @db.VarChar(128)
+  profilePayload       Json?    @map("profile_payload")
   status               String   @db.VarChar(16)
   finalizeAttemptCount Int      @default(0) @map("finalize_attempt_count")
   lastFinalizeError    String?  @map("last_finalize_error") @db.VarChar(500)

@@ -5,9 +5,14 @@ import { generateOpaqueToken } from "@/lib/server/oauth/oauth-state";
 // callback이 발급해 클라이언트 handover 흐름을 control하는 1회용 ticket.
 // 상태 머신: pending → token_issued → signed_in → transferred.
 //   pending      : callback 완료, customToken 미발급
-//   token_issued : /token이 customToken을 발급
+//   token_issued : /token이 nonce 검증 후 customToken을 발급
 //   signed_in    : 클라이언트가 targetUid ID token으로 /finalize 도달
-//   transferred  : migration 완료 또는 프로필 동기화 완료(기존 가입 케이스)
+//   transferred  : finalize transaction 완료(migration 또는 기존 계정 로그인)
+// handoverNonce는 HttpOnly cookie에 함께 저장되어 ticket bearer를 보강한다.
+// 신규/기존 판정은 ticket에 저장하지 않고 /finalize transaction 안에서
+// targetUid의 실제 앱 데이터로 결정한다.
+// profilePayload는 provider profile snapshot으로, finalize 성공 후
+// admin.updateUser에 사용된다. access/refresh token류는 저장하지 않는다.
 // finalize 실패는 lastFinalizeError에 기록하고 finalizeAttemptCount를 늘려
 // 같은 ticket으로 TTL 내 재시도를 허용한다.
 
@@ -20,13 +25,21 @@ export type TicketStatus =
   | "signed_in"
   | "transferred";
 
+// provider profile snapshot. callback이 정규화해 ticket에 저장하고,
+// finalize 성공 후 admin.updateUser에 그대로 전달한다.
+export type HandoverProfilePayload = {
+  email?: string | null;
+  nickname?: string | null;
+  photoUrl?: string | null;
+};
+
 export type HandoverTicketRecord = {
   ticketId: string;
   anonUid: string;
   targetUid: string;
   provider: string;
-  needsTransfer: boolean;
-  confirmRequired: boolean;
+  handoverNonce: string;
+  profilePayload: HandoverProfilePayload | null;
   status: TicketStatus;
   finalizeAttemptCount: number;
   lastFinalizeError: string | null;
@@ -38,8 +51,8 @@ export async function createTicket(input: {
   anonUid: string;
   targetUid: string;
   provider: "kakao" | "naver";
-  needsTransfer: boolean;
-  confirmRequired: boolean;
+  handoverNonce: string;
+  profilePayload: HandoverProfilePayload | null;
 }): Promise<HandoverTicketRecord> {
   await cleanupExpiredTickets();
 
@@ -53,8 +66,8 @@ export async function createTicket(input: {
       anonUid: input.anonUid,
       targetUid: input.targetUid,
       provider: input.provider,
-      needsTransfer: input.needsTransfer,
-      confirmRequired: input.confirmRequired,
+      handoverNonce: input.handoverNonce,
+      profilePayload: input.profilePayload ?? undefined,
       status: "pending",
       finalizeAttemptCount: 0,
       lastFinalizeError: null,
@@ -188,8 +201,8 @@ function toRecord(row: {
   anonUid: string;
   targetUid: string;
   provider: string;
-  needsTransfer: boolean;
-  confirmRequired: boolean;
+  handoverNonce: string;
+  profilePayload: unknown;
   status: string;
   finalizeAttemptCount: number;
   lastFinalizeError: string | null;
@@ -197,7 +210,31 @@ function toRecord(row: {
   expiresAt: Date;
 }): HandoverTicketRecord {
   return {
-    ...row,
+    ticketId: row.ticketId,
+    anonUid: row.anonUid,
+    targetUid: row.targetUid,
+    provider: row.provider,
+    handoverNonce: row.handoverNonce,
+    profilePayload: normalizeProfilePayload(row.profilePayload),
     status: row.status as TicketStatus,
+    finalizeAttemptCount: row.finalizeAttemptCount,
+    lastFinalizeError: row.lastFinalizeError,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
   };
+}
+
+// Prisma Json 컬럼은 unknown으로 들어오므로 안전하게 좁힌다.
+// 알려진 키만 추출하고 string/null만 허용한다.
+function normalizeProfilePayload(
+  value: unknown,
+): HandoverProfilePayload | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const obj = value as Record<string, unknown>;
+  const result: HandoverProfilePayload = {};
+  if (typeof obj.email === "string") result.email = obj.email;
+  if (typeof obj.nickname === "string") result.nickname = obj.nickname;
+  if (typeof obj.photoUrl === "string") result.photoUrl = obj.photoUrl;
+  return result;
 }

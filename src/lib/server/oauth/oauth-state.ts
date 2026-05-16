@@ -9,6 +9,10 @@ const TOKEN_BYTES = 24;
 
 export const OAUTH_ATTEMPT_COOKIE = "oauth_attempt_id";
 
+// handover 단계에서 ticket bearer를 보강하기 위한 HttpOnly nonce cookie.
+// callback이 발급한 ticket과 cookie의 nonce가 모두 일치해야 /token이 진행된다.
+export const OAUTH_HANDOVER_COOKIE = "oauth_handover_nonce";
+
 export function generateOpaqueToken(): string {
   return randomBytes(TOKEN_BYTES).toString("base64url");
 }

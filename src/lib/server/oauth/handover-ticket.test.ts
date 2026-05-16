@@ -11,15 +11,15 @@ import {
 import { prisma } from "@/lib/server/prisma-client";
 
 async function makeTicket(overrides?: {
-  needsTransfer?: boolean;
-  confirmRequired?: boolean;
+  handoverNonce?: string;
+  profilePayload?: { email?: string | null; nickname?: string | null; photoUrl?: string | null } | null;
 }) {
   return createTicket({
     anonUid: "anon",
     targetUid: "kakao:1",
     provider: "kakao",
-    needsTransfer: overrides?.needsTransfer ?? true,
-    confirmRequired: overrides?.confirmRequired ?? false,
+    handoverNonce: overrides?.handoverNonce ?? "nonce-test-value",
+    profilePayload: overrides?.profilePayload ?? null,
   });
 }
 
@@ -29,12 +29,20 @@ describe("handover ticket store", () => {
     const ticket = await makeTicket();
     expect(ticket.ticketId).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(ticket.status).toBe("pending");
-    expect(ticket.needsTransfer).toBe(true);
+    expect(ticket.handoverNonce).toBe("nonce-test-value");
+    expect(ticket.profilePayload).toBeNull();
     expect(ticket.finalizeAttemptCount).toBe(0);
     expect(ticket.lastFinalizeError).toBeNull();
     expect(ticket.expiresAt.getTime()).toBeGreaterThanOrEqual(
       before + HANDOVER_TICKET_TTL_MS - 1000,
     );
+  });
+
+  it("createTicket이 profilePayload를 저장하고 findActiveTicket으로 다시 읽는다", async () => {
+    const payload = { email: "a@b", nickname: "닉", photoUrl: "https://x/y" };
+    const ticket = await makeTicket({ profilePayload: payload });
+    const found = await findActiveTicket(ticket.ticketId);
+    expect(found?.profilePayload).toEqual(payload);
   });
 
   it("findActiveTicket은 만료 전 ticket을 반환하고 만료 후엔 null을 반환한다", async () => {
