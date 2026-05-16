@@ -115,3 +115,44 @@ model ReservationSlot {
   @@index([gymId, date], map: "idx_res_slots_gym_date")
   @@map("reservation_slots")
 }
+
+// 외부 OAuth provider(카카오/네이버) authorize 요청을 추적하는 단기 store.
+// /start에서 익명 uid와 state를 발급해 저장하고, /callback에서 1회 소비한다.
+// status: "pending" -> "consumed". 만료된 행은 진입 시 opportunistic cleanup.
+model OAuthAttempt {
+  attemptId String   @id @map("attempt_id") @db.VarChar(64)
+  anonUid   String   @map("anon_uid") @db.VarChar(64)
+  provider  String   @db.VarChar(16)
+  state     String   @db.VarChar(128)
+  status    String   @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  expiresAt DateTime @map("expires_at") @db.DateTime(3)
+
+  @@index([expiresAt], map: "idx_oauth_attempt_expires")
+  @@map("oauth_attempts")
+}
+
+// /callback 이후 클라이언트 handover 흐름을 control하는 1회용 ticket.
+// 상태 머신: "pending" -> "token_issued" -> "signed_in" -> "transferred".
+//   pending      : callback 완료, customToken 미발급
+//   token_issued : /token이 customToken 발급
+//   signed_in    : 클라이언트가 targetUid ID token으로 /finalize에 도달
+//   transferred  : migration 완료(needsTransfer=true) 또는 프로필 동기화 완료(false)
+// finalizeAttemptCount/lastFinalizeError는 운영/디버깅용.
+// 만료된 행은 진입 시 opportunistic cleanup.
+model AuthHandoverTicket {
+  ticketId             String   @id @map("ticket_id") @db.VarChar(64)
+  anonUid              String   @map("anon_uid") @db.VarChar(64)
+  targetUid            String   @map("target_uid") @db.VarChar(64)
+  provider             String   @db.VarChar(16)
+  needsTransfer        Boolean  @map("needs_transfer")
+  confirmRequired      Boolean  @map("confirm_required")
+  status               String   @db.VarChar(16)
+  finalizeAttemptCount Int      @default(0) @map("finalize_attempt_count")
+  lastFinalizeError    String?  @map("last_finalize_error") @db.VarChar(500)
+  createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  expiresAt            DateTime @map("expires_at") @db.DateTime(3)
+
+  @@index([expiresAt], map: "idx_auth_ticket_expires")
+  @@map("auth_handover_tickets")
+}
