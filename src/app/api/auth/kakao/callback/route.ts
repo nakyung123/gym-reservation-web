@@ -90,15 +90,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // 이메일 동의 정책: emailNeedsAgreement=true면 식별이 불완전하므로 가입 거부.
-  if (kakaoProfile.emailNeedsAgreement) {
-    return errorRedirect(
-      origin,
-      "email_consent_required",
-      "이메일 제공 동의가 필요합니다.",
-    );
-  }
-
+  // 이메일은 카카오 검수 통과 후에만 사용 가능한 항목이라 MVP에서는 받지 않는다.
+  // 식별은 카카오 회원번호(id)만으로 충분하다.
   const targetUid = buildExternalAuthUid("kakao", kakaoProfile.providerUserId);
 
   // Firebase user record 존재 여부로 신규/기존 가입 판정.

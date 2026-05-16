@@ -40,9 +40,11 @@ export async function POST(request: NextRequest) {
 
   let authorizeUrl: string;
   try {
+    // account_email은 카카오 검수 통과 후에만 사용 가능한 동의 항목이라 제외한다.
+    // 식별은 카카오 회원번호(id)만으로 충분하다 (buildExternalAuthUid 참고).
     authorizeUrl = buildKakaoAuthorizeUrl({
       state,
-      scope: "profile_nickname profile_image account_email",
+      scope: "profile_nickname profile_image",
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
