@@ -51,13 +51,32 @@ describe("verifyIdTokenFromRequest", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
-  it("verifies a trimmed bearer token and returns the Firebase uid", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "firebase-user-1" });
+  it("verifies a trimmed bearer token and returns the Firebase uid + signInProvider", async () => {
+    verifyIdToken.mockResolvedValue({
+      uid: "firebase-user-1",
+      firebase: { sign_in_provider: "anonymous" },
+    });
 
     await expect(
       verifyIdTokenFromRequest(requestFor("Bearer   token-1   ")),
-    ).resolves.toEqual({ ok: true, uid: "firebase-user-1" });
+    ).resolves.toEqual({
+      ok: true,
+      uid: "firebase-user-1",
+      signInProvider: "anonymous",
+    });
     expect(verifyIdToken).toHaveBeenCalledWith("token-1");
+  });
+
+  it("falls back to empty signInProvider when firebase claim is missing", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "firebase-user-2" });
+
+    await expect(
+      verifyIdTokenFromRequest(requestFor("Bearer token-2")),
+    ).resolves.toEqual({
+      ok: true,
+      uid: "firebase-user-2",
+      signInProvider: "",
+    });
   });
 
   it("returns 401 with the verification error detail when Firebase rejects the token", async () => {

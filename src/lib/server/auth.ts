@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { getAdminAuth } from "@/lib/server/firebase-admin";
 
 export type VerifyIdTokenResult =
-  | { ok: true; uid: string }
+  | { ok: true; uid: string; signInProvider: string }
   | { ok: false; status: 401; message: string };
 
 export async function verifyIdTokenFromRequest(
@@ -28,7 +28,13 @@ export async function verifyIdTokenFromRequest(
 
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken);
-    return { ok: true, uid: decoded.uid };
+    // firebase.sign_in_provider는 Firebase ID token에 항상 포함된다.
+    // 예: "anonymous", "google.com", "password", "custom".
+    const signInProvider =
+      typeof decoded.firebase?.sign_in_provider === "string"
+        ? decoded.firebase.sign_in_provider
+        : "";
+    return { ok: true, uid: decoded.uid, signInProvider };
   } catch (error) {
     const detail = error instanceof Error ? error.message : "알 수 없는 오류";
     return {
