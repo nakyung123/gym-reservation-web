@@ -25,6 +25,12 @@ export type TicketStatus =
   | "signed_in"
   | "transferred";
 
+// transferred로 마감될 때 결정된 분기 결과.
+//   "migrated" : 신규 가입 + anon 데이터를 targetUid로 이전
+//   "linked"   : 기존 가입에 단순 로그인(anon 데이터는 이전하지 않음)
+// 동일 ticket을 재호출(idempotent)할 때 정확한 transferred bool 응답에 사용한다.
+export type TicketOutcome = "migrated" | "linked";
+
 // provider profile snapshot. callback이 정규화해 ticket에 저장하고,
 // finalize 성공 후 admin.updateUser에 그대로 전달한다.
 export type HandoverProfilePayload = {
@@ -41,6 +47,7 @@ export type HandoverTicketRecord = {
   handoverNonce: string;
   profilePayload: HandoverProfilePayload | null;
   status: TicketStatus;
+  outcome: TicketOutcome | null;
   finalizeAttemptCount: number;
   lastFinalizeError: string | null;
   createdAt: Date;
@@ -145,9 +152,11 @@ export async function markSignedIn(
   });
 }
 
-// signed_in → transferred. 최종 마감. 이미 transferred면 그대로 반환.
+// signed_in → transferred. 최종 마감. outcome으로 신규/기존 분기 결과를 함께 저장한다.
+// 이미 transferred면 outcome을 덮어쓰지 않고 그대로 반환(idempotent).
 export async function markTransferred(
   ticketId: string,
+  outcome: TicketOutcome,
 ): Promise<HandoverTicketRecord | null> {
   return prisma.$transaction(async (tx) => {
     const found = await tx.authHandoverTicket.findUnique({
@@ -158,7 +167,7 @@ export async function markTransferred(
     if (found.status === "signed_in") {
       const updated = await tx.authHandoverTicket.update({
         where: { ticketId },
-        data: { status: "transferred", lastFinalizeError: null },
+        data: { status: "transferred", outcome, lastFinalizeError: null },
       });
       return toRecord(updated);
     }
@@ -204,6 +213,7 @@ function toRecord(row: {
   handoverNonce: string;
   profilePayload: unknown;
   status: string;
+  outcome: string | null;
   finalizeAttemptCount: number;
   lastFinalizeError: string | null;
   createdAt: Date;
@@ -217,11 +227,17 @@ function toRecord(row: {
     handoverNonce: row.handoverNonce,
     profilePayload: normalizeProfilePayload(row.profilePayload),
     status: row.status as TicketStatus,
+    outcome: normalizeOutcome(row.outcome),
     finalizeAttemptCount: row.finalizeAttemptCount,
     lastFinalizeError: row.lastFinalizeError,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
   };
+}
+
+function normalizeOutcome(value: string | null): TicketOutcome | null {
+  if (value === "migrated" || value === "linked") return value;
+  return null;
 }
 
 // Prisma Json 컬럼은 unknown으로 들어오므로 안전하게 좁힌다.

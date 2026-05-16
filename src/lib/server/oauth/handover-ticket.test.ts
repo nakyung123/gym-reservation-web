@@ -45,6 +45,27 @@ describe("handover ticket store", () => {
     expect(found?.profilePayload).toEqual(payload);
   });
 
+  it("markTransferred는 outcome을 저장하고 후속 조회에서 그대로 반환한다", async () => {
+    const { ticketId } = await makeTicket();
+    await markTokenIssued(ticketId);
+    await markSignedIn(ticketId);
+    const transferred = await markTransferred(ticketId, "linked");
+    expect(transferred?.outcome).toBe("linked");
+
+    const found = await findActiveTicket(ticketId);
+    expect(found?.outcome).toBe("linked");
+  });
+
+  it("이미 transferred인 ticket의 outcome은 재호출로 덮어쓰이지 않는다 (idempotent)", async () => {
+    const { ticketId } = await makeTicket();
+    await markTokenIssued(ticketId);
+    await markSignedIn(ticketId);
+    await markTransferred(ticketId, "migrated");
+    // 의도적으로 다른 outcome으로 재호출.
+    const again = await markTransferred(ticketId, "linked");
+    expect(again?.outcome).toBe("migrated");
+  });
+
   it("findActiveTicket은 만료 전 ticket을 반환하고 만료 후엔 null을 반환한다", async () => {
     const ticket = await makeTicket();
     const found = await findActiveTicket(ticket.ticketId);
@@ -67,7 +88,7 @@ describe("handover ticket store", () => {
     const signedIn = await markSignedIn(ticketId);
     expect(signedIn?.status).toBe("signed_in");
 
-    const transferred = await markTransferred(ticketId);
+    const transferred = await markTransferred(ticketId, "migrated");
     expect(transferred?.status).toBe("transferred");
   });
 
@@ -92,7 +113,7 @@ describe("handover ticket store", () => {
   it("markTransferred는 token_issued 상태에서는 null을 반환한다", async () => {
     const { ticketId } = await makeTicket();
     await markTokenIssued(ticketId);
-    const result = await markTransferred(ticketId);
+    const result = await markTransferred(ticketId, "migrated");
     expect(result).toBeNull();
   });
 
@@ -100,8 +121,8 @@ describe("handover ticket store", () => {
     const { ticketId } = await makeTicket();
     await markTokenIssued(ticketId);
     await markSignedIn(ticketId);
-    await markTransferred(ticketId);
-    const again = await markTransferred(ticketId);
+    await markTransferred(ticketId, "migrated");
+    const again = await markTransferred(ticketId, "migrated");
     expect(again?.status).toBe("transferred");
   });
 
@@ -128,7 +149,7 @@ describe("handover ticket store", () => {
     await markTokenIssued(ticketId);
     await markSignedIn(ticketId);
     await recordFinalizeFailure(ticketId, "이전 실패");
-    await markTransferred(ticketId);
+    await markTransferred(ticketId, "migrated");
 
     const stored = await prisma.authHandoverTicket.findUnique({
       where: { ticketId },
@@ -145,6 +166,6 @@ describe("handover ticket store", () => {
     });
     expect(await markTokenIssued(ticketId)).toBeNull();
     expect(await markSignedIn(ticketId)).toBeNull();
-    expect(await markTransferred(ticketId)).toBeNull();
+    expect(await markTransferred(ticketId, "migrated")).toBeNull();
   });
 });

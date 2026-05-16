@@ -94,7 +94,11 @@ export async function POST(request: NextRequest) {
     );
   }
   if (ticket.status === "transferred") {
-    return Response.json({ ok: true, transferred: false, profileSynced: true });
+    return Response.json({
+      ok: true,
+      transferred: ticket.outcome === "migrated",
+      profileSynced: true,
+    });
   }
   if (ticket.finalizeAttemptCount >= MAX_FINALIZE_ATTEMPTS) {
     return Response.json(
@@ -128,7 +132,7 @@ export async function POST(request: NextRequest) {
       ticket.targetUid,
       ticket.profilePayload,
     );
-    await markTransferred(ticketId);
+    await markTransferred(ticketId, "linked");
     return Response.json({ ok: true, transferred: false, profileSynced });
   }
 
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
     ticket.targetUid,
     ticket.profilePayload,
   );
-  await markTransferred(ticketId);
+  await markTransferred(ticketId, "migrated");
   return Response.json({ ok: true, transferred: true, profileSynced });
 }
 

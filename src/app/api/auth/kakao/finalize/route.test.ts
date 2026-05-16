@@ -164,6 +164,41 @@ describe("/api/auth/kakao/finalize", () => {
     expect(body.conflict).toBe("existing_account");
   });
 
+  it("이미 transferred + outcome=migrated인 ticket을 재호출하면 transferred:true로 정확히 응답한다", async () => {
+    const ticket = await makeIssuedTicket({ targetUid: "kakao:idem" });
+    // 신규 가입 분기로 완료된 상태를 시뮬레이트.
+    await prisma.authHandoverTicket.update({
+      where: { ticketId: ticket.ticketId },
+      data: { status: "transferred", outcome: "migrated" },
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+
+    const res = await POST(
+      buildRequest({ ticketId: ticket.ticketId }) as never,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { transferred: boolean };
+    expect(body.transferred).toBe(true);
+  });
+
+  it("이미 transferred + outcome=linked인 ticket을 재호출하면 transferred:false로 정확히 응답한다", async () => {
+    const ticket = await makeIssuedTicket({ targetUid: "kakao:idem2" });
+    await prisma.authHandoverTicket.update({
+      where: { ticketId: ticket.ticketId },
+      data: { status: "transferred", outcome: "linked" },
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+
+    const res = await POST(
+      buildRequest({ ticketId: ticket.ticketId }) as never,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { transferred: boolean };
+    expect(body.transferred).toBe(false);
+  });
+
   it("기존 가입 + confirmed:true면 anon 데이터를 이전하지 않고 transferred:false로 성공한다", async () => {
     const ticket = await makeIssuedTicket({
       anonUid: "anon-skip",

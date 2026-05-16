@@ -143,6 +143,8 @@ model OAuthAttempt {
 // /finalize transaction 안에서 targetUid의 실제 앱 데이터 상태로 결정한다.
 // profilePayload는 callback이 받아온 provider profile snapshot이며,
 // finalize 성공 후 admin.updateUser에 사용된다. 토큰류는 저장하지 않는다.
+// outcome은 finalize 성공 시 결정된 분기 결과("migrated" | "linked")로,
+// 동일 ticket 재호출(idempotent) 시 정확한 transferred bool 응답에 사용된다.
 // finalizeAttemptCount/lastFinalizeError는 운영/디버깅용.
 // 만료된 행은 진입 시 opportunistic cleanup.
 model AuthHandoverTicket {
@@ -153,6 +155,7 @@ model AuthHandoverTicket {
   handoverNonce        String   @map("handover_nonce") @db.VarChar(128)
   profilePayload       Json?    @map("profile_payload")
   status               String   @db.VarChar(16)
+  outcome              String?  @db.VarChar(16)
   finalizeAttemptCount Int      @default(0) @map("finalize_attempt_count")
   lastFinalizeError    String?  @map("last_finalize_error") @db.VarChar(500)
   createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
