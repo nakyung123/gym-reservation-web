@@ -170,9 +170,16 @@ export function createReservationsFailedSnapshot(
   });
 }
 
-export function getReservationActiveKey(
-  reservation: Reservation | ReservationDraft,
-): string {
+// activeKey 인코딩에 필요한 5개 필드만 받도록 시그니처를 좁힌다.
+// Reservation/ReservationDraft 도메인 타입은 sport가 Sport literal union이지만,
+// Prisma row의 sport는 string이므로 둘 다 받을 수 있도록 string으로 정의한다.
+export function getReservationActiveKey(reservation: {
+  userId: string;
+  gymId: string;
+  sport: string;
+  date: string;
+  time: string;
+}): string {
   return [
     reservation.userId,
     reservation.gymId,
