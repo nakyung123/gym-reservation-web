@@ -24,6 +24,12 @@ export type FirebaseAuthSessionResult =
 let currentSnapshot = LOADING_AUTH_SESSION_SNAPSHOT;
 let authUnsubscribe: (() => void) | null = null;
 let signInPromise: Promise<unknown> | null = null;
+// OAuth handover의 signInWithCustomToken은 내부적으로 sign-out → sign-in 두 단계로
+// 동작해 잠깐 user=null이 되는 race가 있다. 그 사이 ensureAnonymousSignIn이
+// 즉시 트리거되면 새 익명 user가 생성되어 OAuth 결과를 덮어쓴다.
+// 짧은 debounce로 user=null 직후 새 user가 들어오면 익명 sign-in을 skip한다.
+const ANONYMOUS_SIGNIN_DEBOUNCE_MS = 300;
+let anonSignInTimer: ReturnType<typeof setTimeout> | null = null;
 
 const listeners = new Set<() => void>();
 
@@ -99,11 +105,22 @@ function startAuthSession() {
       auth,
       (user) => {
         if (user) {
+          // user가 다시 들어오면 보류 중인 익명 sign-in 취소.
+          if (anonSignInTimer) {
+            clearTimeout(anonSignInTimer);
+            anonSignInTimer = null;
+          }
           setCurrentSnapshot(createReadySnapshot(user.uid));
           return;
         }
 
-        void ensureAnonymousSignIn();
+        if (anonSignInTimer) {
+          return;
+        }
+        anonSignInTimer = setTimeout(() => {
+          anonSignInTimer = null;
+          void ensureAnonymousSignIn();
+        }, ANONYMOUS_SIGNIN_DEBOUNCE_MS);
       },
       (error) => {
         setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage(error)));
@@ -124,6 +141,10 @@ export function subscribeFirebaseAuthSession(listener: () => void) {
     if (listeners.size === 0 && authUnsubscribe) {
       authUnsubscribe();
       authUnsubscribe = null;
+      if (anonSignInTimer) {
+        clearTimeout(anonSignInTimer);
+        anonSignInTimer = null;
+      }
     }
   };
 }
