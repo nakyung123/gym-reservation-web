@@ -215,10 +215,13 @@ async function callFinalize(input: {
     | { ok?: boolean; transferred?: boolean; profileSynced?: boolean }
     | null;
 
+  // server admin.updateUser가 ID token을 invalidate해 reload가
+  // auth/user-token-expired로 떨어진다. forced refresh로 새 token을 받은 뒤 reload.
   try {
+    await user.getIdToken(true);
     await user.reload();
   } catch (error) {
-    console.warn("[naver finalize] currentUser.reload failed:", error);
+    console.warn("[naver finalize] currentUser refresh failed:", error);
   }
 
   return {

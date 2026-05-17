@@ -219,13 +219,13 @@ async function callFinalize(input: {
     | { ok?: boolean; transferred?: boolean; profileSynced?: boolean }
     | null;
 
-  // server에서 admin.updateUser로 displayName/email/photoURL을 갱신했지만
-  // client의 auth.currentUser는 signInWithCustomToken 시점 캐시라 stale이다.
-  // 새로고침 없이 즉시 UI에 반영하려면 reload로 server user record를 다시 가져온다.
+  // server admin.updateUser가 ID token을 invalidate해 reload가
+  // auth/user-token-expired로 떨어진다. forced refresh로 새 token을 받은 뒤 reload.
   try {
+    await user.getIdToken(true);
     await user.reload();
   } catch (error) {
-    console.warn("[kakao finalize] currentUser.reload failed:", error);
+    console.warn("[kakao finalize] currentUser refresh failed:", error);
   }
 
   return {
