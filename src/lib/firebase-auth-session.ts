@@ -27,9 +27,19 @@ let signInPromise: Promise<unknown> | null = null;
 // OAuth handover의 signInWithCustomToken은 내부적으로 sign-out → sign-in 두 단계로
 // 동작해 잠깐 user=null이 되는 race가 있다. 그 사이 ensureAnonymousSignIn이
 // 즉시 트리거되면 새 익명 user가 생성되어 OAuth 결과를 덮어쓴다.
-// 짧은 debounce로 user=null 직후 새 user가 들어오면 익명 sign-in을 skip한다.
+// 1차 방어: 짧은 debounce로 user=null 직후 새 user가 들어오면 익명 sign-in skip.
+// 2차 방어: OAuth helper가 setOAuthInProgress(true)를 걸어두면 익명 sign-in 자체를 차단.
 const ANONYMOUS_SIGNIN_DEBOUNCE_MS = 300;
 let anonSignInTimer: ReturnType<typeof setTimeout> | null = null;
+let oauthInProgress = false;
+
+export function setOAuthInProgress(active: boolean): void {
+  oauthInProgress = active;
+  if (active && anonSignInTimer) {
+    clearTimeout(anonSignInTimer);
+    anonSignInTimer = null;
+  }
+}
 
 const listeners = new Set<() => void>();
 
@@ -114,11 +124,16 @@ function startAuthSession() {
           return;
         }
 
+        if (oauthInProgress) {
+          // OAuth handover 중에는 익명 sign-in을 시도하지 않는다.
+          return;
+        }
         if (anonSignInTimer) {
           return;
         }
         anonSignInTimer = setTimeout(() => {
           anonSignInTimer = null;
+          if (oauthInProgress) return;
           void ensureAnonymousSignIn();
         }, ANONYMOUS_SIGNIN_DEBOUNCE_MS);
       },

@@ -1,5 +1,6 @@
 import { signInWithCustomToken } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
+import { setOAuthInProgress } from "@/lib/firebase-auth-session";
 
 // 카카오 OAuth 흐름의 클라이언트 측 helper.
 // 첫 시도: /start → window.location → /callback → /auth/handover →
@@ -87,23 +88,30 @@ export async function startKakaoLogin(): Promise<StartKakaoLoginResult> {
 export async function finalizeKakaoHandover(input: {
   ticketId: string;
 }): Promise<FinalizeKakaoResult> {
-  const tokenResult = await exchangeTicketForCustomToken(input.ticketId);
-  if (!tokenResult.ok) {
-    return tokenResult;
-  }
-
-  const { auth } = getFirebaseClient();
+  // signInWithCustomToken은 내부 sign-out → sign-in 순서로 동작해 잠깐 user=null이 된다.
+  // 그 사이 firebase-auth-session이 익명 sign-in으로 currentUser를 덮어쓰지 않도록 차단.
+  setOAuthInProgress(true);
   try {
-    await signInWithCustomToken(auth, tokenResult.customToken);
-  } catch (error) {
-    return {
-      ok: false,
-      reason: "other",
-      message: `Firebase 로그인에 실패했습니다. ${describeError(error)}`,
-    };
-  }
+    const tokenResult = await exchangeTicketForCustomToken(input.ticketId);
+    if (!tokenResult.ok) {
+      return tokenResult;
+    }
 
-  return callFinalize({ ticketId: input.ticketId, confirmed: false });
+    const { auth } = getFirebaseClient();
+    try {
+      await signInWithCustomToken(auth, tokenResult.customToken);
+    } catch (error) {
+      return {
+        ok: false,
+        reason: "other",
+        message: `Firebase 로그인에 실패했습니다. ${describeError(error)}`,
+      };
+    }
+
+    return await callFinalize({ ticketId: input.ticketId, confirmed: false });
+  } finally {
+    setOAuthInProgress(false);
+  }
 }
 
 // 확인 흐름 또는 migration 충돌 retry. signInWithCustomToken은 이미 완료된 상태.
@@ -121,7 +129,12 @@ export async function retryKakaoFinalize(input: {
         "로그인 세션이 만료됐습니다. 카카오 연결을 처음부터 다시 시도해 주세요.",
     };
   }
-  return callFinalize(input);
+  setOAuthInProgress(true);
+  try {
+    return await callFinalize(input);
+  } finally {
+    setOAuthInProgress(false);
+  }
 }
 
 async function callFinalize(input: {
