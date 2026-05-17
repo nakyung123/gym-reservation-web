@@ -7,6 +7,7 @@ import {
 } from "@/lib/gym-utils";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { FavoriteButton } from "@/components/favorite-button";
+import { ReserveCtaButton } from "@/components/reserve-cta-button";
 
 type GymDetailPageProps = {
   params: Promise<{
@@ -156,12 +157,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
               </span>
             ))}
           </div>
-          <Link
-            href={`/reserve/${gym.id}`}
-            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-          >
-            예약하기
-          </Link>
+          <ReserveCtaButton gymId={gym.id} />
 
           <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
             <h3 className="text-sm font-bold text-slate-950">예약 전 확인</h3>

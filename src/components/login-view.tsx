@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { signInWithEmail } from "@/lib/firebase-email-auth";
 import { signInWithGoogle } from "@/lib/firebase-google-auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
@@ -15,12 +15,21 @@ import {
   parseFirebaseAuthSessionSnapshot,
   subscribeFirebaseAuthSession,
 } from "@/lib/firebase-auth-session";
-import { useSyncExternalStore } from "react";
+import { PasswordField, TextField } from "@/components/form-fields";
 
 type SubmitState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "error"; message: string };
+
+function validateEmail(value: string): string | null {
+  if (value.length === 0) return null;
+  const at = value.indexOf("@");
+  if (at <= 0 || at === value.length - 1) {
+    return "이메일 형식이 올바르지 않습니다.";
+  }
+  return null;
+}
 
 export function LoginView() {
   const router = useRouter();
@@ -45,8 +54,12 @@ export function LoginView() {
     }
   }, [session, fromPath, router]);
 
+  const emailError = validateEmail(email);
+  const isFormValid = email.length > 0 && password.length > 0 && !emailError;
+
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!isFormValid) return;
     setSubmitState({ kind: "loading" });
     const result = await signInWithEmail({ email, password });
     if (result.ok) {
@@ -82,7 +95,6 @@ export function LoginView() {
     if (!result.ok) {
       setSubmitState({ kind: "error", message: result.message });
     }
-    // ok이면 window.location 이동 중.
   }
 
   async function handleNaver() {
@@ -102,32 +114,24 @@ export function LoginView() {
         이메일/비밀번호 또는 소셜 계정으로 로그인하세요.
       </p>
 
-      <form className="mt-5 flex flex-col gap-3" onSubmit={handleEmailSubmit}>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-800">이메일</span>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-800">비밀번호</span>
-          <input
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
+      <form className="mt-5 flex flex-col gap-3" onSubmit={handleEmailSubmit} noValidate>
+        <TextField
+          label="이메일"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={setEmail}
+          error={emailError}
+        />
+        <PasswordField
+          label="비밀번호"
+          autoComplete="current-password"
+          value={password}
+          onChange={setPassword}
+        />
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !isFormValid}
           className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isLoading ? "로그인 중" : "이메일로 로그인"}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AppHeaderNav } from "@/components/app-header-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,26 +39,7 @@ export default function RootLayout({
             >
               공공체육관
             </Link>
-            <div className="flex shrink-0 items-center gap-1">
-              <Link
-                href="/gyms"
-                className="inline-flex h-9 items-center rounded px-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:px-3"
-              >
-                체육관
-              </Link>
-              <Link
-                href="/reservations"
-                className="inline-flex h-9 items-center rounded px-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:px-3"
-              >
-                내 예약
-              </Link>
-              <Link
-                href="/mypage"
-                className="inline-flex h-9 items-center rounded px-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:px-3"
-              >
-                내 정보
-              </Link>
-            </div>
+            <AppHeaderNav />
           </nav>
         </header>
         <div className="border-b border-amber-200 bg-amber-50">

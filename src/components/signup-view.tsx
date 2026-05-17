@@ -6,11 +6,29 @@ import { useState } from "react";
 import { signupWithEmail } from "@/lib/firebase-email-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
 import { ensureUserProfile } from "@/lib/user-profile-client";
+import { PasswordField, TextField } from "@/components/form-fields";
 
 type SubmitState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "error"; message: string };
+
+// 단순 이메일 형식 체크: '@'와 도메인 부분이 있는지만 인라인 안내용.
+// 실제 검증은 Firebase가 한다 (auth/invalid-email).
+function validateEmail(value: string): string | null {
+  if (value.length === 0) return null;
+  const at = value.indexOf("@");
+  if (at <= 0 || at === value.length - 1) {
+    return "이메일 형식이 올바르지 않습니다.";
+  }
+  return null;
+}
+
+function validatePassword(value: string): string | null {
+  if (value.length === 0) return null;
+  if (value.length < 8) return "비밀번호는 8자 이상이어야 합니다.";
+  return null;
+}
 
 export function SignupView() {
   const router = useRouter();
@@ -23,29 +41,31 @@ export function SignupView() {
   const [nickname, setNickname] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
 
+  const emailError = validateEmail(email);
+  const passwordError = validatePassword(password);
+  const passwordConfirmError =
+    passwordConfirm.length > 0 && passwordConfirm !== password
+      ? "비밀번호 확인이 일치하지 않습니다."
+      : null;
+  const nicknameError =
+    nickname.length > 0 && nickname.trim().length === 0
+      ? "닉네임을 입력해 주세요."
+      : null;
+
+  const isLoading = submitState.kind === "loading";
+  const isFormValid =
+    email.length > 0 &&
+    password.length > 0 &&
+    passwordConfirm.length > 0 &&
+    nickname.trim().length > 0 &&
+    !emailError &&
+    !passwordError &&
+    !passwordConfirmError &&
+    !nicknameError;
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (password.length < 8) {
-      setSubmitState({
-        kind: "error",
-        message: "비밀번호는 8자 이상이어야 합니다.",
-      });
-      return;
-    }
-    if (password !== passwordConfirm) {
-      setSubmitState({
-        kind: "error",
-        message: "비밀번호 확인이 일치하지 않습니다.",
-      });
-      return;
-    }
-    if (!nickname.trim()) {
-      setSubmitState({
-        kind: "error",
-        message: "닉네임을 입력해 주세요.",
-      });
-      return;
-    }
+    if (!isFormValid) return;
     setSubmitState({ kind: "loading" });
     const result = await signupWithEmail({
       email,
@@ -53,8 +73,6 @@ export function SignupView() {
       nickname: nickname.trim(),
     });
     if (result.ok) {
-      // 회원가입 성공 시 Firebase가 자동 로그인 상태로 만든다.
-      // server에서 provider="local"로 UserProfile 보장.
       await ensureUserProfile().catch((error) => {
         console.warn("[signup] ensureUserProfile failed:", error);
       });
@@ -64,8 +82,6 @@ export function SignupView() {
     setSubmitState({ kind: "error", message: result.message });
   }
 
-  const isLoading = submitState.kind === "loading";
-
   return (
     <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold text-slate-950">회원가입</h1>
@@ -73,60 +89,39 @@ export function SignupView() {
         이메일과 비밀번호로 가입하세요. 가입 후 이메일 인증 메일이 발송됩니다.
       </p>
 
-      <form className="mt-5 flex flex-col gap-3" onSubmit={handleSubmit}>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-800">이메일</span>
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-800">
-            비밀번호 (8자 이상)
-          </span>
-          <input
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-800">
-            비밀번호 확인
-          </span>
-          <input
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-800">닉네임</span>
-          <input
-            type="text"
-            required
-            maxLength={30}
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
-        </label>
+      <form className="mt-5 flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+        <TextField
+          label="이메일"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={setEmail}
+          error={emailError}
+        />
+        <PasswordField
+          label="비밀번호 (8자 이상)"
+          autoComplete="new-password"
+          value={password}
+          onChange={setPassword}
+          error={passwordError}
+        />
+        <PasswordField
+          label="비밀번호 확인"
+          autoComplete="new-password"
+          value={passwordConfirm}
+          onChange={setPasswordConfirm}
+          error={passwordConfirmError}
+        />
+        <TextField
+          label="닉네임"
+          maxLength={30}
+          value={nickname}
+          onChange={setNickname}
+          error={nicknameError}
+        />
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !isFormValid}
           className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isLoading ? "가입 중" : "가입하기"}
