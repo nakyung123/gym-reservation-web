@@ -189,6 +189,74 @@ export async function fetchUserProfile(
   };
 }
 
+// 첫 로그인 직후 client가 호출해 프로필을 명시적으로 보장한다 (없으면 생성).
+// provider는 서버가 산출해서 채우므로 본문 없이 호출한다.
+export async function ensureUserProfile(
+  signal?: AbortSignal,
+): Promise<FetchUserProfileResult> {
+  const token = await getIdToken();
+  if (!token.ok) {
+    return token;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch("/api/me/profile", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token.idToken}` },
+      signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return {
+      ok: false,
+      kind: "error",
+      message:
+        `프로필 초기화 요청에 실패했습니다. ${getErrorMessage(error)}`.trim(),
+    };
+  }
+
+  const json = await readJsonResponse(response);
+  if (!json.ok) {
+    return {
+      ok: false,
+      kind: "error",
+      message: json.message,
+      status: json.status,
+    };
+  }
+  const { data } = json;
+
+  if (
+    response.ok &&
+    isUser(data.user) &&
+    isProfileOrNull(data.profile) &&
+    (data.profile === null || data.profile.userId === data.user.uid)
+  ) {
+    return {
+      ok: true,
+      user: data.user,
+      profile: data.profile,
+    };
+  }
+
+  if (response.status === 401 || response.status === 403) {
+    return authError(data, response.status);
+  }
+
+  return {
+    ok: false,
+    kind: "error",
+    message:
+      typeof data.message === "string"
+        ? data.message
+        : `프로필 초기화 실패: status=${response.status}`,
+    status: response.status,
+  };
+}
+
 export async function saveUserProfile(
   input: UserProfileInput,
   signal?: AbortSignal,

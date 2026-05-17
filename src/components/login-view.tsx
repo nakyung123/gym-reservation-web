@@ -8,6 +8,7 @@ import { signInWithGoogle } from "@/lib/firebase-google-auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
 import { startNaverLogin } from "@/lib/firebase-naver-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
+import { ensureUserProfile } from "@/lib/user-profile-client";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -49,6 +50,9 @@ export function LoginView() {
     setSubmitState({ kind: "loading" });
     const result = await signInWithEmail({ email, password });
     if (result.ok) {
+      await ensureUserProfile().catch((error) => {
+        console.warn("[login] ensureUserProfile failed:", error);
+      });
       router.replace(fromPath);
       return;
     }
@@ -59,6 +63,9 @@ export function LoginView() {
     setSubmitState({ kind: "loading" });
     const result = await signInWithGoogle();
     if (result.ok) {
+      await ensureUserProfile().catch((error) => {
+        console.warn("[login] ensureUserProfile failed:", error);
+      });
       router.replace(fromPath);
       return;
     }

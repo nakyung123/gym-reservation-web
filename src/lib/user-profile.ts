@@ -4,6 +4,8 @@ import type { Sport } from "@/types/domain";
 export type UserProfile = {
   userId: string;
   nickname: string | null;
+  // provider는 서버가 산출하는 표시/통계 필드. 알려지지 않은 경우 null.
+  provider: "local" | "google" | "kakao" | "naver" | null;
   preferredRegion: string | null;
   preferredSports: Sport[];
   reservationNotificationsEnabled: boolean;
@@ -134,11 +136,22 @@ export function isUserProfile(value: unknown): value is UserProfile {
   return (
     typeof value.userId === "string" &&
     isNullableString(value.nickname) &&
+    isProviderId(value.provider) &&
     isNullableString(value.preferredRegion) &&
     Array.isArray(value.preferredSports) &&
     value.preferredSports.every(isSport) &&
     typeof value.reservationNotificationsEnabled === "boolean" &&
     typeof value.createdAt === "string" &&
     typeof value.updatedAt === "string"
+  );
+}
+
+function isProviderId(value: unknown): value is UserProfile["provider"] {
+  return (
+    value === null ||
+    value === "local" ||
+    value === "google" ||
+    value === "kakao" ||
+    value === "naver"
   );
 }

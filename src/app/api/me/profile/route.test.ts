@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { GET, PUT } from "@/app/api/me/profile/route";
+import { GET, POST, PUT } from "@/app/api/me/profile/route";
 import { prisma } from "@/lib/server/prisma-client";
 
 const { verifyIdToken } = vi.hoisted(() => ({
@@ -11,7 +11,16 @@ vi.mock("@/lib/server/firebase-admin", () => ({
   getAdminAuth: () => ({ verifyIdToken }),
 }));
 
-function requestFor(method: "GET" | "PUT", body?: unknown) {
+// Firebase Admin verifyIdToken 응답은 decoded.firebase.sign_in_provider를 포함한다.
+// 새 흐름에서 server가 그 값을 provider 산출에 사용하므로 mock에도 포함시킨다.
+function mockVerify(uid: string, signInProvider = "password") {
+  verifyIdToken.mockResolvedValue({
+    uid,
+    firebase: { sign_in_provider: signInProvider },
+  });
+}
+
+function requestFor(method: "GET" | "POST" | "PUT", body?: unknown) {
   return new NextRequest("http://localhost:3000/api/me/profile", {
     method,
     headers: {
@@ -35,7 +44,7 @@ describe("GET /api/me/profile", () => {
   });
 
   it("저장된 프로필이 없으면 profile null을 반환한다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-empty-user" });
+    mockVerify("profile-route-empty-user");
 
     const response = await GET(requestFor("GET"));
     const body = (await response.json()) as {
@@ -50,7 +59,7 @@ describe("GET /api/me/profile", () => {
 
   it("저장된 프로필을 반환한다", async () => {
     const userId = "profile-route-get-user";
-    verifyIdToken.mockResolvedValue({ uid: userId });
+    mockVerify(userId);
     await prisma.userProfile.create({
       data: {
         userId,
@@ -83,7 +92,7 @@ describe("GET /api/me/profile", () => {
   });
 
   it("프로필 조회 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-get-error-user" });
+    mockVerify("profile-route-get-error-user");
     const errorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -106,7 +115,7 @@ describe("PUT /api/me/profile", () => {
   });
 
   it("프로필 설정을 생성하고 입력을 정리한다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-put-user" });
+    mockVerify("profile-route-put-user");
 
     const response = await PUT(requestFor("PUT", profileInput));
     const body = (await response.json()) as {
@@ -133,7 +142,7 @@ describe("PUT /api/me/profile", () => {
   });
 
   it("같은 사용자 요청을 반복해도 한 행만 유지한다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-idempotent-user" });
+    mockVerify("profile-route-idempotent-user");
 
     const firstResponse = await PUT(requestFor("PUT", profileInput));
     const secondResponse = await PUT(
@@ -154,7 +163,7 @@ describe("PUT /api/me/profile", () => {
   });
 
   it("요청 본문이 JSON 형식이 아니면 400을 반환한다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-json-user" });
+    mockVerify("profile-route-json-user");
 
     const response = await PUT(
       new NextRequest("http://localhost:3000/api/me/profile", {
@@ -174,7 +183,7 @@ describe("PUT /api/me/profile", () => {
   });
 
   it("지원하지 않는 선호 종목이면 400을 반환하고 저장하지 않는다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-invalid-user" });
+    mockVerify("profile-route-invalid-user");
 
     const response = await PUT(
       requestFor("PUT", {
@@ -201,7 +210,7 @@ describe("PUT /api/me/profile", () => {
   });
 
   it("프로필 저장 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "profile-route-put-error-user" });
+    mockVerify("profile-route-put-error-user");
     const errorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -215,5 +224,85 @@ describe("PUT /api/me/profile", () => {
     expect(response.status).toBe(500);
     expect(body.message).toBe("프로필 설정을 저장하지 못했습니다.");
     errorSpy.mockRestore();
+  });
+
+  it("PUT은 클라이언트 입력이 아닌 server 산출 provider로 저장한다", async () => {
+    mockVerify("profile-route-provider-user", "password");
+
+    // 클라이언트가 다른 provider 값을 본문에 끼워 보내도 무시되어야 한다.
+    const response = await PUT(
+      requestFor("PUT", { ...profileInput, provider: "kakao" }),
+    );
+    expect(response.status).toBe(200);
+    const stored = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId: "profile-route-provider-user" },
+    });
+    expect(stored.provider).toBe("local");
+  });
+});
+
+describe("POST /api/me/profile", () => {
+  beforeEach(() => {
+    verifyIdToken.mockReset();
+  });
+
+  it("프로필이 없으면 기본값으로 보장하고 산출된 provider를 채운다", async () => {
+    mockVerify("profile-route-post-user", "password");
+
+    const response = await POST(requestFor("POST"));
+    const body = (await response.json()) as {
+      profile?: { userId?: unknown; provider?: unknown; nickname?: unknown };
+    };
+    expect(response.status).toBe(200);
+    expect(body.profile).toMatchObject({
+      userId: "profile-route-post-user",
+      provider: "local",
+      nickname: null,
+    });
+  });
+
+  it("uid 'kakao:' prefix면 sign_in_provider가 custom이어도 provider=kakao로 저장", async () => {
+    mockVerify("kakao:9999", "custom");
+
+    const response = await POST(requestFor("POST"));
+    expect(response.status).toBe(200);
+    const stored = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId: "kakao:9999" },
+    });
+    expect(stored.provider).toBe("kakao");
+  });
+
+  it("기존 프로필이 있으면 nickname 등은 유지하고 provider만 동기화한다", async () => {
+    const userId = "profile-route-existing-user";
+    await prisma.userProfile.create({
+      data: {
+        userId,
+        nickname: "직접입력",
+        preferredRegion: null,
+        preferredSports: [],
+        reservationNotificationsEnabled: true,
+        provider: null,
+      },
+    });
+    mockVerify(userId, "google.com");
+
+    const response = await POST(requestFor("POST"));
+    expect(response.status).toBe(200);
+    const stored = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId },
+    });
+    expect(stored.nickname).toBe("직접입력");
+    expect(stored.provider).toBe("google");
+  });
+
+  it("알 수 없는 sign_in_provider 조합은 provider=null로 둔다 (조용히 잘못된 값을 채우지 않는다)", async () => {
+    mockVerify("profile-route-unknown-provider-user", "anonymous");
+
+    const response = await POST(requestFor("POST"));
+    expect(response.status).toBe(200);
+    const stored = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId: "profile-route-unknown-provider-user" },
+    });
+    expect(stored.provider).toBeNull();
   });
 });

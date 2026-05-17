@@ -8,6 +8,7 @@ import {
 const profile: UserProfile = {
   userId: "profile-user",
   nickname: "나경",
+  provider: "local",
   preferredRegion: "서울 강서구",
   preferredSports: ["배드민턴", "탁구"],
   reservationNotificationsEnabled: true,
@@ -86,6 +87,10 @@ describe("validateUserProfileInput", () => {
 describe("isUserProfile", () => {
   it("프로필 응답 형식을 검증한다", () => {
     expect(isUserProfile(profile)).toBe(true);
+    expect(isUserProfile({ ...profile, provider: null })).toBe(true);
+    expect(
+      isUserProfile({ ...profile, provider: "unknown" }),
+    ).toBe(false);
     expect(
       isUserProfile({
         ...profile,

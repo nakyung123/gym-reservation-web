@@ -12,6 +12,7 @@ import {
   retryNaverFinalize,
   type FinalizeNaverResult,
 } from "@/lib/firebase-naver-auth";
+import { ensureUserProfile } from "@/lib/user-profile-client";
 
 type Provider = "kakao" | "naver";
 
@@ -46,6 +47,10 @@ export function HandoverFlow() {
   function handleResult(result: FinalizeResult) {
     if (result.ok) {
       setState({ kind: "success" });
+      // provider 동기화 + UserProfile 보장. 실패해도 본 흐름은 계속.
+      void ensureUserProfile().catch((error) => {
+        console.warn("[handover] ensureUserProfile failed:", error);
+      });
       setTimeout(() => router.replace("/mypage"), 1200);
       return;
     }

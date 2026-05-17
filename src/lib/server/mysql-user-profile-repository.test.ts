@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ensureUserProfile,
   getUserProfile,
   upsertUserProfile,
 } from "@/lib/server/mysql-user-profile-repository";
@@ -10,25 +11,34 @@ describe("mysql-user-profile-repository", () => {
     await expect(getUserProfile("missing-profile-user")).resolves.toBeNull();
   });
 
-  it("사용자 프로필을 생성하고 같은 사용자 업데이트를 한 행으로 유지한다", async () => {
+  it("upsert는 provider와 함께 저장되고 같은 사용자 업데이트를 한 행으로 유지한다", async () => {
     const userId = "profile-repository-user";
 
-    const created = await upsertUserProfile(userId, {
-      nickname: "나경",
-      preferredRegion: "서울 강서구",
-      preferredSports: ["배드민턴", "탁구"],
-      reservationNotificationsEnabled: true,
-    });
-    const updated = await upsertUserProfile(userId, {
-      nickname: null,
-      preferredRegion: "서울 마포구",
-      preferredSports: ["농구"],
-      reservationNotificationsEnabled: false,
-    });
+    const created = await upsertUserProfile(
+      userId,
+      {
+        nickname: "나경",
+        preferredRegion: "서울 강서구",
+        preferredSports: ["배드민턴", "탁구"],
+        reservationNotificationsEnabled: true,
+      },
+      "local",
+    );
+    const updated = await upsertUserProfile(
+      userId,
+      {
+        nickname: null,
+        preferredRegion: "서울 마포구",
+        preferredSports: ["농구"],
+        reservationNotificationsEnabled: false,
+      },
+      "local",
+    );
 
     expect(created).toMatchObject({
       userId,
       nickname: "나경",
+      provider: "local",
       preferredRegion: "서울 강서구",
       preferredSports: ["배드민턴", "탁구"],
       reservationNotificationsEnabled: true,
@@ -36,6 +46,7 @@ describe("mysql-user-profile-repository", () => {
     expect(updated).toMatchObject({
       userId,
       nickname: null,
+      provider: "local",
       preferredRegion: "서울 마포구",
       preferredSports: ["농구"],
       reservationNotificationsEnabled: false,
@@ -43,5 +54,40 @@ describe("mysql-user-profile-repository", () => {
     expect(await prisma.userProfile.count({ where: { userId } })).toBe(1);
     expect(new Date(updated.createdAt).toString()).not.toBe("Invalid Date");
     expect(new Date(updated.updatedAt).toString()).not.toBe("Invalid Date");
+  });
+
+  it("ensure는 없을 때 기본값으로 생성하고 있을 때 provider만 동기화한다", async () => {
+    const userId = "profile-ensure-user";
+
+    const created = await ensureUserProfile(userId, "kakao");
+    expect(created).toMatchObject({
+      userId,
+      provider: "kakao",
+      nickname: null,
+      preferredRegion: null,
+      preferredSports: [],
+      reservationNotificationsEnabled: true,
+    });
+
+    // 닉네임을 사용자가 따로 채워둔 상황을 시뮬레이트.
+    await prisma.userProfile.update({
+      where: { userId },
+      data: { nickname: "직접입력" },
+    });
+
+    // 다른 provider로 다시 보장하면 provider만 갱신되고 nickname은 유지.
+    const synced = await ensureUserProfile(userId, "naver");
+    expect(synced).toMatchObject({
+      userId,
+      provider: "naver",
+      nickname: "직접입력",
+    });
+    expect(await prisma.userProfile.count({ where: { userId } })).toBe(1);
+  });
+
+  it("provider가 null이어도 row를 만든다 (알 수 없는 sign-in)", async () => {
+    const userId = "profile-unknown-provider-user";
+    const created = await ensureUserProfile(userId, null);
+    expect(created.provider).toBeNull();
   });
 });

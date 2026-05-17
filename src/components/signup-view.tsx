@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { signupWithEmail } from "@/lib/firebase-email-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
+import { ensureUserProfile } from "@/lib/user-profile-client";
 
 type SubmitState =
   | { kind: "idle" }
@@ -53,6 +54,10 @@ export function SignupView() {
     });
     if (result.ok) {
       // 회원가입 성공 시 Firebase가 자동 로그인 상태로 만든다.
+      // server에서 provider="local"로 UserProfile 보장.
+      await ensureUserProfile().catch((error) => {
+        console.warn("[signup] ensureUserProfile failed:", error);
+      });
       router.replace(fromPath);
       return;
     }
