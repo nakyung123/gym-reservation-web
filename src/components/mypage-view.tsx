@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
+import { startNaverLogin } from "@/lib/firebase-naver-auth";
 import {
   linkGoogleAccount,
   signInWithGoogle,
@@ -770,6 +771,19 @@ export function MypageView() {
     setNotice({ tone: "error", message: result.message });
   };
 
+  const handleNaverLogin = async () => {
+    setIsLinking(true);
+    setNotice(null);
+    setShowSignInPrompt(false);
+
+    const result = await startNaverLogin();
+    if (result.ok) {
+      return;
+    }
+    setIsLinking(false);
+    setNotice({ tone: "error", message: result.message });
+  };
+
   const handleGoogleSignIn = async () => {
     setIsLinking(true);
     setNotice(null);
@@ -877,6 +891,16 @@ export function MypageView() {
                 className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-yellow-400 bg-yellow-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-yellow-500 hover:bg-yellow-400 disabled:cursor-not-allowed disabled:border-yellow-200 disabled:bg-yellow-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2"
               >
                 {isLinking ? "카카오로 이동 중" : "카카오 계정으로 연결"}
+              </button>
+            ) : null}
+            {account.isAnonymous ? (
+              <button
+                type="button"
+                onClick={handleNaverLogin}
+                disabled={isLinking || isSigningOut}
+                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-emerald-600 bg-emerald-500 px-4 text-sm font-semibold text-white transition hover:border-emerald-700 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:border-emerald-300 disabled:bg-emerald-200 disabled:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
+              >
+                {isLinking ? "네이버로 이동 중" : "네이버 계정으로 연결"}
               </button>
             ) : null}
             <button

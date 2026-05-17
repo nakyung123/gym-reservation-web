@@ -5,7 +5,22 @@ import { useEffect, useRef, useState } from "react";
 import {
   finalizeKakaoHandover,
   retryKakaoFinalize,
+  type FinalizeKakaoResult,
 } from "@/lib/firebase-kakao-auth";
+import {
+  finalizeNaverHandover,
+  retryNaverFinalize,
+  type FinalizeNaverResult,
+} from "@/lib/firebase-naver-auth";
+
+type Provider = "kakao" | "naver";
+
+const PROVIDER_LABEL: Record<Provider, string> = {
+  kakao: "카카오",
+  naver: "네이버",
+};
+
+type FinalizeResult = FinalizeKakaoResult | FinalizeNaverResult;
 
 type FlowState =
   | { kind: "loading"; ticketId: string }
@@ -25,12 +40,12 @@ const PANEL_BASE =
 export function HandoverFlow() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const provider = readProvider(searchParams);
+  const providerLabel = PROVIDER_LABEL[provider];
   const [state, setState] = useState<FlowState>(() => initialState(searchParams));
   const startedRef = useRef(false);
 
-  function handleResult(
-    result: Awaited<ReturnType<typeof finalizeKakaoHandover>>,
-  ) {
+  function handleResult(result: FinalizeResult) {
     if (result.ok) {
       setState({ kind: "success", transferred: result.transferred });
       setTimeout(() => router.replace("/mypage"), 1200);
@@ -59,7 +74,11 @@ export function HandoverFlow() {
 
   async function runFirst(ticketId: string) {
     setState({ kind: "loading", ticketId });
-    handleResult(await finalizeKakaoHandover({ ticketId }));
+    const result =
+      provider === "kakao"
+        ? await finalizeKakaoHandover({ ticketId })
+        : await finalizeNaverHandover({ ticketId });
+    handleResult(result);
   }
 
   async function runRetry(ticketId: string, confirmed: boolean) {
@@ -67,7 +86,11 @@ export function HandoverFlow() {
       kind: confirmed ? "confirming" : "loading",
       ticketId,
     });
-    handleResult(await retryKakaoFinalize({ ticketId, confirmed }));
+    const result =
+      provider === "kakao"
+        ? await retryKakaoFinalize({ ticketId, confirmed })
+        : await retryNaverFinalize({ ticketId, confirmed });
+    handleResult(result);
   }
 
   useEffect(() => {
@@ -88,7 +111,7 @@ export function HandoverFlow() {
         <p className="text-sm font-semibold text-sky-700">로그인 처리</p>
         <h1 className="mt-2 text-xl font-bold">
           {state.kind === "confirming"
-            ? "기존 카카오 계정으로 로그인하고 있습니다"
+            ? `기존 ${providerLabel} 계정으로 로그인하고 있습니다`
             : "로그인 정보를 확인하고 있습니다"}
         </h1>
         <div className="mt-6 flex justify-center" aria-hidden="true">
@@ -110,11 +133,10 @@ export function HandoverFlow() {
           id="handover-confirm-title"
           className="mt-2 text-xl font-bold"
         >
-          기존 카카오 계정으로 로그인하시겠어요?
+          {`기존 ${providerLabel} 계정으로 로그인하시겠어요?`}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-700">
-          이 카카오 계정으로 이미 가입된 계정이 있습니다. 기존 계정으로 로그인하면
-          현재 임시 계정의 활동 기록은 사용할 수 없게 됩니다.
+          {`이 ${providerLabel} 계정으로 이미 가입된 계정이 있습니다. 기존 계정으로 로그인하면 현재 임시 계정의 활동 기록은 사용할 수 없게 됩니다.`}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <button
@@ -122,7 +144,7 @@ export function HandoverFlow() {
             onClick={() => runRetry(state.ticketId, true)}
             className="inline-flex h-10 items-center justify-center rounded-md bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
           >
-            기존 카카오 계정으로 로그인
+            {`기존 ${providerLabel} 계정으로 로그인`}
           </button>
           <button
             type="button"
@@ -174,7 +196,7 @@ export function HandoverFlow() {
       role="status"
     >
       <p className="text-sm font-semibold">로그인 완료</p>
-      <h1 className="mt-2 text-xl font-bold">카카오 계정으로 로그인했습니다</h1>
+      <h1 className="mt-2 text-xl font-bold">{`${providerLabel} 계정으로 로그인했습니다`}</h1>
       <p className="mt-3 text-sm leading-6">
         {state.transferred
           ? "임시 계정의 활동을 새 계정으로 이전했습니다."
@@ -185,6 +207,12 @@ export function HandoverFlow() {
       </p>
     </section>
   );
+}
+
+function readProvider(searchParams: URLSearchParams): Provider {
+  // callback이 redirect 시 provider 쿼리를 함께 붙인다. 누락되면 카카오로 기본.
+  const value = searchParams.get("provider");
+  return value === "naver" ? "naver" : "kakao";
 }
 
 function initialState(searchParams: URLSearchParams): FlowState {
