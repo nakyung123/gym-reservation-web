@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import { formatGymPrice } from "@/lib/gym-utils";
 import { createUserReservationDetail } from "@/lib/reservation-detail";
@@ -59,6 +60,9 @@ type ReservationsViewProps = {
 };
 
 export function ReservationsView({ gyms }: ReservationsViewProps) {
+  // 미로그인 시 /login?from=/reservations 으로 redirect.
+  useRequireAuth({ from: "/reservations" });
+
   const [actionNotice, setActionNotice] = useState<{
     tone: keyof typeof noticeStyles;
     message: string;

@@ -27,6 +27,7 @@ import {
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { fetchReservationSlots } from "@/lib/reservation-slot-availability";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import type {
   Gym,
   Reservation,
@@ -132,6 +133,9 @@ function getTimeButtonClass(
 }
 
 export function ReservationForm({ gym }: ReservationFormProps) {
+  // 미로그인 시 /login?from=/reserve/<gymId> 으로 redirect.
+  useRequireAuth({ from: `/reserve/${gym.id}` });
+
   const [selectedSport, setSelectedSport] = useState<Sport>(gym.sports[0]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState(gym.availableTimes[0]);

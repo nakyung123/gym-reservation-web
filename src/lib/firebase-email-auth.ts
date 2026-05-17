@@ -122,6 +122,9 @@ export async function resendEmailVerification(): Promise<SendEmailVerificationRe
   }
 }
 
+// email enumeration 방어: "auth/email-already-in-use"는 가입 가능 여부 자체를 노출하므로
+// 회원가입 UI에는 generic 메시지로 통일한다. 형식/약한 비밀번호 같은 입력 검증성 오류는
+// 사용자 본인이 입력한 값이라 enumeration과 무관해 구체적으로 안내한다.
 function mapSignupError(error: unknown): {
   reason: SignupFailureReason;
   message: string;
@@ -132,7 +135,7 @@ function mapSignupError(error: unknown): {
       return {
         reason: "email-in-use",
         message:
-          "이미 가입된 이메일이거나 사용할 수 없는 이메일입니다. 로그인 또는 비밀번호 재설정을 시도해 주세요.",
+          "이 이메일로 가입할 수 없습니다. 이미 사용 중이라면 로그인 또는 비밀번호 재설정을 시도해 주세요.",
       };
     case "auth/invalid-email":
       return {

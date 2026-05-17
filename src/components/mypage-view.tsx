@@ -16,6 +16,7 @@ import {
   reservationStatusLabel,
 } from "@/components/reservation-ticket";
 import { SPORTS } from "@/lib/domain-constants";
+import { resendEmailVerification } from "@/lib/firebase-email-auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import {
   fetchUserProfile,
@@ -389,6 +390,10 @@ export function MypageView() {
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState<NoticeState | null>(
+    null,
+  );
   const readyUserId =
     authState.status === "ready" ? authState.user.uid : null;
 
@@ -552,6 +557,12 @@ export function MypageView() {
     return {
       displayName: getAccountName(user),
       email: user.email ?? "등록된 이메일 없음",
+      // password 가입자만 emailVerified를 의미있게 가진다. 소셜 가입자는 provider 측에서
+      // 이미 검증되었다고 가정해 배너를 보이지 않는다.
+      showVerificationBanner:
+        Boolean(user.email) &&
+        user.emailVerified === false &&
+        user.providerData.some((p) => p.providerId === "password"),
       initial: getInitial(user),
       photoURL: user.photoURL,
       uid: user.uid,
@@ -673,6 +684,24 @@ export function MypageView() {
     }
   };
 
+  const handleResendVerification = async () => {
+    setVerificationNotice(null);
+    setIsResendingVerification(true);
+    try {
+      const result = await resendEmailVerification();
+      if (result.ok) {
+        setVerificationNotice({
+          tone: "success",
+          message: "이메일 인증 메일을 다시 보냈습니다. 메일함을 확인해 주세요.",
+        });
+      } else {
+        setVerificationNotice({ tone: "error", message: result.message });
+      }
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setNotice(null);
     setIsSigningOut(true);
@@ -757,6 +786,34 @@ export function MypageView() {
             role={notice.tone === "error" ? "alert" : "status"}
           >
             {notice.message}
+          </div>
+        ) : null}
+
+        {account.showVerificationBanner ? (
+          <div
+            className="mt-5 flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+          >
+            <p className="font-semibold">
+              이메일 인증이 완료되지 않았습니다. 메일함을 확인해 주세요.
+            </p>
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={isResendingVerification}
+              className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-amber-400 bg-white px-3 text-xs font-semibold text-amber-900 transition hover:border-amber-500 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-amber-200 disabled:text-amber-400"
+            >
+              {isResendingVerification ? "전송 중" : "인증 메일 다시 보내기"}
+            </button>
+          </div>
+        ) : null}
+
+        {verificationNotice ? (
+          <div
+            className={`mt-3 rounded-md border px-4 py-2 text-sm font-semibold ${noticeStyles[verificationNotice.tone]}`}
+            role={verificationNotice.tone === "error" ? "alert" : "status"}
+          >
+            {verificationNotice.message}
           </div>
         ) : null}
 
