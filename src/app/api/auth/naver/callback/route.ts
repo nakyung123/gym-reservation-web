@@ -100,7 +100,6 @@ export async function GET(request: NextRequest) {
   const profilePayload = toProfilePayload(naverProfile);
 
   const ticket = await createTicket({
-    anonUid: attempt.anonUid,
     targetUid,
     provider: "naver",
     handoverNonce,

@@ -1,16 +1,11 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
-import {
-  migrateAnonymousToTarget,
-  MigrationConflictError,
-} from "@/lib/server/account-migration";
 import { getAdminAuth } from "@/lib/server/firebase-admin";
-import { prisma } from "@/lib/server/prisma-client";
 import {
   findActiveTicket,
   markSignedIn,
-  markTransferred,
+  markFinalized,
   recordFinalizeFailure,
   MAX_FINALIZE_ATTEMPTS,
   type HandoverProfilePayload,
@@ -23,7 +18,7 @@ import {
 export const dynamic = "force-dynamic";
 
 // 네이버 handover finalize. 카카오 finalize와 동형.
-// 신규/기존 판정은 targetUid에 앱 데이터가 있는지로 결정한다.
+// 익명 흐름 제거 후 migration이 사라져 profile sync만 수행.
 
 export async function POST(request: NextRequest) {
   const auth = await verifyIdTokenFromRequest(request);
@@ -31,7 +26,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
 
-  let body: { ticketId?: unknown; confirmed?: unknown };
+  let body: { ticketId?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -47,7 +42,6 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const confirmed = body.confirmed === true;
 
   const cookieStore = await cookies();
   const nonceCookie = cookieStore.get(OAUTH_HANDOVER_COOKIE);
@@ -89,12 +83,8 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
-  if (ticket.status === "transferred") {
-    return Response.json({
-      ok: true,
-      transferred: ticket.outcome === "migrated",
-      profileSynced: true,
-    });
+  if (ticket.status === "finalized") {
+    return Response.json({ ok: true, profileSynced: true });
   }
   if (ticket.finalizeAttemptCount >= MAX_FINALIZE_ATTEMPTS) {
     return Response.json(
@@ -108,70 +98,22 @@ export async function POST(request: NextRequest) {
 
   await markSignedIn(ticketId);
 
-  const hasExistingData = await targetHasAppData(ticket.targetUid);
-
-  if (hasExistingData) {
-    if (!confirmed) {
-      return Response.json(
-        {
-          message: "이미 가입된 네이버 계정입니다. 확인이 필요합니다.",
-          conflict: "existing_account",
-        },
-        { status: 409 },
-      );
-    }
-    const profileSynced = await syncProfile(
-      ticket.targetUid,
-      ticket.profilePayload,
-    );
-    await markTransferred(ticketId, "linked");
-    return Response.json({ ok: true, transferred: false, profileSynced });
-  }
-
+  let profileSynced = true;
   try {
-    await migrateAnonymousToTarget({
-      anonUid: ticket.anonUid,
-      targetUid: ticket.targetUid,
-    });
+    profileSynced = await syncProfile(ticket.targetUid, ticket.profilePayload);
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "알 수 없는 마이그레이션 오류";
+      error instanceof Error ? error.message : "알 수 없는 finalize 오류";
     await recordFinalizeFailure(ticketId, message);
-    if (error instanceof MigrationConflictError) {
-      return Response.json(
-        {
-          message:
-            "계정 데이터 이전 중 충돌이 발생했습니다. 다시 시도해 주세요.",
-          retryable: true,
-        },
-        { status: 409 },
-      );
-    }
-    console.error("[naver finalize] migration failed:", error);
+    console.error("[naver finalize] sync failed:", error);
     return Response.json(
-      { message: "계정 데이터 이전에 실패했습니다.", retryable: true },
+      { message: "로그인 마감 처리에 실패했습니다.", retryable: true },
       { status: 500 },
     );
   }
 
-  const profileSynced = await syncProfile(
-    ticket.targetUid,
-    ticket.profilePayload,
-  );
-  await markTransferred(ticketId, "migrated");
-  return Response.json({ ok: true, transferred: true, profileSynced });
-}
-
-async function targetHasAppData(targetUid: string): Promise<boolean> {
-  const [profile, favoriteCount, reservationCount] = await Promise.all([
-    prisma.userProfile.findUnique({
-      where: { userId: targetUid },
-      select: { userId: true },
-    }),
-    prisma.favorite.count({ where: { userId: targetUid } }),
-    prisma.reservation.count({ where: { userId: targetUid } }),
-  ]);
-  return Boolean(profile) || favoriteCount > 0 || reservationCount > 0;
+  await markFinalized(ticketId);
+  return Response.json({ ok: true, profileSynced });
 }
 
 async function syncProfile(

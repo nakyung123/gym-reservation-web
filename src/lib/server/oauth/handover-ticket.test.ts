@@ -4,7 +4,7 @@ import {
   findActiveTicket,
   markTokenIssued,
   markSignedIn,
-  markTransferred,
+  markFinalized,
   recordFinalizeFailure,
   HANDOVER_TICKET_TTL_MS,
 } from "@/lib/server/oauth/handover-ticket";
@@ -12,10 +12,11 @@ import { prisma } from "@/lib/server/prisma-client";
 
 async function makeTicket(overrides?: {
   handoverNonce?: string;
-  profilePayload?: { email?: string | null; nickname?: string | null; photoUrl?: string | null } | null;
+  profilePayload?:
+    | { email?: string | null; nickname?: string | null; photoUrl?: string | null }
+    | null;
 }) {
   return createTicket({
-    anonUid: "anon",
     targetUid: "kakao:1",
     provider: "kakao",
     handoverNonce: overrides?.handoverNonce ?? "nonce-test-value",
@@ -45,27 +46,6 @@ describe("handover ticket store", () => {
     expect(found?.profilePayload).toEqual(payload);
   });
 
-  it("markTransferred는 outcome을 저장하고 후속 조회에서 그대로 반환한다", async () => {
-    const { ticketId } = await makeTicket();
-    await markTokenIssued(ticketId);
-    await markSignedIn(ticketId);
-    const transferred = await markTransferred(ticketId, "linked");
-    expect(transferred?.outcome).toBe("linked");
-
-    const found = await findActiveTicket(ticketId);
-    expect(found?.outcome).toBe("linked");
-  });
-
-  it("이미 transferred인 ticket의 outcome은 재호출로 덮어쓰이지 않는다 (idempotent)", async () => {
-    const { ticketId } = await makeTicket();
-    await markTokenIssued(ticketId);
-    await markSignedIn(ticketId);
-    await markTransferred(ticketId, "migrated");
-    // 의도적으로 다른 outcome으로 재호출.
-    const again = await markTransferred(ticketId, "linked");
-    expect(again?.outcome).toBe("migrated");
-  });
-
   it("findActiveTicket은 만료 전 ticket을 반환하고 만료 후엔 null을 반환한다", async () => {
     const ticket = await makeTicket();
     const found = await findActiveTicket(ticket.ticketId);
@@ -79,7 +59,7 @@ describe("handover ticket store", () => {
     expect(expired).toBeNull();
   });
 
-  it("상태 머신은 pending → token_issued → signed_in → transferred 순서로만 진행된다", async () => {
+  it("상태 머신은 pending → token_issued → signed_in → finalized 순서로 진행된다", async () => {
     const { ticketId } = await makeTicket();
 
     const issued = await markTokenIssued(ticketId);
@@ -88,11 +68,11 @@ describe("handover ticket store", () => {
     const signedIn = await markSignedIn(ticketId);
     expect(signedIn?.status).toBe("signed_in");
 
-    const transferred = await markTransferred(ticketId, "migrated");
-    expect(transferred?.status).toBe("transferred");
+    const finalized = await markFinalized(ticketId);
+    expect(finalized?.status).toBe("finalized");
   });
 
-  it("markTokenIssued는 이미 token_issued/signed_in/transferred인 경우 그대로 반환한다 (idempotent)", async () => {
+  it("markTokenIssued는 이미 token_issued/signed_in/finalized인 경우 그대로 반환한다 (idempotent)", async () => {
     const { ticketId } = await makeTicket();
     await markTokenIssued(ticketId);
 
@@ -110,20 +90,20 @@ describe("handover ticket store", () => {
     expect(result).toBeNull();
   });
 
-  it("markTransferred는 token_issued 상태에서는 null을 반환한다", async () => {
+  it("markFinalized는 token_issued 상태에서는 null을 반환한다", async () => {
     const { ticketId } = await makeTicket();
     await markTokenIssued(ticketId);
-    const result = await markTransferred(ticketId, "migrated");
+    const result = await markFinalized(ticketId);
     expect(result).toBeNull();
   });
 
-  it("markTransferred는 이미 transferred인 경우 idempotent하게 그대로 반환한다", async () => {
+  it("markFinalized는 이미 finalized인 경우 idempotent하게 그대로 반환한다", async () => {
     const { ticketId } = await makeTicket();
     await markTokenIssued(ticketId);
     await markSignedIn(ticketId);
-    await markTransferred(ticketId, "migrated");
-    const again = await markTransferred(ticketId, "migrated");
-    expect(again?.status).toBe("transferred");
+    await markFinalized(ticketId);
+    const again = await markFinalized(ticketId);
+    expect(again?.status).toBe("finalized");
   });
 
   it("recordFinalizeFailure는 attempt count를 증가시키고 lastFinalizeError를 기록한다", async () => {
@@ -144,18 +124,18 @@ describe("handover ticket store", () => {
     expect(stored?.status).toBe("signed_in");
   });
 
-  it("markTransferred 성공 시 lastFinalizeError가 null로 리셋된다", async () => {
+  it("markFinalized 성공 시 lastFinalizeError가 null로 리셋된다", async () => {
     const { ticketId } = await makeTicket();
     await markTokenIssued(ticketId);
     await markSignedIn(ticketId);
     await recordFinalizeFailure(ticketId, "이전 실패");
-    await markTransferred(ticketId, "migrated");
+    await markFinalized(ticketId);
 
     const stored = await prisma.authHandoverTicket.findUnique({
       where: { ticketId },
     });
     expect(stored?.lastFinalizeError).toBeNull();
-    expect(stored?.status).toBe("transferred");
+    expect(stored?.status).toBe("finalized");
   });
 
   it("만료된 ticket의 transition은 null을 반환한다", async () => {
@@ -166,6 +146,6 @@ describe("handover ticket store", () => {
     });
     expect(await markTokenIssued(ticketId)).toBeNull();
     expect(await markSignedIn(ticketId)).toBeNull();
-    expect(await markTransferred(ticketId, "migrated")).toBeNull();
+    expect(await markFinalized(ticketId)).toBeNull();
   });
 });

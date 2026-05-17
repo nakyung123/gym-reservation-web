@@ -9,10 +9,7 @@ import { prisma } from "@/lib/server/prisma-client";
 describe("oauth attempt-store", () => {
   it("createAttempt가 attemptId, state, expiresAt을 발급하고 DB에 pending 상태로 저장한다", async () => {
     const before = Date.now();
-    const result = await createAttempt({
-      anonUid: "anon-1",
-      provider: "kakao",
-    });
+    const result = await createAttempt({ provider: "kakao" });
 
     expect(result.attemptId).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(result.state).toMatch(/^[A-Za-z0-9_-]+$/);
@@ -25,21 +22,16 @@ describe("oauth attempt-store", () => {
       where: { attemptId: result.attemptId },
     });
     expect(stored).not.toBeNull();
-    expect(stored?.anonUid).toBe("anon-1");
     expect(stored?.provider).toBe("kakao");
     expect(stored?.state).toBe(result.state);
     expect(stored?.status).toBe("pending");
   });
 
   it("consumePendingAttempt는 pending 행을 consumed로 갱신하고 record를 반환한다", async () => {
-    const { attemptId } = await createAttempt({
-      anonUid: "anon-2",
-      provider: "kakao",
-    });
+    const { attemptId } = await createAttempt({ provider: "kakao" });
 
     const consumed = await consumePendingAttempt(attemptId);
     expect(consumed?.attemptId).toBe(attemptId);
-    expect(consumed?.anonUid).toBe("anon-2");
 
     const stored = await prisma.oAuthAttempt.findUnique({
       where: { attemptId },
@@ -48,21 +40,14 @@ describe("oauth attempt-store", () => {
   });
 
   it("이미 consumed인 attempt는 다시 소비할 수 없다", async () => {
-    const { attemptId } = await createAttempt({
-      anonUid: "anon-3",
-      provider: "kakao",
-    });
+    const { attemptId } = await createAttempt({ provider: "kakao" });
     await consumePendingAttempt(attemptId);
     const second = await consumePendingAttempt(attemptId);
     expect(second).toBeNull();
   });
 
   it("만료된 attempt는 소비할 수 없고 cleanup으로 제거된다", async () => {
-    const { attemptId } = await createAttempt({
-      anonUid: "anon-4",
-      provider: "kakao",
-    });
-    // 만료 시각을 과거로 강제 변경
+    const { attemptId } = await createAttempt({ provider: "kakao" });
     await prisma.oAuthAttempt.update({
       where: { attemptId },
       data: { expiresAt: new Date(Date.now() - 1000) },
@@ -71,7 +56,6 @@ describe("oauth attempt-store", () => {
     const result = await consumePendingAttempt(attemptId);
     expect(result).toBeNull();
 
-    // cleanup으로 삭제됐는지 확인
     const stored = await prisma.oAuthAttempt.findUnique({
       where: { attemptId },
     });

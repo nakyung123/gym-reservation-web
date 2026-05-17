@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
-import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   createAttempt,
   OAUTH_ATTEMPT_TTL_MS,
@@ -10,24 +9,12 @@ import { OAUTH_ATTEMPT_COOKIE } from "@/lib/server/oauth/oauth-state";
 
 export const dynamic = "force-dynamic";
 
-// 네이버 OAuth 흐름의 진입점. 익명 ID token을 검증하고 attempt를 만든 뒤
-// 클라이언트가 redirect할 authorize URL을 응답한다.
-export async function POST(request: NextRequest) {
-  const auth = await verifyIdTokenFromRequest(request);
-  if (!auth.ok) {
-    return Response.json({ message: auth.message }, { status: auth.status });
-  }
-  if (auth.signInProvider !== "anonymous") {
-    return Response.json(
-      { message: "이미 정식 계정으로 로그인되어 있습니다." },
-      { status: 400 },
-    );
-  }
+// 네이버 OAuth 흐름의 진입점.
+// 익명 흐름 제거 후 ID token 검증은 불필요(로그아웃 상태에서 /login의 네이버 버튼으로 진입).
+export async function POST(_request: NextRequest) {
+  void _request;
 
-  const { attemptId, state } = await createAttempt({
-    anonUid: auth.uid,
-    provider: "naver",
-  });
+  const { attemptId, state } = await createAttempt({ provider: "naver" });
 
   const cookieStore = await cookies();
   cookieStore.set(OAUTH_ATTEMPT_COOKIE, attemptId, {

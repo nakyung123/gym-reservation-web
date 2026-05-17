@@ -43,7 +43,6 @@ describe("/api/auth/naver/token", () => {
 
   it("handover nonce 쿠키가 없으면 401을 반환한다", async () => {
     const ticket = await createTicket({
-      anonUid: "anon",
       targetUid: "naver:1",
       provider: "naver",
       handoverNonce: "secret-nonce",
@@ -59,7 +58,6 @@ describe("/api/auth/naver/token", () => {
 
   it("handover nonce가 ticket과 불일치하면 401을 반환한다", async () => {
     const ticket = await createTicket({
-      anonUid: "anon",
       targetUid: "naver:1",
       provider: "naver",
       handoverNonce: "secret-nonce",
@@ -75,7 +73,6 @@ describe("/api/auth/naver/token", () => {
 
   it("provider가 naver가 아니면 400을 반환한다", async () => {
     const ticket = await createTicket({
-      anonUid: "anon",
       targetUid: "kakao:1",
       provider: "kakao",
       handoverNonce: "nonce",
@@ -91,7 +88,6 @@ describe("/api/auth/naver/token", () => {
 
   it("handover nonce가 일치하면 customToken을 발급한다", async () => {
     const ticket = await createTicket({
-      anonUid: "anon",
       targetUid: "naver:1",
       provider: "naver",
       handoverNonce: "matching-nonce",

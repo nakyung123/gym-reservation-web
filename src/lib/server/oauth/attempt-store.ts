@@ -3,7 +3,8 @@ import { prisma } from "@/lib/server/prisma-client";
 import { generateOpaqueToken } from "@/lib/server/oauth/oauth-state";
 
 // /start와 /callback 사이를 잇는 1회용 attempt store.
-// /start에서 익명 uid와 state를 발급해 저장하고, /callback에서 1회 소비한다.
+// /start에서 state를 발급해 저장하고, /callback에서 1회 소비한다.
+// 익명 흐름 제거 후 anonUid 컬럼은 없다.
 // 만료된 행은 호출 시점에 opportunistic cleanup.
 
 export const OAUTH_ATTEMPT_TTL_MS = 5 * 60 * 1000;
@@ -12,7 +13,6 @@ type ExternalProvider = "kakao" | "naver";
 
 export type OAuthAttemptRecord = {
   attemptId: string;
-  anonUid: string;
   provider: string;
   state: string;
   status: string;
@@ -21,7 +21,6 @@ export type OAuthAttemptRecord = {
 };
 
 export async function createAttempt(input: {
-  anonUid: string;
   provider: ExternalProvider;
 }): Promise<{ attemptId: string; state: string; expiresAt: Date }> {
   await cleanupExpiredAttempts();
@@ -34,7 +33,6 @@ export async function createAttempt(input: {
   await prisma.oAuthAttempt.create({
     data: {
       attemptId,
-      anonUid: input.anonUid,
       provider: input.provider,
       state,
       status: "pending",
@@ -68,7 +66,6 @@ export async function consumePendingAttempt(
   });
 }
 
-// opportunistic cleanup. 실패해도 메인 흐름은 계속 진행한다.
 async function cleanupExpiredAttempts(): Promise<void> {
   try {
     await prisma.oAuthAttempt.deleteMany({

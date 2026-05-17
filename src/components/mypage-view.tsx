@@ -1,13 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
-import { startNaverLogin } from "@/lib/firebase-naver-auth";
-import {
-  linkGoogleAccount,
-  signInWithGoogle,
-} from "@/lib/firebase-google-auth";
 import {
   useEffect,
   useMemo,
@@ -21,7 +16,6 @@ import {
   reservationStatusLabel,
 } from "@/components/reservation-ticket";
 import { SPORTS } from "@/lib/domain-constants";
-import { subscribeFirebaseAuthSession } from "@/lib/firebase-auth-session";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import {
   fetchUserProfile,
@@ -229,25 +223,11 @@ function SignedOutPanel() {
     <section className="mx-auto w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
       <p className="text-sm font-semibold text-sky-700">내 정보</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
-        현재 연결된 계정이 없습니다
+        로그인이 필요합니다
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        현재 로그인 세션이 없습니다. 다른 페이지로 이동하면 임시 계정이 자동으로 연결됩니다.
+        로그인 페이지로 이동하고 있습니다...
       </p>
-      <div className="mt-6 flex flex-wrap justify-center gap-2">
-        <Link
-          href="/gyms"
-          className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-        >
-          체육관 보기
-        </Link>
-        <Link
-          href="/reservations"
-          className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-        >
-          내 예약 보기
-        </Link>
-      </div>
     </section>
   );
 }
@@ -396,6 +376,7 @@ function StatusBreakdown({ summaryState }: { summaryState: SummaryState }) {
 }
 
 export function MypageView() {
+  const router = useRouter();
   const activeUserIdRef = useRef<string | null>(null);
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
@@ -408,8 +389,6 @@ export function MypageView() {
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isLinking, setIsLinking] = useState(false);
-  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const readyUserId =
     authState.status === "ready" ? authState.user.uid : null;
 
@@ -423,11 +402,6 @@ export function MypageView() {
           activeUserIdRef.current = user?.uid ?? null;
           saveAbortControllerRef.current?.abort();
           saveAbortControllerRef.current = null;
-          // 주의: 여기서 setNotice(null)을 호출하지 않는다.
-          // signOut/linkGoogleAccount/signInWithGoogle 등 사용자 액션은
-          // 핸들러 시작 시 이미 notice를 정리하고, 결과 notice를 설정한다.
-          // 콜백이 다시 setNotice(null)을 호출하면 success 메시지가 즉시 사라진다.
-          setShowSignInPrompt(false);
           setSummaryState(user ? { status: "loading" } : { status: "idle" });
           setProfileState(user ? { status: "loading" } : { status: "idle" });
           setSaveState({ status: "idle" });
@@ -465,12 +439,12 @@ export function MypageView() {
     }
   }, []);
 
-  // firebase-auth-session의 자동 익명 로그인 트리거를 활성화한다.
-  // mypage에 머무는 동안 로그아웃 후에도 새 익명 계정에 자동 연결되도록 보장한다.
+  // signed-out 상태면 /login으로 redirect. Phase C의 useRequireAuth로 추출 예정.
   useEffect(() => {
-    const unsubscribe = subscribeFirebaseAuthSession(() => {});
-    return unsubscribe;
-  }, []);
+    if (authState.status === "signed-out") {
+      router.replace("/login?from=/mypage");
+    }
+  }, [authState.status, router]);
 
   useEffect(() => {
     if (!readyUserId) {
@@ -579,7 +553,6 @@ export function MypageView() {
       displayName: getAccountName(user),
       email: user.email ?? "등록된 이메일 없음",
       initial: getInitial(user),
-      isAnonymous: user.isAnonymous,
       photoURL: user.photoURL,
       uid: user.uid,
     };
@@ -707,7 +680,7 @@ export function MypageView() {
     try {
       const { auth } = getFirebaseClient();
       await signOut(auth);
-      setNotice({ tone: "success", message: "로그아웃했습니다." });
+      router.replace("/login");
     } catch (error) {
       setNotice({
         tone: "error",
@@ -715,102 +688,6 @@ export function MypageView() {
       });
     } finally {
       setIsSigningOut(false);
-    }
-  };
-
-  const handleGoogleLink = async () => {
-    setIsLinking(true);
-    setNotice(null);
-    setShowSignInPrompt(false);
-
-    try {
-      const result = await linkGoogleAccount();
-      if (result.ok) {
-        // linkWithPopup 성공 후 onAuthStateChanged가 발화되지 않을 수 있으므로
-        // auth.currentUser를 직접 읽어 즉시 UI를 반영한다.
-        const { auth } = getFirebaseClient();
-        const user = auth.currentUser;
-        if (user) {
-          setAuthState({ status: "ready", user });
-        }
-        setNotice({
-          tone: "success",
-          message: "Google 계정이 연결되었습니다.",
-        });
-        return;
-      }
-      if (result.cancelled) {
-        return;
-      }
-      // 이미 다른 익명 uid에 연결된 Google 계정인 경우, 기존 계정 로그인 옵션을 제공한다.
-      if (result.reason === "credential-already-in-use") {
-        setShowSignInPrompt(true);
-      }
-      setNotice({ tone: "error", message: result.message });
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: `Google 계정 연결 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
-      });
-    } finally {
-      setIsLinking(false);
-    }
-  };
-
-  const handleKakaoLogin = async () => {
-    setIsLinking(true);
-    setNotice(null);
-    setShowSignInPrompt(false);
-
-    const result = await startKakaoLogin();
-    if (result.ok) {
-      // window.location 이동 중. 사용자에게 잠깐의 로딩만 보여준다.
-      return;
-    }
-    setIsLinking(false);
-    setNotice({ tone: "error", message: result.message });
-  };
-
-  const handleNaverLogin = async () => {
-    setIsLinking(true);
-    setNotice(null);
-    setShowSignInPrompt(false);
-
-    const result = await startNaverLogin();
-    if (result.ok) {
-      return;
-    }
-    setIsLinking(false);
-    setNotice({ tone: "error", message: result.message });
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsLinking(true);
-    setNotice(null);
-
-    try {
-      const result = await signInWithGoogle();
-      if (result.ok) {
-        // signInWithPopup은 uid가 바뀌므로 onAuthStateChanged가 발화되어
-        // 새 계정 정보로 화면이 자동 갱신된다.
-        setShowSignInPrompt(false);
-        setNotice({
-          tone: "success",
-          message: "기존 Google 계정으로 로그인했습니다.",
-        });
-        return;
-      }
-      if (result.cancelled) {
-        return;
-      }
-      setNotice({ tone: "error", message: result.message });
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: `Google 계정 로그인 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
-      });
-    } finally {
-      setIsLinking(false);
     }
   };
 
@@ -855,67 +732,22 @@ export function MypageView() {
                 {account.email}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {account.isAnonymous ? (
-                  <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
-                    임시 계정
-                  </span>
-                ) : null}
                 <span className="rounded-md bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
                   UID {formatUserId(account.uid)}
                 </span>
               </div>
-              {account.isAnonymous ? (
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  예약과 즐겨찾기는 현재 임시 계정에 저장됩니다. Google 계정으로 연결하면 다른 기기에서도 계속 이용할 수 있습니다.
-                </p>
-              ) : null}
             </div>
           </div>
 
           <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            {account.isAnonymous ? (
-              <button
-                type="button"
-                onClick={handleGoogleLink}
-                disabled={isLinking || isSigningOut}
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-              >
-                {isLinking ? "Google 계정 연결 중" : "Google 계정으로 연결"}
-              </button>
-            ) : null}
-            {account.isAnonymous ? (
-              <button
-                type="button"
-                onClick={handleKakaoLogin}
-                disabled={isLinking || isSigningOut}
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-yellow-400 bg-yellow-300 px-4 text-sm font-semibold text-slate-900 transition hover:border-yellow-500 hover:bg-yellow-400 disabled:cursor-not-allowed disabled:border-yellow-200 disabled:bg-yellow-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2"
-              >
-                {isLinking ? "카카오로 이동 중" : "카카오 계정으로 연결"}
-              </button>
-            ) : null}
-            {account.isAnonymous ? (
-              <button
-                type="button"
-                onClick={handleNaverLogin}
-                disabled={isLinking || isSigningOut}
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-emerald-600 bg-emerald-500 px-4 text-sm font-semibold text-white transition hover:border-emerald-700 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:border-emerald-300 disabled:bg-emerald-200 disabled:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-              >
-                {isLinking ? "네이버로 이동 중" : "네이버 계정으로 연결"}
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={handleSignOut}
-              disabled={isSigningOut || isLinking}
+              disabled={isSigningOut}
               className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
             >
               {isSigningOut ? "로그아웃 중" : "로그아웃"}
             </button>
-            {account.isAnonymous ? (
-              <p className="text-xs text-slate-400">
-                로그아웃하면 임시 계정 연결이 해제될 수 있습니다.
-              </p>
-            ) : null}
           </div>
         </div>
 
@@ -928,32 +760,6 @@ export function MypageView() {
           </div>
         ) : null}
 
-        {account.isAnonymous && showSignInPrompt ? (
-          <div className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-4 text-sm leading-6 text-sky-900">
-            <p className="font-bold">기존 Google 계정으로 로그인하시겠어요?</p>
-            <p className="mt-1 text-sky-800">
-              이 Google 계정으로 이미 가입된 계정이 있습니다. 기존 계정으로 로그인하면 현재 임시 계정의 활동 기록은 사용할 수 없게 됩니다.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={isLinking || isSigningOut}
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-              >
-                {isLinking ? "로그인 중" : "기존 Google 계정으로 로그인"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSignInPrompt(false)}
-                disabled={isLinking}
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        ) : null}
       </section>
 
       <section className="flex flex-col gap-3">

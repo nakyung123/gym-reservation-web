@@ -1,5 +1,9 @@
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
+
+// 익명 자동 sign-in을 제거한 정식 계정 기반 auth session.
+// 상태: loading → (ready | signed-out | failed). signed-out은 정상 상태이며
+// 로그인이 필요한 페이지는 client-side useRequireAuth로 /login으로 유도한다.
 
 const LOADING_AUTH_SESSION_MESSAGE = "로그인 정보를 확인하고 있습니다.";
 
@@ -8,13 +12,15 @@ export const LOADING_AUTH_SESSION_SNAPSHOT = JSON.stringify({
   message: LOADING_AUTH_SESSION_MESSAGE,
 });
 
-type FirebaseAuthSessionFailureReason = "not-ready" | "auth-unavailable";
+const SIGNED_OUT_SNAPSHOT = JSON.stringify({ status: "signed-out" });
+
+type FirebaseAuthSessionFailureReason =
+  | "not-ready"
+  | "signed-out"
+  | "auth-unavailable";
 
 export type FirebaseAuthSessionResult =
-  | {
-      ok: true;
-      userId: string;
-    }
+  | { ok: true; userId: string }
   | {
       ok: false;
       reason: FirebaseAuthSessionFailureReason;
@@ -23,23 +29,6 @@ export type FirebaseAuthSessionResult =
 
 let currentSnapshot = LOADING_AUTH_SESSION_SNAPSHOT;
 let authUnsubscribe: (() => void) | null = null;
-let signInPromise: Promise<unknown> | null = null;
-// OAuth handover의 signInWithCustomToken은 내부적으로 sign-out → sign-in 두 단계로
-// 동작해 잠깐 user=null이 되는 race가 있다. 그 사이 ensureAnonymousSignIn이
-// 즉시 트리거되면 새 익명 user가 생성되어 OAuth 결과를 덮어쓴다.
-// 1차 방어: 짧은 debounce로 user=null 직후 새 user가 들어오면 익명 sign-in skip.
-// 2차 방어: OAuth helper가 setOAuthInProgress(true)를 걸어두면 익명 sign-in 자체를 차단.
-const ANONYMOUS_SIGNIN_DEBOUNCE_MS = 300;
-let anonSignInTimer: ReturnType<typeof setTimeout> | null = null;
-let oauthInProgress = false;
-
-export function setOAuthInProgress(active: boolean): void {
-  oauthInProgress = active;
-  if (active && anonSignInTimer) {
-    clearTimeout(anonSignInTimer);
-    anonSignInTimer = null;
-  }
-}
 
 const listeners = new Set<() => void>();
 
@@ -48,19 +37,13 @@ function notifyListeners() {
 }
 
 function setCurrentSnapshot(nextSnapshot: string) {
-  if (currentSnapshot === nextSnapshot) {
-    return;
-  }
-
+  if (currentSnapshot === nextSnapshot) return;
   currentSnapshot = nextSnapshot;
   notifyListeners();
 }
 
 function createReadySnapshot(userId: string) {
-  return JSON.stringify({
-    status: "ready",
-    userId,
-  });
+  return JSON.stringify({ status: "ready", userId });
 }
 
 function createFailedSnapshot(message: string) {
@@ -74,68 +57,24 @@ function createFailedSnapshot(message: string) {
 function getAuthFailureMessage(error: unknown) {
   const detail =
     error instanceof Error && error.message ? ` ${error.message}` : "";
-
-  return `Firebase 익명 로그인에 실패했습니다. Authentication의 Anonymous 제공자가 활성화되어 있는지 확인해주세요.${detail}`;
-}
-
-function ensureAnonymousSignIn() {
-  if (signInPromise) {
-    return signInPromise;
-  }
-
-  try {
-    const { auth } = getFirebaseClient();
-
-    signInPromise = signInAnonymously(auth)
-      .catch((error) => {
-        setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage(error)));
-      })
-      .finally(() => {
-        signInPromise = null;
-      });
-
-    return signInPromise;
-  } catch (error) {
-    setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage(error)));
-    return Promise.resolve();
-  }
+  return `Firebase 인증 상태를 확인하지 못했습니다.${detail}`;
 }
 
 function startAuthSession() {
-  if (authUnsubscribe) {
-    return;
-  }
+  if (authUnsubscribe) return;
 
   setCurrentSnapshot(LOADING_AUTH_SESSION_SNAPSHOT);
 
   try {
     const { auth } = getFirebaseClient();
-
     authUnsubscribe = onAuthStateChanged(
       auth,
       (user) => {
         if (user) {
-          // user가 다시 들어오면 보류 중인 익명 sign-in 취소.
-          if (anonSignInTimer) {
-            clearTimeout(anonSignInTimer);
-            anonSignInTimer = null;
-          }
           setCurrentSnapshot(createReadySnapshot(user.uid));
           return;
         }
-
-        if (oauthInProgress) {
-          // OAuth handover 중에는 익명 sign-in을 시도하지 않는다.
-          return;
-        }
-        if (anonSignInTimer) {
-          return;
-        }
-        anonSignInTimer = setTimeout(() => {
-          anonSignInTimer = null;
-          if (oauthInProgress) return;
-          void ensureAnonymousSignIn();
-        }, ANONYMOUS_SIGNIN_DEBOUNCE_MS);
+        setCurrentSnapshot(SIGNED_OUT_SNAPSHOT);
       },
       (error) => {
         setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage(error)));
@@ -152,14 +91,9 @@ export function subscribeFirebaseAuthSession(listener: () => void) {
 
   return () => {
     listeners.delete(listener);
-
     if (listeners.size === 0 && authUnsubscribe) {
       authUnsubscribe();
       authUnsubscribe = null;
-      if (anonSignInTimer) {
-        clearTimeout(anonSignInTimer);
-        anonSignInTimer = null;
-      }
     }
   };
 }
@@ -184,10 +118,7 @@ export function parseFirebaseAuthSessionSnapshot(
     };
 
     if (parsed.status === "ready" && typeof parsed.userId === "string") {
-      return {
-        ok: true,
-        userId: parsed.userId,
-      };
+      return { ok: true, userId: parsed.userId };
     }
 
     if (parsed.status === "loading" && typeof parsed.message === "string") {
@@ -195,6 +126,14 @@ export function parseFirebaseAuthSessionSnapshot(
         ok: false,
         reason: "not-ready",
         message: parsed.message,
+      };
+    }
+
+    if (parsed.status === "signed-out") {
+      return {
+        ok: false,
+        reason: "signed-out",
+        message: "로그인이 필요합니다.",
       };
     }
 

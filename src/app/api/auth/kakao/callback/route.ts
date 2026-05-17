@@ -107,7 +107,6 @@ export async function GET(request: NextRequest) {
   const profilePayload = toProfilePayload(kakaoProfile);
 
   const ticket = await createTicket({
-    anonUid: attempt.anonUid,
     targetUid,
     provider: "kakao",
     handoverNonce,
