@@ -18,6 +18,7 @@ import {
 import { SPORTS } from "@/lib/domain-constants";
 import { resendEmailVerification } from "@/lib/firebase-email-auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
+import { checkNicknameAvailability } from "@/lib/nickname-availability-client";
 import {
   fetchUserProfile,
   saveUserProfile,
@@ -554,8 +555,15 @@ export function MypageView() {
     }
 
     const { user } = authState;
+    // UserProfile.nickname(SSOT)을 표시명으로 우선 사용한다. 없으면 Firebase displayName으로
+    // 폴백. saveUserProfile 직후 profileState가 갱신되면 즉시 반영된다.
+    const profileNickname =
+      profileState.status === "ready"
+        ? profileState.form.nickname.trim() || null
+        : null;
+    const displayName = profileNickname ?? getAccountName(user);
     return {
-      displayName: getAccountName(user),
+      displayName,
       email: user.email ?? "등록된 이메일 없음",
       // password 가입자만 emailVerified를 의미있게 가진다. 소셜 가입자는 provider 측에서
       // 이미 검증되었다고 가정해 배너를 보이지 않는다.
@@ -563,11 +571,13 @@ export function MypageView() {
         Boolean(user.email) &&
         user.emailVerified === false &&
         user.providerData.some((p) => p.providerId === "password"),
-      initial: getInitial(user),
+      initial: profileNickname
+        ? profileNickname.slice(0, 1).toUpperCase()
+        : getInitial(user),
       photoURL: user.photoURL,
       uid: user.uid,
     };
-  }, [authState]);
+  }, [authState, profileState]);
 
   const updateProfileForm = (updater: (form: ProfileFormState) => ProfileFormState) => {
     setProfileState((prev) => {
@@ -932,6 +942,44 @@ function ProfileSettingsForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const isSaving = saveState.status === "saving";
+  const [nicknameStatus, setNicknameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
+
+  // 닉네임 변경 시 400ms debounce 후 server check. 본인 닉네임은 server가 available로 처리.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const trimmed = form.nickname.trim();
+    if (trimmed.length === 0) {
+      setNicknameStatus("idle");
+      return;
+    }
+    setNicknameStatus("checking");
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkNicknameAvailability(trimmed, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!result.ok) {
+          setNicknameStatus("error");
+          return;
+        }
+        if (result.available) setNicknameStatus("available");
+        else setNicknameStatus(result.reason === "invalid" ? "error" : "taken");
+      } catch {
+        if (!controller.signal.aborted) setNicknameStatus("error");
+      }
+    }, 400);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [form.nickname]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const nicknameIsTaken = nicknameStatus === "taken";
+  const isSaveDisabled =
+    isSaving || nicknameStatus === "checking" || nicknameIsTaken;
 
   return (
     <form className="mt-5 flex flex-col gap-5" onSubmit={onSubmit} noValidate>
@@ -950,9 +998,26 @@ function ProfileSettingsForm({
           maxLength={30}
           placeholder="예: 낙성대 농구왕"
           disabled={isSaving}
-          className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+          aria-invalid={nicknameIsTaken || undefined}
+          className={`h-11 rounded-md border bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
+            nicknameIsTaken
+              ? "border-rose-400 focus-visible:ring-rose-200"
+              : "border-slate-300 focus-visible:ring-sky-500"
+          }`}
         />
-        <p className="text-xs text-slate-500">최대 30자까지 입력할 수 있습니다.</p>
+        {nicknameIsTaken ? (
+          <p className="text-xs font-semibold text-rose-700" role="alert">
+            이미 사용 중인 닉네임입니다.
+          </p>
+        ) : nicknameStatus === "available" && form.nickname.trim().length > 0 ? (
+          <p className="text-xs font-semibold text-emerald-700">
+            사용 가능한 닉네임입니다.
+          </p>
+        ) : nicknameStatus === "checking" ? (
+          <p className="text-xs text-slate-500">확인 중...</p>
+        ) : (
+          <p className="text-xs text-slate-500">최대 30자까지 입력할 수 있습니다.</p>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -1051,7 +1116,7 @@ function ProfileSettingsForm({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={isSaving}
+          disabled={isSaveDisabled}
           className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
         >
           {isSaving ? "저장 중" : "저장"}

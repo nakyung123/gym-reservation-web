@@ -61,7 +61,13 @@ type CommonProps = Omit<
   onChange: (value: string) => void;
   error?: string | null;
   hint?: string | null;
+  hintTone?: "info" | "success";
 };
+
+function hintClassName(tone: "info" | "success" | undefined): string {
+  if (tone === "success") return "text-xs font-semibold text-emerald-700";
+  return "text-xs text-slate-500";
+}
 
 export function TextField({
   label,
@@ -69,6 +75,7 @@ export function TextField({
   onChange,
   error,
   hint,
+  hintTone,
   ...rest
 }: CommonProps & { type?: "text" | "email" }) {
   const id = useId();
@@ -115,7 +122,7 @@ export function TextField({
           {error}
         </p>
       ) : hint ? (
-        <p className="text-xs text-slate-500">{hint}</p>
+        <p className={hintClassName(hintTone)}>{hint}</p>
       ) : null}
     </div>
   );

@@ -168,6 +168,7 @@ export function SignupView() {
           onChange={setNickname}
           error={nicknameError}
           hint={nicknameHint}
+          hintTone={nicknameStatus === "available" ? "success" : "info"}
         />
         <button
           type="submit"
