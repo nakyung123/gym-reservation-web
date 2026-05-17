@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { Prisma } from "@prisma/client";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import { resolveAuthProvider } from "@/lib/server/auth-provider";
@@ -91,6 +92,16 @@ export async function PUT(request: NextRequest) {
   try {
     profile = await upsertUserProfile(auth.uid, validation.input, provider);
   } catch (error) {
+    // nickname unique constraint 위반은 사용자에게 명확히 알린다.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return Response.json(
+        { message: "이미 사용 중인 닉네임입니다." },
+        { status: 409 },
+      );
+    }
     return serverErrorResponse(
       "프로필 설정을 저장하지 못했습니다.",
       "Failed to save user profile",

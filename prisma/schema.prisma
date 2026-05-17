@@ -61,7 +61,7 @@ model Favorite {
 // MVP에서는 nullable 유지. 신규 가입부터 채워 충분히 검증된 뒤 not null로 전환.
 model UserProfile {
   userId                          String   @id @map("user_id") @db.VarChar(64)
-  nickname                        String?  @db.VarChar(30)
+  nickname                        String?  @unique @db.VarChar(30)
   provider                        String?  @db.VarChar(16)
   preferredRegion                 String?  @map("preferred_region") @db.VarChar(100)
   preferredSports                 Json     @map("preferred_sports")

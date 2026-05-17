@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signupWithEmail } from "@/lib/firebase-email-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
 import { ensureUserProfile } from "@/lib/user-profile-client";
+import { checkNicknameAvailability } from "@/lib/nickname-availability-client";
 import { PasswordField, TextField } from "@/components/form-fields";
 
 type SubmitState =
@@ -40,6 +41,44 @@ export function SignupView() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [nickname, setNickname] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
+  const [nicknameStatus, setNicknameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "error"
+  >("idle");
+
+  // 닉네임 입력 → 400ms debounce → /api/me/nickname-availability 조회.
+  // effect 안에서 직접 setState 호출하는 패턴이라 react-hooks/set-state-in-effect는 의도적으로 disable.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const trimmed = nickname.trim();
+    if (trimmed.length === 0) {
+      setNicknameStatus("idle");
+      return;
+    }
+    setNicknameStatus("checking");
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkNicknameAvailability(trimmed, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!result.ok) {
+          setNicknameStatus("error");
+          return;
+        }
+        if (result.available) {
+          setNicknameStatus("available");
+        } else {
+          setNicknameStatus(result.reason === "invalid" ? "error" : "taken");
+        }
+      } catch {
+        if (!controller.signal.aborted) setNicknameStatus("error");
+      }
+    }, 400);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [nickname]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const emailError = validateEmail(email);
   const passwordError = validatePassword(password);
@@ -50,7 +89,15 @@ export function SignupView() {
   const nicknameError =
     nickname.length > 0 && nickname.trim().length === 0
       ? "닉네임을 입력해 주세요."
-      : null;
+      : nicknameStatus === "taken"
+        ? "이미 사용 중인 닉네임입니다."
+        : null;
+  const nicknameHint =
+    nickname.length > 0 && nicknameStatus === "available"
+      ? "사용 가능한 닉네임입니다."
+      : nicknameStatus === "checking"
+        ? "확인 중..."
+        : null;
 
   const isLoading = submitState.kind === "loading";
   const isFormValid =
@@ -61,7 +108,9 @@ export function SignupView() {
     !emailError &&
     !passwordError &&
     !passwordConfirmError &&
-    !nicknameError;
+    !nicknameError &&
+    nicknameStatus !== "checking" &&
+    nicknameStatus !== "taken";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -118,6 +167,7 @@ export function SignupView() {
           value={nickname}
           onChange={setNickname}
           error={nicknameError}
+          hint={nicknameHint}
         />
         <button
           type="submit"
