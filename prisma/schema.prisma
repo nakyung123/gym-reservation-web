@@ -63,6 +63,9 @@ model UserProfile {
   userId                          String   @id @map("user_id") @db.VarChar(64)
   nickname                        String?  @unique @db.VarChar(30)
   provider                        String?  @db.VarChar(16)
+  // 사용자가 업로드한 프로필 사진(JPEG)을 data URL 형식으로 저장한다.
+  // 클라이언트에서 512px 이내로 리사이즈한 결과라 대체로 30~80KB. MVP에서는 DB 직접 저장.
+  photoBase64                     String?  @map("photo_base64") @db.LongText
   preferredRegion                 String?  @map("preferred_region") @db.VarChar(100)
   preferredSports                 Json     @map("preferred_sports")
   reservationNotificationsEnabled Boolean  @default(true) @map("reservation_notifications_enabled")
