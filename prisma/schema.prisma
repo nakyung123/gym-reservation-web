@@ -123,6 +123,18 @@ model ReservationSlot {
   @@map("reservation_slots")
 }
 
+// 회원 탈퇴 시 익명으로 수집하는 사유 통계. uid는 보관하지 않는다 (탈퇴 즉시 식별자 폐기).
+// detail은 자유 텍스트(최대 300자 클라이언트 제한, 컬럼은 여유 둠).
+model WithdrawalReason {
+  id        Int      @id @default(autoincrement())
+  category  String   @db.VarChar(32)
+  detail    String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+
+  @@index([createdAt], map: "idx_withdrawal_created")
+  @@map("withdrawal_reasons")
+}
+
 // 외부 OAuth provider(카카오/네이버) authorize 요청을 추적하는 단기 store.
 // /start에서 state를 발급해 저장하고, /callback에서 1회 소비한다.
 // status: "pending" -> "consumed". 만료된 행은 진입 시 opportunistic cleanup.
