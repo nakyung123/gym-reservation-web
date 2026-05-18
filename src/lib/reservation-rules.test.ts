@@ -18,6 +18,8 @@ const baseGym: Gym = {
   basePrice: 10000,
   description: "예약 규칙 테스트용 체육관",
   distanceKm: 1,
+  latitude: 37.5665,
+  longitude: 126.978,
   sportPrices: { 배드민턴: 12000 },
   facilities: ["샤워실"],
   availableTimes: ["10:00", "11:00"],

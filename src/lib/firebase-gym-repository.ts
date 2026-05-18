@@ -80,6 +80,10 @@ function parseGymDocument(
     !isStringArray(data.closedDays) ||
     typeof data.distanceKm !== "number" ||
     !Number.isFinite(data.distanceKm) ||
+    typeof data.latitude !== "number" ||
+    !Number.isFinite(data.latitude) ||
+    typeof data.longitude !== "number" ||
+    !Number.isFinite(data.longitude) ||
     typeof data.description !== "string"
   ) {
     throw new Error(`체육관 문서 ${snapshot.id}의 형식이 올바르지 않습니다.`);
@@ -99,6 +103,8 @@ function parseGymDocument(
     availableTimes: data.availableTimes,
     closedDays: data.closedDays,
     distanceKm: data.distanceKm,
+    latitude: data.latitude,
+    longitude: data.longitude,
     description: data.description,
   };
 }

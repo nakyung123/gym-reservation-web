@@ -19,6 +19,8 @@ const validPayload: AdminGym = {
   basePrice: 10000,
   description: "관리자 체육관 스키마 검증용 데이터입니다.",
   distanceKm: 1.25,
+  latitude: 37.5665,
+  longitude: 126.978,
   sports: [primarySport, secondarySport],
   sportPrices: {
     [primarySport]: 12000,

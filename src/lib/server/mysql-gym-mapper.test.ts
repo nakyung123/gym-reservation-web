@@ -23,6 +23,8 @@ function createRow(
     basePrice: 10000,
     description: "Mapper test gym",
     distanceKm: new Prisma.Decimal("1.25"),
+    latitude: 37.5665,
+    longitude: 126.978,
     sportPrices: {
       [firstSport]: 10000,
       [secondSport]: 12000,
@@ -53,6 +55,8 @@ describe("mysql gym mapper", () => {
       basePrice: 10000,
       description: "Mapper test gym",
       distanceKm: 1.25,
+      latitude: 37.5665,
+      longitude: 126.978,
       sportPrices: {
         [firstSport]: 10000,
         [secondSport]: 12000,

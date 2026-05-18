@@ -39,6 +39,8 @@ type GymDraft = {
   basePrice: string;
   description: string;
   distanceKm: string;
+  latitude: string;
+  longitude: string;
   sports: Sport[];
   sportPrices: Record<Sport, string>;
   facilitiesText: string;
@@ -79,6 +81,8 @@ function createBlankDraft(): GymDraft {
     basePrice: "5000",
     description: "",
     distanceKm: "0",
+    latitude: "",
+    longitude: "",
     sports: ["배드민턴"],
     sportPrices: { ...defaultSportPrices },
     facilitiesText: "샤워실\n탈의실",
@@ -99,6 +103,8 @@ function draftFromGym(gym: AdminGym): GymDraft {
     basePrice: String(gym.basePrice),
     description: gym.description,
     distanceKm: String(gym.distanceKm),
+    latitude: String(gym.latitude),
+    longitude: String(gym.longitude),
     sports: gym.sports,
     sportPrices: ADMIN_GYM_SPORTS.reduce(
       (prices, sport) => ({
@@ -160,6 +166,30 @@ function buildPayload(
     return { tone: "error", message: "거리는 0 이상의 숫자로 입력해야 합니다." };
   }
 
+  // 위/경도는 거리 계산 SSOT라 둘 다 필수. 빈 문자열도 누락으로 본다.
+  const latitudeRaw = draft.latitude.trim();
+  const longitudeRaw = draft.longitude.trim();
+  if (latitudeRaw.length === 0 || longitudeRaw.length === 0) {
+    return {
+      tone: "error",
+      message: "위도와 경도는 모두 입력해야 합니다.",
+    };
+  }
+  const latitude = Number.parseFloat(latitudeRaw);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) {
+    return {
+      tone: "error",
+      message: "위도는 -90 이상 90 이하의 숫자여야 합니다.",
+    };
+  }
+  const longitude = Number.parseFloat(longitudeRaw);
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    return {
+      tone: "error",
+      message: "경도는 -180 이상 180 이하의 숫자여야 합니다.",
+    };
+  }
+
   if (draft.sports.length === 0) {
     return { tone: "error", message: "종목을 1개 이상 선택해야 합니다." };
   }
@@ -185,6 +215,8 @@ function buildPayload(
     basePrice,
     description: draft.description.trim(),
     distanceKm,
+    latitude,
+    longitude,
     sports: draft.sports,
     sportPrices,
     facilities: splitTextList(draft.facilitiesText),
@@ -723,6 +755,39 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ distanceKm: event.target.value })
                     }
+                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                  위도 (latitude)
+                  <input
+                    type="number"
+                    min={-90}
+                    max={90}
+                    step="any"
+                    value={draft.latitude}
+                    onChange={(event) =>
+                      updateDraft({ latitude: event.target.value })
+                    }
+                    placeholder="예: 37.5665"
+                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                  경도 (longitude)
+                  <input
+                    type="number"
+                    min={-180}
+                    max={180}
+                    step="any"
+                    value={draft.longitude}
+                    onChange={(event) =>
+                      updateDraft({ longitude: event.target.value })
+                    }
+                    placeholder="예: 126.9780"
                     className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                   />
                 </label>

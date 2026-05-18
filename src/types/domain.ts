@@ -18,7 +18,11 @@ export type Gym = {
   facilities: string[];
   availableTimes: string[];
   closedDays: string[];
+  // distanceKm은 deprecated 상태로 호환을 위해 남겨둔다. 사용자 표시는 위/경도 기반 계산값을 쓴다.
   distanceKm: number;
+  // 사용자 현재 위치 기반 거리 계산의 SSOT. 좌표 없는 체육관은 등록할 수 없다.
+  latitude: number;
+  longitude: number;
   description: string;
 };
 

@@ -35,6 +35,8 @@ const gym: Gym = {
   basePrice: 10000,
   description: "Reservation detail client test gym",
   distanceKm: 1.25,
+  latitude: 37.5665,
+  longitude: 126.978,
   sports: [reservation.sport],
   sportPrices: { [reservation.sport]: reservation.price },
   facilities: ["locker"],

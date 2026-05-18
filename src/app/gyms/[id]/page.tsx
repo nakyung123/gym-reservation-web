@@ -69,7 +69,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
                 {formatGymPrice(lowestPrice)}부터
               </p>
             </div>
-            <GymDistanceBadge gymId={gym.id} />
+            <GymDistanceBadge latitude={gym.latitude} longitude={gym.longitude} />
             <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-xs font-semibold text-slate-500">종목</p>
               <p className="mt-1 text-lg font-bold text-slate-950">

@@ -25,6 +25,8 @@ function toGymData(input: AdminGymUpdateInput) {
     basePrice: input.basePrice,
     description: input.description,
     distanceKm: input.distanceKm,
+    latitude: input.latitude,
+    longitude: input.longitude,
     sportPrices: input.sportPrices,
     facilities: input.facilities,
     availableTimes: input.availableTimes,

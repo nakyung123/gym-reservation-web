@@ -16,6 +16,8 @@
     "availableTimes": ["09:00", "11:00", "14:00", "18:00", "20:00"],
     "closedDays": ["공휴일"],
     "distanceKm": 1.6,
+    "latitude": 37.581,
+    "longitude": 126.97,
     "description": "인왕산 인근에 있는 종로구 공공체육시설로, 배드민턴과 탁구 등 생활체육 프로그램을 이용할 수 있습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=1209"
   },
@@ -36,6 +38,8 @@
     "availableTimes": ["06:00", "10:00", "13:00", "17:00", "21:00"],
     "closedDays": ["첫째·셋째·다섯째 일요일", "공휴일"],
     "distanceKm": 5.8,
+    "latitude": 37.5587,
+    "longitude": 127.0428,
     "description": "성동구도시관리공단이 운영하는 종합체육센터로, 실내 체육관과 생활체육 프로그램을 함께 확인할 수 있습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=880"
   },
@@ -58,6 +62,8 @@
     "availableTimes": ["06:00", "09:00", "12:00", "18:00", "21:00"],
     "closedDays": ["둘째·넷째 월요일"],
     "distanceKm": 6.4,
+    "latitude": 37.5715,
+    "longitude": 126.8965,
     "description": "망원유수지체육공원 안에 있는 마포구 생활체육 거점으로, 다양한 실내 종목과 풋살 프로그램을 운영합니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=901"
   },
@@ -78,6 +84,8 @@
     "availableTimes": ["06:00", "09:00", "13:00", "17:00", "20:00"],
     "closedDays": ["일요일"],
     "distanceKm": 7.2,
+    "latitude": 37.6045,
+    "longitude": 127.042,
     "description": "성북구 주민을 위한 공공체육센터로, 실내 체육관 기반의 농구, 배드민턴, 탁구 이용 흐름을 확인하기 좋습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=938"
   },
@@ -99,6 +107,8 @@
     "availableTimes": ["09:00", "10:00", "14:00", "16:00", "17:00"],
     "closedDays": ["주말", "공휴일"],
     "distanceKm": 10.2,
+    "latitude": 37.4892,
+    "longitude": 126.9692,
     "description": "동작구시설관리공단이 운영하는 다목적 체육관으로, 단체 운동과 생활체육 프로그램을 함께 담을 수 있습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=871"
   },
@@ -119,6 +129,8 @@
     "availableTimes": ["06:00", "09:00", "12:00", "18:00", "21:00"],
     "closedDays": ["둘째·넷째 일요일", "법정공휴일"],
     "distanceKm": 10.6,
+    "latitude": 37.5365,
+    "longitude": 127.084,
     "description": "광진구 자양동에 있는 문화체육센터로, 다목적체육관 중심의 농구와 라켓 스포츠 데이터를 담았습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=1609"
   },
@@ -139,6 +151,8 @@
     "availableTimes": ["06:00", "09:00", "13:00", "18:00", "20:00"],
     "closedDays": ["공휴일"],
     "distanceKm": 12.8,
+    "latitude": 37.4665,
+    "longitude": 126.8966,
     "description": "금천구시설관리공단이 운영하는 공공체육시설로, 체육관 프로그램과 생활체육 이용 수요를 보여주는 샘플입니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=668"
   },
@@ -160,6 +174,8 @@
     "availableTimes": ["05:00", "08:00", "12:00", "18:00", "22:00"],
     "closedDays": ["첫째 일요일"],
     "distanceKm": 13.4,
+    "latitude": 37.6584,
+    "longitude": 127.0596,
     "description": "노원구서비스공단이 운영하는 구민체육센터로, 이른 시간부터 늦은 시간까지 운영되는 생활체육 거점입니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=682"
   },
@@ -180,6 +196,8 @@
     "availableTimes": ["06:00", "09:00", "12:00", "18:00", "21:00"],
     "closedDays": ["일요일", "추석", "설명절"],
     "distanceKm": 14.8,
+    "latitude": 37.5388,
+    "longitude": 127.145,
     "description": "일일입장 중심으로 운영되는 강동구 공공체육시설로, 낮은 이용료의 체육관 예약 흐름을 검증하기 좋습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=817"
   },
@@ -200,6 +218,8 @@
     "availableTimes": ["06:00", "09:00", "13:00", "18:00", "21:00"],
     "closedDays": ["월요일", "추석", "설명절"],
     "distanceKm": 15.2,
+    "latitude": 37.5395,
+    "longitude": 127.1567,
     "description": "배드민턴 코트와 농구장을 갖춘 강동구 체육관으로, 저렴한 일일 이용료 기반 예약 화면을 테스트하기 좋습니다.",
     "officialUrl": "https://sports.seoul.go.kr/main/facilities/facilities_view.do?ft_idx=813"
   }

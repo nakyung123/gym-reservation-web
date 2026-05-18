@@ -77,6 +77,8 @@ export function toDomainGym(row: GymRowWithSports): Gym {
     ),
     closedDays: parseStringArrayField(row.closedDays, "closedDays", row.id),
     distanceKm: row.distanceKm.toNumber(),
+    latitude: row.latitude,
+    longitude: row.longitude,
     description: row.description,
   };
 }

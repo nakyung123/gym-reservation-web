@@ -19,7 +19,7 @@ export function GymCard({
 }: GymCardProps) {
   const lowestPrice = getGymLowestPrice(gym);
   const { location } = useUserLocation();
-  const distanceKm = calculateGymDistanceKm(gym.id, location);
+  const distanceKm = calculateGymDistanceKm(gym, location);
 
   return (
     <article className="flex flex-col justify-between overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">

@@ -1,7 +1,8 @@
 // 두 좌표 사이의 거리(km)를 Haversine 공식으로 계산.
 // 정확도는 ±0.5% 수준이라 도시 내 거리 비교/표시 용도로 충분.
-
-import coordinates from "@/data/gym-coordinates.json";
+//
+// 체육관 좌표 SSOT는 Gym 모델의 latitude/longitude이다 (DB → mapper → Gym 객체).
+// 별도 JSON으로 좌표를 관리하지 않는다.
 
 export type GeoPoint = {
   lat: number;
@@ -27,22 +28,22 @@ export function haversineKm(a: GeoPoint, b: GeoPoint): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-// gymId → 좌표 lookup. 등록 안 된 체육관이면 null.
-const COORDINATES = coordinates as Record<string, GeoPoint | undefined>;
-
-export function getGymCoordinates(gymId: string): GeoPoint | null {
-  return COORDINATES[gymId] ?? null;
-}
-
-// 사용자 위치 ↔ 체육관 거리(km). 좌표 없으면 null.
+// Gym(또는 좌표만 든 부분 객체) ↔ 사용자 좌표 거리(km).
+// gym.latitude/longitude가 유효한 숫자가 아니거나 userLocation이 null이면 null.
 export function calculateGymDistanceKm(
-  gymId: string,
+  gym: { latitude: number | null | undefined; longitude: number | null | undefined },
   userLocation: GeoPoint | null,
 ): number | null {
   if (!userLocation) return null;
-  const gymCoord = getGymCoordinates(gymId);
-  if (!gymCoord) return null;
-  return haversineKm(userLocation, gymCoord);
+  if (
+    typeof gym.latitude !== "number" ||
+    !Number.isFinite(gym.latitude) ||
+    typeof gym.longitude !== "number" ||
+    !Number.isFinite(gym.longitude)
+  ) {
+    return null;
+  }
+  return haversineKm(userLocation, { lat: gym.latitude, lng: gym.longitude });
 }
 
 // 표시용 포매팅: 1.0km 미만은 m, 그 이상은 km 소수 첫째자리.

@@ -29,8 +29,8 @@ const gymSortLabels: Record<GymSort, string> = {
 };
 
 // 사용자 위치 ↔ 체육관 거리. 좌표 없거나 위치 없으면 Infinity (정렬 시 뒤로 밀려남).
-function distanceForSort(gymId: string, location: GeoPoint | null): number {
-  const km = calculateGymDistanceKm(gymId, location);
+function distanceForSort(gym: Gym, location: GeoPoint | null): number {
+  const km = calculateGymDistanceKm(gym, location);
   return km ?? Number.POSITIVE_INFINITY;
 }
 
@@ -53,7 +53,7 @@ function sortGyms(gyms: Gym[], sort: GymSort, location: GeoPoint | null) {
       return left.name.localeCompare(right.name);
     }
     return (
-      distanceForSort(left.id, location) - distanceForSort(right.id, location) ||
+      distanceForSort(left, location) - distanceForSort(right, location) ||
       left.name.localeCompare(right.name)
     );
   });

@@ -120,7 +120,7 @@ function validateGym(gym, index) {
     assertString(gym[key], `${prefix}.${key}`);
   }
 
-  for (const key of ["basePrice", "distanceKm"]) {
+  for (const key of ["basePrice", "distanceKm", "latitude", "longitude"]) {
     assertNumber(gym[key], `${prefix}.${key}`);
   }
 

@@ -23,6 +23,8 @@ async function createExtraGym(id: string) {
       basePrice: TEST_GYM.basePrice,
       description: TEST_GYM.description,
       distanceKm: TEST_GYM.distanceKm,
+      latitude: TEST_GYM.latitude,
+      longitude: TEST_GYM.longitude,
       sportPrices: TEST_GYM.sportPrices,
       facilities: TEST_GYM.facilities,
       availableTimes: TEST_GYM.availableTimes,
