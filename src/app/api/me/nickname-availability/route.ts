@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import { prisma } from "@/lib/server/prisma-client";
+import { NICKNAME_MAX_LENGTH } from "@/lib/user-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +10,11 @@ export const dynamic = "force-dynamic";
 // 인증 헤더가 있고 유효하면 본인 nickname은 사용 가능으로 처리(편집 시 노이즈 방지).
 // 응답: { available: true } | { available: false, reason: "taken" | "invalid" }
 // 최종 보호는 DB unique constraint + upsert P2002 처리에 있다.
+// 길이 제한은 validate 함수와 동일한 상수를 사용한다 (UI/API/저장 모두 정합).
 export async function GET(request: NextRequest) {
   const raw = request.nextUrl.searchParams.get("nickname") ?? "";
   const nickname = raw.trim();
-  if (nickname.length === 0 || nickname.length > 30) {
+  if (nickname.length === 0 || nickname.length > NICKNAME_MAX_LENGTH) {
     return Response.json({ available: false, reason: "invalid" });
   }
 

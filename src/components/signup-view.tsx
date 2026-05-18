@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { signupWithEmail } from "@/lib/firebase-email-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
 import { ensureUserProfile } from "@/lib/user-profile-client";
-import { checkNicknameAvailability } from "@/lib/nickname-availability-client";
 import { PasswordField, TextField } from "@/components/form-fields";
+import { SignupTermsStep } from "@/components/signup-terms-step";
 
 type SubmitState =
   | { kind: "idle" }
@@ -31,54 +31,19 @@ function validatePassword(value: string): string | null {
   return null;
 }
 
+type SignupStep = "terms" | "form";
+
 export function SignupView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromPath = sanitizeFromPath(searchParams.get("from")) ?? "/mypage";
 
+  // 약관 동의 → 가입 form 단계. 단방향이라 form 단계에서 약관으로 되돌아가지 않는다.
+  const [step, setStep] = useState<SignupStep>("terms");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [nickname, setNickname] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
-  const [nicknameStatus, setNicknameStatus] = useState<
-    "idle" | "checking" | "available" | "taken" | "error"
-  >("idle");
-
-  // 닉네임 입력 → 400ms debounce → /api/me/nickname-availability 조회.
-  // effect 안에서 직접 setState 호출하는 패턴이라 react-hooks/set-state-in-effect는 의도적으로 disable.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const trimmed = nickname.trim();
-    if (trimmed.length === 0) {
-      setNicknameStatus("idle");
-      return;
-    }
-    setNicknameStatus("checking");
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const result = await checkNicknameAvailability(trimmed, controller.signal);
-        if (controller.signal.aborted) return;
-        if (!result.ok) {
-          setNicknameStatus("error");
-          return;
-        }
-        if (result.available) {
-          setNicknameStatus("available");
-        } else {
-          setNicknameStatus(result.reason === "invalid" ? "error" : "taken");
-        }
-      } catch {
-        if (!controller.signal.aborted) setNicknameStatus("error");
-      }
-    }, 400);
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [nickname]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const emailError = validateEmail(email);
   const passwordError = validatePassword(password);
@@ -86,42 +51,23 @@ export function SignupView() {
     passwordConfirm.length > 0 && passwordConfirm !== password
       ? "비밀번호 확인이 일치하지 않습니다."
       : null;
-  const nicknameError =
-    nickname.length > 0 && nickname.trim().length === 0
-      ? "닉네임을 입력해 주세요."
-      : nicknameStatus === "taken"
-        ? "이미 사용 중인 닉네임입니다."
-        : null;
-  const nicknameHint =
-    nickname.length > 0 && nicknameStatus === "available"
-      ? "사용 가능한 닉네임입니다."
-      : nicknameStatus === "checking"
-        ? "확인 중..."
-        : null;
 
   const isLoading = submitState.kind === "loading";
   const isFormValid =
     email.length > 0 &&
     password.length > 0 &&
     passwordConfirm.length > 0 &&
-    nickname.trim().length > 0 &&
     !emailError &&
     !passwordError &&
-    !passwordConfirmError &&
-    !nicknameError &&
-    nicknameStatus !== "checking" &&
-    nicknameStatus !== "taken";
+    !passwordConfirmError;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!isFormValid) return;
     setSubmitState({ kind: "loading" });
-    const result = await signupWithEmail({
-      email,
-      password,
-      nickname: nickname.trim(),
-    });
+    const result = await signupWithEmail({ email, password });
     if (result.ok) {
+      // 닉네임은 서버에서 자동 생성된다.
       await ensureUserProfile().catch((error) => {
         console.warn("[signup] ensureUserProfile failed:", error);
       });
@@ -131,11 +77,15 @@ export function SignupView() {
     setSubmitState({ kind: "error", message: result.message });
   }
 
+  if (step === "terms") {
+    return <SignupTermsStep onAgree={() => setStep("form")} />;
+  }
+
   return (
     <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold text-slate-950">회원가입</h1>
       <p className="mt-1 text-sm text-slate-600">
-        이메일과 비밀번호로 가입하세요. 가입 후 이메일 인증 메일이 발송됩니다.
+        이메일과 비밀번호로 가입하세요. 닉네임은 자동으로 만들어지며 가입 후 내 정보에서 변경할 수 있습니다.
       </p>
 
       <form className="mt-5 flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
@@ -160,15 +110,6 @@ export function SignupView() {
           value={passwordConfirm}
           onChange={setPasswordConfirm}
           error={passwordConfirmError}
-        />
-        <TextField
-          label="닉네임"
-          maxLength={30}
-          value={nickname}
-          onChange={setNickname}
-          error={nicknameError}
-          hint={nicknameHint}
-          hintTone={nicknameStatus === "available" ? "success" : "info"}
         />
         <button
           type="submit"

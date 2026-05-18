@@ -3,7 +3,6 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  updateProfile,
 } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 
@@ -41,7 +40,6 @@ const GENERIC_AUTH_ERROR = "다시 시도해 주세요.";
 export async function signupWithEmail(input: {
   email: string;
   password: string;
-  nickname: string;
 }): Promise<SignupEmailResult> {
   const { auth } = getFirebaseClient();
   try {
@@ -50,14 +48,7 @@ export async function signupWithEmail(input: {
       input.email,
       input.password,
     );
-    // 닉네임을 displayName으로 set. updateProfile은 ID token revoke를 일으키지 않는다.
-    if (input.nickname) {
-      try {
-        await updateProfile(credential.user, { displayName: input.nickname });
-      } catch (error) {
-        console.warn("[email signup] updateProfile failed:", error);
-      }
-    }
+    // 닉네임은 서버에서 자동 생성한다 (ensureUserProfile). Firebase displayName은 사용하지 않는다.
 
     let emailVerificationSent = false;
     try {

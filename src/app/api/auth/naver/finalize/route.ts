@@ -116,19 +116,15 @@ export async function POST(request: NextRequest) {
   return Response.json({ ok: true, profileSynced });
 }
 
+// 네이버에서 받은 displayName/photoURL은 동기화하지 않는다 (nickname은 서버 자동 생성,
+// 프로필 사진은 별도 업로드 기능을 사용한다). email만 일치 시 user record에 반영한다.
 async function syncProfile(
   targetUid: string,
   payload: HandoverProfilePayload | null,
 ): Promise<boolean> {
-  if (!payload) return true;
-  const update: { email?: string; displayName?: string; photoURL?: string } =
-    {};
-  if (payload.email) update.email = payload.email;
-  if (payload.nickname) update.displayName = payload.nickname;
-  if (payload.photoUrl) update.photoURL = payload.photoUrl;
-  if (Object.keys(update).length === 0) return true;
+  if (!payload || !payload.email) return true;
   try {
-    await getAdminAuth().updateUser(targetUid, update);
+    await getAdminAuth().updateUser(targetUid, { email: payload.email });
     return true;
   } catch (error) {
     console.error("[naver finalize] updateUser failed:", error);

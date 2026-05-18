@@ -246,7 +246,7 @@ describe("POST /api/me/profile", () => {
     verifyIdToken.mockReset();
   });
 
-  it("프로필이 없으면 기본값으로 보장하고 산출된 provider를 채운다", async () => {
+  it("프로필이 없으면 자동 닉네임으로 보장하고 산출된 provider를 채운다", async () => {
     mockVerify("profile-route-post-user", "password");
 
     const response = await POST(requestFor("POST"));
@@ -257,8 +257,15 @@ describe("POST /api/me/profile", () => {
     expect(body.profile).toMatchObject({
       userId: "profile-route-post-user",
       provider: "local",
-      nickname: null,
     });
+    // 자동 생성된 닉네임이 비어있지 않고 8자 이내인지 확인.
+    expect(typeof body.profile?.nickname).toBe("string");
+    expect(
+      [...((body.profile?.nickname as string | undefined) ?? "")].length,
+    ).toBeGreaterThan(0);
+    expect(
+      [...((body.profile?.nickname as string | undefined) ?? "")].length,
+    ).toBeLessThanOrEqual(8);
   });
 
   it("uid 'kakao:' prefix면 sign_in_provider가 custom이어도 provider=kakao로 저장", async () => {

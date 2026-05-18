@@ -56,20 +56,23 @@ describe("mysql-user-profile-repository", () => {
     expect(new Date(updated.updatedAt).toString()).not.toBe("Invalid Date");
   });
 
-  it("ensure는 없을 때 기본값으로 생성하고 있을 때 provider만 동기화한다", async () => {
+  it("ensure는 없을 때 자동 닉네임으로 생성하고 있을 때 provider만 동기화한다", async () => {
     const userId = "profile-ensure-user";
 
     const created = await ensureUserProfile(userId, "kakao");
     expect(created).toMatchObject({
       userId,
       provider: "kakao",
-      nickname: null,
       preferredRegion: null,
       preferredSports: [],
       reservationNotificationsEnabled: true,
     });
+    // 자동 생성된 닉네임: 비어있지 않은 문자열 + 8자 이내.
+    expect(typeof created.nickname).toBe("string");
+    expect((created.nickname ?? "").length).toBeGreaterThan(0);
+    expect([...(created.nickname ?? "")].length).toBeLessThanOrEqual(8);
 
-    // 닉네임을 사용자가 따로 채워둔 상황을 시뮬레이트.
+    // 사용자가 닉네임을 변경한 상황 시뮬레이트.
     await prisma.userProfile.update({
       where: { userId },
       data: { nickname: "직접입력" },
