@@ -103,11 +103,10 @@ function parseGymDocument(
   };
 }
 
-function sortGymsByDistance(gyms: Gym[]) {
-  return gyms.toSorted(
-    (left, right) =>
-      left.distanceKm - right.distanceKm || left.name.localeCompare(right.name),
-  );
+// 거리순 정렬은 사용자 현재 위치 기반이라 서버에서 수행하지 않는다.
+// 기본 정렬은 이름순.
+function sortGymsByName(gyms: Gym[]) {
+  return gyms.toSorted((left, right) => left.name.localeCompare(right.name));
 }
 
 export const firebaseGymRepository: GymRepository = {
@@ -116,7 +115,7 @@ export const firebaseGymRepository: GymRepository = {
     const gymsSnapshot = await getDocs(collection(db, GYMS_COLLECTION));
     const gyms = gymsSnapshot.docs.map(parseGymDocument);
 
-    return sortGymsByDistance(gyms);
+    return sortGymsByName(gyms);
   },
   async findById(gymId) {
     const db = getFirebaseGymDb();

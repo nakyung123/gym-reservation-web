@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GymCard } from "@/components/gym-card";
+import { HomeLocationPrompt } from "@/components/home-location-prompt";
 import {
   formatGymPrice,
   getAvailableRegions,
@@ -16,9 +17,6 @@ export default async function Home() {
     gyms.length > 0
       ? Math.min(...gyms.map((gym) => getGymLowestPrice(gym)))
       : null;
-  const nearestGym =
-    gyms.toSorted((left, right) => left.distanceKm - right.distanceKm)[0] ??
-    null;
   const recommendedGyms = gyms.slice(0, 3);
   const flowSteps = [
     {
@@ -37,6 +35,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <HomeLocationPrompt />
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8 sm:px-8 lg:px-10">
         <div className="grid gap-6 border-b border-slate-200 pb-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="max-w-3xl">
@@ -128,9 +127,7 @@ export default async function Home() {
                 추천 체육관
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                {nearestGym
-                  ? `가장 가까운 체육관은 ${nearestGym.name}입니다. 상세 화면에서 날짜별 예약 가능 시간을 확인하세요.`
-                  : "상세 화면에서 날짜별 예약 가능 시간을 확인하세요."}
+                상세 화면에서 날짜별 예약 가능 시간을 확인하세요.
               </p>
             </div>
             <Link

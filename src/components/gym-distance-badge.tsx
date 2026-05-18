@@ -1,0 +1,21 @@
+"use client";
+
+import { calculateGymDistanceKm, formatDistanceKm } from "@/lib/distance";
+import { useUserLocation } from "@/hooks/use-user-location";
+
+// 체육관 상세 페이지에서 거리 표시 영역. 사용자 위치가 없으면 아무것도 렌더하지 않는다.
+// (요구사항: 위치 있을 때만 거리 표시.)
+
+export function GymDistanceBadge({ gymId }: { gymId: string }) {
+  const { location } = useUserLocation();
+  const km = calculateGymDistanceKm(gymId, location);
+  if (km === null) return null;
+  return (
+    <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
+      <p className="text-xs font-semibold text-sky-700">거리</p>
+      <p className="mt-1 text-lg font-bold text-sky-900">
+        {formatDistanceKm(km)}
+      </p>
+    </div>
+  );
+}

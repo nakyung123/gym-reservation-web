@@ -8,6 +8,7 @@ import {
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { FavoriteButton } from "@/components/favorite-button";
 import { ReserveCtaButton } from "@/components/reserve-cta-button";
+import { GymDistanceBadge } from "@/components/gym-distance-badge";
 
 type GymDetailPageProps = {
   params: Promise<{
@@ -68,12 +69,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
                 {formatGymPrice(lowestPrice)}부터
               </p>
             </div>
-            <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
-              <p className="text-xs font-semibold text-sky-700">거리</p>
-              <p className="mt-1 text-lg font-bold text-sky-900">
-                {gym.distanceKm}km
-              </p>
-            </div>
+            <GymDistanceBadge gymId={gym.id} />
             <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="text-xs font-semibold text-slate-500">종목</p>
               <p className="mt-1 text-lg font-bold text-slate-950">

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { formatGymPrice, getGymLowestPrice } from "@/lib/gym-utils";
+import { calculateGymDistanceKm, formatDistanceKm } from "@/lib/distance";
+import { useUserLocation } from "@/hooks/use-user-location";
 import type { Gym } from "@/types/domain";
 
 type GymCardProps = {
@@ -16,6 +18,8 @@ export function GymCard({
   onToggleFavorite,
 }: GymCardProps) {
   const lowestPrice = getGymLowestPrice(gym);
+  const { location } = useUserLocation();
+  const distanceKm = calculateGymDistanceKm(gym.id, location);
 
   return (
     <article className="flex flex-col justify-between overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -65,13 +69,19 @@ export function GymCard({
           <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
             {gym.description}
           </p>
-          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-xs font-semibold text-slate-500">거리</dt>
-              <dd className="mt-1 font-semibold text-slate-800">
-                {gym.distanceKm}km
-              </dd>
-            </div>
+          <dl
+            className={`mt-4 grid gap-3 text-sm ${
+              distanceKm !== null ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {distanceKm !== null ? (
+              <div>
+                <dt className="text-xs font-semibold text-slate-500">거리</dt>
+                <dd className="mt-1 font-semibold text-slate-800">
+                  {formatDistanceKm(distanceKm)}
+                </dd>
+              </div>
+            ) : null}
             <div>
               <dt className="text-xs font-semibold text-slate-500">운영시간</dt>
               <dd className="mt-1 font-semibold text-slate-800">

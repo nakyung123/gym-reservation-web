@@ -56,6 +56,10 @@ function parsePositiveInteger(
   return { ok: true, input: value };
 }
 
+// 주의: 현재 `distanceKm`은 사용자 표시 거리 계산에 더 이상 사용되지 않는다.
+// 거리 표시/정렬은 `src/lib/distance.ts`가 사용자 현재 위치 + `src/data/gym-coordinates.json`
+// 좌표로 실시간 계산한다. 이 필드는 DB 스키마/admin form 호환을 위해 유지되며,
+// 새 체육관을 추가할 때 좌표도 별도로 `src/data/gym-coordinates.json`에 추가해야 한다.
 function parseDistance(value: unknown): ValidationResult<number> {
   if (
     typeof value !== "number" ||

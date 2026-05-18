@@ -1,14 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GymCard } from "@/components/gym-card";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useUserLocation } from "@/hooks/use-user-location";
+import { calculateGymDistanceKm } from "@/lib/distance";
 import {
   getAvailableRegions,
   getAvailableSports,
   getGymLowestPrice,
   getGymSearchText,
 } from "@/lib/gym-utils";
+import type { GeoPoint } from "@/lib/distance";
 import type { Gym, Sport } from "@/types/domain";
 
 type GymDiscoveryProps = {
@@ -25,24 +28,33 @@ const gymSortLabels: Record<GymSort, string> = {
   name: "이름순",
 };
 
-function sortGyms(gyms: Gym[], sort: GymSort) {
+// 사용자 위치 ↔ 체육관 거리. 좌표 없거나 위치 없으면 Infinity (정렬 시 뒤로 밀려남).
+function distanceForSort(gymId: string, location: GeoPoint | null): number {
+  const km = calculateGymDistanceKm(gymId, location);
+  return km ?? Number.POSITIVE_INFINITY;
+}
+
+function sortGyms(gyms: Gym[], sort: GymSort, location: GeoPoint | null) {
   return [...gyms].sort((left, right) => {
     if (sort === "lowest-price") {
       return (
         getGymLowestPrice(left) - getGymLowestPrice(right) ||
-        left.distanceKm - right.distanceKm ||
         left.name.localeCompare(right.name)
       );
     }
 
     if (sort === "name") {
-      return (
-        left.name.localeCompare(right.name) || left.distanceKm - right.distanceKm
-      );
+      return left.name.localeCompare(right.name);
     }
 
+    // distance: 위치가 없으면 거리 정렬은 의미가 없으므로 이름순으로 폴백한다 (UI에서
+    // 위치 권한이 없으면 거리순 클릭 시 모달을 띄워 정렬 자체가 적용되지 않게 한다).
+    if (!location) {
+      return left.name.localeCompare(right.name);
+    }
     return (
-      left.distanceKm - right.distanceKm || left.name.localeCompare(right.name)
+      distanceForSort(left.id, location) - distanceForSort(right.id, location) ||
+      left.name.localeCompare(right.name)
     );
   });
 }
@@ -51,9 +63,23 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
   const [query, setQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
   const [selectedSport, setSelectedSport] = useState<SportFilter>("전체");
-  const [selectedSort, setSelectedSort] = useState<GymSort>("distance");
+  // 사용자 위치가 없으면 거리순이 작동하지 않으므로 기본 정렬을 이름순으로 둔다.
+  const [selectedSort, setSelectedSort] = useState<GymSort>("name");
+  // 거리순을 클릭했으나 위치가 없어 모달을 띄운 경우 의도를 기억해 둔다.
+  // location이 채워지면 자동으로 selectedSort를 distance로 전환한다 (사용자 재클릭 불필요).
+  const [pendingSort, setPendingSort] = useState<GymSort | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const { favorites, toggleFavorite, isFavorite, toggleError, loadError } = useFavorites();
+  const { location, openPromptModal } = useUserLocation();
+
+  // location이 채워지고 pendingSort가 있으면 정렬 적용 후 pending 해제.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!location || !pendingSort) return;
+    setSelectedSort(pendingSort);
+    setPendingSort(null);
+  }, [location, pendingSort]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const availableRegions = useMemo(() => getAvailableRegions(gyms), [gyms]);
   const availableSports = useMemo(() => getAvailableSports(gyms), [gyms]);
@@ -77,8 +103,8 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       return matchesQuery && matchesRegion && matchesSport && matchesFavorites;
     });
 
-    return sortGyms(matches, selectedSort);
-  }, [gyms, query, selectedRegion, selectedSort, selectedSport, favoritesOnly, favorites]);
+    return sortGyms(matches, selectedSort, location);
+  }, [gyms, query, selectedRegion, selectedSort, selectedSport, favoritesOnly, favorites, location]);
 
   const hasActiveFilter =
     query.trim().length > 0 ||
@@ -194,7 +220,17 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 <button
                   key={sort}
                   type="button"
-                  onClick={() => setSelectedSort(sort)}
+                  onClick={() => {
+                    // 거리순은 위치 권한이 필요하다. 권한이 없으면 정렬을 적용하지 않고
+                    // 권한 안내 모달을 띄우되 의도를 pendingSort로 보존한다 → 사용자가
+                    // 허용을 마치면 useEffect가 자동으로 거리순으로 전환한다.
+                    if (sort === "distance" && !location) {
+                      setPendingSort("distance");
+                      openPromptModal();
+                      return;
+                    }
+                    setSelectedSort(sort);
+                  }}
                   aria-pressed={isActive}
                   className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
                     isActive
