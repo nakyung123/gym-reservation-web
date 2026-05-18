@@ -25,6 +25,10 @@ import {
   type FetchUserProfileResult,
   type SaveUserProfileResult,
 } from "@/lib/user-profile-client";
+import {
+  fileToResizedDataUrl,
+  updateProfilePhoto,
+} from "@/lib/profile-photo-client";
 import type { UserProfile } from "@/lib/user-profile";
 import {
   fetchUserSummary,
@@ -60,13 +64,27 @@ type ProfileFormState = {
 type ProfileState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; form: ProfileFormState }
+  | {
+      status: "ready";
+      form: ProfileFormState;
+      // 마지막으로 서버에 저장된 닉네임. 헤더/요약 영역 표시는 이 값을 기준으로 하고,
+      // 입력 중인 form.nickname은 저장 전까지 헤더에 반영되지 않는다.
+      persistedNickname: string | null;
+      // 마지막으로 서버에 저장된 프로필 사진(data URL). 사진은 업로드/삭제 즉시 반영되며
+      // 폼 저장 흐름과 분리된다.
+      persistedPhotoBase64: string | null;
+    }
   | {
       status: "error";
       kind: Exclude<FetchUserProfileResult, { ok: true }>["kind"];
       message: string;
       responseStatus?: number;
     };
+
+type PhotoSaveState =
+  | { status: "idle" }
+  | { status: "uploading" }
+  | { status: "error"; message: string };
 
 type SaveState =
   | { status: "idle" }
@@ -159,9 +177,23 @@ function getAccountName(user: User): string {
   return user.isAnonymous ? "임시 계정 사용자" : "이름 없음";
 }
 
-function getInitial(user: User): string {
-  const source = getAccountName(user) || user.email || user.uid;
-  return source.trim().charAt(0).toUpperCase() || "U";
+// 사진 미설정 시 표시할 기본 silhouette 아이콘 (heroicons user solid 인라인 SVG).
+function UserSilhouetteIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className="size-10 text-slate-400"
+    >
+      <path
+        fillRule="evenodd"
+        d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
 }
 
 function getProfileImageStyle(
@@ -389,6 +421,10 @@ export function MypageView() {
     status: "idle",
   });
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
+  const [photoSaveState, setPhotoSaveState] = useState<PhotoSaveState>({
+    status: "idle",
+  });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
@@ -523,6 +559,8 @@ export function MypageView() {
           setProfileState({
             status: "ready",
             form: profileToForm(result.profile),
+            persistedNickname: result.profile?.nickname ?? null,
+            persistedPhotoBase64: result.profile?.photoBase64 ?? null,
           });
           return;
         }
@@ -555,13 +593,23 @@ export function MypageView() {
     }
 
     const { user } = authState;
-    // UserProfile.nickname(SSOT)을 표시명으로 우선 사용한다. 없으면 Firebase displayName으로
-    // 폴백. saveUserProfile 직후 profileState가 갱신되면 즉시 반영된다.
+    // 헤더/요약은 마지막으로 저장된 닉네임(persistedNickname)만 본다. 입력 중인 form.nickname은
+    // 사용자가 저장을 누르기 전에는 반영되지 않는다. 저장이 끝나 persistedNickname이 갱신되면
+    // 그때 화면에 반영된다. 없으면 Firebase displayName으로 폴백.
     const profileNickname =
       profileState.status === "ready"
-        ? profileState.form.nickname.trim() || null
+        ? (profileState.persistedNickname?.trim() || null)
         : null;
     const displayName = profileNickname ?? getAccountName(user);
+    const isPasswordProvider = user.providerData.some(
+      (p) => p.providerId === "password",
+    );
+    // 프로필 사진은 사용자가 직접 업로드한 photoBase64만 사용한다.
+    // Firebase user.photoURL(소셜 자동 동기화)는 무시한다 — 일관성 + 동기화 제거 정책.
+    const photoUrl =
+      profileState.status === "ready"
+        ? profileState.persistedPhotoBase64
+        : null;
     return {
       displayName,
       email: user.email ?? "등록된 이메일 없음",
@@ -570,12 +618,10 @@ export function MypageView() {
       showVerificationBanner:
         Boolean(user.email) &&
         user.emailVerified === false &&
-        user.providerData.some((p) => p.providerId === "password"),
-      initial: profileNickname
-        ? profileNickname.slice(0, 1).toUpperCase()
-        : getInitial(user),
-      photoURL: user.photoURL,
+        isPasswordProvider,
+      photoURL: photoUrl,
       uid: user.uid,
+      isPasswordProvider,
     };
   }, [authState, profileState]);
 
@@ -584,7 +630,14 @@ export function MypageView() {
       if (prev.status !== "ready") {
         return prev;
       }
-      return { status: "ready", form: updater(prev.form) };
+      // 입력 중에는 form만 갱신하고 persistedNickname/persistedPhotoBase64는 유지
+      // (저장 전 헤더 반영 방지, 사진은 별도 흐름).
+      return {
+        status: "ready",
+        form: updater(prev.form),
+        persistedNickname: prev.persistedNickname,
+        persistedPhotoBase64: prev.persistedPhotoBase64,
+      };
     });
     setSaveState((prev) =>
       prev.status === "idle" ? prev : { status: "idle" },
@@ -659,6 +712,9 @@ export function MypageView() {
         setProfileState({
           status: "ready",
           form: profileToForm(result.profile),
+          // 저장 성공 시점에 persistedNickname 갱신 → 헤더/요약이 이때 새 닉네임으로 반영된다.
+          persistedNickname: result.profile?.nickname ?? null,
+          persistedPhotoBase64: result.profile?.photoBase64 ?? null,
         });
         setSaveState({ status: "success", message: result.message });
         return;
@@ -692,6 +748,66 @@ export function MypageView() {
         saveAbortControllerRef.current = null;
       }
     }
+  };
+
+  // 사진 변경 버튼 클릭 → 숨겨진 file input 트리거.
+  const handlePhotoButtonClick = () => {
+    if (photoSaveState.status === "uploading") return;
+    fileInputRef.current?.click();
+  };
+
+  // 파일 선택 후 → 검증 + 리사이즈 → updateProfilePhoto → persistedPhotoBase64 갱신.
+  const handlePhotoFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    // 같은 파일을 다시 선택해도 onChange가 발생하도록 즉시 input value 초기화.
+    event.target.value = "";
+    if (!file) return;
+
+    setPhotoSaveState({ status: "uploading" });
+    const converted = await fileToResizedDataUrl(file);
+    if (!converted.ok) {
+      setPhotoSaveState({ status: "error", message: converted.message });
+      return;
+    }
+
+    const result = await updateProfilePhoto(converted.dataUrl);
+    if (!result.ok) {
+      setPhotoSaveState({ status: "error", message: result.message });
+      return;
+    }
+    setProfileState((prev) => {
+      if (prev.status !== "ready") return prev;
+      return {
+        status: "ready",
+        form: prev.form,
+        persistedNickname: prev.persistedNickname,
+        persistedPhotoBase64: result.profile.photoBase64,
+      };
+    });
+    setPhotoSaveState({ status: "idle" });
+  };
+
+  // 기본 이미지로 변경: photoBase64를 null로.
+  const handleResetPhoto = async () => {
+    if (photoSaveState.status === "uploading") return;
+    setPhotoSaveState({ status: "uploading" });
+    const result = await updateProfilePhoto(null);
+    if (!result.ok) {
+      setPhotoSaveState({ status: "error", message: result.message });
+      return;
+    }
+    setProfileState((prev) => {
+      if (prev.status !== "ready") return prev;
+      return {
+        status: "ready",
+        form: prev.form,
+        persistedNickname: prev.persistedNickname,
+        persistedPhotoBase64: result.profile.photoBase64,
+      };
+    });
+    setPhotoSaveState({ status: "idle" });
   };
 
   const handleResendVerification = async () => {
@@ -755,14 +871,46 @@ export function MypageView() {
         <p className="text-sm font-semibold text-sky-700">내 정보</p>
         <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <span
-              className="flex size-16 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 bg-cover bg-center text-xl font-bold text-slate-700"
-              style={profileImageStyle}
-              role="img"
-              aria-label={`${account.displayName} 프로필 이미지`}
-            >
-              {account.photoURL ? null : account.initial}
-            </span>
+            <div className="flex flex-col items-center gap-2">
+              <span
+                className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 bg-cover bg-center"
+                style={profileImageStyle}
+                role="img"
+                aria-label={`${account.displayName} 프로필 이미지`}
+              >
+                {account.photoURL ? null : <UserSilhouetteIcon />}
+              </span>
+              <div className="flex flex-col items-center gap-1">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={handlePhotoFileChange}
+                  className="hidden"
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  onClick={handlePhotoButtonClick}
+                  disabled={photoSaveState.status === "uploading"}
+                  className="text-xs text-sky-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
+                >
+                  {photoSaveState.status === "uploading"
+                    ? "변경 중..."
+                    : "사진 변경"}
+                </button>
+                {account.photoURL ? (
+                  <button
+                    type="button"
+                    onClick={handleResetPhoto}
+                    disabled={photoSaveState.status === "uploading"}
+                    className="text-xs text-slate-500 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-300"
+                  >
+                    기본 이미지로
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <div className="min-w-0">
               <h1 className="break-words text-3xl font-bold text-slate-950">
                 {account.displayName}
@@ -775,10 +923,26 @@ export function MypageView() {
                   UID {formatUserId(account.uid)}
                 </span>
               </div>
+              {photoSaveState.status === "error" ? (
+                <p
+                  className="mt-2 text-xs font-semibold text-rose-700"
+                  role="alert"
+                >
+                  {photoSaveState.message}
+                </p>
+              ) : null}
             </div>
           </div>
 
           <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+            {account.isPasswordProvider ? (
+              <Link
+                href="/mypage/password"
+                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                비밀번호 변경
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={handleSignOut}
@@ -920,6 +1084,15 @@ function ProfileSettingsSection({
           onSubmit={onSubmit}
         />
       ) : null}
+
+      <div className="flex justify-end pt-2">
+        <Link
+          href="/mypage/withdraw"
+          className="text-xs text-slate-400 underline-offset-2 hover:text-rose-700 hover:underline"
+        >
+          회원 탈퇴
+        </Link>
+      </div>
     </section>
   );
 }
@@ -995,8 +1168,8 @@ function ProfileSettingsForm({
           type="text"
           value={form.nickname}
           onChange={(event) => onNicknameChange(event.target.value)}
-          maxLength={30}
-          placeholder="예: 낙성대 농구왕"
+          maxLength={8}
+          placeholder="예: 농구왕"
           disabled={isSaving}
           aria-invalid={nicknameIsTaken || undefined}
           className={`h-11 rounded-md border bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
@@ -1016,7 +1189,7 @@ function ProfileSettingsForm({
         ) : nicknameStatus === "checking" ? (
           <p className="text-xs text-slate-500">확인 중...</p>
         ) : (
-          <p className="text-xs text-slate-500">최대 30자까지 입력할 수 있습니다.</p>
+          <p className="text-xs text-slate-500">최대 8자까지 입력할 수 있습니다.</p>
         )}
       </div>
 
