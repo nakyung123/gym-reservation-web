@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET } from "@/app/api/reservations/[reservationId]/route";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -42,7 +42,7 @@ describe("GET /api/reservations/[reservationId]", () => {
 
   it("로그인한 사용자는 본인 예약 단건을 조회한다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "detail-user-a" });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "detail-user-a",
       draft: {
         gymId: TEST_GYM.id,
@@ -91,7 +91,7 @@ describe("GET /api/reservations/[reservationId]", () => {
 
   it("비활성 시설의 지난 예약도 체육관 정보를 함께 반환한다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "inactive-gym-detail-user" });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "inactive-gym-detail-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -158,7 +158,7 @@ describe("GET /api/reservations/[reservationId]", () => {
 
   it("다른 사용자의 예약은 404로 응답한다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "detail-user-b" });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "detail-user-a",
       draft: {
         gymId: TEST_GYM.id,
@@ -211,7 +211,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
   it("본인 예약을 취소하고 같은 요청을 반복하면 unchanged로 응답한다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "cancel-route-user-a" });
     const date = futureDate();
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "cancel-route-user-a",
       draft: {
         gymId: TEST_GYM.id,
@@ -289,7 +289,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
 
   it("다른 사용자의 예약은 403으로 응답하고 변경하지 않는다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "cancel-route-user-b" });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "cancel-route-user-a",
       draft: {
         gymId: TEST_GYM.id,
@@ -319,7 +319,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
 
   it("이미 이용 완료된 예약은 409로 응답하고 변경하지 않는다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "used-cancel-route-user" });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "used-cancel-route-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -371,7 +371,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
   it("ID 토큰 검증에 실패하면 401을 반환하고 예약을 취소하지 않는다", async () => {
     verifyIdToken.mockRejectedValue(new Error("expired token"));
     const date = futureDate();
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "cancel-auth-failed-user",
       draft: {
         gymId: TEST_GYM.id,

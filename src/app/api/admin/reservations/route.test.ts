@@ -2,10 +2,10 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/admin/reservations/route";
 import {
-  cancelReservationAsAdminInMysql,
-  createReservationInMysql,
-  markReservationUsedInMysql,
-} from "@/lib/server/mysql-reservation-repository";
+  cancelReservationAsAdminInDb,
+  createReservationInDb,
+  markReservationUsedInDb,
+} from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -31,7 +31,7 @@ async function createReservation({
   date: string;
   time: string;
 }) {
-  const created = await createReservationInMysql({
+  const created = await createReservationInDb({
     userId,
     draft: {
       gymId: TEST_GYM.id,
@@ -72,7 +72,7 @@ describe("GET /api/admin/reservations", () => {
       date: futureDate(8),
       time: "10:00",
     });
-    await markReservationUsedInMysql(used.id);
+    await markReservationUsedInDb(used.id);
 
     const response = await GET(
       requestFor({
@@ -194,7 +194,7 @@ describe("GET /api/admin/reservations", () => {
       date,
       time: "10:00",
     });
-    await cancelReservationAsAdminInMysql(cancelled.id);
+    await cancelReservationAsAdminInDb(cancelled.id);
 
     const response = await GET(requestFor({ status: "cancelled" }));
     const body = (await response.json()) as {

@@ -13,7 +13,7 @@
 - Postgres + Prisma (`prisma-client.ts`) — 운영은 Supabase Postgres, 로컬은 Docker Postgres
 - Firebase Admin SDK (`firebase-admin.ts`)
 - 서버 인증: `auth.ts`, `admin-auth.ts`
-- repository 구현: `mysql-*-repository.ts` (historical name — 현재는 Postgres-backed DB repository. 파일명 rename은 후속 리팩터링 항목)
+- repository 구현: `db-*-repository.ts` (Prisma 기반 Postgres 접근 경계)
 
 새 서버 전용 모듈을 추가할 때는 파일 상단에 `import "server-only"`를 명시한다.
 
@@ -34,8 +34,8 @@
 ### Repository
 
 - `src/lib/*-repository-provider.ts`는 화면/클라이언트 계층의 저장소 선택 SSOT다. 같은 선택 로직을 다른 곳에 중복 구현하지 않는다.
-- `mysql-*-repository.ts`(historical name)는 Route Handler, 서버 전용 모듈, 테스트에서 사용하는 Postgres DB 접근 경계다.
-- Route Handler는 필요한 서버 DB 작업을 위해 `mysql-*-repository.ts` 함수를 직접 import할 수 있다.
+- `db-*-repository.ts`는 Route Handler, 서버 전용 모듈, 테스트에서 사용하는 Postgres DB 접근 경계다.
+- Route Handler는 필요한 서버 DB 작업을 위해 `db-*-repository.ts` 함수를 직접 import할 수 있다.
 - Client Component, client helper, 브라우저 번들에 포함될 수 있는 파일은 `src/lib/server/*`를 import하지 않는다.
 - 새 repository가 단일 서버 구현만 갖는다면 provider를 만들 필요는 없다. 여러 구현 선택이 필요해지는 시점에 인터페이스와 provider를 함께 추가한다.
 - repository 메서드는 idempotency를 고려해 설계한다. 반복 호출 시 데이터 정합성을 깨뜨리지 않고, 부수효과는 명시적으로 표현한다.
@@ -55,7 +55,7 @@
 
 ### Atomicity
 
-- 예약 생성·취소·이용 완료 흐름은 `mysql-reservation-repository.ts`의 서버 mutation 함수가 트랜잭션을 보장한다.
+- 예약 생성·취소·이용 완료 흐름은 `db-reservation-repository.ts`의 서버 mutation 함수가 트랜잭션을 보장한다.
 - 기존 트랜잭션 경계를 임의로 쪼개지 않는다.
 - 슬롯 카운터·예약 본체·예약 락의 정합성을 깨뜨리는 부분 갱신을 도입하지 않는다.
 

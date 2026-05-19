@@ -7,7 +7,7 @@ import { serverErrorResponse } from "@/lib/server/api-error-response";
 import {
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
   updateReservationSlotPolicies,
-} from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-reservation-repository";
 
 export const dynamic = "force-dynamic";
 

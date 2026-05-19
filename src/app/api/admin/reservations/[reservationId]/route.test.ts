@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, PATCH } from "@/app/api/admin/reservations/[reservationId]/route";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -68,7 +68,7 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
   });
 
   it("관리자 토큰이 있으면 예약 단건을 조회한다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-detail-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -165,7 +165,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("관리자 토큰이 있으면 예약을 이용 완료 처리한다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -203,7 +203,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("지원하지 않는 상태 변경 요청은 400을 반환하고 변경하지 않는다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-invalid-status-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -234,7 +234,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("관리자 토큰이 없으면 예약 상태를 변경하지 않는다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-auth-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -267,7 +267,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("wrong admin token returns 403 and keeps the reservation unchanged", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-wrong-token-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -299,7 +299,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
 
   it("returns 503 and keeps the reservation unchanged when the admin token is not configured", async () => {
     delete process.env.ADMIN_API_TOKEN;
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-missing-config-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -330,7 +330,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("malformed JSON returns 400 and keeps the reservation unchanged", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-json-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -372,7 +372,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("using an already used reservation is idempotent", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-used-repeat-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -406,7 +406,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("cancelling an already cancelled reservation is idempotent", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-cancel-repeat-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -440,7 +440,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("using a cancelled reservation returns 409 and keeps it cancelled", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-cancelled-to-used-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -475,7 +475,7 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("cancelling a used reservation returns 409 and keeps it used", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-patch-used-to-cancel-user",
       draft: {
         gymId: TEST_GYM.id,

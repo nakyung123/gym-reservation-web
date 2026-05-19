@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/me/route";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -27,7 +27,7 @@ describe("GET /api/me", () => {
   it("로그인 사용자 uid와 내 정보 요약을 반환한다", async () => {
     const userId = "me-route-user";
     verifyIdToken.mockResolvedValue({ uid: userId });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,

@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-  cancelReservationAsAdminInMysql,
-  cancelReservationInMysql,
-  createReservationInMysql,
+  cancelReservationAsAdminInDb,
+  cancelReservationInDb,
+  createReservationInDb,
   getAdminReservationOverview,
   getAdminReservationById,
   getUserReservationDetailById,
   getUserReservationById,
   listAdminReservations,
   listReservationSlotAvailabilities,
-  markReservationUsedInMysql,
+  markReservationUsedInDb,
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
   updateReservationSlotPolicies,
   updateReservationSlotPolicy,
-} from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -54,9 +54,9 @@ function dateTimeFor(date: string, time: string) {
   return new Date(year, month - 1, day, hour, minute, 0, 0);
 }
 
-describe("createReservationInMysql", () => {
+describe("createReservationInDb", () => {
   it("정상 생성: reservation 1건과 lock 1건이 같은 activeKey로 INSERT된다", async () => {
-    const result = await createReservationInMysql({
+    const result = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -83,14 +83,14 @@ describe("createReservationInMysql", () => {
   it("같은 사용자가 같은 슬롯을 두 번 예약하면 두 번째는 duplicate로 차단된다", async () => {
     const draft = draftFor("11:00");
 
-    const first = await createReservationInMysql({
+    const first = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
     });
     expect(first.ok).toBe(true);
 
-    const second = await createReservationInMysql({
+    const second = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -116,7 +116,7 @@ describe("createReservationInMysql", () => {
       },
     });
 
-    const result = await createReservationInMysql({
+    const result = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -150,7 +150,7 @@ describe("createReservationInMysql", () => {
     });
     expect(updated.ok).toBe(true);
 
-    const result = await createReservationInMysql({
+    const result = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -173,7 +173,7 @@ describe("createReservationInMysql", () => {
       date: futureDateForWeekday(closedWeekday),
     };
 
-    const result = await createReservationInMysql({
+    const result = await createReservationInDb({
       userId: userA,
       draft,
       gym: {
@@ -195,8 +195,8 @@ describe("createReservationInMysql", () => {
     const draft = draftFor("12:00");
 
     const [r1, r2] = await Promise.all([
-      createReservationInMysql({ userId: userA, draft, gym: TEST_GYM }),
-      createReservationInMysql({ userId: userA, draft, gym: TEST_GYM }),
+      createReservationInDb({ userId: userA, draft, gym: TEST_GYM }),
+      createReservationInDb({ userId: userA, draft, gym: TEST_GYM }),
     ]);
 
     const okCount = [r1, r2].filter((r) => r.ok).length;
@@ -214,12 +214,12 @@ describe("createReservationInMysql", () => {
   it("다른 사용자가 같은 슬롯을 예약하는 것은 막지 않는다 (activeKey가 userId 포함)", async () => {
     const draft = draftFor("14:00");
 
-    const aResult = await createReservationInMysql({
+    const aResult = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
     });
-    const bResult = await createReservationInMysql({
+    const bResult = await createReservationInDb({
       userId: userB,
       draft,
       gym: TEST_GYM,
@@ -244,8 +244,8 @@ describe("createReservationInMysql", () => {
     });
 
     const [aResult, bResult] = await Promise.all([
-      createReservationInMysql({ userId: userA, draft, gym: TEST_GYM }),
-      createReservationInMysql({ userId: userB, draft, gym: TEST_GYM }),
+      createReservationInDb({ userId: userA, draft, gym: TEST_GYM }),
+      createReservationInDb({ userId: userB, draft, gym: TEST_GYM }),
     ]);
 
     const okCount = [aResult, bResult].filter((result) => result.ok).length;
@@ -273,7 +273,7 @@ describe("createReservationInMysql", () => {
 
   it("슬롯 조회는 저장된 카운터와 기본 정원을 함께 반환한다", async () => {
     const draft = draftFor("10:00");
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -308,7 +308,7 @@ describe("createReservationInMysql", () => {
 
 describe("getUserReservationById", () => {
   it("사용자는 본인 예약을 ID로 조회할 수 있다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -325,7 +325,7 @@ describe("getUserReservationById", () => {
   });
 
   it("다른 사용자의 예약은 조회하지 않는다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -344,7 +344,7 @@ describe("getUserReservationById", () => {
 
 describe("getUserReservationDetailById", () => {
   it("returns the reservation with gym metadata even when the gym is inactive", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -379,7 +379,7 @@ describe("getUserReservationDetailById", () => {
   });
 
   it("does not return another user's reservation detail", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("11:00"),
       gym: TEST_GYM,
@@ -432,12 +432,12 @@ describe("updateReservationSlotPolicy", () => {
 
   it("이미 예약된 인원보다 낮은 정원으로 줄이는 것은 거부한다", async () => {
     const draft = draftFor("11:00");
-    const first = await createReservationInMysql({
+    const first = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
     });
-    const second = await createReservationInMysql({
+    const second = await createReservationInDb({
       userId: userB,
       draft,
       gym: TEST_GYM,
@@ -614,12 +614,12 @@ describe("updateReservationSlotPolicies", () => {
       date,
       time: "10:00",
     };
-    const first = await createReservationInMysql({
+    const first = await createReservationInDb({
       userId: userA,
       draft: reservedDraft,
       gym: TEST_GYM,
     });
-    const second = await createReservationInMysql({
+    const second = await createReservationInDb({
       userId: userB,
       draft: reservedDraft,
       gym: TEST_GYM,
@@ -776,9 +776,9 @@ describe("updateReservationSlotPolicies", () => {
   });
 });
 
-describe("cancelReservationInMysql", () => {
+describe("cancelReservationInDb", () => {
   it("취소하면 reservation.status가 cancelled가 되고 lock이 해제된다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -786,7 +786,7 @@ describe("cancelReservationInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const cancelled = await cancelReservationInMysql(
+    const cancelled = await cancelReservationInDb(
       userA,
       created.reservation.id,
     );
@@ -822,7 +822,7 @@ describe("cancelReservationInMysql", () => {
   it("취소된 슬롯은 같은 사용자가 다시 예약할 수 있다 (lock 해제 검증)", async () => {
     const draft = draftFor("11:00");
 
-    const first = await createReservationInMysql({
+    const first = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -830,9 +830,9 @@ describe("cancelReservationInMysql", () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
 
-    await cancelReservationInMysql(userA, first.reservation.id);
+    await cancelReservationInDb(userA, first.reservation.id);
 
-    const second = await createReservationInMysql({
+    const second = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -848,7 +848,7 @@ describe("cancelReservationInMysql", () => {
   });
 
   it("이미 취소된 예약을 다시 취소하면 unchanged로 멱등 처리된다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("12:00"),
       gym: TEST_GYM,
@@ -856,7 +856,7 @@ describe("cancelReservationInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const firstCancel = await cancelReservationInMysql(
+    const firstCancel = await cancelReservationInDb(
       userA,
       created.reservation.id,
     );
@@ -864,7 +864,7 @@ describe("cancelReservationInMysql", () => {
     if (!firstCancel.ok) return;
     expect(firstCancel.status).toBe("cancelled");
 
-    const secondCancel = await cancelReservationInMysql(
+    const secondCancel = await cancelReservationInDb(
       userA,
       created.reservation.id,
     );
@@ -882,7 +882,7 @@ describe("cancelReservationInMysql", () => {
 
   it("이용 시작 2시간 이내에는 사용자가 예약을 취소할 수 없다", async () => {
     const draft = draftFor("10:00");
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft,
       gym: TEST_GYM,
@@ -891,7 +891,7 @@ describe("cancelReservationInMysql", () => {
     if (!created.ok) return;
 
     const now = dateTimeFor(draft.date, "08:01");
-    const result = await cancelReservationInMysql(
+    const result = await cancelReservationInDb(
       userA,
       created.reservation.id,
       { now },
@@ -918,7 +918,7 @@ describe("cancelReservationInMysql", () => {
   });
 
   it("다른 사용자가 취소하면 auth-required로 거부된다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("14:00"),
       gym: TEST_GYM,
@@ -926,7 +926,7 @@ describe("cancelReservationInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const result = await cancelReservationInMysql(
+    const result = await cancelReservationInDb(
       userB,
       created.reservation.id,
     );
@@ -943,7 +943,7 @@ describe("cancelReservationInMysql", () => {
   });
 
   it("존재하지 않는 reservationId 취소는 not-found를 반환한다", async () => {
-    const result = await cancelReservationInMysql(userA, "non-existent-id");
+    const result = await cancelReservationInDb(userA, "non-existent-id");
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe("not-found");
@@ -955,12 +955,12 @@ describe("listAdminReservations", () => {
     const reservedDraft = draftFor("10:00");
     const cancelledDraft = draftFor("11:00");
 
-    const reserved = await createReservationInMysql({
+    const reserved = await createReservationInDb({
       userId: userA,
       draft: reservedDraft,
       gym: TEST_GYM,
     });
-    const cancelled = await createReservationInMysql({
+    const cancelled = await createReservationInDb({
       userId: userB,
       draft: cancelledDraft,
       gym: TEST_GYM,
@@ -969,7 +969,7 @@ describe("listAdminReservations", () => {
     expect(cancelled.ok).toBe(true);
     if (!cancelled.ok) return;
 
-    await cancelReservationInMysql(userB, cancelled.reservation.id);
+    await cancelReservationInDb(userB, cancelled.reservation.id);
 
     const all = await listAdminReservations();
     const onlyReserved = await listAdminReservations({ status: "reserved" });
@@ -984,7 +984,7 @@ describe("listAdminReservations", () => {
 
 describe("getAdminReservationById", () => {
   it("관리자는 예약 ID로 단건 예약을 조회할 수 있다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -1011,17 +1011,17 @@ describe("getAdminReservationOverview", () => {
     const cancelledDraft = { ...draftFor("11:00"), date };
     const usedDraft = { ...draftFor("12:00"), date };
 
-    const reserved = await createReservationInMysql({
+    const reserved = await createReservationInDb({
       userId: userA,
       draft: reservedDraft,
       gym: TEST_GYM,
     });
-    const cancelled = await createReservationInMysql({
+    const cancelled = await createReservationInDb({
       userId: userB,
       draft: cancelledDraft,
       gym: TEST_GYM,
     });
-    const used = await createReservationInMysql({
+    const used = await createReservationInDb({
       userId: "user-c",
       draft: usedDraft,
       gym: TEST_GYM,
@@ -1031,8 +1031,8 @@ describe("getAdminReservationOverview", () => {
     expect(used.ok).toBe(true);
     if (!cancelled.ok || !used.ok) return;
 
-    await cancelReservationAsAdminInMysql(cancelled.reservation.id);
-    await markReservationUsedInMysql(used.reservation.id);
+    await cancelReservationAsAdminInDb(cancelled.reservation.id);
+    await markReservationUsedInDb(used.reservation.id);
     await updateReservationSlotPolicy({
       gym: TEST_GYM,
       ...draftFor("14:00"),
@@ -1064,9 +1064,9 @@ describe("getAdminReservationOverview", () => {
   });
 });
 
-describe("cancelReservationAsAdminInMysql", () => {
+describe("cancelReservationAsAdminInDb", () => {
   it("관리자가 예약을 취소하면 lock이 해제되고 슬롯 카운터가 감소한다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -1074,7 +1074,7 @@ describe("cancelReservationAsAdminInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const cancelled = await cancelReservationAsAdminInMysql(
+    const cancelled = await cancelReservationAsAdminInDb(
       created.reservation.id,
     );
 
@@ -1098,7 +1098,7 @@ describe("cancelReservationAsAdminInMysql", () => {
   });
 
   it("이미 취소된 예약을 다시 취소하면 unchanged로 멱등 처리된다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("11:00"),
       gym: TEST_GYM,
@@ -1106,8 +1106,8 @@ describe("cancelReservationAsAdminInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    await cancelReservationAsAdminInMysql(created.reservation.id);
-    const second = await cancelReservationAsAdminInMysql(
+    await cancelReservationAsAdminInDb(created.reservation.id);
+    const second = await cancelReservationAsAdminInDb(
       created.reservation.id,
     );
 
@@ -1119,7 +1119,7 @@ describe("cancelReservationAsAdminInMysql", () => {
   });
 
   it("이용 완료된 예약은 관리자도 취소할 수 없다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("12:00"),
       gym: TEST_GYM,
@@ -1127,8 +1127,8 @@ describe("cancelReservationAsAdminInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    await markReservationUsedInMysql(created.reservation.id);
-    const result = await cancelReservationAsAdminInMysql(created.reservation.id);
+    await markReservationUsedInDb(created.reservation.id);
+    const result = await cancelReservationAsAdminInDb(created.reservation.id);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -1150,9 +1150,9 @@ describe("cancelReservationAsAdminInMysql", () => {
   });
 });
 
-describe("markReservationUsedInMysql", () => {
+describe("markReservationUsedInDb", () => {
   it("예약을 이용 완료 처리하면 status가 used가 되고 lock은 해제되지만 슬롯 카운터는 유지된다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("10:00"),
       gym: TEST_GYM,
@@ -1160,7 +1160,7 @@ describe("markReservationUsedInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const used = await markReservationUsedInMysql(created.reservation.id);
+    const used = await markReservationUsedInDb(created.reservation.id);
 
     expect(used.ok).toBe(true);
     if (!used.ok) return;
@@ -1182,7 +1182,7 @@ describe("markReservationUsedInMysql", () => {
   });
 
   it("이미 이용 완료된 예약을 다시 처리하면 unchanged로 멱등 처리된다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("11:00"),
       gym: TEST_GYM,
@@ -1190,8 +1190,8 @@ describe("markReservationUsedInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    const first = await markReservationUsedInMysql(created.reservation.id);
-    const second = await markReservationUsedInMysql(created.reservation.id);
+    const first = await markReservationUsedInDb(created.reservation.id);
+    const second = await markReservationUsedInDb(created.reservation.id);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
@@ -1201,7 +1201,7 @@ describe("markReservationUsedInMysql", () => {
   });
 
   it("취소된 예약은 이용 완료 처리할 수 없다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userA,
       draft: draftFor("12:00"),
       gym: TEST_GYM,
@@ -1209,8 +1209,8 @@ describe("markReservationUsedInMysql", () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
 
-    await cancelReservationInMysql(userA, created.reservation.id);
-    const result = await markReservationUsedInMysql(created.reservation.id);
+    await cancelReservationInDb(userA, created.reservation.id);
+    const result = await markReservationUsedInDb(created.reservation.id);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;

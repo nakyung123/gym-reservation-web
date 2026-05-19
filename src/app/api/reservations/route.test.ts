@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/reservations/route";
-import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -47,7 +47,7 @@ describe("GET /api/reservations", () => {
   it("로그인한 사용자의 예약만 반환한다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "route-user-a" });
     const date = futureDate();
-    const own = await createReservationInMysql({
+    const own = await createReservationInDb({
       userId: "route-user-a",
       draft: {
         gymId: TEST_GYM.id,
@@ -57,7 +57,7 @@ describe("GET /api/reservations", () => {
       },
       gym: TEST_GYM,
     });
-    const other = await createReservationInMysql({
+    const other = await createReservationInDb({
       userId: "route-user-b",
       draft: {
         gymId: TEST_GYM.id,
@@ -219,7 +219,7 @@ describe("POST /api/reservations", () => {
       "full-route-user-c",
       "full-route-user-d",
     ]) {
-      const created = await createReservationInMysql({
+      const created = await createReservationInDb({
         userId,
         draft,
         gym: TEST_GYM,

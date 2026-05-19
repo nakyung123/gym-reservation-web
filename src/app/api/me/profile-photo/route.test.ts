@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PUT } from "@/app/api/me/profile-photo/route";
-import { ensureUserProfile } from "@/lib/server/mysql-user-profile-repository";
+import { ensureUserProfile } from "@/lib/server/db-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
 
 const { verifyIdToken } = vi.hoisted(() => ({

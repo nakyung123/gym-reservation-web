@@ -1,9 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/server/prisma-client";
 import type { GymRepository } from "@/lib/gym-repository";
-import { toDomainGym } from "@/lib/server/mysql-gym-mapper";
+import { toDomainGym } from "@/lib/server/db-gym-mapper";
 
-export const mysqlGymRepository: GymRepository = {
+export const dbGymRepository: GymRepository = {
   async list() {
     // 거리순 정렬은 사용자 현재 위치를 알아야 하므로 클라이언트에서 수행한다 (gym-discovery).
     // 서버 측 기본 정렬은 이름순으로 둔다.

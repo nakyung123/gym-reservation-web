@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/reservation-slots/bulk/route";
 import {
-  createReservationInMysql,
+  createReservationInDb,
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
-} from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -339,12 +339,12 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
       date,
       time: "10:00",
     };
-    const first = await createReservationInMysql({
+    const first = await createReservationInDb({
       userId: "route-user-a",
       draft: reservedDraft,
       gym: TEST_GYM,
     });
-    const second = await createReservationInMysql({
+    const second = await createReservationInDb({
       userId: "route-user-b",
       draft: reservedDraft,
       gym: TEST_GYM,

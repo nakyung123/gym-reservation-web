@@ -20,7 +20,6 @@ async function upsertGym(gym) {
     openHours: gym.openHours,
     basePrice: gym.basePrice,
     description: gym.description,
-    distanceKm: gym.distanceKm,
     latitude: gym.latitude,
     longitude: gym.longitude,
     sportPrices: gym.sportPrices,

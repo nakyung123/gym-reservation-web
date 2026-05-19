@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
-import { listFavoriteGymIds } from "@/lib/server/mysql-favorite-repository";
+import { listFavoriteGymIds } from "@/lib/server/db-favorite-repository";
 
 export const dynamic = "force-dynamic";
 

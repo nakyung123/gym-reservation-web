@@ -33,7 +33,7 @@
 - 인증은 `src/lib/server/auth.ts` 또는 `src/lib/server/admin-auth.ts`를 사용한다. 새로운 인증 경로를 만들지 않는다.
 - 오류 응답은 `{ message: string }` 형태를 유지하고 status code는 의미에 맞게 사용한다(`400`/`401`/`403`/`404`/`409`/`500`).
 - 화면/클라이언트 계층의 저장소 선택은 기존 provider(`src/lib/*-repository-provider.ts`)를 따른다. 같은 선택 로직을 Route Handler 안에 다시 만들지 않는다.
-- Route Handler는 DB-backed API의 서버 구현 경계이므로 `src/lib/server/mysql-*-repository.ts` 함수를 직접 import할 수 있다.
+- Route Handler는 DB-backed API의 서버 구현 경계이므로 `src/lib/server/db-*-repository.ts` 함수를 직접 import할 수 있다.
 - Route Handler에서 클라이언트용 `api-*-repository.ts`, `firebase-*-repository.ts`, `local-storage-*-repository.ts`를 import하지 않는다.
 
 ## Caching / Revalidation

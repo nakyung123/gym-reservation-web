@@ -3,9 +3,9 @@ import { createUserReservationDetail } from "@/lib/reservation-detail";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
-  cancelReservationInMysql,
+  cancelReservationInDb,
   getUserReservationDetailById,
-} from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-reservation-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +49,9 @@ export async function DELETE(request: NextRequest, ctx: Context) {
   }
 
   const { reservationId } = await ctx.params;
-  let result: Awaited<ReturnType<typeof cancelReservationInMysql>>;
+  let result: Awaited<ReturnType<typeof cancelReservationInDb>>;
   try {
-    result = await cancelReservationInMysql(auth.uid, reservationId);
+    result = await cancelReservationInDb(auth.uid, reservationId);
   } catch (error) {
     return serverErrorResponse(
       "예약을 취소하지 못했습니다.",

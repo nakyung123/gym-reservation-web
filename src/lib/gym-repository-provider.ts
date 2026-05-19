@@ -1,5 +1,5 @@
 import { mockGymRepository, type GymRepository } from "@/lib/gym-repository";
-import { mysqlGymRepository } from "@/lib/mysql-gym-repository";
+import { dbGymRepository } from "@/lib/db-gym-repository";
 
 type GymDataBackend = "mock" | "db";
 
@@ -31,7 +31,7 @@ function selectGymRepository(): GymRepository {
   const backend = getGymDataBackend();
 
   if (backend === "db") {
-    return mysqlGymRepository;
+    return dbGymRepository;
   }
 
   return mockGymRepository;

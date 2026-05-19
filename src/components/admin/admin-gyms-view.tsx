@@ -38,7 +38,6 @@ type GymDraft = {
   openHours: string;
   basePrice: string;
   description: string;
-  distanceKm: string;
   latitude: string;
   longitude: string;
   sports: Sport[];
@@ -80,7 +79,6 @@ function createBlankDraft(): GymDraft {
     openHours: "09:00 - 18:00",
     basePrice: "5000",
     description: "",
-    distanceKm: "0",
     latitude: "",
     longitude: "",
     sports: ["배드민턴"],
@@ -102,7 +100,6 @@ function draftFromGym(gym: AdminGym): GymDraft {
     openHours: gym.openHours,
     basePrice: String(gym.basePrice),
     description: gym.description,
-    distanceKm: String(gym.distanceKm),
     latitude: String(gym.latitude),
     longitude: String(gym.longitude),
     sports: gym.sports,
@@ -161,11 +158,6 @@ function buildPayload(
     return { tone: "error", message: "기본 이용료는 정수로 입력해야 합니다." };
   }
 
-  const distanceKm = Number.parseFloat(draft.distanceKm);
-  if (!Number.isFinite(distanceKm) || distanceKm < 0) {
-    return { tone: "error", message: "거리는 0 이상의 숫자로 입력해야 합니다." };
-  }
-
   // 위/경도는 거리 계산 SSOT라 둘 다 필수. 빈 문자열도 누락으로 본다.
   const latitudeRaw = draft.latitude.trim();
   const longitudeRaw = draft.longitude.trim();
@@ -214,7 +206,6 @@ function buildPayload(
     openHours: draft.openHours.trim(),
     basePrice,
     description: draft.description.trim(),
-    distanceKm,
     latitude,
     longitude,
     sports: draft.sports,
@@ -741,19 +732,6 @@ export function AdminGymsView() {
                     value={draft.basePrice}
                     onChange={(event) =>
                       updateDraft({ basePrice: event.target.value })
-                    }
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-                  거리(km)
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.1}
-                    value={draft.distanceKm}
-                    onChange={(event) =>
-                      updateDraft({ distanceKm: event.target.value })
                     }
                     className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                   />

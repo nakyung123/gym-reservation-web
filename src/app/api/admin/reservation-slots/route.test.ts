@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/reservation-slots/route";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -286,12 +286,12 @@ describe("PATCH /api/admin/reservation-slots", () => {
       date,
       time: "10:00",
     };
-    const first = await createReservationInMysql({
+    const first = await createReservationInDb({
       userId: "slot-route-user-a",
       draft: reservedDraft,
       gym: TEST_GYM,
     });
-    const second = await createReservationInMysql({
+    const second = await createReservationInDb({
       userId: "slot-route-user-b",
       draft: reservedDraft,
       gym: TEST_GYM,

@@ -4,7 +4,7 @@ import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   addFavorite,
   removeFavorite,
-} from "@/lib/server/mysql-favorite-repository";
+} from "@/lib/server/db-favorite-repository";
 
 export const dynamic = "force-dynamic";
 

@@ -5,7 +5,7 @@ import {
   toAdminGym,
   toDomainGym,
   type GymRowWithSports,
-} from "@/lib/server/mysql-gym-mapper";
+} from "@/lib/server/db-gym-mapper";
 
 const firstSport = ADMIN_GYM_SPORTS[0];
 const secondSport = ADMIN_GYM_SPORTS[1];
@@ -22,7 +22,6 @@ function createRow(
     openHours: "09:00-18:00",
     basePrice: 10000,
     description: "Mapper test gym",
-    distanceKm: new Prisma.Decimal("1.25"),
     latitude: 37.5665,
     longitude: 126.978,
     sportPrices: {
@@ -54,7 +53,6 @@ describe("mysql gym mapper", () => {
       openHours: "09:00-18:00",
       basePrice: 10000,
       description: "Mapper test gym",
-      distanceKm: 1.25,
       latitude: 37.5665,
       longitude: 126.978,
       sportPrices: {

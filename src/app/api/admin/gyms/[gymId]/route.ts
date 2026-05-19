@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { validateAdminGymPayload } from "@/lib/admin/admin-gym-schema";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
-import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
+import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
 
 export const dynamic = "force-dynamic";
 

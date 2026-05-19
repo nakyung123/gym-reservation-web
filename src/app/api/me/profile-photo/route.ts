@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import { resolveAuthProvider } from "@/lib/server/auth-provider";
-import { updateUserProfilePhoto } from "@/lib/server/mysql-user-profile-repository";
+import { updateUserProfilePhoto } from "@/lib/server/db-user-profile-repository";
 import { validateProfilePhotoInput } from "@/lib/user-profile";
 
 export const dynamic = "force-dynamic";

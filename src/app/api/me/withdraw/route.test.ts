@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/me/withdraw/route";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
-import { ensureUserProfile } from "@/lib/server/mysql-user-profile-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import { ensureUserProfile } from "@/lib/server/db-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -96,7 +96,7 @@ describe("POST /api/me/withdraw", () => {
       uid: userId,
       firebase: { sign_in_provider: "password" },
     });
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/gyms/[gymId]/route";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import type { AdminGym } from "@/types/domain";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
@@ -170,7 +170,7 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
   });
 
   it("예약 완료 상태의 예약이 남아 있으면 비활성화를 거부한다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-gym-route-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -208,7 +208,7 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
 
   it("예약 완료 상태의 예약 종목 제거를 409로 거부한다", async () => {
     const reservedSport = TEST_GYM.sports[0];
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-gym-route-sport-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -241,7 +241,7 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
 
   it("예약 완료 상태의 예약 시간 제거를 409로 거부한다", async () => {
     const reservedTime = "10:00";
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-gym-route-time-user",
       draft: {
         gymId: TEST_GYM.id,

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, PUT } from "@/app/api/favorites/[gymId]/route";
-import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
+import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM } from "@tests/setup-db";
 

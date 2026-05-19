@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
-import { getUserSummary } from "@/lib/server/mysql-user-summary-repository";
+import { getUserSummary } from "@/lib/server/db-user-summary-repository";
 
 export const dynamic = "force-dynamic";
 

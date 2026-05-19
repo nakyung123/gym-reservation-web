@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/admin/overview/route";
 import {
-  cancelReservationAsAdminInMysql,
-  createReservationInMysql,
-  markReservationUsedInMysql,
+  cancelReservationAsAdminInDb,
+  createReservationInDb,
+  markReservationUsedInDb,
   updateReservationSlotPolicy,
-} from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -32,7 +32,7 @@ async function createReservation({
   date: string;
   time: string;
 }) {
-  const created = await createReservationInMysql({
+  const created = await createReservationInDb({
     userId,
     draft: {
       gymId: TEST_GYM.id,
@@ -73,8 +73,8 @@ describe("GET /api/admin/overview", () => {
       date,
       time: "12:00",
     });
-    await markReservationUsedInMysql(used.id);
-    await cancelReservationAsAdminInMysql(cancelled.id);
+    await markReservationUsedInDb(used.id);
+    await cancelReservationAsAdminInDb(cancelled.id);
     await updateReservationSlotPolicy({
       gym: TEST_GYM,
       gymId: TEST_GYM.id,

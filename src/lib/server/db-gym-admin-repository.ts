@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/prisma-client";
-import { toAdminGym } from "@/lib/server/mysql-gym-mapper";
+import { toAdminGym } from "@/lib/server/db-gym-mapper";
 import type { AdminGym } from "@/types/domain";
 
 export type AdminGymMutationResult =
@@ -24,7 +24,6 @@ function toGymData(input: AdminGymUpdateInput) {
     openHours: input.openHours,
     basePrice: input.basePrice,
     description: input.description,
-    distanceKm: input.distanceKm,
     latitude: input.latitude,
     longitude: input.longitude,
     sportPrices: input.sportPrices,

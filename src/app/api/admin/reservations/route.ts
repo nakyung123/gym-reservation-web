@@ -3,7 +3,7 @@ import { isReservationStatus } from "@/lib/domain-constants";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
-import { listAdminReservations } from "@/lib/server/mysql-reservation-repository";
+import { listAdminReservations } from "@/lib/server/db-reservation-repository";
 
 export const dynamic = "force-dynamic";
 

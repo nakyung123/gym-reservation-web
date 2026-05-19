@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
-import { getAdminReservationOverview } from "@/lib/server/mysql-reservation-repository";
+import { getAdminReservationOverview } from "@/lib/server/db-reservation-repository";
 
 export const dynamic = "force-dynamic";
 

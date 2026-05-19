@@ -76,7 +76,6 @@ export function toDomainGym(row: GymRowWithSports): Gym {
       row.id,
     ),
     closedDays: parseStringArrayField(row.closedDays, "closedDays", row.id),
-    distanceKm: row.distanceKm.toNumber(),
     latitude: row.latitude,
     longitude: row.longitude,
     description: row.description,

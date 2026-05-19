@@ -7,7 +7,7 @@ import {
   ensureUserProfile,
   getUserProfile,
   upsertUserProfile,
-} from "@/lib/server/mysql-user-profile-repository";
+} from "@/lib/server/db-user-profile-repository";
 import { validateUserProfileInput } from "@/lib/user-profile";
 
 export const dynamic = "force-dynamic";

@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/reservation-slots/route";
-import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
-import { updateReservationSlotPolicy } from "@/lib/server/mysql-reservation-repository";
+import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
+import { updateReservationSlotPolicy } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 

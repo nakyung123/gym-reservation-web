@@ -56,24 +56,6 @@ function parsePositiveInteger(
   return { ok: true, input: value };
 }
 
-// distanceKm은 deprecated 컬럼. 사용자 표시 거리 계산은 latitude/longitude 기반이며,
-// 이 값은 호환을 위해 받되 거리 표시에는 영향을 주지 않는다.
-function parseDistance(value: unknown): ValidationResult<number> {
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value < 0 ||
-    value > 999
-  ) {
-    return {
-      ok: false,
-      message: "거리는 0 이상 999 이하의 숫자여야 합니다.",
-    };
-  }
-
-  return { ok: true, input: Number(value.toFixed(2)) };
-}
-
 // 위도(-90 ~ 90)와 경도(-180 ~ 180) 검증. 사용자 거리 계산의 SSOT라 둘 다 필수.
 // 둘 중 하나만 누락된 상태는 받지 않는다 (server validate + admin form 양쪽에서 막는다).
 function parseLatitude(value: unknown): ValidationResult<number> {
@@ -251,8 +233,6 @@ function parseAdminGymBase(
     max: 2000,
   });
   if (!description.ok) return description;
-  const distanceKm = parseDistance(body.distanceKm);
-  if (!distanceKm.ok) return distanceKm;
   const latitude = parseLatitude(body.latitude);
   if (!latitude.ok) return latitude;
   const longitude = parseLongitude(body.longitude);
@@ -284,7 +264,6 @@ function parseAdminGymBase(
       openHours: openHours.input,
       basePrice: basePrice.input,
       description: description.input,
-      distanceKm: distanceKm.input,
       latitude: latitude.input,
       longitude: longitude.input,
       sports: sports.input,
@@ -353,8 +332,6 @@ export function isAdminGym(value: unknown): value is AdminGym {
     typeof value.basePrice === "number" &&
     Number.isFinite(value.basePrice) &&
     typeof value.description === "string" &&
-    typeof value.distanceKm === "number" &&
-    Number.isFinite(value.distanceKm) &&
     typeof value.latitude === "number" &&
     Number.isFinite(value.latitude) &&
     typeof value.longitude === "number" &&

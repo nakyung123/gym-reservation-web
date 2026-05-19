@@ -34,7 +34,6 @@ const gym: Gym = {
   openHours: "09:00-22:00",
   basePrice: 10000,
   description: "Reservation detail client test gym",
-  distanceKm: 1.25,
   latitude: 37.5665,
   longitude: 126.978,
   sports: [reservation.sport],

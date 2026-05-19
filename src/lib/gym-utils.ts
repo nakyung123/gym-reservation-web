@@ -36,8 +36,10 @@ export function isGym(value: unknown): value is Gym {
     typeof gym.basePrice === "number" &&
     Number.isFinite(gym.basePrice) &&
     typeof gym.description === "string" &&
-    typeof gym.distanceKm === "number" &&
-    Number.isFinite(gym.distanceKm) &&
+    typeof gym.latitude === "number" &&
+    Number.isFinite(gym.latitude) &&
+    typeof gym.longitude === "number" &&
+    Number.isFinite(gym.longitude) &&
     Array.isArray(gym.sports) &&
     gym.sports.every(isSport) &&
     isSportPriceMap(gym.sportPrices) &&

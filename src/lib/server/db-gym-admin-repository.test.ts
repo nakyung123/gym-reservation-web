@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mysqlGymRepository } from "@/lib/mysql-gym-repository";
+import { dbGymRepository } from "@/lib/db-gym-repository";
 import {
   createAdminGym,
   listAdminGyms,
   updateAdminGym,
-} from "@/lib/server/mysql-gym-admin-repository";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-gym-admin-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import type { AdminGym } from "@/types/domain";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -28,7 +28,7 @@ describe("mysql gym admin repository", () => {
     const adminGyms = await listAdminGyms();
     expect(adminGyms.some((gym) => gym.id === adminGym.id)).toBe(true);
 
-    const publicGym = await mysqlGymRepository.findById(adminGym.id);
+    const publicGym = await dbGymRepository.findById(adminGym.id);
     expect(publicGym?.name).toBe(adminGym.name);
   });
 
@@ -46,15 +46,15 @@ describe("mysql gym admin repository", () => {
     const adminRow = adminGyms.find((gym) => gym.id === TEST_GYM.id);
     expect(adminRow?.isActive).toBe(false);
 
-    const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
+    const publicGym = await dbGymRepository.findById(TEST_GYM.id);
     expect(publicGym).toBeNull();
 
-    const publicGyms = await mysqlGymRepository.list();
+    const publicGyms = await dbGymRepository.list();
     expect(publicGyms.some((gym) => gym.id === TEST_GYM.id)).toBe(false);
   });
 
   it("예약 완료 상태의 예약이 남아 있으면 시설 비활성화를 거부한다", async () => {
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-gym-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -75,13 +75,13 @@ describe("mysql gym admin repository", () => {
     if (updated.ok) return;
     expect(updated.status).toBe("conflict");
 
-    const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
+    const publicGym = await dbGymRepository.findById(TEST_GYM.id);
     expect(publicGym?.id).toBe(TEST_GYM.id);
   });
 
   it("예약 완료 상태의 예약 종목은 시설 정보에서 제거할 수 없다", async () => {
     const reservedSport = TEST_GYM.sports[0];
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-gym-sport-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -108,13 +108,13 @@ describe("mysql gym admin repository", () => {
     if (updated.ok) return;
     expect(updated.status).toBe("conflict");
 
-    const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
+    const publicGym = await dbGymRepository.findById(TEST_GYM.id);
     expect(publicGym?.sports).toContain(reservedSport);
   });
 
   it("예약 완료 상태의 예약 시간은 시설 정보에서 제거할 수 없다", async () => {
     const reservedTime = "10:00";
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: "admin-gym-time-user",
       draft: {
         gymId: TEST_GYM.id,
@@ -138,7 +138,7 @@ describe("mysql gym admin repository", () => {
     if (updated.ok) return;
     expect(updated.status).toBe("conflict");
 
-    const publicGym = await mysqlGymRepository.findById(TEST_GYM.id);
+    const publicGym = await dbGymRepository.findById(TEST_GYM.id);
     expect(publicGym?.availableTimes).toContain(reservedTime);
   });
 });

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { withdrawAccount } from "@/lib/server/withdrawal-service";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
-import { ensureUserProfile } from "@/lib/server/mysql-user-profile-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import { ensureUserProfile } from "@/lib/server/db-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -26,7 +26,7 @@ describe("withdrawAccount", () => {
 
   it("진행 중 예약이 있으면 active-reservation 사유로 실패한다", async () => {
     const userId = "withdraw-user-active";
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,
@@ -83,7 +83,7 @@ describe("withdrawAccount", () => {
 
   it("취소된 예약만 있는 경우에는 탈퇴를 허용한다", async () => {
     const userId = "withdraw-user-cancelled";
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,
@@ -201,7 +201,7 @@ describe("withdrawAccount", () => {
     const userA = "withdraw-user-a";
     const userB = "withdraw-user-b";
     await ensureUserProfile(userA, "local");
-    const created = await createReservationInMysql({
+    const created = await createReservationInDb({
       userId: userB,
       draft: {
         gymId: TEST_GYM.id,

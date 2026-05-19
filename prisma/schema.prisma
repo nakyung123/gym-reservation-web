@@ -23,7 +23,6 @@ model Gym {
   openHours        String            @map("open_hours") @db.VarChar(100)
   basePrice        Int               @map("base_price")
   description      String            @db.Text
-  distanceKm       Decimal           @map("distance_km") @db.Decimal(5, 2)
   // 위/경도. 사용자 현재 위치 기반 거리 계산의 SSOT. 좌표 없는 체육관은 등록할 수 없다.
   latitude         Float
   longitude        Float

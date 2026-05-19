@@ -4,7 +4,7 @@ import {
   getUserProfile,
   updateUserProfilePhoto,
   upsertUserProfile,
-} from "@/lib/server/mysql-user-profile-repository";
+} from "@/lib/server/db-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
 
 // 실제 1×1 PNG base64 (매직 바이트부터 시작). repository는 형식 검증을 하지 않지만
@@ -12,7 +12,7 @@ import { prisma } from "@/lib/server/prisma-client";
 const SAMPLE_PHOTO =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
-describe("mysql-user-profile-repository", () => {
+describe("db-user-profile-repository", () => {
   it("저장된 프로필이 없으면 null을 반환한다", async () => {
     await expect(getUserProfile("missing-profile-user")).resolves.toBeNull();
   });

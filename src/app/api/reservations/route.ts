@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
-  createReservationInMysql,
+  createReservationInDb,
   listUserReservations,
-} from "@/lib/server/mysql-reservation-repository";
+} from "@/lib/server/db-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let result: Awaited<ReturnType<typeof createReservationInMysql>>;
+  let result: Awaited<ReturnType<typeof createReservationInDb>>;
   try {
-    result = await createReservationInMysql({
+    result = await createReservationInDb({
       userId: auth.uid,
       draft: {
         gymId: body.gymId,

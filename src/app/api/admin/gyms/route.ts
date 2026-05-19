@@ -5,7 +5,7 @@ import { serverErrorResponse } from "@/lib/server/api-error-response";
 import {
   createAdminGym,
   listAdminGyms,
-} from "@/lib/server/mysql-gym-admin-repository";
+} from "@/lib/server/db-gym-admin-repository";
 
 export const dynamic = "force-dynamic";
 

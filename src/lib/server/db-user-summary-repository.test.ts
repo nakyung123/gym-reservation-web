@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
-import { getUserSummary } from "@/lib/server/mysql-user-summary-repository";
+import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import { getUserSummary } from "@/lib/server/db-user-summary-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -25,7 +25,7 @@ describe("getUserSummary", () => {
     const otherUserId = "summary-user-b";
     const date = futureDate();
 
-    const reserved = await createReservationInMysql({
+    const reserved = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,
@@ -35,7 +35,7 @@ describe("getUserSummary", () => {
       },
       gym: TEST_GYM,
     });
-    const cancelled = await createReservationInMysql({
+    const cancelled = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,
@@ -45,7 +45,7 @@ describe("getUserSummary", () => {
       },
       gym: TEST_GYM,
     });
-    const used = await createReservationInMysql({
+    const used = await createReservationInDb({
       userId,
       draft: {
         gymId: TEST_GYM.id,
@@ -55,7 +55,7 @@ describe("getUserSummary", () => {
       },
       gym: TEST_GYM,
     });
-    const other = await createReservationInMysql({
+    const other = await createReservationInDb({
       userId: otherUserId,
       draft: {
         gymId: TEST_GYM.id,

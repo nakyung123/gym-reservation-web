@@ -3,8 +3,8 @@ import {
   addFavorite,
   listFavoriteGymIds,
   removeFavorite,
-} from "@/lib/server/mysql-favorite-repository";
-import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
+} from "@/lib/server/db-favorite-repository";
+import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM } from "@tests/setup-db";
 
@@ -22,7 +22,6 @@ async function createExtraGym(id: string) {
       openHours: TEST_GYM.openHours,
       basePrice: TEST_GYM.basePrice,
       description: TEST_GYM.description,
-      distanceKm: TEST_GYM.distanceKm,
       latitude: TEST_GYM.latitude,
       longitude: TEST_GYM.longitude,
       sportPrices: TEST_GYM.sportPrices,

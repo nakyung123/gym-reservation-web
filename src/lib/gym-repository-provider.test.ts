@@ -3,13 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 async function loadProviderWithBackend(backend: string) {
   vi.stubEnv("NEXT_PUBLIC_GYM_DATA_BACKEND", backend);
   const { mockGymRepository } = await import("@/lib/gym-repository");
-  const { mysqlGymRepository } = await import("@/lib/mysql-gym-repository");
+  const { dbGymRepository } = await import("@/lib/db-gym-repository");
   const { gymRepository } = await import("@/lib/gym-repository-provider");
 
   return {
     gymRepository,
     mockGymRepository,
-    mysqlGymRepository,
+    dbGymRepository,
   };
 }
 
@@ -20,17 +20,17 @@ describe("gymRepository provider", () => {
   });
 
   it("defaults to the DB repository when the backend is blank", async () => {
-    const { gymRepository, mysqlGymRepository } =
+    const { gymRepository, dbGymRepository } =
       await loadProviderWithBackend(" ");
 
-    expect(gymRepository).toBe(mysqlGymRepository);
+    expect(gymRepository).toBe(dbGymRepository);
   });
 
   it("selects the DB repository when configured", async () => {
-    const { gymRepository, mysqlGymRepository } =
+    const { gymRepository, dbGymRepository } =
       await loadProviderWithBackend(" db ");
 
-    expect(gymRepository).toBe(mysqlGymRepository);
+    expect(gymRepository).toBe(dbGymRepository);
   });
 
   it("selects the mock repository when configured", async () => {

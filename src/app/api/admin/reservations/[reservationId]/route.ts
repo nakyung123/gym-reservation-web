@@ -2,10 +2,10 @@ import type { NextRequest } from "next/server";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import {
-  cancelReservationAsAdminInMysql,
+  cancelReservationAsAdminInDb,
   getAdminReservationById,
-  markReservationUsedInMysql,
-} from "@/lib/server/mysql-reservation-repository";
+  markReservationUsedInDb,
+} from "@/lib/server/db-reservation-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -72,14 +72,14 @@ export async function PATCH(
   const { reservationId } = await params;
   let result: Awaited<
     ReturnType<
-      typeof markReservationUsedInMysql | typeof cancelReservationAsAdminInMysql
+      typeof markReservationUsedInDb | typeof cancelReservationAsAdminInDb
     >
   >;
   try {
     result =
       body.status === "used"
-        ? await markReservationUsedInMysql(reservationId)
-        : await cancelReservationAsAdminInMysql(reservationId);
+        ? await markReservationUsedInDb(reservationId)
+        : await cancelReservationAsAdminInDb(reservationId);
   } catch (error) {
     return serverErrorResponse(
       "관리자 예약 상태를 변경하지 못했습니다.",

@@ -10,7 +10,7 @@ import {
 } from "@/lib/reservation-rules";
 import { getGymSportPrice } from "@/lib/gym-utils";
 import { ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT } from "@/lib/admin/admin-reservation-slot-policy";
-import { toDomainGym } from "@/lib/server/mysql-gym-mapper";
+import { toDomainGym } from "@/lib/server/db-gym-mapper";
 import type {
   Gym,
   Reservation,
@@ -701,7 +701,7 @@ export type CreateReservationOutput =
     }
   | { ok: false; status: "rejected"; message: string };
 
-export async function createReservationInMysql(
+export async function createReservationInDb(
   input: CreateReservationInput,
 ): Promise<CreateReservationOutput> {
   const { userId, draft, gym } = input;
@@ -918,7 +918,7 @@ async function cancelAuthorizedReservation(
   };
 }
 
-export async function cancelReservationInMysql(
+export async function cancelReservationInDb(
   userId: string,
   reservationId: string,
   { now = new Date() }: { now?: Date } = {},
@@ -976,7 +976,7 @@ export type CancelReservationAsAdminOutput =
       message: string;
     };
 
-export async function cancelReservationAsAdminInMysql(
+export async function cancelReservationAsAdminInDb(
   reservationId: string,
 ): Promise<CancelReservationAsAdminOutput> {
   const target = await prisma.reservation.findUnique({
@@ -1008,7 +1008,7 @@ export type MarkReservationUsedOutput =
       message: string;
     };
 
-export async function markReservationUsedInMysql(
+export async function markReservationUsedInDb(
   reservationId: string,
 ): Promise<MarkReservationUsedOutput> {
   const target = await prisma.reservation.findUnique({

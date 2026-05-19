@@ -18,7 +18,6 @@ const validPayload: AdminGym = {
   openHours: "09:00-22:00",
   basePrice: 10000,
   description: "관리자 체육관 스키마 검증용 데이터입니다.",
-  distanceKm: 1.25,
   latitude: 37.5665,
   longitude: 126.978,
   sports: [primarySport, secondarySport],
@@ -33,13 +32,12 @@ const validPayload: AdminGym = {
 };
 
 describe("validateAdminGymPayload", () => {
-  it("validates a create payload and normalizes text, arrays, and distance", () => {
+  it("validates a create payload and normalizes text and arrays", () => {
     const result = validateAdminGymPayload(
       {
         ...validPayload,
         id: " schema-test-gym ",
         name: "  스키마 테스트 체육관  ",
-        distanceKm: 1.256,
         sports: [primarySport, primarySport, secondarySport],
         facilities: ["샤워실", "샤워실", "주차장"],
         availableTimes: ["11:00", "10:00", "10:00"],
@@ -52,7 +50,6 @@ describe("validateAdminGymPayload", () => {
     expect(result.input).toMatchObject({
       id: "schema-test-gym",
       name: "스키마 테스트 체육관",
-      distanceKm: 1.26,
       sports: [primarySport, secondarySport],
       facilities: ["샤워실", "주차장"],
       availableTimes: ["10:00", "11:00"],

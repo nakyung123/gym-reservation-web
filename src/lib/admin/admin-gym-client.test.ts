@@ -18,7 +18,6 @@ const gym: AdminGym = {
   openHours: "09:00-22:00",
   basePrice: 10000,
   description: "관리자 시설 클라이언트 응답 검증용 체육관입니다.",
-  distanceKm: 1.25,
   latitude: 37.5665,
   longitude: 126.978,
   sports: [sport],

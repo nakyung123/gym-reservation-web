@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
-import { listReservationSlotAvailabilities } from "@/lib/server/mysql-reservation-repository";
+import { listReservationSlotAvailabilities } from "@/lib/server/db-reservation-repository";
 import { isSport } from "@/lib/domain-constants";
 
 export const dynamic = "force-dynamic";
