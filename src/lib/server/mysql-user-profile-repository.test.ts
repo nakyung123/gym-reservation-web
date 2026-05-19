@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   ensureUserProfile,
   getUserProfile,
+  updateUserProfilePhoto,
   upsertUserProfile,
 } from "@/lib/server/mysql-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
+
+const SAMPLE_PHOTO = "data:image/jpeg;base64,SAMPLE_PHOTO_PAYLOAD";
 
 describe("mysql-user-profile-repository", () => {
   it("저장된 프로필이 없으면 null을 반환한다", async () => {
@@ -92,5 +95,74 @@ describe("mysql-user-profile-repository", () => {
     const userId = "profile-unknown-provider-user";
     const created = await ensureUserProfile(userId, null);
     expect(created.provider).toBeNull();
+  });
+});
+
+describe("updateUserProfilePhoto", () => {
+  it("기존 row가 있으면 photoBase64만 갱신하고 나머지 필드는 유지한다", async () => {
+    const userId = "photo-existing-user";
+    await upsertUserProfile(
+      userId,
+      {
+        nickname: "기존닉",
+        preferredRegion: "서울 강남구",
+        preferredSports: ["배드민턴"],
+        reservationNotificationsEnabled: true,
+      },
+      "local",
+    );
+
+    const updated = await updateUserProfilePhoto(userId, SAMPLE_PHOTO, "local");
+
+    expect(updated).toMatchObject({
+      userId,
+      nickname: "기존닉",
+      provider: "local",
+      photoBase64: SAMPLE_PHOTO,
+      preferredRegion: "서울 강남구",
+      preferredSports: ["배드민턴"],
+      reservationNotificationsEnabled: true,
+    });
+    expect(await prisma.userProfile.count({ where: { userId } })).toBe(1);
+  });
+
+  it("photoBase64를 null로 보내면 기본 이미지로 비울 수 있다", async () => {
+    const userId = "photo-clear-user";
+    await upsertUserProfile(
+      userId,
+      {
+        nickname: "닉네임",
+        preferredRegion: null,
+        preferredSports: [],
+        reservationNotificationsEnabled: true,
+      },
+      "local",
+    );
+    await updateUserProfilePhoto(userId, SAMPLE_PHOTO, "local");
+
+    const cleared = await updateUserProfilePhoto(userId, null, "local");
+    expect(cleared.photoBase64).toBeNull();
+  });
+
+  it("row가 없으면 ensureUserProfile로 새로 만들고 사진을 같이 채운다", async () => {
+    const userId = "photo-new-user";
+    await expect(
+      prisma.userProfile.count({ where: { userId } }),
+    ).resolves.toBe(0);
+
+    const created = await updateUserProfilePhoto(userId, SAMPLE_PHOTO, "kakao");
+
+    expect(created).toMatchObject({
+      userId,
+      provider: "kakao",
+      photoBase64: SAMPLE_PHOTO,
+      preferredRegion: null,
+      preferredSports: [],
+      reservationNotificationsEnabled: true,
+    });
+    // 자동 닉네임이 들어가 있다.
+    expect(typeof created.nickname).toBe("string");
+    expect((created.nickname ?? "").length).toBeGreaterThan(0);
+    expect(await prisma.userProfile.count({ where: { userId } })).toBe(1);
   });
 });

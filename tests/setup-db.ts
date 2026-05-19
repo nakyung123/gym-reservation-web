@@ -39,6 +39,7 @@ beforeEach(async () => {
   // oauth_attempts, auth_handover_tickets는 다른 테이블과 FK 관계가 없는 독립 store.
   await prisma.oAuthAttempt.deleteMany({});
   await prisma.authHandoverTicket.deleteMany({});
+  await prisma.withdrawalReason.deleteMany({});
   await prisma.userProfile.deleteMany({});
   await prisma.reservationLock.deleteMany({});
   await prisma.reservation.deleteMany({});

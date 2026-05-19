@@ -1,4 +1,4 @@
-// MySQL gyms 시드 스크립트.
+// Postgres gyms 시드 스크립트
 // src/data/gyms.json을 SSOT로 사용해 upsert한다.
 import { PrismaClient } from "@prisma/client";
 import { readFileSync } from "node:fs";
