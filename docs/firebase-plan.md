@@ -1,100 +1,50 @@
-# Firebase 연결 준비
+# Firebase 연결 (현재 상태)
 
-## 현재 저장소 선택
+최종 갱신: 2026-05-19
 
-예약 흐름은 `src/lib/reservation-repository.ts`의 `ReservationRepository`
-계약을 기준으로 동작합니다. 현재 실제 구현은 Firestore 기반
-`firebaseReservationRepository`이며, 선택 지점은
-`src/lib/reservation-repository-provider.ts`입니다.
+## 사용 범위 — Auth만
 
-체육관 조회 흐름은 `src/lib/gym-repository.ts`의 `GymRepository` 계약을
-기준으로 동작합니다. 선택 지점은 `src/lib/gym-repository-provider.ts`입니다.
-기본값은 mock 체육관 저장소이며, `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를
-설정하면 Firestore 기반 `firebaseGymRepository`를 선택합니다.
+이 저장소에서 Firebase는 **인증(Authentication)** 용도로만 사용한다. 데이터 저장소는 Postgres(Supabase 운영 / Docker dev)이며 Prisma를 통해 접근한다.
 
-localStorage 기반 `localReservationRepository`는 비교와 임시 롤백을 위한
-대체 구현으로 남겨둡니다. provider에서 조용히 fallback하지 않습니다.
+- ✅ 사용: Firebase Auth (이메일·Google·카카오·네이버 custom token), Firebase Admin SDK (서버 ID 토큰 검증, 회원 탈퇴 시 user delete)
+- ❌ 폐기: Firestore. 운영 분기 + repository 어댑터 모두 제거됨 (2026-05-19)
+- ❌ 폐기: Firebase Storage. 프로필 사진은 base64로 Postgres `user_profiles.photo_base64` 컬럼에 저장
+
+## 사용자 식별 SSOT
+
+`Firebase Auth.uid`. 모든 비즈니스 데이터(`user_profiles`, `reservations`, `favorites` 등)의 `userId` 컬럼은 이 uid를 그대로 쓴다.
+
+카카오·네이버 흐름은 OAuth 인증 후 서버에서 Firebase custom token을 발급한다 (`oauth_attempts`, `auth_handover_tickets` 테이블이 흐름 상태를 추적).
+
+## 클라이언트 측 (`src/lib/firebase-*.ts`)
+
+| 파일 | 역할 |
+|---|---|
+| `firebase-app.ts` | Firebase 앱 초기화 (NEXT_PUBLIC_ 환경변수 검증) |
+| `firebase-client.ts` | `getAuth` 캐시. Firestore 의존 제거됨 |
+| `firebase-auth-session.ts` | useSyncExternalStore 기반 세션 + ID 토큰 관리 |
+| `firebase-password-update.ts` | 재인증 + 비밀번호 변경 wrapper |
+
+## 서버 측 (`src/lib/server/firebase-admin.ts`)
+
+- 옵션 ㄴ (Vercel 권장): `FIREBASE_ADMIN_PROJECT_ID` / `FIREBASE_ADMIN_CLIENT_EMAIL` / `FIREBASE_ADMIN_PRIVATE_KEY` 3개 환경변수로 `cert()` 초기화
+- 옵션 ㄱ (로컬 dev): `GOOGLE_APPLICATION_CREDENTIALS` 경로의 서비스 계정 JSON
+
+`verifyIdTokenFromRequest`(`src/lib/server/auth.ts`)가 모든 인증 보호 API 경로의 입구다.
 
 ## 원칙
 
-- 예약 규칙 SSOT는 `src/lib/reservation-rules.ts`입니다.
-- 저장 매체 접근은 repository 구현 안에 둡니다.
-- Firebase 환경변수가 없거나 초기화에 실패하면 localStorage로 조용히
-  fallback하지 않습니다.
-- 생성, 취소 같은 mutation은 성공, 중복, 거절, 실패를 명시적인 result로
-  반환합니다.
-- 같은 예약 취소 요청은 반복되어도 안전해야 합니다.
-- 사용자 식별 SSOT는 Firebase Auth의 `auth.uid`입니다.
+- 예약/취소 같은 mutation은 성공/중복/거절/실패를 명시적 result로 반환한다 (silent fallback 금지).
+- 같은 예약 취소 요청은 반복돼도 안전해야 한다 (idempotency).
+- Firebase 환경변수가 없거나 초기화에 실패하면 명시적으로 throw한다.
+- 비밀값(서비스 계정 JSON, Admin private key)은 로그/응답/채팅에 포함하지 않는다.
 
-## Firebase 컬렉션 초안
+## 폐기 항목 (2026-05-19)
 
-### gyms
+- `src/lib/firebase-gym-repository.ts` — 운영 SSOT를 DB로 통합하면서 제거
+- `src/lib/firebase-reservation-repository.ts` — 같은 작업에서 제거
+- `scripts/seed-gyms.mjs` (Firestore gyms seed) — 제거
+- `docs/firestore-rules.md`, `docs/firestore-gyms-seed.md` — 제거
+- 옛 `NEXT_PUBLIC_*_DATA_SOURCE` 환경 변수 — provider에서 throw
 
-mock `Gym` 타입과 같은 필드를 먼저 사용합니다.
-
-- `id`
-- `name`
-- `region`
-- `address`
-- `openHours`
-- `basePrice`
-- `sports`
-- `sportPrices`
-- `facilities`
-- `availableTimes`
-- `closedDays`
-- `distanceKm`
-- `description`
-
-### reservations
-
-`Reservation` 타입을 기준으로 시작합니다.
-
-- `id`
-- `userId`
-- `gymId`
-- `sport`
-- `date`
-- `time`
-- `price`
-- `status`
-- `createdAt`
-
-추가 저장 필드:
-
-- `activeKey`: 활성 중복 예약 방지용 키
-
-### reservationLocks
-
-동일 사용자, 체육관, 종목, 날짜, 시간의 활성 예약 중복 생성을 막는 lock
-컬렉션입니다. 예약 생성/취소는 Firestore transaction 안에서 이 문서와
-`reservations` 문서를 함께 처리합니다.
-
-- `activeKey`
-- `reservationId`
-- `status`
-- `updatedAt`
-
-## 구현 완료
-
-1. Firebase SDK 설치 완료
-2. `src/lib/firebase-client.ts`에서 공개 환경변수 검증과 앱 초기화 완료
-3. `src/lib/firebase-reservation-repository.ts` 구현 완료
-4. `reservation-repository-provider.ts`에서 Firestore 구현 선택 완료
-5. Firestore transaction으로 중복 활성 예약 생성 방지 완료
-6. Anonymous Auth 연결과 실제 `auth.uid` 교체 완료
-7. Firestore Rules를 `request.auth.uid == userId` 기준으로 강화 완료
-8. `firebaseGymRepository` 추가와 `gyms` 데이터 원본 선택 env 추가 완료
-
-## 남은 결정
-
-- Firestore `gyms` 초기 데이터는 `src/data/gyms.json`을 기준으로 seed합니다.
-  실행 절차는 `docs/firestore-gyms-seed.md`를 기준으로 합니다.
-- MVP와 프로토타입 단계에서는 익명 세션을 유지합니다.
-- 카카오 로그인은 Firebase Identity Platform의 OIDC provider 후보로 둡니다.
-- 네이버 로그인은 OAuth 인증 후 Firebase custom token을 발급하는 서버 흐름이
-  필요하므로 카카오 이후에 검토합니다.
-- 소셜 로그인 도입 전에는 기존 익명 예약을 로그인 계정으로 이전할지,
-  예약 전 로그인을 요구할지 먼저 결정합니다.
-- 배포는 Firebase Hosting, Vercel, GitHub Pages 중 프로젝트 성격에 맞춰
-  선택합니다.
+자세한 데이터 백엔드 현황은 [`data-source-status.md`](data-source-status.md) 참고.

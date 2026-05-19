@@ -5,8 +5,9 @@
 MVP 배포는 Vercel을 우선 후보로 둡니다.
 
 이 프로젝트는 Next.js 16 앱이고 GitHub Actions CI에서 이미 `lint`와
-`build`를 검증하고 있습니다. Vercel은 Next.js 배포 설정이 가장 단순하고,
-Firebase Auth와 Cloud Firestore는 클라이언트 SDK로 계속 사용할 수 있습니다.
+`build`를 검증하고 있습니다. Vercel은 Next.js 배포 설정이 가장 단순하며,
+운영 DB는 Vercel Storage 통합으로 Supabase Postgres(Seoul region)를 사용하고,
+Firebase Auth는 클라이언트 SDK + Admin SDK로 계속 사용합니다 (Firestore는 미사용).
 
 ## 후보 비교
 
@@ -33,13 +34,27 @@ Firebase 웹 앱 설정값은 브라우저에 노출되는 `NEXT_PUBLIC_*` 값�
 필수값:
 
 ```bash
+# Firebase 클라이언트
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_GYM_DATA_SOURCE=mock
+
+# Firebase Admin (서버 ID 토큰 검증)
+FIREBASE_ADMIN_PROJECT_ID=
+FIREBASE_ADMIN_CLIENT_EMAIL=
+FIREBASE_ADMIN_PRIVATE_KEY=
+
+# 데이터 백엔드 (기본 db. 옛 NEXT_PUBLIC_*_DATA_SOURCE는 폐기 — provider에서 throw)
+NEXT_PUBLIC_GYM_DATA_BACKEND=db
+NEXT_PUBLIC_FAVORITE_DATA_BACKEND=db
+NEXT_PUBLIC_RESERVATION_DATA_BACKEND=db
+
+# Postgres (Vercel은 Supabase 통합의 POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING을 매핑)
+DATABASE_URL=
+DIRECT_URL=
 ```
 
-`measurementId`는 Firebase Analytics를 붙일 때만 추가합니다.
+운영 DB에 migration / seed 적용 절차는 `data-source-status.md`의 "운영 DB 작업 절차" 섹션을 따릅니다 (`npm run db:migrate:prod` / `db:seed:prod`).

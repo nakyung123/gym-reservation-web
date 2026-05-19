@@ -8,7 +8,7 @@
 
 사용자는 서울 공공체육시설 샘플 데이터를 바탕으로 체육관을 검색하고, 종목과 날짜, 시간대를 선택해 예약을 생성할 수 있습니다. 생성된 예약은 실제 시설 예약으로 접수되지 않으며, 예약 흐름과 운영 관리 기능을 검증하기 위한 데이터로 동작합니다.
 
-현재 저장소는 MySQL과 Prisma를 기본 데이터 저장소로 사용하고, Firebase Auth 익명 세션으로 사용자를 식별합니다. 관리자 화면에서는 예약 상태, 시간대별 슬롯, 시설 정보를 관리할 수 있습니다.
+현재 저장소는 Postgres(운영: Supabase / 로컬: Docker)와 Prisma 6을 기본 데이터 저장소로 사용하고, Firebase Auth(이메일·Google·카카오·네이버)로 사용자를 식별합니다. 관리자 화면에서는 예약 상태, 시간대별 슬롯, 시설 정보를 관리할 수 있습니다.
 
 ## 주요 기능
 
@@ -16,7 +16,7 @@
 - 체육관 이름, 지역구, 종목 기반 검색 및 필터
 - 체육관 상세 정보, 운영시간, 휴관일, 종목별 이용료 확인
 - 즐겨찾기 등록 및 해제
-- Firebase Auth 익명 세션 기반 사용자 식별
+- Firebase Auth(이메일·Google·카카오·네이버) 통합 로그인과 사용자 식별
 - 예약 생성, 목록 조회, 상세 조회, 취소
 - 예약 목록과 상세 화면의 모바일 입장권 확인
 - 동일 사용자 기준 중복 활성 예약 방지
@@ -32,7 +32,7 @@
 | Framework | Next.js 16 App Router |
 | UI | React 19, Tailwind CSS 4 |
 | Language | TypeScript |
-| Database | MySQL |
+| Database | Postgres (운영: Supabase / 로컬: Docker 17) |
 | ORM | Prisma |
 | Auth | Firebase Auth |
 | Test | Vitest |
@@ -48,12 +48,17 @@ npm install
 
 ### 2. 환경 변수 설정
 
-`.env.local`에 Firebase 웹 앱 설정, MySQL 연결 정보, 관리자 API 토큰을 설정합니다. 실제 값은 저장소에 커밋하지 않습니다.
+`.env.local`에 Firebase 웹 앱 설정, Postgres 연결 정보, 관리자 API 토큰을 설정합니다. 실제 값은 저장소에 커밋하지 않습니다. 자세한 항목은 `.env.example` 주석을 참고하세요.
 
 ```bash
-DATABASE_URL=
+# Postgres (운영은 Supabase의 POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING 매핑)
+DATABASE_URL=postgresql://...
+DIRECT_URL=postgresql://...
+
+# 관리자 API
 ADMIN_API_TOKEN=
 
+# Firebase 클라이언트
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
@@ -61,10 +66,18 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 
-NEXT_PUBLIC_GYM_DATA_SOURCE=mysql
-NEXT_PUBLIC_FAVORITE_DATA_SOURCE=mysql
-NEXT_PUBLIC_RESERVATION_DATA_SOURCE=mysql
+# Firebase Admin (서버 ID 토큰 검증)
+FIREBASE_ADMIN_PROJECT_ID=
+FIREBASE_ADMIN_CLIENT_EMAIL=
+FIREBASE_ADMIN_PRIVATE_KEY=
+
+# 데이터 백엔드 (기본 db. mock/local은 시연용)
+NEXT_PUBLIC_GYM_DATA_BACKEND=db
+NEXT_PUBLIC_FAVORITE_DATA_BACKEND=db
+NEXT_PUBLIC_RESERVATION_DATA_BACKEND=db
 ```
+
+로컬 dev DB는 `docker compose up -d`로 Postgres 컨테이너를 띄운 뒤 위 환경변수를 채웁니다.
 
 ### 3. DB 마이그레이션 및 seed
 
@@ -96,7 +109,7 @@ npm run dev
 ```text
 gym-reservation-web/
 ├─ prisma/
-│  ├─ migrations/          # MySQL 스키마 변경 이력
+│  ├─ migrations/          # Postgres 스키마 변경 이력
 │  ├─ schema.prisma        # Prisma 모델 정의
 │  └─ seed.mjs             # 체육관 seed 데이터 반영
 ├─ src/
@@ -116,12 +129,12 @@ gym-reservation-web/
 
 ```text
 Client UI
-  ├─ Firebase Auth 익명 세션
-  ├─ 사용자 예약/즐겨찾기 API 호출
+  ├─ Firebase Auth (이메일/Google/카카오/네이버)
+  ├─ 사용자 예약/즐겨찾기/프로필/탈퇴 API 호출
   └─ 관리자 API 호출
 
 Next.js Route Handler
-  ├─ Firebase ID token 검증
+  ├─ Firebase ID token 검증 (Firebase Admin)
   ├─ 관리자 token 검증
   └─ 도메인 서비스 호출
 
@@ -129,18 +142,19 @@ Repository / Service
   ├─ 예약 규칙 검증
   ├─ 중복 활성 예약 방지
   ├─ 슬롯 정원 계산
+  ├─ 회원 탈퇴 multi-step (idempotent retry)
   └─ Prisma transaction
 
-MySQL
-  ├─ gyms
-  ├─ gym_sports
+Postgres (Supabase 운영 / Docker dev)
+  ├─ gyms / gym_sports
   ├─ favorites
-  ├─ reservations
-  ├─ reservation_locks
-  └─ reservation_slots
+  ├─ reservations / reservation_locks / reservation_slots
+  ├─ user_profiles
+  ├─ withdrawal_reasons (익명 사유 통계)
+  └─ oauth_attempts / auth_handover_tickets (카카오·네이버 흐름)
 ```
 
-데이터 소스는 repository provider에서 선택합니다. 기본값은 MySQL이며, mock/local/Firestore 어댑터는 개발 보조 또는 legacy 옵션으로 남겨두었습니다.
+데이터 소스는 repository provider에서 선택합니다. 기본값은 `db`(Postgres)이며 `mock`/`local` 어댑터는 시연/dev 보조용입니다. 옛 환경 변수 `NEXT_PUBLIC_*_DATA_SOURCE`는 폐기됐고 살아 있으면 명시적으로 throw합니다.
 
 ## 기술적 이슈 & 해결
 
@@ -150,7 +164,7 @@ MySQL
 
 ### 슬롯 정원 경쟁 상태
 
-동시에 여러 예약이 들어와도 정원을 초과하지 않도록 MySQL 조건부 update를 사용합니다. `reserved_count < capacity` 조건을 만족할 때만 카운터를 증가시키고, 실패하면 예약을 생성하지 않습니다.
+동시에 여러 예약이 들어와도 정원을 초과하지 않도록 Postgres 조건부 update를 사용합니다. `reserved_count < capacity` 조건을 만족할 때만 카운터를 증가시키고, 실패하면 예약을 생성하지 않습니다. raw SQL의 `date`/`time` 컬럼은 Postgres 예약어라 큰따옴표로 escape합니다.
 
 ### 예약 취소 정책
 
@@ -202,7 +216,6 @@ npm run build
 - 여러 날짜 선택 기반 슬롯 일괄 관리
 - 공휴일 데이터 기반 휴관일 계산
 - 내 정보와 설정 화면 확장
-- 카카오/네이버 로그인 검토
 - 소모임 기능 검토
-- 예약 알림 기능 검토
-- 배포 환경용 MySQL 구성 정리
+- 예약 알림 기능 검토 (FCM 또는 이메일)
+- Upstash Redis + rate limit 도입 (OAuth start / nickname 가용성 / 민감 액션)

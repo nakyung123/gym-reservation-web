@@ -41,9 +41,9 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 현재 `gyms` seed/mock 데이터의 기준 파일은 `src/data/gyms.json`이고,
 `src/lib/mock-data.ts`는 이 JSON을 앱의 mock 체육관 데이터로 노출합니다.
 화면은 `src/lib/gym-repository-provider.ts`를 통해 체육관 데이터를 읽고,
-기본값은 mock 체육관 저장소입니다. `NEXT_PUBLIC_GYM_DATA_SOURCE=firestore`를
-설정하면 Firestore `gyms` 컬렉션을 읽습니다. 현재 seed 데이터는 서울
-공공체육시설 샘플이며, 실제 예약 가능 시간과 요금은 운영기관 공지에 따라
+기본값은 `db`(Postgres) 백엔드입니다. `NEXT_PUBLIC_GYM_DATA_BACKEND=mock`을
+설정하면 JSON 기반 mock 저장소를 씁니다 (시연/dev 용도). 현재 seed 데이터는
+서울 공공체육시설 샘플이며, 실제 예약 가능 시간과 요금은 운영기관 공지에 따라
 달라질 수 있습니다.
 
 ### reservations
@@ -61,9 +61,9 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 | createdAt | string | ISO 생성 시각 |
 | activeKey | string | 활성 중복 예약 방지 키 |
 
-`Reservation` 도메인 타입에는 `activeKey`를 포함하지 않습니다. Firestore
-저장 시 중복 활성 예약 방지와 보안 규칙 검증을 위해 repository 계층에서만
-추가합니다.
+`Reservation` 도메인 타입에는 `activeKey`를 포함하지 않습니다. Postgres
+저장 시 중복 활성 예약 방지를 위해 repository 계층에서만 추가합니다
+(`reservation_locks.active_key` UNIQUE 제약).
 
 ### reservationLocks
 
@@ -74,10 +74,11 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 | status | string | `reserved` |
 | updatedAt | string | ISO 갱신 시각 |
 
-`reservationLocks`는 동일 사용자, 체육관, 종목, 날짜, 시간의 활성 예약이
-동시에 여러 개 생성되지 않도록 막는 컬렉션입니다. 예약 생성과 취소는
-Firestore transaction 안에서 `reservations`와 `reservationLocks`를 함께
-처리합니다.
+`reservation_locks`는 동일 사용자, 체육관, 종목, 날짜, 시간의 활성 예약이
+동시에 여러 개 생성되지 않도록 막는 테이블입니다. 예약 생성과 취소는 Prisma
+`$transaction` 안에서 `reservations`, `reservation_slots`, `reservation_locks`를
+함께 처리합니다 (`mysql-reservation-repository.ts` — historical 파일명, 현재는
+Postgres-backed).
 
 ## 예약 규칙
 
