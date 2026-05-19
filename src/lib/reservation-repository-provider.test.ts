@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-async function loadProviderWithSource(source: string) {
-  vi.stubEnv("NEXT_PUBLIC_RESERVATION_DATA_SOURCE", source);
+async function loadProviderWithBackend(backend: string) {
+  vi.stubEnv("NEXT_PUBLIC_RESERVATION_DATA_BACKEND", backend);
   const { apiReservationRepository } = await import(
     "@/lib/api-reservation-repository"
   );
-  const { firebaseReservationRepository } = await import(
-    "@/lib/firebase-reservation-repository"
+  const { mockReservationRepository } = await import(
+    "@/lib/mock-reservation-repository"
   );
   const { reservationRepository } = await import(
     "@/lib/reservation-repository-provider"
@@ -14,7 +14,7 @@ async function loadProviderWithSource(source: string) {
 
   return {
     apiReservationRepository,
-    firebaseReservationRepository,
+    mockReservationRepository,
     reservationRepository,
   };
 }
@@ -25,22 +25,45 @@ describe("reservationRepository provider", () => {
     vi.resetModules();
   });
 
-  it("defaults to the API/MySQL repository when the source is blank", async () => {
+  it("defaults to the API/DB repository when the backend is blank", async () => {
     const { apiReservationRepository, reservationRepository } =
-      await loadProviderWithSource(" ");
+      await loadProviderWithBackend(" ");
 
     expect(reservationRepository).toBe(apiReservationRepository);
   });
 
-  it("selects the Firebase repository when configured", async () => {
-    const { firebaseReservationRepository, reservationRepository } =
-      await loadProviderWithSource(" firestore ");
+  it("selects the API/DB repository when configured", async () => {
+    const { apiReservationRepository, reservationRepository } =
+      await loadProviderWithBackend(" db ");
 
-    expect(reservationRepository).toBe(firebaseReservationRepository);
+    expect(reservationRepository).toBe(apiReservationRepository);
   });
 
-  it("throws instead of silently falling back for an unknown source", async () => {
-    vi.stubEnv("NEXT_PUBLIC_RESERVATION_DATA_SOURCE", "local");
+  it("selects the mock repository when configured", async () => {
+    const { mockReservationRepository, reservationRepository } =
+      await loadProviderWithBackend("mock");
+
+    expect(reservationRepository).toBe(mockReservationRepository);
+  });
+
+  it("throws instead of silently falling back for an unknown backend", async () => {
+    vi.stubEnv("NEXT_PUBLIC_RESERVATION_DATA_BACKEND", "local");
+
+    await expect(
+      import("@/lib/reservation-repository-provider"),
+    ).rejects.toThrow("NEXT_PUBLIC_RESERVATION_DATA_BACKEND");
+  });
+
+  it("throws when the legacy NEXT_PUBLIC_RESERVATION_DATA_SOURCE is set", async () => {
+    vi.stubEnv("NEXT_PUBLIC_RESERVATION_DATA_SOURCE", "mysql");
+
+    await expect(
+      import("@/lib/reservation-repository-provider"),
+    ).rejects.toThrow("NEXT_PUBLIC_RESERVATION_DATA_SOURCE");
+  });
+
+  it("throws when the legacy variable is set to firestore", async () => {
+    vi.stubEnv("NEXT_PUBLIC_RESERVATION_DATA_SOURCE", "firestore");
 
     await expect(
       import("@/lib/reservation-repository-provider"),

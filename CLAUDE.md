@@ -44,7 +44,7 @@ Claude는 이 저장소에서 주로 프론트엔드 UI, 화면 흐름, 사용�
 
 ## 구현 전 체크리스트
 
-multi-step 흐름, 인증, 외부 호출, 예약/탈퇴처럼 부분 실패가 발생할 수 있는 작업은 happy path 코딩 전에 다음을 한 번 짚는다. 정의 자체는 root [`AGENTS.md`](AGENTS.md) § Golden Rules § 6원칙을 따른다.
+multi-step 흐름, 인증, 외부 호출, 예약/탈퇴처럼 부분 실패가 발생할 수 있는 작업, **또는 여러 도메인/모듈에 같은 패턴 변경이 필요한 작업**은 happy path 코딩 전에 다음을 한 번 짚는다. 정의 자체는 root [`AGENTS.md`](AGENTS.md) § Golden Rules § 6원칙을 따른다.
 
 1. **SSOT** — 이 값/규칙의 단일 기준점은 어디인가? 별도 JSON/캐시/하드코딩으로 분산되지 않는가?
 2. **부분 실패** — 다단계 흐름의 중간 단계가 실패하면 사용자와 데이터는 어떤 상태가 되는가? 실패를 성공처럼 보이게 하지 않고 명시적으로 응답하는가?
@@ -52,6 +52,7 @@ multi-step 흐름, 인증, 외부 호출, 예약/탈퇴처럼 부분 실패가 �
 4. **bearer·cookie·redirect 보안** — URL에 노출되는 값, cookie nonce, OAuth callback에서의 Authorization 헤더 부재 같은 특성이 보강되어 있는가?
 5. **사용자 상태 전이** — 사용자가 중간에 닫거나 다시 누르거나 실패한 뒤 다음 액션을 했을 때 화면 상태가 정의되어 있는가? (모달, multi-step 폼, 권한 모달, 자동 정렬 등)
 6. **Edge case 테스트** — happy path 외에 conflict, retry, token/state mismatch, 브라우저 권한 흐름이 테스트로 잡혀 있는가?
+7. **동일 계층 sweep** — provider/repository/환경변수/legacy throw 같은 계층 변경 시, **작업 진입 직후 `rg "<pattern>"`을 1회 실행**해 sibling 도메인 목록을 표(도메인 × 항목: 변수명/허용값/기본값/legacy throw/테스트/repository 파일)로 사용자에게 먼저 보고한다. 같은 변경이 필요한 sibling은 한 묶음에 포함시키고, 의도적으로 분리할 경우 그 이유를 명시한다. **큰 변경 닫기 전 같은 grep을 한 번 더 실행해 잔존이 없는지 evidence를 1줄로 보고한다.** 사례: gym BACKEND 전환 시 reservation/favorite도 같은 상태인지 확인.
 
 이 체크리스트는 root `AGENTS.md`의 6원칙을 약화하지 않으며 작업 진입 시점의 의식 포인트로만 둔다.
 

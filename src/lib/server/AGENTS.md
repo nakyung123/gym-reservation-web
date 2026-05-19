@@ -2,7 +2,7 @@
 
 ## Module Context
 
-`src/lib/server`는 서버 전용 모듈이 모이는 경계다. Firebase Admin, MySQL repository, 서버 인증 컨텍스트, Prisma client가 여기에 위치한다.
+`src/lib/server`는 서버 전용 모듈이 모이는 경계다. Firebase Admin, DB repository(Postgres-backed), 서버 인증 컨텍스트, Prisma client가 여기에 위치한다.
 
 이 디렉터리의 파일은 Client Component, Client helper(`src/lib/*-client.ts`), 또는 브라우저 번들에 포함될 수 있는 어떤 파일에서도 import되어서는 안 된다.
 
@@ -10,10 +10,10 @@
 
 ## Local Tech Stack & Constraints
 
-- MySQL + Prisma (`prisma-client.ts`)
+- Postgres + Prisma (`prisma-client.ts`) — 운영은 Supabase Postgres, 로컬은 Docker Postgres
 - Firebase Admin SDK (`firebase-admin.ts`)
 - 서버 인증: `auth.ts`, `admin-auth.ts`
-- repository 구현: `mysql-*-repository.ts`
+- repository 구현: `mysql-*-repository.ts` (historical name — 현재는 Postgres-backed DB repository. 파일명 rename은 후속 리팩터링 항목)
 
 새 서버 전용 모듈을 추가할 때는 파일 상단에 `import "server-only"`를 명시한다.
 
@@ -34,7 +34,7 @@
 ### Repository
 
 - `src/lib/*-repository-provider.ts`는 화면/클라이언트 계층의 저장소 선택 SSOT다. 같은 선택 로직을 다른 곳에 중복 구현하지 않는다.
-- `mysql-*-repository.ts`는 Route Handler, 서버 전용 모듈, 테스트에서 사용하는 MySQL DB 접근 경계다.
+- `mysql-*-repository.ts`(historical name)는 Route Handler, 서버 전용 모듈, 테스트에서 사용하는 Postgres DB 접근 경계다.
 - Route Handler는 필요한 서버 DB 작업을 위해 `mysql-*-repository.ts` 함수를 직접 import할 수 있다.
 - Client Component, client helper, 브라우저 번들에 포함될 수 있는 파일은 `src/lib/server/*`를 import하지 않는다.
 - 새 repository가 단일 서버 구현만 갖는다면 provider를 만들 필요는 없다. 여러 구현 선택이 필요해지는 시점에 인터페이스와 provider를 함께 추가한다.

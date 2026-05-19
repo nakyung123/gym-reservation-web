@@ -28,7 +28,7 @@
 - 경로: `C:\Users\82107\nakyung\gym-reservation-web`
 - 로컬 기준 주소: `http://localhost:3000`
 - 목적: 공공체육시설 예약, 예약 상세, 즐겨찾기, 관리자 예약/시설/슬롯 관리 흐름을 안정적으로 제공한다.
-- 스택: Next.js 16, React 19, TypeScript, Tailwind 4, MySQL/Prisma, Firebase Auth
+- 스택: Next.js 16, React 19, TypeScript, Tailwind 4, Postgres(Supabase 운영 / Docker dev)/Prisma, Firebase Auth
 
 ## 명령어 원칙
 
@@ -37,9 +37,11 @@
 현재 확인된 주요 명령어:
 
 - `npm run dev`, `npm run lint`, `npm run test`, `npm run build`
-- `npm run db:test:migrate`, `npm run db:migrate:dev`, `npm run db:migrate:deploy`
-- `npm run seed:gyms`, `npm run db:seed`
+- `npm run db:test:migrate`, `npm run db:migrate:dev`, `npm run db:migrate:deploy`, `npm run db:migrate:prod`
+- `npm run db:seed`, `npm run db:seed:prod`
 - `npx tsc --noEmit --pretty false`
+
+운영(Supabase) DB 작업은 `db:migrate:prod` / `db:seed:prod`만 사용하고, PowerShell에서 `$env:DATABASE_URL` / `$env:DIRECT_URL`을 임시 주입한 뒤 실행한다. 절차 상세는 `.env.example` 주석 참고.
 
 명령어가 불확실하면 만들지 말고 TODO와 확인할 파일을 남긴다.
 

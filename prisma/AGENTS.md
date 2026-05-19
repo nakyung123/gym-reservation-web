@@ -12,8 +12,9 @@
 
 ## Local Tech Stack & Constraints
 
-- MySQL + Prisma
-- 운영 DB와 test DB가 분리되어 있다. 명령은 대상 DB를 항상 확인한 뒤 실행한다.
+- Postgres + Prisma (운영: Supabase Postgres, 로컬: Docker Postgres 17)
+- 운영 DB / 로컬 dev DB / test DB 3개가 분리되어 있다. 명령은 대상 DB를 항상 확인한 뒤 실행한다.
+- 운영 작업은 `db:migrate:prod` / `db:seed:prod`만 사용한다. `prisma.config.ts`의 `PRISMA_ENV=production` 분기로 `.env.local` override를 건너뛴다.
 - Windows 환경에서는 Prisma Client 생성 시 `query_engine-windows.dll.node` 파일이 잠길 수 있다. dev server·테스트·빌드가 동시에 도는 경우 충돌한다.
 
 ## 주요 명령어
@@ -21,10 +22,11 @@
 저장소 근거(`package.json`)에서 확인된 명령어만 사용한다.
 
 - `npm run db:migrate:dev` — 로컬 dev DB에 migration 적용
-- `npm run db:migrate:deploy` — 운영 DB에 migration 적용
+- `npm run db:migrate:deploy` — `.env.local` 기반 migration 적용 (로컬 셸에서 dev/test 외 환경에 쓰지 않는다)
+- `npm run db:migrate:prod` — 운영(Supabase) DB에 migration 적용. PowerShell `$env:DATABASE_URL`/`$env:DIRECT_URL` 주입 필요
 - `npm run db:test:migrate` — test DB에 migration 적용
-- `npm run db:seed` — seed 실행
-- `npm run seed:gyms` — gym 시드
+- `npm run db:seed` — 로컬 dev DB에 seed 실행
+- `npm run db:seed:prod` — 운영(Supabase) DB에 seed 실행. PowerShell URL 주입 필요
 
 명령어가 불확실하면 만들지 말고 사용자에게 확인한다.
 
@@ -74,8 +76,9 @@ destructive 변경은 사용자 확인을 먼저 받는다. 백업 또는 롤백
 
 ## Seed
 
-- `seed.mjs`, `seed:gyms`는 멱등성을 유지한다. 같은 시드를 두 번 실행해도 데이터가 중복되지 않게 처리한다.
-- 운영 DB에 seed를 실행하지 않는 것을 기본으로 한다.
+- `seed.mjs`는 멱등성을 유지한다. 같은 시드를 두 번 실행해도 데이터가 중복되지 않게 처리한다 (upsert 사용).
+- 로컬 dev DB는 `npm run db:seed`로 시드한다. 운영 DB는 `npm run db:seed:prod`만 사용하고, 사용자가 명시적으로 요청할 때만 실행한다.
+- 운영 DB seed는 PowerShell `$env:DATABASE_URL`/`$env:DIRECT_URL` 임시 주입 후 실행하고, 끝나면 변수를 비운다. 비밀값은 코드/로그/채팅에 노출하지 않는다.
 
 ## Local Golden Rules
 
