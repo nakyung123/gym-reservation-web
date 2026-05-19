@@ -5,7 +5,7 @@
 ## 결론
 
 - **운영 SSOT는 Supabase Postgres** (Seoul region). 로컬 dev/test는 Docker Postgres 17.
-- Prisma 6를 통한 단일 어댑터(`mysql-*-repository.ts`, historical name)가 모든 도메인의 DB 접근 경계다.
+- Prisma 6를 통한 단일 어댑터(`src/lib/server/db-*-repository.ts`)가 모든 도메인의 DB 접근 경계다.
 - **mock / local 어댑터는 개발·시연 보조용**으로 유지한다.
 - **Firestore 운영 분기는 폐기**됐다. 옛 환경변수 `NEXT_PUBLIC_*_DATA_SOURCE`는 런타임에서 명시적으로 throw해 사고 재발을 막는다.
 - **Firebase Auth는 유지**된다 (이메일/Google + 카카오·네이버 custom token). Firestore와 독립.

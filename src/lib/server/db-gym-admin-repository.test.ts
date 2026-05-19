@@ -16,7 +16,7 @@ const adminGym: AdminGym = {
   isActive: true,
 };
 
-describe("mysql gym admin repository", () => {
+describe("db gym admin repository", () => {
   it("관리자가 시설을 추가하면 관리자 목록과 공개 목록에 반영된다", async () => {
     const created = await createAdminGym(adminGym);
 

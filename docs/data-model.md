@@ -35,7 +35,8 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 | facilities | string[] | 편의시설 |
 | availableTimes | string[] | 예약 가능한 시간대 |
 | closedDays | string[] | 휴관 요일 |
-| distanceKm | number | 현재 기준 거리 |
+| latitude | number | 위도 (거리 계산 SSOT) |
+| longitude | number | 경도 (거리 계산 SSOT) |
 | description | string | 상세 설명 |
 
 현재 `gyms` seed/mock 데이터의 기준 파일은 `src/data/gyms.json`이고,
@@ -77,8 +78,7 @@ MVP에서는 별도 `users` 문서를 만들지 않고 Firebase Auth 익명 세�
 `reservation_locks`는 동일 사용자, 체육관, 종목, 날짜, 시간의 활성 예약이
 동시에 여러 개 생성되지 않도록 막는 테이블입니다. 예약 생성과 취소는 Prisma
 `$transaction` 안에서 `reservations`, `reservation_slots`, `reservation_locks`를
-함께 처리합니다 (`mysql-reservation-repository.ts` — historical 파일명, 현재는
-Postgres-backed).
+함께 처리합니다 (`src/lib/server/db-reservation-repository.ts`).
 
 ## 예약 규칙
 

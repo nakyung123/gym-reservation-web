@@ -35,7 +35,7 @@ async function createExtraGym(id: string) {
   });
 }
 
-describe("mysql favorite repository", () => {
+describe("db favorite repository", () => {
   it("lists only the requested user's favorite gym IDs in newest-first order", async () => {
     const oldGymId = "favorite-old-gym";
     const newGymId = "favorite-new-gym";
