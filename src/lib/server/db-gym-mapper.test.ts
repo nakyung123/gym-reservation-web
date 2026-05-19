@@ -40,8 +40,8 @@ function createRow(
   };
 }
 
-describe("mysql gym mapper", () => {
-  it("maps a MySQL gym row to a public domain gym", () => {
+describe("db gym mapper", () => {
+  it("maps a DB gym row to a public domain gym", () => {
     const gym = toDomainGym(createRow());
 
     expect(gym).toEqual({
