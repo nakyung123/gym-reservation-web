@@ -276,4 +276,46 @@ describe("useUserLocation", () => {
     );
     expect(container.querySelector("[data-testid='child']")?.textContent).toBe("child");
   });
+
+  it("permissions.query 응답에 onchange 핸들러를 등록한다", async () => {
+    const status = installPermissions("prompt");
+    expect(status.onchange).toBeNull();
+
+    const { result } = renderHook(() => useUserLocation(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.permission).toBe("prompt");
+    });
+
+    expect(status.onchange).toBeTypeOf("function");
+  });
+
+  it("permission이 onchange로 바뀌면 hook 상태도 갱신된다", async () => {
+    const status = installPermissions("prompt");
+
+    const { result } = renderHook(() => useUserLocation(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.permission).toBe("prompt");
+    });
+
+    act(() => {
+      status.state = "denied";
+      status.onchange?.();
+    });
+    expect(result.current.permission).toBe("denied");
+  });
+
+  it("unmount 후에는 status.onchange가 정리되어 더 이상 발화되지 않는다", async () => {
+    const status = installPermissions("prompt");
+
+    const { result, unmount } = renderHook(() => useUserLocation(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.permission).toBe("prompt");
+    });
+    expect(status.onchange).toBeTypeOf("function");
+
+    unmount();
+
+    // cleanup에서 onchange를 null로 비웠어야 한다.
+    expect(status.onchange).toBeNull();
+  });
 });

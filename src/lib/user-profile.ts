@@ -31,7 +31,15 @@ export type ProfilePhotoInput = {
 // data URL 최대 길이. 512px JPEG 0.85 품질 기준 보통 30~80KB.
 // base64 인코딩(원본의 약 1.37배) + 약간의 여유. 150KB ≈ 200,000자.
 const MAX_PHOTO_BASE64_LENGTH = 200_000;
-const PHOTO_DATA_URL_PREFIX = /^data:image\/(jpeg|png);base64,/;
+// data URL prefix + base64 payload(영문/숫자/+//=) 형식까지 모두 검증한다.
+// 깨진 base64 문자(공백, 한글 등)가 섞이면 거부한다.
+const PHOTO_DATA_URL_PATTERN =
+  /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/]+={0,2})$/;
+// 각 매직 바이트의 base64 prefix(이미지 1바이트 이상이라 prefix만 일치하면 충분).
+//   JPEG (FFD8FF) → "/9j/"
+//   PNG  (89 50 4E 47) → "iVBORw0KGgo"
+const JPEG_MAGIC_BASE64_PREFIX = "/9j/";
+const PNG_MAGIC_BASE64_PREFIX = "iVBORw0KGgo";
 
 export type ProfilePhotoValidationResult =
   | { ok: true; input: ProfilePhotoInput }
@@ -53,16 +61,34 @@ export function validateProfilePhotoInput(
       message: "프로필 사진은 문자열 또는 null이어야 합니다.",
     };
   }
-  if (!PHOTO_DATA_URL_PREFIX.test(value)) {
+  if (value.length > MAX_PHOTO_BASE64_LENGTH) {
+    return {
+      ok: false,
+      message: "프로필 사진의 용량이 너무 큽니다. 더 작은 이미지를 사용해 주세요.",
+    };
+  }
+  const match = PHOTO_DATA_URL_PATTERN.exec(value);
+  if (!match) {
     return {
       ok: false,
       message: "프로필 사진은 JPEG 또는 PNG data URL 형식이어야 합니다.",
     };
   }
-  if (value.length > MAX_PHOTO_BASE64_LENGTH) {
+  const [, mime, payload] = match;
+  // base64 padding 규칙: 전체 길이는 4의 배수여야 한다.
+  if (payload.length % 4 !== 0) {
     return {
       ok: false,
-      message: "프로필 사진의 용량이 너무 큽니다. 더 작은 이미지를 사용해 주세요.",
+      message: "프로필 사진 데이터가 손상되었습니다. 다시 시도해 주세요.",
+    };
+  }
+  // 매직 바이트로 mime와 실제 이미지가 일치하는지 1차 확인. prefix 위변조 차단.
+  const expectedPrefix =
+    mime === "jpeg" ? JPEG_MAGIC_BASE64_PREFIX : PNG_MAGIC_BASE64_PREFIX;
+  if (!payload.startsWith(expectedPrefix)) {
+    return {
+      ok: false,
+      message: "프로필 사진이 실제 JPEG/PNG 이미지가 아닙니다.",
     };
   }
   return { ok: true, input: { photoBase64: value } };

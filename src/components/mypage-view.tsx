@@ -174,7 +174,8 @@ function getAccountName(user: User): string {
     return user.email.split("@")[0] || user.email;
   }
 
-  return user.isAnonymous ? "임시 계정 사용자" : "이름 없음";
+  // 익명 로그인 흐름은 폐기됐다(e7c9454). 도달 시 일반 fallback만 노출.
+  return "이름 없음";
 }
 
 // 사진 미설정 시 표시할 기본 silhouette 아이콘 (heroicons user solid 인라인 SVG).

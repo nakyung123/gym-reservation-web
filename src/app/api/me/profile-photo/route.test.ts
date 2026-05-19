@@ -37,7 +37,9 @@ function requestRawBody(rawBody: string) {
   });
 }
 
-const SAMPLE_PHOTO = "data:image/jpeg;base64,SAMPLE_PHOTO_PAYLOAD";
+// 실제 1×1 PNG base64. validateProfilePhotoInput의 매직 바이트 + padding 검증을 통과한다.
+const SAMPLE_PHOTO =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 describe("PUT /api/me/profile-photo", () => {
   beforeEach(() => {

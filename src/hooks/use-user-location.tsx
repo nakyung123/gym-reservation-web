@@ -72,10 +72,14 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
       return;
     }
     let cancelled = false;
+    // 등록한 PermissionStatus.onchange는 unmount 시 정리한다.
+    // status 값을 클로저로 저장해 cleanup에서 같은 인스턴스를 참조한다.
+    let attached: PermissionStatus | null = null;
     navigator.permissions
       .query({ name: "geolocation" as PermissionName })
       .then((status) => {
         if (cancelled) return;
+        attached = status;
         setPermission(status.state as LocationPermissionState);
         status.onchange = () => {
           setPermission(status.state as LocationPermissionState);
@@ -86,6 +90,10 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
       });
     return () => {
       cancelled = true;
+      if (attached) {
+        attached.onchange = null;
+        attached = null;
+      }
     };
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
