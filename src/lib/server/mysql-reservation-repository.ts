@@ -123,14 +123,17 @@ async function reserveSlot(
 ): Promise<void> {
   await ensureReservationSlot(tx, key);
 
+  // Postgres에서는 reserved word date/time을 따옴표("...")로 escape한다.
+  // Prisma updateMany는 컬럼 vs 컬럼 비교(reserved_count < capacity)를 지원하지 않아
+  // raw SQL이 필요.
   const updatedCount = await tx.$executeRaw(
     Prisma.sql`
       UPDATE reservation_slots
       SET reserved_count = reserved_count + 1
       WHERE gym_id = ${key.gymId}
         AND sport = ${key.sport}
-        AND \`date\` = ${key.date}
-        AND \`time\` = ${key.time}
+        AND "date" = ${key.date}
+        AND "time" = ${key.time}
         AND is_closed = false
         AND reserved_count < capacity
     `,

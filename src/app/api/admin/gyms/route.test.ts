@@ -4,7 +4,7 @@ import { GET, POST } from "@/app/api/admin/gyms/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import type { AdminGym } from "@/types/domain";
-import { TEST_GYM } from "@tests/setup-mysql";
+import { TEST_GYM } from "@tests/setup-db";
 
 const adminToken = "test-admin-token";
 

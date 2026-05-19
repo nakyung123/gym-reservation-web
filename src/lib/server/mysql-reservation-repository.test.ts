@@ -15,7 +15,7 @@ import {
   updateReservationSlotPolicy,
 } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
-import { TEST_GYM, futureDate } from "@tests/setup-mysql";
+import { TEST_GYM, futureDate } from "@tests/setup-db";
 
 const userA = "user-a";
 const userB = "user-b";

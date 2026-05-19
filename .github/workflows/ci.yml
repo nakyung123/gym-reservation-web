@@ -23,12 +23,13 @@ jobs:
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
       NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-      # CI 빌드는 DB 없이 통과시킨다. 실제 mysql 어댑터 검증은 로컬/통합 테스트에서.
-      NEXT_PUBLIC_GYM_DATA_SOURCE: mock
+      # CI 빌드는 DB 없이 통과시킨다. 실제 DB 어댑터 검증은 로컬/통합 테스트에서.
+      NEXT_PUBLIC_GYM_DATA_BACKEND: mock
       NEXT_PUBLIC_FAVORITE_DATA_SOURCE: local
       NEXT_PUBLIC_RESERVATION_DATA_SOURCE: firestore
-      # Prisma client 초기화가 throw하지 않도록 가짜 URL 제공 (실제 쿼리 발생 안 함).
-      DATABASE_URL: mysql://ci:ci@localhost:3306/ci
+      # Prisma client 초기화가 throw하지 않도록 가짜 Postgres URL 제공 (실제 쿼리 발생 안 함).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
 
     steps:
       - name: Checkout

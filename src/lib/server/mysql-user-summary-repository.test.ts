@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
 import { getUserSummary } from "@/lib/server/mysql-user-summary-repository";
 import { prisma } from "@/lib/server/prisma-client";
-import { TEST_GYM, futureDate } from "@tests/setup-mysql";
+import { TEST_GYM, futureDate } from "@tests/setup-db";
 
 describe("getUserSummary", () => {
   it("사용자 데이터가 없으면 빈 요약을 반환한다", async () => {

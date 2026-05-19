@@ -6,7 +6,7 @@ import {
 } from "@/lib/server/mysql-favorite-repository";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
-import { TEST_GYM } from "@tests/setup-mysql";
+import { TEST_GYM } from "@tests/setup-db";
 
 const userA = "favorite-repo-user-a";
 const userB = "favorite-repo-user-b";

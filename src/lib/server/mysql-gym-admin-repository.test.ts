@@ -7,7 +7,7 @@ import {
 } from "@/lib/server/mysql-gym-admin-repository";
 import { createReservationInMysql } from "@/lib/server/mysql-reservation-repository";
 import type { AdminGym } from "@/types/domain";
-import { TEST_GYM, futureDate } from "@tests/setup-mysql";
+import { TEST_GYM, futureDate } from "@tests/setup-db";
 
 const adminGym: AdminGym = {
   ...TEST_GYM,

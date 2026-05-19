@@ -1,12 +1,15 @@
-// Prisma 스키마 — MySQL 기반 체육관, 예약, 즐겨찾기, 사용자 프로필 저장소.
+// Prisma 스키마 — Postgres(Supabase) 기반 체육관, 예약, 즐겨찾기, 사용자 프로필 저장소.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // 앱 트래픽용 pooled 연결 (Vercel/Supabase 환경에서 POSTGRES_PRISMA_URL 매핑)
+  url       = env("DATABASE_URL")
+  // migration / admin tooling용 direct 연결 (POSTGRES_URL_NON_POOLING 매핑)
+  directUrl = env("DIRECT_URL")
 }
 
 // 가변 길이 배열/객체 필드는 JSON 컬럼으로 둔다.
@@ -22,8 +25,8 @@ model Gym {
   description      String            @db.Text
   distanceKm       Decimal           @map("distance_km") @db.Decimal(5, 2)
   // 위/경도. 사용자 현재 위치 기반 거리 계산의 SSOT. 좌표 없는 체육관은 등록할 수 없다.
-  latitude         Float             @db.Double
-  longitude        Float             @db.Double
+  latitude         Float
+  longitude        Float
   sportPrices      Json              @map("sport_prices")
   facilities       Json
   availableTimes   Json              @map("available_times")
@@ -50,7 +53,7 @@ model GymSport {
 model Favorite {
   userId    String   @map("user_id") @db.VarChar(64)
   gymId     String   @map("gym_id") @db.VarChar(64)
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(3)
   gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
   @@id([userId, gymId])
@@ -68,12 +71,12 @@ model UserProfile {
   provider                        String?  @db.VarChar(16)
   // 사용자가 업로드한 프로필 사진(JPEG)을 data URL 형식으로 저장한다.
   // 클라이언트에서 512px 이내로 리사이즈한 결과라 대체로 30~80KB. MVP에서는 DB 직접 저장.
-  photoBase64                     String?  @map("photo_base64") @db.LongText
+  photoBase64                     String?  @map("photo_base64") @db.Text
   preferredRegion                 String?  @map("preferred_region") @db.VarChar(100)
   preferredSports                 Json     @map("preferred_sports")
   reservationNotificationsEnabled Boolean  @default(true) @map("reservation_notifications_enabled")
-  createdAt                       DateTime @default(now()) @map("created_at") @db.DateTime(3)
-  updatedAt                       DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  createdAt                       DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+  updatedAt                       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
 
   @@map("user_profiles")
 }
@@ -89,7 +92,7 @@ model Reservation {
   time      String           @db.VarChar(5)
   price     Int
   status    String           @db.VarChar(16)
-  createdAt DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamp(3)
   activeKey String           @map("active_key") @db.VarChar(255)
   gym       Gym              @relation(fields: [gymId], references: [id])
   lock      ReservationLock?
@@ -104,7 +107,7 @@ model ReservationLock {
   activeKey     String      @id @map("active_key") @db.VarChar(255)
   reservationId String      @unique @map("reservation_id") @db.VarChar(64)
   status        String      @db.VarChar(16)
-  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
   reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   @@map("reservation_locks")
@@ -118,7 +121,7 @@ model ReservationSlot {
   capacity      Int
   reservedCount Int      @default(0) @map("reserved_count")
   isClosed      Boolean  @default(false) @map("is_closed")
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
   gym           Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
   @@id([gymId, sport, date, time])
@@ -132,7 +135,7 @@ model WithdrawalReason {
   id        Int      @id @default(autoincrement())
   category  String   @db.VarChar(32)
   detail    String?  @db.VarChar(500)
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(3)
 
   @@index([createdAt], map: "idx_withdrawal_created")
   @@map("withdrawal_reasons")
@@ -147,8 +150,8 @@ model OAuthAttempt {
   provider  String   @db.VarChar(16)
   state     String   @db.VarChar(128)
   status    String   @db.VarChar(16)
-  createdAt DateTime @default(now()) @map("created_at") @db.DateTime(3)
-  expiresAt DateTime @map("expires_at") @db.DateTime(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+  expiresAt DateTime @map("expires_at") @db.Timestamp(3)
 
   @@index([expiresAt], map: "idx_oauth_attempt_expires")
   @@map("oauth_attempts")
@@ -175,8 +178,8 @@ model AuthHandoverTicket {
   status               String   @db.VarChar(16)
   finalizeAttemptCount Int      @default(0) @map("finalize_attempt_count")
   lastFinalizeError    String?  @map("last_finalize_error") @db.VarChar(500)
-  createdAt            DateTime @default(now()) @map("created_at") @db.DateTime(3)
-  expiresAt            DateTime @map("expires_at") @db.DateTime(3)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+  expiresAt            DateTime @map("expires_at") @db.Timestamp(3)
 
   @@index([expiresAt], map: "idx_auth_ticket_expires")
   @@map("auth_handover_tickets")

@@ -4,7 +4,7 @@ import { GET } from "@/app/api/reservation-slots/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { updateReservationSlotPolicy } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
-import { TEST_GYM, futureDate } from "@tests/setup-mysql";
+import { TEST_GYM, futureDate } from "@tests/setup-db";
 
 function requestFor(params: Record<string, string>) {
   const url = new URL("http://localhost:3000/api/reservation-slots");

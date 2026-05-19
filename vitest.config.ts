@@ -16,8 +16,8 @@ export default defineConfig({
     },
     testTimeout: 30_000,
     // setup-env가 먼저 평가되어 process.env.DATABASE_URL을 강제 설정한 뒤,
-    // setup-mysql이 prisma client를 import한다. 순서 중요.
-    setupFiles: ["./tests/setup-env.ts", "./tests/setup-mysql.ts"],
+    // setup-db가 prisma client를 import한다. 순서 중요.
+    setupFiles: ["./tests/setup-env.ts", "./tests/setup-db.ts"],
     include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
   },
   resolve: {

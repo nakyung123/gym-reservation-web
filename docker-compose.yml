@@ -1,0 +1,23 @@
+# 로컬 dev / test용 Postgres. 운영(Supabase)과 동일한 메이저 버전.
+# 비밀값은 코드에 박지 않는다. env_file로 .env.local의 POSTGRES_* 변수를 주입.
+# 실행: docker compose up -d   (옵션 없이 동작)
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: gym-reservation-postgres
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-gym_reservation_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

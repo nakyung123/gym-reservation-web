@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, PUT } from "@/app/api/favorites/[gymId]/route";
 import { updateAdminGym } from "@/lib/server/mysql-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
-import { TEST_GYM } from "@tests/setup-mysql";
+import { TEST_GYM } from "@tests/setup-db";
 
 const { verifyIdToken } = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),

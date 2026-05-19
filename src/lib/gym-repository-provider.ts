@@ -1,30 +1,36 @@
-import { firebaseGymRepository } from "@/lib/firebase-gym-repository";
 import { mockGymRepository, type GymRepository } from "@/lib/gym-repository";
 import { mysqlGymRepository } from "@/lib/mysql-gym-repository";
 
-type GymDataSource = "mock" | "firestore" | "mysql";
+type GymDataBackend = "mock" | "db";
 
-function getGymDataSource(): GymDataSource {
-  // 기본은 mysql. mock/firestore는 옵션으로 보존.
-  const value = process.env.NEXT_PUBLIC_GYM_DATA_SOURCE?.trim() || "mysql";
+// 옛 변수 이름. 운영에서 살아 있으면 Phase 1.5 이전 firestore 분기를 다시 부르는 사고가 난다.
+// 명시적으로 차단해 SSOT를 보호한다.
+const LEGACY_ENV_VAR = "NEXT_PUBLIC_GYM_DATA_SOURCE";
+const CURRENT_ENV_VAR = "NEXT_PUBLIC_GYM_DATA_BACKEND";
 
-  if (value === "mock" || value === "firestore" || value === "mysql") {
+function getGymDataBackend(): GymDataBackend {
+  if (process.env[LEGACY_ENV_VAR] !== undefined) {
+    throw new Error(
+      `${LEGACY_ENV_VAR}는 더 이상 사용하지 않습니다. ` +
+        `${CURRENT_ENV_VAR}=db(또는 mock)로 교체하세요.`,
+    );
+  }
+
+  const value = process.env[CURRENT_ENV_VAR]?.trim() || "db";
+
+  if (value === "mock" || value === "db") {
     return value;
   }
 
   throw new Error(
-    "NEXT_PUBLIC_GYM_DATA_SOURCE는 mock, firestore, mysql만 사용할 수 있습니다.",
+    `${CURRENT_ENV_VAR}는 "mock" 또는 "db"만 사용할 수 있습니다. 받은 값: "${value}"`,
   );
 }
 
 function selectGymRepository(): GymRepository {
-  const source = getGymDataSource();
+  const backend = getGymDataBackend();
 
-  if (source === "firestore") {
-    return firebaseGymRepository;
-  }
-
-  if (source === "mysql") {
+  if (backend === "db") {
     return mysqlGymRepository;
   }
 

@@ -7,7 +7,7 @@ import {
   markReservationUsedInMysql,
 } from "@/lib/server/mysql-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
-import { TEST_GYM, futureDate } from "@tests/setup-mysql";
+import { TEST_GYM, futureDate } from "@tests/setup-db";
 
 const adminToken = "test-admin-token";
 
