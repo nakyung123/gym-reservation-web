@@ -148,13 +148,14 @@ export function AdminReservationSlotsForm({
   }, [selectedGymId, selectedSport, selectedDate]);
 
   // hydration 이후 sessionStorage의 토큰을 한 번만 읽는다.
+  // 토큰 평문을 input value에 되채우지 않는다 (DOM/스냅샷 평문 노출 방지).
+  // savedToken만 복원하면 조회는 그대로 동작하고, 입력란은 빈 채로 둔다.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const timer = window.setTimeout(() => {
       const stored = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
       if (stored) {
         setSavedToken(stored);
-        setTokenInput(stored);
       }
     }, 0);
 
