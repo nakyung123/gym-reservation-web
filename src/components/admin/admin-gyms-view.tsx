@@ -13,6 +13,11 @@ import {
 } from "@/lib/admin/admin-gym-client";
 import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
+import {
+  AdminButtonSpinner,
+  AdminEmptyState,
+  AdminLoadingRow,
+} from "@/components/admin/admin-async-state";
 import type { AdminGym, Sport } from "@/types/domain";
 
 type GymsState =
@@ -552,15 +557,14 @@ export function AdminGymsView() {
             </div>
 
             {gymsState.status === "idle" ? (
-              <p className="mt-5 text-sm text-slate-500">
-                관리자 토큰 저장 후 시설 목록을 조회할 수 있습니다.
-              </p>
+              <AdminEmptyState
+                title="관리자 토큰이 필요합니다"
+                description="토큰을 저장하면 시설 목록을 자동으로 불러옵니다."
+              />
             ) : null}
 
             {gymsState.status === "loading" ? (
-              <p className="mt-5 text-sm text-slate-500">
-                시설 목록을 불러오는 중입니다.
-              </p>
+              <AdminLoadingRow message="시설 목록을 불러오는 중입니다." />
             ) : null}
 
             {gymsState.status === "error" ? (
@@ -574,9 +578,18 @@ export function AdminGymsView() {
 
             {gymsState.status === "ready" ? (
               filteredGyms.length === 0 ? (
-                <p className="mt-5 text-sm text-slate-500">
-                  조건에 맞는 시설이 없습니다.
-                </p>
+                <AdminEmptyState
+                  title={
+                    gyms.length === 0
+                      ? "등록된 시설이 없습니다"
+                      : "조건에 맞는 시설이 없습니다"
+                  }
+                  description={
+                    gyms.length === 0
+                      ? "오른쪽 양식에서 신규 시설을 추가할 수 있습니다."
+                      : "검색어나 상태 필터를 바꿔 다시 확인해 보세요."
+                  }
+                />
               ) : (
                 <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
                   {filteredGyms.map((gym) => {
@@ -866,7 +879,14 @@ export function AdminGymsView() {
                   disabled={saving}
                   className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                 >
-                  {saving ? "저장 중" : "저장"}
+                  {saving ? (
+                    <span className="inline-flex items-center gap-2">
+                      <AdminButtonSpinner />
+                      저장 중
+                    </span>
+                  ) : (
+                    "저장"
+                  )}
                 </button>
                 <button
                   type="button"

@@ -9,6 +9,11 @@ import {
 } from "@/lib/admin/admin-reservation-client";
 import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
+import {
+  AdminButtonSpinner,
+  AdminEmptyState,
+  AdminLoadingRow,
+} from "@/components/admin/admin-async-state";
 import type { Gym, Reservation, ReservationStatus } from "@/types/domain";
 
 type DetailState =
@@ -727,7 +732,14 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               disabled={!canQuery}
               className="h-10 self-end rounded-md bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
             >
-              {reservationsState.status === "loading" ? "조회 중" : "조회"}
+              {reservationsState.status === "loading" ? (
+                <span className="inline-flex items-center gap-2">
+                  <AdminButtonSpinner />
+                  조회 중
+                </span>
+              ) : (
+                "조회"
+              )}
             </button>
           </div>
           {!isLimitValid ? (
@@ -754,13 +766,21 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                   선택된 예약 상세
                 </h2>
                 {detailState.status === "loading" ? (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p
+                    className="mt-1 flex items-center gap-2 text-xs text-slate-500"
+                    aria-live="polite"
+                    aria-busy="true"
+                  >
+                    <span
+                      className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600"
+                      aria-hidden="true"
+                    />
                     예약 상세를 불러오는 중입니다.
                   </p>
                 ) : null}
                 {detailState.status === "error" ? (
                   <p
-                    className="mt-1 font-mono text-xs text-slate-500"
+                    className="mt-1 break-all font-mono text-xs text-slate-500"
                     aria-label="요청한 예약 ID"
                   >
                     {detailState.reservationId}
@@ -874,10 +894,16 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-sm font-bold text-slate-950">예약 목록</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                예약 완료 {statusCounts.reserved}건 · 이용 완료{" "}
-                {statusCounts.used}건 · 예약 취소 {statusCounts.cancelled}건
-              </p>
+              {reservationsState.status === "ready" ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  예약 완료 {statusCounts.reserved}건 · 이용 완료{" "}
+                  {statusCounts.used}건 · 예약 취소 {statusCounts.cancelled}건
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-500">
+                  조회하면 상태별 집계가 표시됩니다.
+                </p>
+              )}
             </div>
             {reservationsState.status === "ready" ? (
               <span className="text-xs font-semibold text-slate-500">
@@ -887,15 +913,14 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           </div>
 
           {reservationsState.status === "idle" ? (
-            <p className="mt-4 text-sm text-slate-500">
-              조건을 선택하고 조회를 눌러주세요.
-            </p>
+            <AdminEmptyState
+              title="아직 예약을 조회하지 않았습니다"
+              description="상태·체육관·날짜·사용자 조건을 선택하고 조회를 누르면 예약 목록이 표시됩니다."
+            />
           ) : null}
 
           {reservationsState.status === "loading" ? (
-            <p className="mt-4 text-sm text-slate-500">
-              예약 목록을 불러오는 중입니다.
-            </p>
+            <AdminLoadingRow message="예약 목록을 불러오는 중입니다." />
           ) : null}
 
           {reservationsState.status === "error" ? (
@@ -909,9 +934,10 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
 
           {reservationsState.status === "ready" ? (
             reservations.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">
-                조건에 맞는 예약이 없습니다.
-              </p>
+              <AdminEmptyState
+                title="조건에 맞는 예약이 없습니다"
+                description="다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
+              />
             ) : (
               <div className="mt-4 overflow-x-auto">
                 <table className="min-w-full border-collapse text-sm">

@@ -1121,7 +1121,7 @@ function ProfileSettingsForm({
 }) {
   const isSaving = saveState.status === "saving";
   const [nicknameStatus, setNicknameStatus] = useState<
-    "idle" | "checking" | "available" | "taken" | "error"
+    "idle" | "checking" | "available" | "taken" | "invalid" | "error"
   >("idle");
 
   // 닉네임 변경 시 400ms debounce 후 server check. 본인 닉네임은 server가 available로 처리.
@@ -1143,7 +1143,7 @@ function ProfileSettingsForm({
           return;
         }
         if (result.available) setNicknameStatus("available");
-        else setNicknameStatus(result.reason === "invalid" ? "error" : "taken");
+        else setNicknameStatus(result.reason === "invalid" ? "invalid" : "taken");
       } catch {
         if (!controller.signal.aborted) setNicknameStatus("error");
       }
@@ -1156,8 +1156,16 @@ function ProfileSettingsForm({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const nicknameIsTaken = nicknameStatus === "taken";
+  const nicknameIsInvalid = nicknameStatus === "invalid";
+  const nicknameCheckFailed = nicknameStatus === "error";
+  // 중복/형식 오류 닉네임은 저장 자체를 막는다. 조회 실패(error)는 일시적일 수 있어
+  // 저장을 막지 않고 서버 검증에 맡기되, 안내 문구로 실패를 명시한다(No Silent Fallback).
+  const nicknameHasError = nicknameIsTaken || nicknameIsInvalid;
   const isSaveDisabled =
-    isSaving || nicknameStatus === "checking" || nicknameIsTaken;
+    isSaving ||
+    nicknameStatus === "checking" ||
+    nicknameIsTaken ||
+    nicknameIsInvalid;
 
   return (
     <form className="mt-5 flex flex-col gap-5" onSubmit={onSubmit} noValidate>
@@ -1176,9 +1184,9 @@ function ProfileSettingsForm({
           maxLength={8}
           placeholder="예: 농구왕"
           disabled={isSaving}
-          aria-invalid={nicknameIsTaken || undefined}
+          aria-invalid={nicknameHasError || undefined}
           className={`h-11 rounded-md border bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
-            nicknameIsTaken
+            nicknameHasError
               ? "border-rose-400 focus-visible:ring-rose-200"
               : "border-slate-300 focus-visible:ring-sky-500"
           }`}
@@ -1186,6 +1194,14 @@ function ProfileSettingsForm({
         {nicknameIsTaken ? (
           <p className="text-xs font-semibold text-rose-700" role="alert">
             이미 사용 중인 닉네임입니다.
+          </p>
+        ) : nicknameIsInvalid ? (
+          <p className="text-xs font-semibold text-rose-700" role="alert">
+            사용할 수 없는 닉네임입니다. 다른 닉네임을 입력해 주세요.
+          </p>
+        ) : nicknameCheckFailed ? (
+          <p className="text-xs font-semibold text-amber-700" role="alert">
+            닉네임 사용 여부를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.
           </p>
         ) : nicknameStatus === "available" && form.nickname.trim().length > 0 ? (
           <p className="text-xs font-semibold text-emerald-700">

@@ -7,6 +7,11 @@ import {
 } from "@/lib/admin/admin-overview-client";
 import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
+import {
+  AdminButtonSpinner,
+  AdminEmptyState,
+  AdminLoadingRow,
+} from "@/components/admin/admin-async-state";
 
 type OverviewState =
   | { status: "idle" }
@@ -133,7 +138,14 @@ export function AdminOverviewPanel() {
               disabled={!savedToken || overviewState.status === "loading"}
               className="h-10 rounded-md bg-sky-700 px-3 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
             >
-              {overviewState.status === "loading" ? "조회 중" : "조회"}
+              {overviewState.status === "loading" ? (
+                <span className="inline-flex items-center gap-2">
+                  <AdminButtonSpinner />
+                  조회 중
+                </span>
+              ) : (
+                "조회"
+              )}
             </button>
           </div>
         </div>
@@ -157,9 +169,14 @@ export function AdminOverviewPanel() {
       </div>
 
       {overviewState.status === "idle" ? (
-        <p className="mt-5 text-sm text-slate-500">
-          토큰과 날짜를 확인한 뒤 조회를 눌러주세요.
-        </p>
+        <AdminEmptyState
+          title="아직 운영 요약을 조회하지 않았습니다"
+          description="관리자 토큰을 저장하고 날짜를 선택한 뒤 조회를 누르면 요약이 표시됩니다."
+        />
+      ) : null}
+
+      {overviewState.status === "loading" ? (
+        <AdminLoadingRow message="운영 요약을 불러오는 중입니다." />
       ) : null}
 
       {overviewState.status === "error" ? (

@@ -17,6 +17,11 @@ import {
   normalizeAdminBulkSlotDates,
 } from "@/lib/admin/admin-reservation-slot-policy";
 import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
+import {
+  AdminButtonSpinner,
+  AdminEmptyState,
+  AdminLoadingRow,
+} from "@/components/admin/admin-async-state";
 import type { Gym, ReservationSlotAvailability, Sport } from "@/types/domain";
 
 const BULK_DEFAULT_CAPACITY = 10;
@@ -823,7 +828,14 @@ export function AdminReservationSlotsForm({
               disabled={!canQuery || slotsState.status === "loading"}
               className="h-10 self-end rounded-md bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
             >
-              {slotsState.status === "loading" ? "조회 중" : "조회"}
+              {slotsState.status === "loading" ? (
+                <span className="inline-flex items-center gap-2">
+                  <AdminButtonSpinner />
+                  조회 중
+                </span>
+              ) : (
+                "조회"
+              )}
             </button>
           </div>
           {isSavingSlotChange ? (
@@ -837,15 +849,14 @@ export function AdminReservationSlotsForm({
           <h2 className="text-sm font-bold text-slate-950">시간대 슬롯</h2>
 
           {slotsState.status === "idle" ? (
-            <p className="mt-3 text-sm text-slate-500">
-              조건을 선택하고 조회를 눌러주세요.
-            </p>
+            <AdminEmptyState
+              title="아직 슬롯을 조회하지 않았습니다"
+              description="체육관·종목·날짜를 선택하고 조회를 누르면 시간대별 슬롯이 표시됩니다."
+            />
           ) : null}
 
           {slotsState.status === "loading" ? (
-            <p className="mt-3 text-sm text-slate-500">
-              슬롯 정보를 불러오는 중입니다.
-            </p>
+            <AdminLoadingRow message="슬롯 정보를 불러오는 중입니다." />
           ) : null}
 
           {slotsState.status === "error" ? (
@@ -859,9 +870,10 @@ export function AdminReservationSlotsForm({
 
           {slotsState.status === "ready" ? (
             slotsState.slots.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">
-                해당 조건에 등록된 시간대가 없습니다.
-              </p>
+              <AdminEmptyState
+                title="등록된 시간대가 없습니다"
+                description="선택한 체육관·종목·날짜에는 관리 가능한 시간대 슬롯이 없습니다."
+              />
             ) : (
               <>
                 <div className="mt-3 rounded-md border border-sky-200 bg-sky-50/40 p-4">
@@ -992,9 +1004,14 @@ export function AdminReservationSlotsForm({
                       disabled={!canBulkApply}
                       className="h-9 rounded-md bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                     >
-                      {bulkSaveState.status === "saving"
-                        ? "적용 중"
-                        : "일괄 적용"}
+                      {bulkSaveState.status === "saving" ? (
+                        <span className="inline-flex items-center gap-2">
+                          <AdminButtonSpinner />
+                          적용 중
+                        </span>
+                      ) : (
+                        "일괄 적용"
+                      )}
                     </button>
                   </div>
                   {!savedToken ? (
