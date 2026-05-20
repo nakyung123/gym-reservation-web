@@ -13,7 +13,7 @@ export function verifyAdminTokenFromRequest(
     return {
       ok: false,
       status: 503,
-      message: "관리자 API 토큰이 설정되어 있지 않습니다.",
+      message: "관리자 기능을 일시적으로 사용할 수 없습니다.",
     };
   }
 

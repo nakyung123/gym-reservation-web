@@ -218,7 +218,9 @@ describe("POST /api/admin/gyms", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
-    expect(body.message).toBe("관리자 API 토큰이 설정되어 있지 않습니다.");
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
     expect(await prisma.gym.count()).toBe(1);
   });
 
