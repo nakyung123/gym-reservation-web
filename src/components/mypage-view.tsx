@@ -18,6 +18,7 @@ import {
 import { SPORTS } from "@/lib/domain-constants";
 import { resendEmailVerification } from "@/lib/firebase-email-auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import { checkNicknameAvailability } from "@/lib/nickname-availability-client";
 import {
   fetchUserProfile,
@@ -162,6 +163,18 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error && error.message
     ? error.message
     : "알 수 없는 오류가 발생했습니다.";
+}
+
+// 디버깅용 status는 console.error로만 남기고 사용자에게는 message만 보여준다.
+// 5xx는 서버 측 문제이므로 사용자 책임처럼 보이는 status= 같은 부착어를 만들지 않는다.
+function logErrorStatus(
+  context: string,
+  message: string,
+  responseStatus?: number,
+) {
+  if (responseStatus !== undefined) {
+    console.error(`[mypage:${context}] status=${responseStatus} ${message}`);
+  }
 }
 
 function getAccountName(user: User): string {
@@ -319,18 +332,13 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
   }
 
   if (summaryState.status === "error") {
-    const detail =
-      summaryState.responseStatus === undefined
-        ? summaryState.message
-        : `${summaryState.message} status=${summaryState.responseStatus}`;
-
     return (
       <section
         className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-rose-800 shadow-sm"
         role="alert"
       >
         <p className="text-sm font-bold">요약 정보를 불러오지 못했습니다</p>
-        <p className="mt-2 text-sm leading-6">{detail}</p>
+        <p className="mt-2 text-sm leading-6">{summaryState.message}</p>
       </section>
     );
   }
@@ -412,6 +420,10 @@ function StatusBreakdown({ summaryState }: { summaryState: SummaryState }) {
 
 export function MypageView() {
   const router = useRouter();
+  // signed-out 감지 + /login?from=/mypage redirect는 useRequireAuth가 처리.
+  // 본 컴포넌트는 user 객체 자체가 필요해서 onAuthStateChanged로 직접 구독한다
+  // (providerData / displayName / emailVerified 표시용).
+  useRequireAuth({ from: "/mypage" });
   const activeUserIdRef = useRef<string | null>(null);
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
@@ -482,13 +494,6 @@ export function MypageView() {
     }
   }, []);
 
-  // signed-out 상태면 /login으로 redirect. Phase C의 useRequireAuth로 추출 예정.
-  useEffect(() => {
-    if (authState.status === "signed-out") {
-      router.replace("/login?from=/mypage");
-    }
-  }, [authState.status, router]);
-
   useEffect(() => {
     if (!readyUserId) {
       return;
@@ -514,6 +519,7 @@ export function MypageView() {
           return;
         }
 
+        logErrorStatus("summary", result.message, result.status);
         setSummaryState({
           status: "error",
           kind: result.kind,
@@ -566,6 +572,7 @@ export function MypageView() {
           return;
         }
 
+        logErrorStatus("profile-fetch", result.message, result.status);
         setProfileState({
           status: "error",
           kind: result.kind,
@@ -722,6 +729,7 @@ export function MypageView() {
       }
 
       saveAbortControllerRef.current = null;
+      logErrorStatus("profile-save", result.message, result.status);
       setSaveState({
         status: "error",
         kind: result.kind,
@@ -1066,11 +1074,7 @@ function ProfileSettingsSection({
           role="alert"
         >
           <p className="font-bold">프로필 설정을 불러오지 못했습니다</p>
-          <p className="mt-1">
-            {profileState.responseStatus === undefined
-              ? profileState.message
-              : `${profileState.message} status=${profileState.responseStatus}`}
-          </p>
+          <p className="mt-1">{profileState.message}</p>
         </div>
       ) : null}
 
@@ -1279,11 +1283,7 @@ function ProfileSettingsForm({
           role="alert"
         >
           <p className="font-bold">프로필 설정을 저장하지 못했습니다</p>
-          <p className="mt-1">
-            {saveState.responseStatus === undefined
-              ? saveState.message
-              : `${saveState.message} status=${saveState.responseStatus}`}
-          </p>
+          <p className="mt-1">{saveState.message}</p>
         </div>
       ) : null}
 

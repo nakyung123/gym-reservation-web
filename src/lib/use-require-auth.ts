@@ -48,3 +48,20 @@ export function sanitizeFromPath(value: string | undefined | null): string | nul
   if (/^\/[a-z]+:/i.test(value)) return null;
   return value;
 }
+
+// 소셜 OAuth는 외부 redirect 흐름이라 from path를 URL/cookie/server state에 담지 않고
+// 같은 탭의 sessionStorage에 잠시 보관한다. LoginView가 set, HandoverFlow success 시 pop.
+export const OAUTH_FROM_STORAGE_KEY = "auth-oauth-from-path";
+
+// HandoverFlow 등에서 호출. sessionStorage에서 from path를 읽어 sanitize한 뒤 즉시 제거한다.
+// sessionStorage 불가 환경이거나 값이 없으면 null.
+export function popOauthFromPath(): string | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const value = window.sessionStorage.getItem(OAUTH_FROM_STORAGE_KEY);
+    window.sessionStorage.removeItem(OAUTH_FROM_STORAGE_KEY);
+    return sanitizeFromPath(value);
+  } catch {
+    return null;
+  }
+}

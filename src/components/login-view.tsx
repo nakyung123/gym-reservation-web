@@ -7,7 +7,7 @@ import { signInWithEmail } from "@/lib/firebase-email-auth";
 import { signInWithGoogle } from "@/lib/firebase-google-auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
 import { startNaverLogin } from "@/lib/firebase-naver-auth";
-import { sanitizeFromPath } from "@/lib/use-require-auth";
+import { OAUTH_FROM_STORAGE_KEY, sanitizeFromPath } from "@/lib/use-require-auth";
 import { ensureUserProfile } from "@/lib/user-profile-client";
 import {
   getFirebaseAuthSessionServerSnapshot,
@@ -89,8 +89,23 @@ export function LoginView() {
     setSubmitState({ kind: "error", message: result.message });
   }
 
+  // 소셜 OAuth는 외부 redirect 흐름이라 from path를 server state에 박지 않고
+  // sessionStorage에 잠시 저장한다. handover-flow가 success 시 pop해서 사용한다.
+  function persistOauthFromPath() {
+    try {
+      if (fromPath && fromPath !== "/mypage") {
+        window.sessionStorage.setItem(OAUTH_FROM_STORAGE_KEY, fromPath);
+      } else {
+        window.sessionStorage.removeItem(OAUTH_FROM_STORAGE_KEY);
+      }
+    } catch {
+      // sessionStorage 불가 환경(시크릿/저장공간 부족)에서는 default로 /mypage.
+    }
+  }
+
   async function handleKakao() {
     setSubmitState({ kind: "loading" });
+    persistOauthFromPath();
     const result = await startKakaoLogin();
     if (!result.ok) {
       setSubmitState({ kind: "error", message: result.message });
@@ -99,6 +114,7 @@ export function LoginView() {
 
   async function handleNaver() {
     setSubmitState({ kind: "loading" });
+    persistOauthFromPath();
     const result = await startNaverLogin();
     if (!result.ok) {
       setSubmitState({ kind: "error", message: result.message });

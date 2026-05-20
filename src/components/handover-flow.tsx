@@ -12,6 +12,7 @@ import {
   retryNaverFinalize,
   type FinalizeNaverResult,
 } from "@/lib/firebase-naver-auth";
+import { popOauthFromPath } from "@/lib/use-require-auth";
 import { ensureUserProfile } from "@/lib/user-profile-client";
 
 type Provider = "kakao" | "naver";
@@ -51,7 +52,9 @@ export function HandoverFlow() {
       void ensureUserProfile().catch((error) => {
         console.warn("[handover] ensureUserProfile failed:", error);
       });
-      setTimeout(() => router.replace("/mypage"), 1200);
+      // LoginView에서 sessionStorage에 박은 from path가 있으면 그곳으로, 없으면 /mypage.
+      const fromPath = popOauthFromPath() ?? "/mypage";
+      setTimeout(() => router.replace(fromPath), 1200);
       return;
     }
     if (result.reason === "retryable") {
