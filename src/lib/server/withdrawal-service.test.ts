@@ -146,6 +146,31 @@ describe("withdrawAccount", () => {
     await expect(prisma.withdrawalReason.count()).resolves.toBe(0);
   });
 
+  it("DB 삭제 실패는 내부 오류 상세를 사용자 메시지에 섞지 않는다", async () => {
+    const userId = "withdraw-user-db-fail";
+    await ensureUserProfile(userId, "local");
+    const txSpy = vi
+      .spyOn(prisma, "$transaction")
+      .mockRejectedValueOnce(new Error("database offline"));
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        withdrawAccount(userId, { category: "기타", detail: null }),
+      ).resolves.toEqual({
+        ok: false,
+        reason: "error",
+        message: "회원 정보 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+      });
+      expect(deleteUser).not.toHaveBeenCalled();
+    } finally {
+      txSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it("Auth fail 후 재시도가 성공하면 사유가 1회만 기록된다 (idempotency)", async () => {
     const userId = "withdraw-user-retry";
     await ensureUserProfile(userId, "local");

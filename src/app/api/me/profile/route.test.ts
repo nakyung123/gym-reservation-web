@@ -91,6 +91,16 @@ describe("GET /api/me/profile", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
+  it("ID 토큰 검증에 실패하면 401을 반환한다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await GET(requestFor("GET"));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+  });
+
   it("프로필 조회 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
     mockVerify("profile-route-get-error-user");
     const errorSpy = vi
@@ -198,6 +208,22 @@ describe("PUT /api/me/profile", () => {
     expect(await prisma.userProfile.count()).toBe(0);
   });
 
+  it("닉네임 길이 제한을 넘으면 400을 반환하고 저장하지 않는다", async () => {
+    mockVerify("profile-route-long-nickname-user");
+
+    const response = await PUT(
+      requestFor("PUT", {
+        ...profileInput,
+        nickname: "가".repeat(9),
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("닉네임은 8자 이하로 입력해야 합니다.");
+    expect(await prisma.userProfile.count()).toBe(0);
+  });
+
   it("ID 토큰 검증에 실패하면 401을 반환하고 저장하지 않는다", async () => {
     verifyIdToken.mockRejectedValue(new Error("expired token"));
 
@@ -224,6 +250,35 @@ describe("PUT /api/me/profile", () => {
     expect(response.status).toBe(500);
     expect(body.message).toBe("프로필 설정을 저장하지 못했습니다.");
     errorSpy.mockRestore();
+  });
+
+  it("다른 사용자의 닉네임과 충돌하면 409를 반환하고 새 프로필을 만들지 않는다", async () => {
+    await prisma.userProfile.create({
+      data: {
+        userId: "profile-route-nickname-owner",
+        nickname: "중복닉",
+        preferredRegion: null,
+        preferredSports: [],
+        reservationNotificationsEnabled: true,
+      },
+    });
+    mockVerify("profile-route-nickname-conflict-user");
+
+    const response = await PUT(
+      requestFor("PUT", {
+        ...profileInput,
+        nickname: "중복닉",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(409);
+    expect(body.message).toBe("이미 사용 중인 닉네임입니다.");
+    await expect(
+      prisma.userProfile.count({
+        where: { userId: "profile-route-nickname-conflict-user" },
+      }),
+    ).resolves.toBe(0);
   });
 
   it("PUT은 클라이언트 입력이 아닌 server 산출 provider로 저장한다", async () => {
@@ -268,6 +323,17 @@ describe("POST /api/me/profile", () => {
     ).toBeLessThanOrEqual(8);
   });
 
+  it("ID 토큰 검증에 실패하면 프로필을 보장하지 않고 401을 반환한다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await POST(requestFor("POST"));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(await prisma.userProfile.count()).toBe(0);
+  });
+
   it("uid 'kakao:' prefix면 sign_in_provider가 custom이어도 provider=kakao로 저장", async () => {
     mockVerify("kakao:9999", "custom");
 
@@ -277,6 +343,17 @@ describe("POST /api/me/profile", () => {
       where: { userId: "kakao:9999" },
     });
     expect(stored.provider).toBe("kakao");
+  });
+
+  it("uid 'naver:' prefix면 sign_in_provider가 custom이어도 provider=naver로 저장", async () => {
+    mockVerify("naver:9999", "custom");
+
+    const response = await POST(requestFor("POST"));
+    expect(response.status).toBe(200);
+    const stored = await prisma.userProfile.findUniqueOrThrow({
+      where: { userId: "naver:9999" },
+    });
+    expect(stored.provider).toBe("naver");
   });
 
   it("기존 프로필이 있으면 nickname 등은 유지하고 provider만 동기화한다", async () => {
@@ -311,5 +388,26 @@ describe("POST /api/me/profile", () => {
       where: { userId: "profile-route-unknown-provider-user" },
     });
     expect(stored.provider).toBeNull();
+  });
+
+  it("프로필 보장 중 DB 오류가 발생하면 JSON 500을 반환한다", async () => {
+    mockVerify("profile-route-post-error-user", "password");
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const findSpy = vi
+      .spyOn(prisma.userProfile, "findUnique")
+      .mockRejectedValueOnce(new Error("database offline"));
+
+    try {
+      const response = await POST(requestFor("POST"));
+      const body = (await response.json()) as { message?: unknown };
+
+      expect(response.status).toBe(500);
+      expect(body.message).toBe("프로필을 초기화하지 못했습니다.");
+    } finally {
+      findSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });

@@ -44,13 +44,11 @@ export async function withdrawAccount(
       prisma.userProfile.deleteMany({ where: { userId } }),
     ]);
   } catch (error) {
+    console.error("[withdraw] DB user data delete failed:", error);
     return {
       ok: false,
       reason: "error",
-      message:
-        error instanceof Error && error.message
-          ? `회원 정보 삭제에 실패했습니다. ${error.message}`
-          : "회원 정보 삭제에 실패했습니다.",
+      message: "회원 정보 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
 

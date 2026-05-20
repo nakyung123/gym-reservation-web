@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 // 닉네임 사용 가능 여부 조회. 가입 폼에서도 호출하므로 unauthenticated 허용.
 // 인증 헤더가 있고 유효하면 본인 nickname은 사용 가능으로 처리(편집 시 노이즈 방지).
+// 인증 헤더가 있는데 검증에 실패하면 익명 요청처럼 조용히 대체하지 않고 401로 응답한다.
 // 응답: { available: true } | { available: false, reason: "taken" | "invalid" }
 // 최종 보호는 DB unique constraint + upsert P2002 처리에 있다.
 // 길이 제한은 validate 함수와 동일한 상수를 사용한다 (UI/API/저장 모두 정합).
@@ -21,7 +22,10 @@ export async function GET(request: NextRequest) {
   let selfUid: string | null = null;
   if (request.headers.get("authorization")) {
     const auth = await verifyIdTokenFromRequest(request);
-    if (auth.ok) selfUid = auth.uid;
+    if (!auth.ok) {
+      return Response.json({ message: auth.message }, { status: auth.status });
+    }
+    selfUid = auth.uid;
   }
 
   try {

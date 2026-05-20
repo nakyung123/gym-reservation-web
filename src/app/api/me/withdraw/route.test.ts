@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/me/withdraw/route";
-import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import {
+  cancelReservationInDb,
+  createReservationInDb,
+} from "@/lib/server/db-reservation-repository";
 import { ensureUserProfile } from "@/lib/server/db-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
@@ -61,6 +64,19 @@ describe("POST /api/me/withdraw", () => {
     );
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("ID 토큰 검증에 실패하면 401을 반환하고 service를 호출하지 않는다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await POST(
+      requestFor({ category: "기타", detail: null }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
     expect(deleteUser).not.toHaveBeenCalled();
   });
 
@@ -169,6 +185,95 @@ describe("POST /api/me/withdraw", () => {
     });
   });
 
+  it("취소된 예약, 즐겨찾기, 프로필을 함께 정리하고 예약 락도 남기지 않는다", async () => {
+    const userId = "withdraw-route-cleanup";
+    verifyIdToken.mockResolvedValue({
+      uid: userId,
+      firebase: { sign_in_provider: "password" },
+    });
+    await ensureUserProfile(userId, "local");
+    await prisma.favorite.create({ data: { userId, gymId: TEST_GYM.id } });
+    const created = await createReservationInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const cancelled = await cancelReservationInDb(userId, created.reservation.id);
+    expect(cancelled.ok).toBe(true);
+    deleteUser.mockResolvedValue(undefined);
+
+    const response = await POST(
+      requestFor({ category: "서비스 불만족", detail: null }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(prisma.userProfile.count({ where: { userId } })).resolves.toBe(0);
+    await expect(prisma.favorite.count({ where: { userId } })).resolves.toBe(0);
+    await expect(prisma.reservation.count({ where: { userId } })).resolves.toBe(0);
+    await expect(
+      prisma.reservationLock.count({
+        where: { reservationId: created.reservation.id },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("이미 Auth 사용자가 없고 DB 데이터도 없으면 성공으로 응답하고 사유를 중복 기록하지 않는다", async () => {
+    const userId = "withdraw-route-already-deleted";
+    verifyIdToken.mockResolvedValue({
+      uid: userId,
+      firebase: { sign_in_provider: "password" },
+    });
+    deleteUser.mockRejectedValue(makeAuthError("auth/user-not-found"));
+
+    const response = await POST(
+      requestFor({ category: "기타", detail: "이미 정리됨" }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(200);
+    expect(body.message).toBe("회원 탈퇴가 완료되었습니다.");
+    expect(deleteUser).toHaveBeenCalledExactlyOnceWith(userId);
+    await expect(prisma.withdrawalReason.count()).resolves.toBe(0);
+  });
+
+  it("탈퇴 사유 저장이 실패해도 이미 계정 삭제가 끝났으면 성공으로 응답한다", async () => {
+    const userId = "withdraw-route-reason-fail";
+    verifyIdToken.mockResolvedValue({
+      uid: userId,
+      firebase: { sign_in_provider: "password" },
+    });
+    await ensureUserProfile(userId, "local");
+    deleteUser.mockResolvedValue(undefined);
+    const createSpy = vi
+      .spyOn(prisma.withdrawalReason, "create")
+      .mockRejectedValueOnce(new Error("reason failed"));
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const response = await POST(
+        requestFor({ category: "개인정보", detail: null }),
+      );
+      const body = (await response.json()) as { message?: unknown };
+
+      expect(response.status).toBe(200);
+      expect(body.message).toBe("회원 탈퇴가 완료되었습니다.");
+      expect(warnSpy).toHaveBeenCalled();
+      await expect(
+        prisma.userProfile.count({ where: { userId } }),
+      ).resolves.toBe(0);
+    } finally {
+      createSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
   it("service의 기타 error는 500으로 응답한다", async () => {
     const userId = "withdraw-route-db-error";
     verifyIdToken.mockResolvedValue({
@@ -179,6 +284,9 @@ describe("POST /api/me/withdraw", () => {
     const txSpy = vi
       .spyOn(prisma, "$transaction")
       .mockRejectedValueOnce(new Error("database offline"));
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     try {
       const response = await POST(
@@ -186,12 +294,13 @@ describe("POST /api/me/withdraw", () => {
       );
       expect(response.status).toBe(500);
       const body = (await response.json()) as { message?: unknown };
-      expect(body.message).toEqual(
-        expect.stringContaining("회원 정보 삭제에 실패"),
+      expect(body.message).toBe(
+        "회원 정보 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       );
       expect(deleteUser).not.toHaveBeenCalled();
     } finally {
       txSpy.mockRestore();
+      errorSpy.mockRestore();
     }
   });
 });

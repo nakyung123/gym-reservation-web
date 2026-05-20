@@ -57,6 +57,17 @@ describe("PUT /api/me/profile-photo", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
+  it("ID 토큰 검증에 실패하면 401을 반환하고 DB를 건드리지 않는다", async () => {
+    verifyIdToken.mockRejectedValue(new Error("expired token"));
+
+    const response = await PUT(requestFor({ photoBase64: SAMPLE_PHOTO }));
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(await prisma.userProfile.count()).toBe(0);
+  });
+
   it("JSON 본문 파싱 실패는 400을 반환한다", async () => {
     verifyIdToken.mockResolvedValue({
       uid: "photo-route-user",
@@ -83,6 +94,53 @@ describe("PUT /api/me/profile-photo", () => {
     expect(body.message).toEqual(
       expect.stringContaining("JPEG 또는 PNG data URL 형식"),
     );
+  });
+
+  it("photoBase64가 허용 용량을 넘으면 400을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({
+      uid: "photo-route-too-large-user",
+      firebase: { sign_in_provider: "password" },
+    });
+
+    const response = await PUT(
+      requestFor({ photoBase64: "x".repeat(200_001) }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe(
+      "프로필 사진의 용량이 너무 큽니다. 더 작은 이미지를 사용해 주세요.",
+    );
+  });
+
+  it("base64 payload 길이가 깨져 있으면 400을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({
+      uid: "photo-route-damaged-user",
+      firebase: { sign_in_provider: "password" },
+    });
+
+    const response = await PUT(
+      requestFor({ photoBase64: "data:image/png;base64,iVBORw0KGgo" }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("프로필 사진 데이터가 손상되었습니다. 다시 시도해 주세요.");
+  });
+
+  it("data URL mime과 실제 이미지 매직 바이트가 다르면 400을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({
+      uid: "photo-route-magic-user",
+      firebase: { sign_in_provider: "password" },
+    });
+
+    const response = await PUT(
+      requestFor({ photoBase64: "data:image/png;base64,/9j/AAAA" }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe("프로필 사진이 실제 JPEG/PNG 이미지가 아닙니다.");
   });
 
   it("정상 요청은 사진을 저장하고 갱신된 프로필을 반환한다", async () => {
@@ -130,6 +188,47 @@ describe("PUT /api/me/profile-photo", () => {
     };
     expect(body.profile).toMatchObject({ photoBase64: null });
     expect(body.message).toBe("프로필 사진이 기본 이미지로 변경되었습니다.");
+  });
+
+  it("같은 프로필 사진 업데이트를 반복해도 한 행만 유지한다", async () => {
+    const userId = "photo-route-update-idempotent-user";
+    verifyIdToken.mockResolvedValue({
+      uid: userId,
+      firebase: { sign_in_provider: "password" },
+    });
+
+    const firstResponse = await PUT(requestFor({ photoBase64: SAMPLE_PHOTO }));
+    const secondResponse = await PUT(requestFor({ photoBase64: SAMPLE_PHOTO }));
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    await expect(prisma.userProfile.count({ where: { userId } })).resolves.toBe(1);
+    await expect(
+      prisma.userProfile.findUniqueOrThrow({ where: { userId } }),
+    ).resolves.toMatchObject({ photoBase64: SAMPLE_PHOTO });
+  });
+
+  it("프로필 사진 삭제를 반복해도 null 상태와 한 행만 유지한다", async () => {
+    const userId = "photo-route-clear-idempotent-user";
+    verifyIdToken.mockResolvedValue({
+      uid: userId,
+      firebase: { sign_in_provider: "password" },
+    });
+    await ensureUserProfile(userId, "local");
+    await prisma.userProfile.update({
+      where: { userId },
+      data: { photoBase64: SAMPLE_PHOTO },
+    });
+
+    const firstResponse = await PUT(requestFor({ photoBase64: null }));
+    const secondResponse = await PUT(requestFor({ photoBase64: null }));
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    await expect(prisma.userProfile.count({ where: { userId } })).resolves.toBe(1);
+    await expect(
+      prisma.userProfile.findUniqueOrThrow({ where: { userId } }),
+    ).resolves.toMatchObject({ photoBase64: null });
   });
 
   it("Kakao uid는 provider를 kakao로 산출해 저장한다", async () => {
