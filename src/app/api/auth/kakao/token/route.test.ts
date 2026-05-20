@@ -211,6 +211,44 @@ describe("/api/auth/kakao/token", () => {
     }
   });
 
+  it("ticket 상태 저장 실패는 customToken을 응답하지 않고 안전한 500 message를 반환한다", async () => {
+    const ticket = await createTicket({
+      targetUid: "kakao:ticket-store-fail",
+      provider: "kakao",
+      handoverNonce: "nonce",
+      profilePayload: null,
+    });
+    mockCookies("nonce");
+    const transactionSpy = vi
+      .spyOn(prisma, "$transaction")
+      .mockRejectedValueOnce(new Error("database offline"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const res = await POST(
+        buildRequest({ ticketId: ticket.ticketId }) as never,
+      );
+      const body = (await res.json()) as {
+        customToken?: unknown;
+        message?: unknown;
+      };
+
+      expect(res.status).toBe(500);
+      expect(body.customToken).toBeUndefined();
+      expect(body.message).toBe("Custom Token 발급에 실패했습니다.");
+      expect(String(body.message)).not.toContain("database offline");
+      expect(createCustomTokenMock).toHaveBeenCalledOnce();
+      await expect(
+        prisma.authHandoverTicket.findUnique({
+          where: { ticketId: ticket.ticketId },
+        }),
+      ).resolves.toMatchObject({ status: "pending" });
+    } finally {
+      transactionSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it("존재하지 않는 ticketId면 401을 반환한다", async () => {
     mockCookies("any-nonce");
 

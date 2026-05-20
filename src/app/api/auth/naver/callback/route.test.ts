@@ -202,6 +202,50 @@ describe("/api/auth/naver/callback", () => {
     expect(await prisma.authHandoverTicket.findMany()).toHaveLength(0);
   });
 
+  it("ticket 발급 DB 오류는 안전한 redirect로 처리하고 nonce cookie를 만들지 않는다", async () => {
+    const attempt = await createAttempt({ provider: "naver" });
+    const jar: CookieJar = new Map([["oauth_attempt_id", attempt.attemptId]]);
+    cookiesMock.mockResolvedValue(
+      makeCookieStore(jar) as unknown as Awaited<ReturnType<typeof cookies>>,
+    );
+    exchangeMock.mockResolvedValue({
+      accessToken: "naver-at",
+      refreshToken: null,
+      expiresIn: 3600,
+      tokenType: "bearer",
+    });
+    fetchUserMock.mockResolvedValue({
+      providerUserId: "db-error-user",
+      email: "u@e",
+      nickname: "별명",
+      name: "이름",
+      profileImageUrl: "https://e/p.jpg",
+    });
+    const createSpy = vi
+      .spyOn(prisma.authHandoverTicket, "create")
+      .mockRejectedValueOnce(new Error("database offline"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const res = await GET(
+        buildRequest({ code: "auth-code", state: attempt.state }),
+      );
+      const sp = getRedirectParams(res);
+
+      expect(res.status).toBe(302);
+      expect(sp.get("error")).toBe("handover_ticket_failed");
+      expect(sp.get("ticket")).toBeNull();
+      expect(String(sp.get("error_description"))).not.toContain(
+        "database offline",
+      );
+      expect(jar.has("oauth_handover_nonce")).toBe(false);
+      expect(await prisma.authHandoverTicket.findMany()).toHaveLength(0);
+    } finally {
+      createSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it("정상 흐름에서 ticket+handoverNonce cookie를 발급한다 + Firebase user 호출 0회", async () => {
     const attempt = await createAttempt({ provider: "naver" });
     const jar: CookieJar = new Map([["oauth_attempt_id", attempt.attemptId]]);

@@ -271,6 +271,132 @@ describe("/api/auth/naver/finalize", () => {
     }
   });
 
+  it("signed_in 상태 저장 실패는 profile sync 없이 안전한 500 message를 반환한다", async () => {
+    const ticket = await makeIssuedTicket({
+      targetUid: "naver:sign-in-store-fail",
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+    const transactionSpy = vi
+      .spyOn(prisma, "$transaction")
+      .mockRejectedValueOnce(new Error("database offline"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const res = await POST(
+        buildRequest({ ticketId: ticket.ticketId }) as never,
+      );
+      const body = (await res.json()) as {
+        message?: unknown;
+        retryable?: unknown;
+      };
+
+      expect(res.status).toBe(500);
+      expect(body.message).toBe("로그인 마감 처리에 실패했습니다.");
+      expect(body.retryable).toBe(true);
+      expect(String(body.message)).not.toContain("database offline");
+      expect(updateUserMock).not.toHaveBeenCalled();
+      await expect(
+        prisma.authHandoverTicket.findUnique({
+          where: { ticketId: ticket.ticketId },
+        }),
+      ).resolves.toMatchObject({ status: "token_issued" });
+    } finally {
+      transactionSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("finalized 상태 전이가 불가능하면 성공으로 보이지 않고 재시도 가능한 500을 반환한다", async () => {
+    const ticket = await makeIssuedTicket({
+      targetUid: "naver:finalize-store-fail",
+      profilePayload: { email: "sync@example.com" },
+    });
+    await prisma.authHandoverTicket.update({
+      where: { ticketId: ticket.ticketId },
+      data: { status: "signed_in" },
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+    updateUserMock.mockImplementationOnce(async () => {
+      await prisma.authHandoverTicket.update({
+        where: { ticketId: ticket.ticketId },
+        data: { status: "pending" },
+      });
+      return {};
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const res = await POST(
+        buildRequest({ ticketId: ticket.ticketId }) as never,
+      );
+      const body = (await res.json()) as {
+        message?: unknown;
+        retryable?: unknown;
+      };
+
+      expect(res.status).toBe(500);
+      expect(body.message).toBe("로그인 마감 처리에 실패했습니다.");
+      expect(body.retryable).toBe(true);
+      expect(String(body.message)).not.toContain("markFinalized");
+      await expect(
+        prisma.authHandoverTicket.findUnique({
+          where: { ticketId: ticket.ticketId },
+        }),
+      ).resolves.toMatchObject({
+        status: "pending",
+        finalizeAttemptCount: 1,
+      });
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("profile sync 실패 기록까지 실패해도 원시 DB 오류를 응답하지 않는다", async () => {
+    const ticket = await makeIssuedTicket({
+      targetUid: "naver:record-fail",
+      profilePayload: { email: "sync@example.com" },
+    });
+    await prisma.authHandoverTicket.update({
+      where: { ticketId: ticket.ticketId },
+      data: { status: "signed_in" },
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+    updateUserMock.mockRejectedValueOnce(new Error("firebase update failed"));
+    const updateSpy = vi
+      .spyOn(prisma.authHandoverTicket, "update")
+      .mockRejectedValueOnce(new Error("record failed"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const res = await POST(
+        buildRequest({ ticketId: ticket.ticketId }) as never,
+      );
+      const body = (await res.json()) as {
+        message?: unknown;
+        retryable?: unknown;
+      };
+
+      expect(res.status).toBe(500);
+      expect(body.message).toBe("로그인 마감 처리에 실패했습니다.");
+      expect(body.retryable).toBe(true);
+      expect(String(body.message)).not.toContain("record failed");
+      await expect(
+        prisma.authHandoverTicket.findUnique({
+          where: { ticketId: ticket.ticketId },
+        }),
+      ).resolves.toMatchObject({
+        status: "signed_in",
+        finalizeAttemptCount: 0,
+      });
+    } finally {
+      updateSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it("이미 finalized인 ticket 재호출은 idempotent하게 200을 반환한다", async () => {
     const ticket = await makeIssuedTicket();
     await prisma.authHandoverTicket.update({

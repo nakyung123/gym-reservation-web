@@ -85,7 +85,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await markTokenIssued(ticketId);
+  try {
+    await markTokenIssued(ticketId);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("[naver token] markTokenIssued failed:", detail);
+    return Response.json(
+      { message: "Custom Token 발급에 실패했습니다." },
+      { status: 500 },
+    );
+  }
 
   return Response.json({ customToken });
 }

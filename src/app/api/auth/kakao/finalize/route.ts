@@ -17,6 +17,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const FINALIZE_FAILURE_MESSAGE = "로그인 마감 처리에 실패했습니다.";
+
 // 클라이언트가 signInWithCustomToken 후 새 targetUid ID token으로 호출한다.
 // 익명 흐름 제거로 migration이 사라져 finalize는 profile sync(admin.updateUser)와
 // ticket을 finalized로 마감하는 단순 동작만 수행한다.
@@ -97,24 +99,59 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await markSignedIn(ticketId);
+  try {
+    const signedIn = await markSignedIn(ticketId);
+    if (!signedIn) {
+      throw new Error("markSignedIn returned null");
+    }
+  } catch (error) {
+    console.error("[kakao finalize] sign-in state transition failed:", error);
+    return Response.json(
+      { message: FINALIZE_FAILURE_MESSAGE, retryable: true },
+      { status: 500 },
+    );
+  }
 
   let profileSynced = true;
   try {
     profileSynced = await syncProfile(ticket.targetUid, ticket.profilePayload);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "알 수 없는 finalize 오류";
-    await recordFinalizeFailure(ticketId, message);
+    await recordFailureSafely(ticketId, error, "[kakao finalize]");
     console.error("[kakao finalize] sync failed:", error);
     return Response.json(
-      { message: "로그인 마감 처리에 실패했습니다.", retryable: true },
+      { message: FINALIZE_FAILURE_MESSAGE, retryable: true },
       { status: 500 },
     );
   }
 
-  await markFinalized(ticketId);
+  try {
+    const finalized = await markFinalized(ticketId);
+    if (!finalized) {
+      throw new Error("markFinalized returned null");
+    }
+  } catch (error) {
+    await recordFailureSafely(ticketId, error, "[kakao finalize]");
+    console.error("[kakao finalize] finalize state transition failed:", error);
+    return Response.json(
+      { message: FINALIZE_FAILURE_MESSAGE, retryable: true },
+      { status: 500 },
+    );
+  }
   return Response.json({ ok: true, profileSynced });
+}
+
+async function recordFailureSafely(
+  ticketId: string,
+  error: unknown,
+  logPrefix: string,
+): Promise<void> {
+  const message =
+    error instanceof Error ? error.message : "unknown finalize error";
+  try {
+    await recordFinalizeFailure(ticketId, message);
+  } catch (recordError) {
+    console.error(`${logPrefix} record failure failed:`, recordError);
+  }
 }
 
 // 카카오에서 받은 displayName/photoURL은 동기화하지 않는다 (nickname은 서버 자동 생성,

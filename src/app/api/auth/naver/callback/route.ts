@@ -99,12 +99,23 @@ export async function GET(request: NextRequest) {
   const handoverNonce = generateOpaqueToken();
   const profilePayload = toProfilePayload(naverProfile);
 
-  const ticket = await createTicket({
-    targetUid,
-    provider: "naver",
-    handoverNonce,
-    profilePayload,
-  });
+  let ticket: Awaited<ReturnType<typeof createTicket>>;
+  try {
+    ticket = await createTicket({
+      targetUid,
+      provider: "naver",
+      handoverNonce,
+      profilePayload,
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("[naver callback] ticket creation failed:", detail);
+    return errorRedirect(
+      origin,
+      "handover_ticket_failed",
+      "로그인 티켓 발급에 실패했습니다.",
+    );
+  }
 
   cookieStore.set(OAUTH_HANDOVER_COOKIE, handoverNonce, {
     httpOnly: true,
