@@ -245,6 +245,29 @@ describe("PUT /api/me/profile-photo", () => {
     expect(stored?.photoBase64).toBe(SAMPLE_PHOTO);
   });
 
+  it("기존 프로필의 provider도 최신 인증 provider로 갱신한다", async () => {
+    const userId = "kakao:photo-route-existing-provider-user";
+    verifyIdToken.mockResolvedValue({
+      uid: userId,
+      firebase: { sign_in_provider: "custom" },
+    });
+    await ensureUserProfile(userId, "local");
+
+    const response = await PUT(requestFor({ photoBase64: SAMPLE_PHOTO }));
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      profile?: { provider?: unknown; photoBase64?: unknown };
+    };
+
+    expect(body.profile).toMatchObject({
+      provider: "kakao",
+      photoBase64: SAMPLE_PHOTO,
+    });
+    await expect(
+      prisma.userProfile.findUniqueOrThrow({ where: { userId } }),
+    ).resolves.toMatchObject({ provider: "kakao", photoBase64: SAMPLE_PHOTO });
+  });
+
   it("repository 실패는 500을 반환한다", async () => {
     const userId = "photo-route-error-user";
     verifyIdToken.mockResolvedValue({

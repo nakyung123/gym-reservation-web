@@ -22,9 +22,19 @@ export async function withdrawAccount(
   input: WithdrawalInput,
 ): Promise<WithdrawAccountResult> {
   // 1. 진행 중 예약 검사. status === "reserved" 이면 차단.
-  const activeReservationCount = await prisma.reservation.count({
-    where: { userId, status: "reserved" },
-  });
+  let activeReservationCount: number;
+  try {
+    activeReservationCount = await prisma.reservation.count({
+      where: { userId, status: "reserved" },
+    });
+  } catch (error) {
+    console.error("[withdraw] active reservation check failed:", error);
+    return {
+      ok: false,
+      reason: "error",
+      message: "회원 정보 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
   if (activeReservationCount > 0) {
     return {
       ok: false,

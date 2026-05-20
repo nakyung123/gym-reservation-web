@@ -160,7 +160,7 @@ export async function updateUserProfilePhoto(
   if (existing) {
     const updated = await prisma.userProfile.update({
       where: { userId },
-      data: { photoBase64 },
+      data: { photoBase64, provider },
     });
     return toUserProfile(updated);
   }
