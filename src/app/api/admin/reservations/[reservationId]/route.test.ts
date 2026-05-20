@@ -58,6 +58,18 @@ async function expectReservationLockToBeCleared(reservationId: string) {
   ).resolves.toBeNull();
 }
 
+async function getSlotReservedCount(input: {
+  gymId: string;
+  sport: "배드민턴";
+  date: string;
+  time: string;
+}) {
+  const slot = await prisma.reservationSlot.findUniqueOrThrow({
+    where: { gymId_sport_date_time: input },
+  });
+  return slot.reservedCount;
+}
+
 describe("GET /api/admin/reservations/[reservationId]", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
@@ -406,18 +418,27 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("cancelling an already cancelled reservation is idempotent", async () => {
+    const date = futureDate(13);
     const created = await createReservationInDb({
       userId: "admin-patch-cancel-repeat-user",
       draft: {
         gymId: TEST_GYM.id,
         sport: TEST_GYM.sports[0],
-        date: futureDate(13),
+        date,
         time: "10:00",
       },
       gym: TEST_GYM,
     });
     expect(created.ok).toBe(true);
     if (!created.ok) return;
+    await expect(
+      getSlotReservedCount({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+      }),
+    ).resolves.toBe(1);
 
     const first = await PATCH(
       patchRequestFor(created.reservation.id, "cancelled"),
@@ -437,6 +458,14 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     expect(secondBody.status).toBe("unchanged");
     expect(secondBody.reservation?.status).toBe("cancelled");
     await expectReservationLockToBeCleared(created.reservation.id);
+    await expect(
+      getSlotReservedCount({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+      }),
+    ).resolves.toBe(0);
   });
 
   it("using a cancelled reservation returns 409 and keeps it cancelled", async () => {
@@ -475,12 +504,13 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("cancelling a used reservation returns 409 and keeps it used", async () => {
+    const date = futureDate(15);
     const created = await createReservationInDb({
       userId: "admin-patch-used-to-cancel-user",
       draft: {
         gymId: TEST_GYM.id,
         sport: TEST_GYM.sports[0],
-        date: futureDate(15),
+        date,
         time: "10:00",
       },
       gym: TEST_GYM,
@@ -507,6 +537,14 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     expect(body.status).toBe("not-cancellable");
     expect(body.reservation?.status).toBe("used");
     await expectReservationLockToBeCleared(created.reservation.id);
+    await expect(
+      getSlotReservedCount({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+      }),
+    ).resolves.toBe(1);
   });
 
   it("관리자 예약 상태 변경 중 서버 오류가 발생하면 500을 반환한다", async () => {
