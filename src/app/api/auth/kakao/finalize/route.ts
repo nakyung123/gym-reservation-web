@@ -124,11 +124,6 @@ async function syncProfile(
   payload: HandoverProfilePayload | null,
 ): Promise<boolean> {
   if (!payload || !payload.email) return true;
-  try {
-    await getAdminAuth().updateUser(targetUid, { email: payload.email });
-    return true;
-  } catch (error) {
-    console.error("[kakao finalize] updateUser failed:", error);
-    return false;
-  }
+  await getAdminAuth().updateUser(targetUid, { email: payload.email });
+  return true;
 }

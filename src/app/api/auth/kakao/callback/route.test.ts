@@ -87,6 +87,27 @@ describe("/api/auth/kakao/callback", () => {
     expect(getRedirectParams(res).get("error")).toBe("missing_attempt");
   });
 
+  it("필수 파라미터가 누락되면 cookie를 비우고 provider API를 호출하지 않는다", async () => {
+    const attempt = await createAttempt({ provider: "kakao" });
+    const jar: CookieJar = new Map([
+      ["oauth_attempt_id", attempt.attemptId],
+      ["oauth_handover_nonce", "stale-handover"],
+    ]);
+    cookiesMock.mockResolvedValue(
+      makeCookieStore(jar) as unknown as Awaited<ReturnType<typeof cookies>>,
+    );
+
+    const res = await GET(buildRequest({ code: "auth-code" }));
+
+    expect(res.status).toBe(302);
+    expect(getRedirectParams(res).get("error")).toBe("invalid_callback");
+    expect(jar.has("oauth_attempt_id")).toBe(false);
+    expect(jar.has("oauth_handover_nonce")).toBe(false);
+    expect(exchangeMock).not.toHaveBeenCalled();
+    expect(fetchUserMock).not.toHaveBeenCalled();
+    expect(await prisma.authHandoverTicket.findMany()).toHaveLength(0);
+  });
+
   it("state mismatch면 ticket을 만들지 않고 error redirect한다", async () => {
     const attempt = await createAttempt({ provider: "kakao" });
     const jar: CookieJar = new Map([["oauth_attempt_id", attempt.attemptId]]);
@@ -103,6 +124,28 @@ describe("/api/auth/kakao/callback", () => {
     const tickets = await prisma.authHandoverTicket.findMany();
     expect(tickets).toHaveLength(0);
     expect(jar.has("oauth_attempt_id")).toBe(false);
+  });
+
+  it("만료된 attempt면 invalid_attempt로 redirect하고 provider API를 호출하지 않는다", async () => {
+    const attempt = await createAttempt({ provider: "kakao" });
+    await prisma.oAuthAttempt.update({
+      where: { attemptId: attempt.attemptId },
+      data: { expiresAt: new Date(Date.now() - 1_000) },
+    });
+    const jar: CookieJar = new Map([["oauth_attempt_id", attempt.attemptId]]);
+    cookiesMock.mockResolvedValue(
+      makeCookieStore(jar) as unknown as Awaited<ReturnType<typeof cookies>>,
+    );
+
+    const res = await GET(
+      buildRequest({ code: "auth-code", state: attempt.state }),
+    );
+
+    expect(res.status).toBe(302);
+    expect(getRedirectParams(res).get("error")).toBe("invalid_attempt");
+    expect(exchangeMock).not.toHaveBeenCalled();
+    expect(fetchUserMock).not.toHaveBeenCalled();
+    expect(await prisma.authHandoverTicket.findMany()).toHaveLength(0);
   });
 
   it("attempt provider가 kakao가 아니면 provider_mismatch로 error redirect한다", async () => {
@@ -130,6 +173,30 @@ describe("/api/auth/kakao/callback", () => {
       makeCookieStore(jar) as unknown as Awaited<ReturnType<typeof cookies>>,
     );
     exchangeMock.mockRejectedValue(new Error("upstream down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await GET(
+      buildRequest({ code: "auth-code", state: attempt.state }),
+    );
+
+    expect(res.status).toBe(302);
+    expect(getRedirectParams(res).get("error")).toBe("kakao_api_failed");
+    expect(await prisma.authHandoverTicket.findMany()).toHaveLength(0);
+  });
+
+  it("카카오 userinfo 실패 시에도 ticket 없이 kakao_api_failed로 redirect한다", async () => {
+    const attempt = await createAttempt({ provider: "kakao" });
+    const jar: CookieJar = new Map([["oauth_attempt_id", attempt.attemptId]]);
+    cookiesMock.mockResolvedValue(
+      makeCookieStore(jar) as unknown as Awaited<ReturnType<typeof cookies>>,
+    );
+    exchangeMock.mockResolvedValue({
+      accessToken: "kakao-at",
+      refreshToken: null,
+      expiresIn: 3600,
+      tokenType: "bearer",
+    });
+    fetchUserMock.mockRejectedValue(new Error("userinfo down"));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     const res = await GET(
