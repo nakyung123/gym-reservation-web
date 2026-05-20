@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/gyms/[gymId]/route";
-import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import {
+  cancelReservationAsAdminInDb,
+  createReservationInDb,
+  markReservationUsedInDb,
+} from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import type { AdminGym } from "@/types/domain";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
@@ -271,6 +275,106 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
       where: { id: TEST_GYM.id },
     });
     expect(row.availableTimes).toContain(reservedTime);
+  });
+
+  it("취소된 예약 이력은 시설 비활성화를 막지 않는다", async () => {
+    const created = await createReservationInDb({
+      userId: "admin-gym-route-cancelled-history-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    await expect(
+      cancelReservationAsAdminInDb(created.reservation.id),
+    ).resolves.toMatchObject({ ok: true });
+
+    const response = await PATCH(
+      patchRequest({
+        ...updateBody,
+        isActive: false,
+      }),
+      contextFor(TEST_GYM.id),
+    );
+    const body = (await response.json()) as {
+      gym?: { isActive?: unknown };
+      message?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.message).toBe("시설 정보가 저장되었습니다.");
+    expect(body.gym?.isActive).toBe(false);
+
+    const row = await prisma.gym.findUniqueOrThrow({
+      where: { id: TEST_GYM.id },
+    });
+    expect(row.isActive).toBe(false);
+  });
+
+  it("이용 완료된 예약 이력은 과거 종목과 시간 제거를 막지 않는다", async () => {
+    const usedSport = TEST_GYM.sports[0];
+    const usedTime = "10:00";
+    const remainingSports = TEST_GYM.sports.filter(
+      (sport) => sport !== usedSport,
+    );
+    expect(remainingSports.length).toBeGreaterThan(0);
+
+    const created = await createReservationInDb({
+      userId: "admin-gym-route-used-history-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: usedSport,
+        date: futureDate(),
+        time: usedTime,
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    await expect(
+      markReservationUsedInDb(created.reservation.id),
+    ).resolves.toMatchObject({ ok: true });
+
+    const response = await PATCH(
+      patchRequest({
+        ...updateBody,
+        sports: remainingSports,
+        sportPrices: Object.fromEntries(
+          Object.entries(TEST_GYM.sportPrices).filter(
+            ([sport]) => sport !== usedSport,
+          ),
+        ),
+        availableTimes: TEST_GYM.availableTimes.filter(
+          (time) => time !== usedTime,
+        ),
+      }),
+      contextFor(TEST_GYM.id),
+    );
+    const body = (await response.json()) as {
+      gym?: { sports?: unknown; availableTimes?: unknown };
+      message?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.message).toBe("시설 정보가 저장되었습니다.");
+    expect(body.gym?.sports).not.toContain(usedSport);
+    expect(body.gym?.availableTimes).not.toContain(usedTime);
+
+    const row = await prisma.gym.findUniqueOrThrow({
+      where: { id: TEST_GYM.id },
+    });
+    expect(row.availableTimes).not.toContain(usedTime);
+
+    const sports = await prisma.gymSport.findMany({
+      where: { gymId: TEST_GYM.id },
+      select: { sport: true },
+    });
+    expect(sports.map((sportRow) => sportRow.sport)).not.toContain(usedSport);
   });
 
   it("시설 수정 중 서버 오류가 발생하면 500을 반환한다", async () => {

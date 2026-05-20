@@ -37,6 +37,28 @@ function requestFor(body: BulkSlotPolicyBody, token = adminToken): NextRequest {
   return rawRequestFor(body, token);
 }
 
+async function createTwoReservationsForSlot(date: string, userPrefix: string) {
+  const draft = {
+    gymId: TEST_GYM.id,
+    sport: "배드민턴" as const,
+    date,
+    time: "10:00",
+  };
+  const first = await createReservationInDb({
+    userId: `${userPrefix}-user-a`,
+    draft,
+    gym: TEST_GYM,
+  });
+  const second = await createReservationInDb({
+    userId: `${userPrefix}-user-b`,
+    draft,
+    gym: TEST_GYM,
+  });
+
+  expect(first.ok).toBe(true);
+  expect(second.ok).toBe(true);
+}
+
 describe("PATCH /api/admin/reservation-slots/bulk", () => {
   beforeEach(() => {
     process.env.ADMIN_API_TOKEN = adminToken;
@@ -333,24 +355,7 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
 
   it("충돌이 있으면 409와 conflicts를 반환하고 전체 변경을 거부한다", async () => {
     const date = futureDate();
-    const reservedDraft = {
-      gymId: TEST_GYM.id,
-      sport: "배드민턴" as const,
-      date,
-      time: "10:00",
-    };
-    const first = await createReservationInDb({
-      userId: "route-user-a",
-      draft: reservedDraft,
-      gym: TEST_GYM,
-    });
-    const second = await createReservationInDb({
-      userId: "route-user-b",
-      draft: reservedDraft,
-      gym: TEST_GYM,
-    });
-    expect(first.ok).toBe(true);
-    expect(second.ok).toBe(true);
+    await createTwoReservationsForSlot(date, "bulk-slot-route-conflict");
 
     const response = await PATCH(
       requestFor({
@@ -386,6 +391,72 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
       },
     });
     expect(untouchedSlot).toBeNull();
+  });
+
+  it("예약이 있는 슬롯을 일괄 마감해도 기존 예약 수는 유지한다", async () => {
+    const date = futureDate();
+    await createTwoReservationsForSlot(date, "bulk-slot-route-close");
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        dates: [date],
+        times: ["10:00", "11:00"],
+        isClosed: true,
+      }),
+    );
+    const body = (await response.json()) as {
+      slots?: Array<{
+        time?: unknown;
+        reservedCount?: unknown;
+        status?: unknown;
+        isClosed?: unknown;
+      }>;
+      updatedCount?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.updatedCount).toBe(2);
+    expect(body.slots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          time: "10:00",
+          reservedCount: 2,
+          isClosed: true,
+          status: "closed",
+        }),
+        expect.objectContaining({
+          time: "11:00",
+          reservedCount: 0,
+          isClosed: true,
+          status: "closed",
+        }),
+      ]),
+    );
+
+    const rows = await prisma.reservationSlot.findMany({
+      where: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: { in: ["10:00", "11:00"] },
+      },
+      orderBy: { time: "asc" },
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      time: "10:00",
+      reservedCount: 2,
+      isClosed: true,
+      capacity: 4,
+    });
+    expect(rows[1]).toMatchObject({
+      time: "11:00",
+      reservedCount: 0,
+      isClosed: true,
+      capacity: 4,
+    });
   });
 
   it("체육관 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
