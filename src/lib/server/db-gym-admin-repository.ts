@@ -15,6 +15,10 @@ export type AdminGymMutationResult =
 type AdminGymCreateInput = AdminGym;
 type AdminGymUpdateInput = Omit<AdminGym, "id">;
 
+function uniqueStrings(values: readonly string[]) {
+  return Array.from(new Set(values));
+}
+
 function toGymData(input: AdminGymUpdateInput) {
   return {
     name: input.name,
@@ -27,15 +31,15 @@ function toGymData(input: AdminGymUpdateInput) {
     latitude: input.latitude,
     longitude: input.longitude,
     sportPrices: input.sportPrices,
-    facilities: input.facilities,
-    availableTimes: input.availableTimes,
-    closedDays: input.closedDays,
+    facilities: uniqueStrings(input.facilities),
+    availableTimes: uniqueStrings(input.availableTimes),
+    closedDays: uniqueStrings(input.closedDays),
     isActive: input.isActive,
   };
 }
 
 function toSportRows(input: AdminGymUpdateInput) {
-  return input.sports.map((sport) => ({ sport }));
+  return uniqueStrings(input.sports).map((sport) => ({ sport }));
 }
 
 function isDuplicateError(error: unknown): boolean {

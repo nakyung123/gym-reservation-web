@@ -832,8 +832,8 @@ type CancelAuthorizedReservationOutput =
     }
   | {
       ok: false;
-      status: "not-cancellable";
-      reservation: Reservation;
+      status: "not-found" | "not-cancellable";
+      reservation?: Reservation;
       message: string;
     };
 
@@ -870,9 +870,15 @@ async function cancelAuthorizedReservation(
       const latest = await tx.reservation.findUnique({
         where: { id: target.id },
       });
+      if (!latest) {
+        return {
+          status: "not-found",
+          reservation: null,
+        } as const;
+      }
       return {
-        status: latest?.status === "cancelled" ? "unchanged" : "not-cancellable",
-        reservation: latest ?? target,
+        status: latest.status === "cancelled" ? "unchanged" : "not-cancellable",
+        reservation: latest,
       } as const;
     }
 
@@ -896,6 +902,14 @@ async function cancelAuthorizedReservation(
       reservation: latest,
     };
   });
+
+  if (result.status === "not-found") {
+    return {
+      ok: false,
+      status: "not-found",
+      message: "취소할 예약을 찾을 수 없습니다.",
+    };
+  }
 
   const reservation = toDomainReservation(result.reservation);
   if (result.status === "not-cancellable") {

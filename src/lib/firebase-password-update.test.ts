@@ -171,11 +171,11 @@ describe("updateMyPassword", () => {
     });
   });
 
-  it("변경 단계의 알 수 없는 에러는 변경 메시지로 other 사유로 매핑하고 error.message를 사용한다", async () => {
+  it("변경 단계의 알 수 없는 에러는 원문을 노출하지 않고 generic 메시지로 매핑한다", async () => {
     mockCurrentUser({ email: "user@example.com" });
     reauthenticateWithCredential.mockResolvedValue(undefined);
     updatePassword.mockRejectedValue(
-      makeAuthError("auth/unknown", "원본 에러 메시지"),
+      makeAuthError("auth/unknown", "Firebase raw error: sensitive details"),
     );
 
     await expect(
@@ -183,7 +183,7 @@ describe("updateMyPassword", () => {
     ).resolves.toEqual({
       ok: false,
       reason: "other",
-      message: "원본 에러 메시지",
+      message: "비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     });
   });
 

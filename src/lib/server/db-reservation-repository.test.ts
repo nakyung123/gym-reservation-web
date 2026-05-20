@@ -1148,6 +1148,44 @@ describe("cancelReservationAsAdminInDb", () => {
     });
     expect(slot.reservedCount).toBe(1);
   });
+  it("cancel returns not-found when the reservation disappears during the transaction", async () => {
+    const created = await createReservationInDb({
+      userId: userA,
+      draft: draftFor("10:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const findUnique = vi.fn().mockResolvedValue(null);
+    const deleteMany = vi.fn();
+    const transactionSpy = vi
+      .spyOn(prisma, "$transaction")
+      .mockImplementationOnce(async (callback) => {
+        if (typeof callback !== "function") {
+          throw new Error("unexpected transaction mode");
+        }
+
+        return callback({
+          reservation: { updateMany, findUnique },
+          reservationLock: { deleteMany },
+        } as never) as never;
+      });
+
+    try {
+      const result = await cancelReservationAsAdminInDb(created.reservation.id);
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.status).toBe("not-found");
+      expect(result.message).toBe("취소할 예약을 찾을 수 없습니다.");
+      expect(result.reservation).toBeUndefined();
+      expect(deleteMany).not.toHaveBeenCalled();
+    } finally {
+      transactionSpy.mockRestore();
+    }
+  });
 });
 
 describe("markReservationUsedInDb", () => {

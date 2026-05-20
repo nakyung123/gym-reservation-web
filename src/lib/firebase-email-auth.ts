@@ -36,6 +36,12 @@ export type SendEmailVerificationResult =
   | { ok: false; message: string };
 
 const GENERIC_AUTH_ERROR = "다시 시도해 주세요.";
+const GENERIC_SIGNUP_ERROR = `회원가입에 실패했습니다. ${GENERIC_AUTH_ERROR}`;
+const GENERIC_SIGNIN_ERROR = `로그인에 실패했습니다. ${GENERIC_AUTH_ERROR}`;
+const GENERIC_PASSWORD_RESET_ERROR =
+  "비밀번호 재설정 이메일을 보내지 못했습니다.";
+const GENERIC_EMAIL_VERIFICATION_ERROR =
+  "이메일 인증 메일을 다시 보내지 못했습니다.";
 
 export async function signupWithEmail(input: {
   email: string;
@@ -87,11 +93,7 @@ export async function sendPasswordReset(
   } catch (error) {
     // email enumeration 방어를 위해 generic 메시지로 응답을 통일하는 건 호출자가 결정.
     console.warn("[email reset] sendPasswordResetEmail failed:", error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "비밀번호 재설정 이메일을 보내지 못했습니다.";
-    return { ok: false, message };
+    return { ok: false, message: GENERIC_PASSWORD_RESET_ERROR };
   }
 }
 
@@ -105,11 +107,8 @@ export async function resendEmailVerification(): Promise<SendEmailVerificationRe
     await sendEmailVerification(user);
     return { ok: true };
   } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "이메일 인증 메일을 다시 보내지 못했습니다.";
-    return { ok: false, message };
+    console.warn("[email verification] sendEmailVerification failed:", error);
+    return { ok: false, message: GENERIC_EMAIL_VERIFICATION_ERROR };
   }
 }
 
@@ -141,10 +140,7 @@ function mapSignupError(error: unknown): {
     default:
       return {
         reason: "other",
-        message:
-          error instanceof Error && error.message
-            ? error.message
-            : `회원가입에 실패했습니다. ${GENERIC_AUTH_ERROR}`,
+        message: GENERIC_SIGNUP_ERROR,
       };
   }
 }
@@ -176,10 +172,7 @@ function mapSignInError(error: unknown): {
     default:
       return {
         reason: "other",
-        message:
-          error instanceof Error && error.message
-            ? error.message
-            : `로그인에 실패했습니다. ${GENERIC_AUTH_ERROR}`,
+        message: GENERIC_SIGNIN_ERROR,
       };
   }
 }

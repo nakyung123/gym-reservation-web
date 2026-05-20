@@ -5,7 +5,12 @@ import {
   listAdminGyms,
   updateAdminGym,
 } from "@/lib/server/db-gym-admin-repository";
-import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import {
+  cancelReservationAsAdminInDb,
+  createReservationInDb,
+  markReservationUsedInDb,
+} from "@/lib/server/db-reservation-repository";
+import { prisma } from "@/lib/server/prisma-client";
 import type { AdminGym } from "@/types/domain";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
@@ -30,6 +35,46 @@ describe("db gym admin repository", () => {
 
     const publicGym = await dbGymRepository.findById(adminGym.id);
     expect(publicGym?.name).toBe(adminGym.name);
+  });
+
+  it("deduplicates sports before writing admin gym sport rows", async () => {
+    const duplicatedSport = TEST_GYM.sports[0];
+    const created = await createAdminGym({
+      ...adminGym,
+      id: "admin-managed-duplicate-sports-gym",
+      sports: [duplicatedSport, duplicatedSport],
+      sportPrices: {
+        [duplicatedSport]: TEST_GYM.sportPrices[duplicatedSport],
+      },
+    });
+
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.gym.sports).toEqual([duplicatedSport]);
+
+    const rows = await prisma.gymSport.findMany({
+      where: { gymId: created.gym.id },
+    });
+    expect(rows).toHaveLength(1);
+  });
+
+  it("deduplicates scalar list fields before writing admin gym data", async () => {
+    const duplicatedTime = TEST_GYM.availableTimes[0];
+    const duplicatedFacility = TEST_GYM.facilities[0];
+    const duplicatedClosedDay = TEST_GYM.closedDays[0] ?? "maintenance-day";
+    const created = await createAdminGym({
+      ...adminGym,
+      id: "admin-managed-duplicate-list-gym",
+      availableTimes: [duplicatedTime, duplicatedTime],
+      facilities: [duplicatedFacility, duplicatedFacility],
+      closedDays: [duplicatedClosedDay, duplicatedClosedDay],
+    });
+
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.gym.availableTimes).toEqual([duplicatedTime]);
+    expect(created.gym.facilities).toEqual([duplicatedFacility]);
+    expect(created.gym.closedDays).toEqual([duplicatedClosedDay]);
   });
 
   it("비활성 시설은 관리자 목록에는 남고 공개 목록에서는 제외된다", async () => {
@@ -140,5 +185,79 @@ describe("db gym admin repository", () => {
 
     const publicGym = await dbGymRepository.findById(TEST_GYM.id);
     expect(publicGym?.availableTimes).toContain(reservedTime);
+  });
+
+  it("cancelled reservations do not block gym deactivation", async () => {
+    const created = await createReservationInDb({
+      userId: "admin-gym-cancelled-history-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const cancelled = await cancelReservationAsAdminInDb(created.reservation.id);
+    expect(cancelled.ok).toBe(true);
+
+    const updated = await updateAdminGym(TEST_GYM.id, {
+      ...TEST_GYM,
+      isActive: false,
+    });
+
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect(updated.gym.isActive).toBe(false);
+
+    const publicGym = await dbGymRepository.findById(TEST_GYM.id);
+    expect(publicGym).toBeNull();
+  });
+
+  it("used reservations do not block removing historical sport and time values", async () => {
+    const usedSport = TEST_GYM.sports[0];
+    const usedTime = "10:00";
+    const remainingSports = TEST_GYM.sports.filter(
+      (sport) => sport !== usedSport,
+    );
+    expect(remainingSports.length).toBeGreaterThan(0);
+
+    const created = await createReservationInDb({
+      userId: "admin-gym-used-history-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: usedSport,
+        date: futureDate(),
+        time: usedTime,
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const used = await markReservationUsedInDb(created.reservation.id);
+    expect(used.ok).toBe(true);
+
+    const updated = await updateAdminGym(TEST_GYM.id, {
+      ...TEST_GYM,
+      sports: remainingSports,
+      sportPrices: Object.fromEntries(
+        Object.entries(TEST_GYM.sportPrices).filter(
+          ([sport]) => sport !== usedSport,
+        ),
+      ),
+      availableTimes: TEST_GYM.availableTimes.filter(
+        (time) => time !== usedTime,
+      ),
+      isActive: true,
+    });
+
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect(updated.gym.sports).not.toContain(usedSport);
+    expect(updated.gym.availableTimes).not.toContain(usedTime);
   });
 });

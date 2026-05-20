@@ -90,11 +90,9 @@ function mapError(
         ok: false,
         reason: "other",
         message:
-          error instanceof Error && error.message
-            ? error.message
-            : context.stage === "reauth"
-              ? "재인증에 실패했습니다. 잠시 후 다시 시도해 주세요."
-              : "비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+          context.stage === "reauth"
+            ? "재인증에 실패했습니다. 잠시 후 다시 시도해 주세요."
+            : "비밀번호 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       };
   }
 }
