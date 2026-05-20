@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   cancelReservationAsAdminInDb,
   cancelReservationInDb,
@@ -1216,5 +1216,50 @@ describe("markReservationUsedInDb", () => {
     if (result.ok) return;
     expect(result.status).toBe("not-usable");
     expect(result.reservation?.status).toBe("cancelled");
+  });
+
+  it("이용 완료 처리 중 예약이 먼저 취소되면 성공처럼 응답하지 않는다", async () => {
+    const created = await createReservationInDb({
+      userId: userA,
+      draft: draftFor("14:00"),
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const target = await prisma.reservation.findUniqueOrThrow({
+      where: { id: created.reservation.id },
+    });
+    const cancelledTarget = { ...target, status: "cancelled" as const };
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const findUnique = vi.fn().mockResolvedValue(cancelledTarget);
+    const deleteMany = vi.fn();
+    const transactionSpy = vi
+      .spyOn(prisma, "$transaction")
+      .mockImplementationOnce(async (callback) => {
+        if (typeof callback !== "function") {
+          throw new Error("unexpected transaction mode");
+        }
+
+        return callback({
+          reservation: { updateMany, findUnique },
+          reservationLock: { deleteMany },
+        } as never) as never;
+      });
+
+    try {
+      const result = await markReservationUsedInDb(created.reservation.id);
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.status).toBe("not-usable");
+      expect(result.reservation?.status).toBe("cancelled");
+      expect(result.message).toBe(
+        "예약 완료 상태의 예약만 이용 완료 처리할 수 있습니다.",
+      );
+      expect(deleteMany).not.toHaveBeenCalled();
+    } finally {
+      transactionSpy.mockRestore();
+    }
   });
 });

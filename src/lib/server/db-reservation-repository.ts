@@ -1054,8 +1054,13 @@ export async function markReservationUsedInDb(
         where: { id: reservationId },
       });
       return {
-        status: "unchanged" as const,
-        reservation: latest ?? target,
+        status:
+          latest?.status === "used"
+            ? ("unchanged" as const)
+            : latest
+              ? ("not-usable" as const)
+              : ("not-found" as const),
+        reservation: latest,
       };
     }
 
@@ -1073,10 +1078,36 @@ export async function markReservationUsedInDb(
     };
   });
 
+  if (result.status === "not-found") {
+    return {
+      ok: false,
+      status: "not-found",
+      message: "이용 완료 처리할 예약을 찾을 수 없습니다.",
+    };
+  }
+
+  if (!result.reservation) {
+    return {
+      ok: false,
+      status: "not-found",
+      message: "이용 완료 처리할 예약을 찾을 수 없습니다.",
+    };
+  }
+
+  const reservation = toDomainReservation(result.reservation);
+  if (result.status === "not-usable") {
+    return {
+      ok: false,
+      status: "not-usable",
+      reservation,
+      message: "예약 완료 상태의 예약만 이용 완료 처리할 수 있습니다.",
+    };
+  }
+
   return {
     ok: true,
     status: result.status,
-    reservation: toDomainReservation(result.reservation),
+    reservation,
     message:
       result.status === "used"
         ? "예약을 이용 완료 처리했습니다."
