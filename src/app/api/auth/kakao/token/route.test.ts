@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/auth/kakao/token/route";
-import { createTicket } from "@/lib/server/oauth/handover-ticket";
+import {
+  createTicket,
+  markSignedIn,
+  markTokenIssued,
+} from "@/lib/server/oauth/handover-ticket";
 import { cookies } from "next/headers";
 
 // /token 보안 회귀 방지 테스트. handover nonce cookie를 검증하지 않으면
@@ -92,6 +96,40 @@ describe("/api/auth/kakao/token", () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { customToken: string };
     expect(body.customToken).toBe("fake-custom-token");
+  });
+
+  it("provider가 kakao가 아니면 400을 반환한다", async () => {
+    const ticket = await createTicket({
+      targetUid: "naver:1",
+      provider: "naver",
+      handoverNonce: "nonce",
+      profilePayload: null,
+    });
+    mockCookies("nonce");
+
+    const res = await POST(
+      buildRequest({ ticketId: ticket.ticketId }) as never,
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  it("이미 signed_in 상태인 ticket은 token 재발급을 거부한다", async () => {
+    const ticket = await createTicket({
+      targetUid: "kakao:1",
+      provider: "kakao",
+      handoverNonce: "nonce",
+      profilePayload: null,
+    });
+    await markTokenIssued(ticket.ticketId);
+    await markSignedIn(ticket.ticketId);
+    mockCookies("nonce");
+
+    const res = await POST(
+      buildRequest({ ticketId: ticket.ticketId }) as never,
+    );
+
+    expect(res.status).toBe(409);
   });
 
   it("존재하지 않는 ticketId면 401을 반환한다", async () => {

@@ -99,6 +99,41 @@ describe("/api/auth/kakao/finalize", () => {
     expect(res.status).toBe(401);
   });
 
+  it("token 발급 전 pending ticket은 finalize를 거부한다", async () => {
+    const ticket = await createTicket({
+      targetUid: "kakao:42",
+      provider: "kakao",
+      handoverNonce: "valid-nonce",
+      profilePayload: null,
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+
+    const res = await POST(
+      buildRequest({ ticketId: ticket.ticketId }) as never,
+    );
+
+    expect(res.status).toBe(409);
+  });
+
+  it("finalize 재시도 횟수를 초과하면 429를 반환한다", async () => {
+    const ticket = await makeIssuedTicket();
+    await prisma.authHandoverTicket.update({
+      where: { ticketId: ticket.ticketId },
+      data: { finalizeAttemptCount: 5 },
+    });
+    mockVerify(ticket.targetUid);
+    mockCookies(ticket.handoverNonce);
+
+    const res = await POST(
+      buildRequest({ ticketId: ticket.ticketId }) as never,
+    );
+
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { retryable?: boolean };
+    expect(body.retryable).toBe(false);
+  });
+
   it("정상이면 ticket을 finalized로 전이하고 profileSynced를 응답한다", async () => {
     const ticket = await makeIssuedTicket();
     mockVerify(ticket.targetUid);
