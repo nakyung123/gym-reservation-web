@@ -96,7 +96,7 @@ describe("PUT /api/favorites/[gymId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
     expect(await prisma.favorite.count()).toBe(0);
   });
 
@@ -188,7 +188,7 @@ describe("DELETE /api/favorites/[gymId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
     expect(await prisma.favorite.count()).toBe(1);
   });
 

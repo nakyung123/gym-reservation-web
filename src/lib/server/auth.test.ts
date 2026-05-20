@@ -79,7 +79,7 @@ describe("verifyIdTokenFromRequest", () => {
     });
   });
 
-  it("returns 401 with the verification error detail when Firebase rejects the token", async () => {
+  it("returns 401 without exposing the Firebase verification error detail", async () => {
     verifyIdToken.mockRejectedValue(new Error("expired token"));
 
     const result = await verifyIdTokenFromRequest(requestFor("Bearer token-1"));
@@ -87,7 +87,7 @@ describe("verifyIdTokenFromRequest", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(401);
-    expect(result.message).toContain("ID 토큰 검증에 실패했습니다");
-    expect(result.message).toContain("expired token");
+    expect(result.message).toBe("ID 토큰 검증에 실패했습니다.");
+    expect(result.message).not.toContain("expired token");
   });
 });

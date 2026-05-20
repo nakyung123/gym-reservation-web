@@ -35,12 +35,11 @@ export async function verifyIdTokenFromRequest(
         ? decoded.firebase.sign_in_provider
         : "";
     return { ok: true, uid: decoded.uid, signInProvider };
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "알 수 없는 오류";
+  } catch {
     return {
       ok: false,
       status: 401,
-      message: `ID 토큰 검증에 실패했습니다: ${detail}`,
+      message: "ID 토큰 검증에 실패했습니다.",
     };
   }
 }

@@ -101,7 +101,7 @@ describe("GET /api/reservations", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
   });
 
   it("예약 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
@@ -361,7 +361,7 @@ describe("POST /api/reservations", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
     expect(await prisma.reservation.count()).toBe(0);
     expect(await prisma.reservationLock.count()).toBe(0);
   });

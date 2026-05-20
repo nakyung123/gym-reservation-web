@@ -153,7 +153,7 @@ describe("GET /api/reservations/[reservationId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
   });
 
   it("다른 사용자의 예약은 404로 응답한다", async () => {
@@ -391,7 +391,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
 
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },

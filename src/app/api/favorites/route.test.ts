@@ -81,7 +81,7 @@ describe("GET /api/favorites", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toEqual(expect.stringContaining("expired token"));
+    expect(body.message).toBe("ID 토큰 검증에 실패했습니다.");
   });
 
   it("즐겨찾기 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
