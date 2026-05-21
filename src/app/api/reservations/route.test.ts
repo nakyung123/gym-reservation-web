@@ -89,8 +89,10 @@ describe("GET /api/reservations", () => {
     const response = await GET(
       new NextRequest("http://localhost:3000/api/reservations"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
@@ -379,8 +381,10 @@ describe("POST /api/reservations", () => {
         }),
       }),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
     expect(await prisma.reservation.count()).toBe(0);
   });

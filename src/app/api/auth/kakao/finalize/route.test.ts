@@ -126,7 +126,9 @@ describe("/api/auth/kakao/finalize", () => {
     const res = await POST(
       buildRequest({ ticketId: ticket.ticketId }) as never,
     );
+    const body = (await res.json()) as { message?: unknown };
     expect(res.status).toBe(401);
+    expect(body.message).toBe("handover nonce 쿠키가 없습니다.");
   });
 
   it("nonce 불일치면 401", async () => {
@@ -136,7 +138,9 @@ describe("/api/auth/kakao/finalize", () => {
     const res = await POST(
       buildRequest({ ticketId: ticket.ticketId }) as never,
     );
+    const body = (await res.json()) as { message?: unknown };
     expect(res.status).toBe(401);
+    expect(body.message).toBe("handover nonce가 일치하지 않습니다.");
   });
 
   it("만료된 ticket이면 401을 반환하고 profile sync를 시도하지 않는다", async () => {
@@ -165,7 +169,9 @@ describe("/api/auth/kakao/finalize", () => {
     const res = await POST(
       buildRequest({ ticketId: ticket.ticketId }) as never,
     );
+    const body = (await res.json()) as { message?: unknown };
     expect(res.status).toBe(401);
+    expect(body.message).toBe("ticket과 인증된 사용자가 일치하지 않습니다.");
   });
 
   it("provider가 kakao가 아니면 400을 반환하고 profile sync를 시도하지 않는다", async () => {
@@ -179,8 +185,10 @@ describe("/api/auth/kakao/finalize", () => {
     const res = await POST(
       buildRequest({ ticketId: ticket.ticketId }) as never,
     );
+    const body = (await res.json()) as { message?: unknown };
 
     expect(res.status).toBe(400);
+    expect(body.message).toBe("provider가 일치하지 않습니다.");
     expect(updateUserMock).not.toHaveBeenCalled();
   });
 
@@ -199,6 +207,8 @@ describe("/api/auth/kakao/finalize", () => {
     );
 
     expect(res.status).toBe(409);
+    const body = (await res.json()) as { message?: unknown };
+    expect(body.message).toBe("Custom Token 발급이 먼저 필요합니다.");
   });
 
   it("finalize 재시도 횟수를 초과하면 429를 반환한다", async () => {
@@ -215,7 +225,13 @@ describe("/api/auth/kakao/finalize", () => {
     );
 
     expect(res.status).toBe(429);
-    const body = (await res.json()) as { retryable?: boolean };
+    const body = (await res.json()) as {
+      message?: unknown;
+      retryable?: boolean;
+    };
+    expect(body.message).toBe(
+      "재시도 횟수를 초과했습니다. 처음부터 다시 시도해 주세요.",
+    );
     expect(body.retryable).toBe(false);
   });
 

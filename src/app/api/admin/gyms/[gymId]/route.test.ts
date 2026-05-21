@@ -77,8 +77,10 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
       }),
       contextFor(TEST_GYM.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
 
     const row = await prisma.gym.findUniqueOrThrow({
       where: { id: TEST_GYM.id },
@@ -91,8 +93,10 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
       patchRequest(updateBody, "wrong-token"),
       contextFor(TEST_GYM.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
 
     const row = await prisma.gym.findUniqueOrThrow({
       where: { id: TEST_GYM.id },
@@ -107,8 +111,12 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
       patchRequest(updateBody),
       contextFor(TEST_GYM.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
 
     const row = await prisma.gym.findUniqueOrThrow({
       where: { id: TEST_GYM.id },

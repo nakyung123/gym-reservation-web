@@ -138,8 +138,10 @@ describe("GET /api/reservations/[reservationId]", () => {
       new NextRequest("http://localhost:3000/api/reservations/reservation-a"),
       contextFor("reservation-a"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 
@@ -419,8 +421,10 @@ describe("DELETE /api/reservations/[reservationId]", () => {
       }),
       contextFor("reservation-a"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 

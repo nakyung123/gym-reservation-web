@@ -127,22 +127,30 @@ describe("GET /api/admin/reservations", () => {
     const response = await GET(
       new NextRequest("http://localhost:3000/api/admin/reservations"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
   });
 
   it("관리자 토큰이 틀리면 403을 반환한다", async () => {
     const response = await GET(requestFor({}, "wrong-token"));
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
   });
 
   it("returns 503 when the admin token is not configured", async () => {
     delete process.env.ADMIN_API_TOKEN;
 
     const response = await GET(requestFor());
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
   });
 
   it("status가 올바르지 않으면 400을 반환한다", async () => {

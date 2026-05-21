@@ -115,8 +115,10 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
       ),
       contextFor("missing-reservation"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
   });
 
   it("returns 503 when the admin token is not configured", async () => {
@@ -126,8 +128,12 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
       requestFor("missing-reservation"),
       contextFor("missing-reservation"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
   });
 
   it("관리자 토큰이 틀리면 403을 반환한다", async () => {
@@ -135,8 +141,10 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
       requestFor("missing-reservation", "wrong-token"),
       contextFor("missing-reservation"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
   });
 
   it("존재하지 않는 예약 ID는 404를 반환한다", async () => {
@@ -270,8 +278,10 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
       ),
       contextFor(created.reservation.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
     });
@@ -296,8 +306,10 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
       patchRequestFor(created.reservation.id, "used", "wrong-token"),
       contextFor(created.reservation.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
     });
@@ -328,8 +340,12 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
       patchRequestFor(created.reservation.id, "used"),
       contextFor(created.reservation.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
     });

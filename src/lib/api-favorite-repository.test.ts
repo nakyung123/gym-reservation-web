@@ -227,7 +227,9 @@ describe("apiFavoriteRepository", () => {
     await vi.waitFor(() => {
       expect([...repository.getSnapshot()]).toEqual([]);
     });
-    expect(repository.getErrorSnapshot()).toBeTruthy();
+    expect(repository.getErrorSnapshot()).toBe(
+      "로그인 정보가 없어 즐겨찾기를 변경할 수 없습니다.",
+    );
   });
 
   it("clears the previous error when a new toggle starts", async () => {
@@ -243,7 +245,7 @@ describe("apiFavoriteRepository", () => {
     repository.toggle("gym-a");
 
     await vi.waitFor(() => {
-      expect(repository.getErrorSnapshot()).toBeTruthy();
+      expect(repository.getErrorSnapshot()).toBe("failed");
     });
 
     repository.toggle("gym-a");
@@ -361,7 +363,7 @@ describe("apiFavoriteRepository", () => {
     const unsubscribe = repository.subscribe(vi.fn());
 
     await vi.waitFor(() => {
-      expect(repository.getLoadErrorSnapshot()).toBeTruthy();
+      expect(repository.getLoadErrorSnapshot()).toBe("서버 오류");
     });
     expect([...repository.getSnapshot()]).toEqual([]);
 
@@ -407,7 +409,7 @@ describe("apiFavoriteRepository", () => {
     const unsubscribe = repository.subscribe(vi.fn());
 
     await vi.waitFor(() => {
-      expect(repository.getLoadErrorSnapshot()).toBeTruthy();
+      expect(repository.getLoadErrorSnapshot()).toBe("오류");
     });
 
     currentSession = { ok: true, userId: "reload-user-second" };

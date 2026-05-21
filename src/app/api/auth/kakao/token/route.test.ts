@@ -100,8 +100,10 @@ describe("/api/auth/kakao/token", () => {
     const res = await POST(
       buildRequest({ ticketId: ticket.ticketId }) as never,
     );
+    const body = (await res.json()) as { message?: unknown };
 
     expect(res.status).toBe(401);
+    expect(body.message).toBe("handover nonce가 일치하지 않습니다.");
     expect(createCustomTokenMock).not.toHaveBeenCalled();
   });
 
@@ -160,6 +162,8 @@ describe("/api/auth/kakao/token", () => {
     );
 
     expect(res.status).toBe(400);
+    const body = (await res.json()) as { message?: unknown };
+    expect(body.message).toBe("provider가 일치하지 않습니다.");
     expect(createCustomTokenMock).not.toHaveBeenCalled();
   });
 
@@ -179,6 +183,10 @@ describe("/api/auth/kakao/token", () => {
     );
 
     expect(res.status).toBe(409);
+    const body = (await res.json()) as { message?: unknown };
+    expect(body.message).toBe(
+      "ticket 상태가 token 발급 가능 단계가 아닙니다.",
+    );
     expect(createCustomTokenMock).not.toHaveBeenCalled();
   });
 
@@ -257,6 +265,8 @@ describe("/api/auth/kakao/token", () => {
     );
 
     expect(res.status).toBe(401);
+    const body = (await res.json()) as { message?: unknown };
+    expect(body.message).toBe("유효하지 않거나 만료된 ticket입니다.");
   });
 
   it("ticketId가 비어있으면 400을 반환한다", async () => {
@@ -265,5 +275,7 @@ describe("/api/auth/kakao/token", () => {
     const res = await POST(buildRequest({}) as never);
 
     expect(res.status).toBe(400);
+    const body = (await res.json()) as { message?: unknown };
+    expect(body.message).toBe("ticketId가 누락됐습니다.");
   });
 });

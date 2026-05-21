@@ -284,10 +284,13 @@ describe("/api/auth/kakao/callback", () => {
     const sp = getRedirectParams(res);
     expect(sp.get("provider")).toBe("kakao");
     const ticketId = sp.get("ticket");
-    expect(ticketId).toBeTruthy();
+    if (ticketId === null) {
+      throw new Error("ticket query param missing");
+    }
+    expect(ticketId).toMatch(/^[A-Za-z0-9_-]+$/);
 
     const ticket = await prisma.authHandoverTicket.findUnique({
-      where: { ticketId: ticketId! },
+      where: { ticketId },
     });
     expect(ticket?.targetUid).toBe("kakao:999");
     expect(ticket?.status).toBe("pending");

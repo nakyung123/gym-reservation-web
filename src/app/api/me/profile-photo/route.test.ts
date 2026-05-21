@@ -53,7 +53,10 @@ describe("PUT /api/me/profile-photo", () => {
         body: JSON.stringify({ photoBase64: SAMPLE_PHOTO }),
       }),
     );
+    const body = (await response.json()) as { message?: unknown };
+
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 

@@ -107,8 +107,10 @@ describe("PUT /api/favorites/[gymId]", () => {
       }),
       contextFor(TEST_GYM.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
     expect(await prisma.favorite.count()).toBe(0);
   });
@@ -199,8 +201,10 @@ describe("DELETE /api/favorites/[gymId]", () => {
       }),
       contextFor(TEST_GYM.id),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 

@@ -75,8 +75,10 @@ describe("GET /api/me", () => {
 
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {
     const response = await GET(new NextRequest("http://localhost:3000/api/me"));
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 

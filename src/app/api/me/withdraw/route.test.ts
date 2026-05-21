@@ -62,7 +62,10 @@ describe("POST /api/me/withdraw", () => {
         body: JSON.stringify({ category: "기타", detail: null }),
       }),
     );
+    const body = (await response.json()) as { message?: unknown };
+
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
     expect(deleteUser).not.toHaveBeenCalled();
   });

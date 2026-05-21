@@ -114,8 +114,10 @@ describe("PATCH /api/admin/reservation-slots", () => {
         }),
       }),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
@@ -132,8 +134,10 @@ describe("PATCH /api/admin/reservation-slots", () => {
         "wrong-token",
       ),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
@@ -149,8 +153,12 @@ describe("PATCH /api/admin/reservation-slots", () => {
         isClosed: true,
       }),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 

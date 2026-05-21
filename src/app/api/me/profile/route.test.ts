@@ -86,8 +86,10 @@ describe("GET /api/me/profile", () => {
     const response = await GET(
       new NextRequest("http://localhost:3000/api/me/profile"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toEqual(expect.any(String));
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
 

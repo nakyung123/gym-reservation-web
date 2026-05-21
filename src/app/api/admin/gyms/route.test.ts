@@ -68,16 +68,20 @@ describe("GET /api/admin/gyms", () => {
     const response = await GET(
       new NextRequest("http://localhost:3000/api/admin/gyms"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
   });
 
   it("관리자 토큰이 틀리면 403을 반환한다", async () => {
     const response = await GET(
       adminRequest("http://localhost:3000/api/admin/gyms", "wrong-token"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
   });
 
   it("returns 503 when the admin token is not configured", async () => {
@@ -86,8 +90,12 @@ describe("GET /api/admin/gyms", () => {
     const response = await GET(
       adminRequest("http://localhost:3000/api/admin/gyms"),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(503);
+    expect(body.message).toBe(
+      "관리자 기능을 일시적으로 사용할 수 없습니다.",
+    );
   });
 
   it("시설 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
@@ -148,15 +156,19 @@ describe("POST /api/admin/gyms", () => {
         body: JSON.stringify(newAdminGym),
       }),
     );
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
+    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
     expect(await prisma.gym.count()).toBe(1);
   });
 
   it("returns 403 and does not create a gym when the admin token is wrong", async () => {
     const response = await POST(postRequest(newAdminGym, "wrong-token"));
+    const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
     expect(await prisma.gym.count()).toBe(1);
   });
 

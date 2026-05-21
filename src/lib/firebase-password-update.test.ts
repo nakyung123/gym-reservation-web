@@ -143,6 +143,29 @@ describe("updateMyPassword", () => {
     });
   });
 
+  it("재인증 단계의 알 수 없는 Firebase 에러는 원문을 노출하지 않는다", async () => {
+    mockCurrentUser({ email: "user@example.com" });
+    reauthenticateWithCredential.mockRejectedValue(
+      makeAuthError("auth/unknown", "Firebase raw reauth error"),
+    );
+
+    const result = await updateMyPassword({
+      currentPassword: "old",
+      newPassword: "newpass1",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "other",
+      message: "재인증에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).not.toContain("Firebase raw");
+    }
+    expect(updatePassword).not.toHaveBeenCalled();
+  });
+
   it("auth/weak-password 변경 실패는 weak-password로 매핑한다", async () => {
     mockCurrentUser({ email: "user@example.com" });
     reauthenticateWithCredential.mockResolvedValue(undefined);
