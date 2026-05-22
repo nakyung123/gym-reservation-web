@@ -100,6 +100,36 @@ describe("admin gym client", () => {
     });
   });
 
+  it("시설 목록 실패 응답의 안전한 서버 message를 보존한다", async () => {
+    mockFetch(
+      Response.json(
+        { message: "시설 목록을 불러오지 못했습니다." },
+        { status: 500 },
+      ),
+    );
+
+    await expect(fetchAdminGyms("admin-token")).resolves.toEqual({
+      ok: false,
+      message: "시설 목록을 불러오지 못했습니다.",
+      status: 500,
+    });
+  });
+
+  it("성공 status여도 시설 저장 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
+    mockFetch(
+      Response.json({
+        gym: { ...gym, basePrice: "12000" },
+        message: "시설 정보가 저장되었습니다.",
+      }),
+    );
+
+    await expect(createAdminGym(gym, "admin-token")).resolves.toEqual({
+      ok: false,
+      message: "시설 저장 응답 형식이 올바르지 않습니다.",
+      status: 200,
+    });
+  });
+
   it("rethrows abort errors so callers can ignore cancelled list requests", async () => {
     const abortError = new Error("aborted");
     abortError.name = "AbortError";

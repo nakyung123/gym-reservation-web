@@ -135,6 +135,14 @@ async function mutateAdminGym(
     };
   }
 
+  if (response.ok) {
+    return {
+      ok: false,
+      message: "시설 저장 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
   return {
     ok: false,
     message: getMessage(data, `시설 저장 실패: status=${response.status}`),
