@@ -116,13 +116,14 @@ describe("fetchUserSummary", () => {
       Response.json({
         user: { uid: "different-user" },
         summary,
+        message: "내 정보를 불러왔습니다.",
       }),
     );
 
     await expect(fetchUserSummary()).resolves.toEqual({
       ok: false,
       kind: "error",
-      message: "내 정보 조회 실패: status=200",
+      message: "내 정보 응답 형식이 올바르지 않습니다.",
       status: 200,
     });
   });

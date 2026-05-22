@@ -160,7 +160,32 @@ describe("user-profile-client", () => {
     await expect(fetchUserProfile()).resolves.toEqual({
       ok: false,
       kind: "error",
-      message: "프로필 설정 조회 실패: status=200",
+      message: "프로필 설정 응답 형식이 올바르지 않습니다.",
+      status: 200,
+    });
+  });
+
+  it("성공 status여도 저장 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
+    mockCurrentUser();
+    mockFetch(
+      Response.json({
+        user: { uid: profile.userId },
+        profile: { ...profile, userId: "different-user" },
+        message: "프로필 설정이 저장되었습니다.",
+      }),
+    );
+
+    await expect(
+      saveUserProfile({
+        nickname: "나경",
+        preferredRegion: "서울 강서구",
+        preferredSports: ["배드민턴"],
+        reservationNotificationsEnabled: true,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "프로필 설정 응답 형식이 올바르지 않습니다.",
       status: 200,
     });
   });

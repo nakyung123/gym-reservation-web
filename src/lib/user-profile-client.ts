@@ -174,6 +174,15 @@ export async function fetchUserProfile(
     };
   }
 
+  if (response.ok) {
+    return {
+      ok: false,
+      kind: "error",
+      message: "프로필 설정 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
   if (response.status === 401 || response.status === 403) {
     return authError(data, response.status);
   }
@@ -239,6 +248,15 @@ export async function ensureUserProfile(
       ok: true,
       user: data.user,
       profile: data.profile,
+    };
+  }
+
+  if (response.ok) {
+    return {
+      ok: false,
+      kind: "error",
+      message: "프로필 설정 응답 형식이 올바르지 않습니다.",
+      status: response.status,
     };
   }
 
@@ -319,6 +337,15 @@ export async function saveUserProfile(
         typeof data.message === "string"
           ? data.message
           : "프로필 설정이 저장되었습니다.",
+    };
+  }
+
+  if (response.ok) {
+    return {
+      ok: false,
+      kind: "error",
+      message: "프로필 설정 응답 형식이 올바르지 않습니다.",
+      status: response.status,
     };
   }
 

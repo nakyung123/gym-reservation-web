@@ -62,8 +62,13 @@ describe("admin reservation slot client", () => {
     });
   });
 
-  it("rejects malformed single-slot success responses", async () => {
-    mockFetch(Response.json({ slot: { ...slot, status: "unknown" } }));
+  it("성공 status여도 단일 슬롯 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
+    mockFetch(
+      Response.json({
+        slot: { ...slot, status: "unknown" },
+        message: "슬롯 정책이 변경되었습니다.",
+      }),
+    );
 
     await expect(
       updateReservationSlotPolicy(
@@ -76,8 +81,9 @@ describe("admin reservation slot client", () => {
         },
         "admin-token",
       ),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       ok: false,
+      message: "슬롯 정책 변경 응답 형식이 올바르지 않습니다.",
       status: 200,
     });
   });

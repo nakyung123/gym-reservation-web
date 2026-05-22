@@ -72,20 +72,22 @@ describe("fetchAdminOverview", () => {
     });
   });
 
-  it("rejects malformed overview response shapes", async () => {
+  it("성공 status여도 운영 요약 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
     mockFetch(
       Response.json({
         overview: {
           ...overview,
           revenue: { expected: "24000", used: 12000 },
         },
+        message: "운영 요약을 불러왔습니다.",
       }),
     );
 
     await expect(
       fetchAdminOverview(overview.date, "admin-token"),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       ok: false,
+      message: "관리자 운영 요약 응답 형식이 올바르지 않습니다.",
       status: 200,
     });
   });

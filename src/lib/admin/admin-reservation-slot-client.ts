@@ -98,6 +98,14 @@ export async function updateReservationSlotPolicy(
     return { ok: true, slot: data.slot };
   }
 
+  if (response.ok) {
+    return {
+      ok: false,
+      message: "슬롯 정책 변경 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
   return {
     ok: false,
     message:

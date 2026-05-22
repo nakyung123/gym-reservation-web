@@ -116,6 +116,14 @@ export async function fetchAdminReservation(
     return { ok: true, reservation: data.reservation };
   }
 
+  if (response.ok) {
+    return {
+      ok: false,
+      message: "관리자 예약 상세 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
   return {
     ok: false,
     message: getMessage(data, `관리자 예약 상세 조회 실패: status=${response.status}`),
@@ -165,6 +173,14 @@ export async function fetchAdminReservations(
     data.reservations.every(isReservation)
   ) {
     return { ok: true, reservations: data.reservations };
+  }
+
+  if (response.ok) {
+    return {
+      ok: false,
+      message: "관리자 예약 목록 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
   }
 
   return {
@@ -246,6 +262,15 @@ export async function updateAdminReservationStatus(
       status: actionStatus,
       reservation: data.reservation,
       message: getMessage(data, "예약 상태가 변경되었습니다."),
+    };
+  }
+
+  if (response.ok) {
+    return {
+      ok: false,
+      message: "관리자 예약 상태 변경 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+      reservation: isReservation(data.reservation) ? data.reservation : undefined,
     };
   }
 

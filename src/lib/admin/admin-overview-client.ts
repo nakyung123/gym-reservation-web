@@ -115,6 +115,14 @@ export async function fetchAdminOverview(
     return { ok: true, overview: data.overview };
   }
 
+  if (response.ok) {
+    return {
+      ok: false,
+      message: "관리자 운영 요약 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
   return {
     ok: false,
     message:

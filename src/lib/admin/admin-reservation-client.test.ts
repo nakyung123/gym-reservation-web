@@ -53,17 +53,19 @@ describe("admin reservation client", () => {
     );
   });
 
-  it("rejects malformed reservation list responses", async () => {
+  it("성공 status여도 예약 목록 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
     mockFetch(
       Response.json({
         reservations: [{ ...reservation, status: "unknown" }],
+        message: "예약 목록을 불러왔습니다.",
       }),
     );
 
     await expect(
       fetchAdminReservations({}, "admin-token"),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       ok: false,
+      message: "관리자 예약 목록 응답 형식이 올바르지 않습니다.",
       status: 200,
     });
   });
@@ -138,12 +140,12 @@ describe("admin reservation client", () => {
     });
   });
 
-  it("rejects successful status update responses with mismatched reservation status", async () => {
+  it("성공 status여도 상태 변경 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
     mockFetch(
       Response.json({
         status: "used",
         reservation,
-        message: "status mismatch",
+        message: "예약이 이용 완료 처리되었습니다.",
       }),
     );
 
@@ -151,7 +153,7 @@ describe("admin reservation client", () => {
       updateAdminReservationStatus(reservation.id, "used", "admin-token"),
     ).resolves.toEqual({
       ok: false,
-      message: "status mismatch",
+      message: "관리자 예약 상태 변경 응답 형식이 올바르지 않습니다.",
       status: 200,
       reservation,
     });

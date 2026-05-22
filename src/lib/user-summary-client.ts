@@ -107,6 +107,15 @@ export async function fetchUserSummary(
     };
   }
 
+  if (response.ok) {
+    return {
+      ok: false,
+      kind: "error",
+      message: "내 정보 응답 형식이 올바르지 않습니다.",
+      status: response.status,
+    };
+  }
+
   if (response.status === 401 || response.status === 403) {
     return {
       ok: false,
