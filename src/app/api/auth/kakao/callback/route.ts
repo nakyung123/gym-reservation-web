@@ -21,6 +21,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const PROVIDER_OAUTH_ERROR_MESSAGE =
+  "카카오 로그인 요청이 취소되었거나 실패했습니다.";
+
 // 카카오에서 돌아오는 redirect callback. 헤더 Authorization은 붙지 않는다.
 // 신뢰 가능한 식별 정보는 cookie attemptId만으로, 거기서 anonUid를 얻는다.
 // 흐름: state 검증 → attempt 1회 소비 → 토큰/유저정보 → handoverNonce 발급
@@ -46,7 +49,11 @@ export async function GET(request: NextRequest) {
   cookieStore.delete(OAUTH_HANDOVER_COOKIE);
 
   if (oauthError) {
-    return errorRedirect(origin, "kakao_oauth_error", oauthError);
+    return errorRedirect(
+      origin,
+      "kakao_oauth_error",
+      PROVIDER_OAUTH_ERROR_MESSAGE,
+    );
   }
   if (!code || !state) {
     return errorRedirect(

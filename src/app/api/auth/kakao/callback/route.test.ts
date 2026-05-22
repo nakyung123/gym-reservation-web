@@ -87,6 +87,28 @@ describe("/api/auth/kakao/callback", () => {
     expect(getRedirectParams(res).get("error")).toBe("missing_attempt");
   });
 
+  it("provider error 원문은 redirect description에 노출하지 않는다", async () => {
+    cookiesMock.mockResolvedValue(
+      makeCookieStore(new Map()) as unknown as Awaited<
+        ReturnType<typeof cookies>
+      >,
+    );
+
+    const res = await GET(
+      buildRequest({ error: "raw_provider_denied_sensitive_detail" }),
+    );
+    const params = getRedirectParams(res);
+
+    expect(res.status).toBe(302);
+    expect(params.get("error")).toBe("kakao_oauth_error");
+    expect(params.get("error_description")).toBe(
+      "카카오 로그인 요청이 취소되었거나 실패했습니다.",
+    );
+    expect(String(params.get("error_description"))).not.toContain(
+      "raw_provider",
+    );
+  });
+
   it("필수 파라미터가 누락되면 cookie를 비우고 provider API를 호출하지 않는다", async () => {
     const attempt = await createAttempt({ provider: "kakao" });
     const jar: CookieJar = new Map([

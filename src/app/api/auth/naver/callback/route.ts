@@ -21,6 +21,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const PROVIDER_OAUTH_ERROR_MESSAGE =
+  "네이버 로그인 요청이 취소되었거나 실패했습니다.";
+
 // 네이버에서 돌아오는 redirect callback. 카카오 callback과 동형 구조.
 // Firebase user record는 만들지 않는다. 신규/기존 판정과 createUser/updateUser는
 // /finalize transaction에서 한다.
@@ -40,7 +43,11 @@ export async function GET(request: NextRequest) {
   cookieStore.delete(OAUTH_HANDOVER_COOKIE);
 
   if (oauthError) {
-    return errorRedirect(origin, "naver_oauth_error", oauthError);
+    return errorRedirect(
+      origin,
+      "naver_oauth_error",
+      PROVIDER_OAUTH_ERROR_MESSAGE,
+    );
   }
   if (!code || !state) {
     return errorRedirect(

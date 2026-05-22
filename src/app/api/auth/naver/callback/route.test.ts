@@ -87,6 +87,30 @@ describe("/api/auth/naver/callback", () => {
     expect(fetchUserMock).not.toHaveBeenCalled();
   });
 
+  it("provider error 원문은 redirect description에 노출하지 않는다", async () => {
+    cookiesMock.mockResolvedValue(
+      makeCookieStore(new Map()) as unknown as Awaited<
+        ReturnType<typeof cookies>
+      >,
+    );
+
+    const res = await GET(
+      buildRequest({ error: "raw_provider_denied_sensitive_detail" }),
+    );
+    const params = getRedirectParams(res);
+
+    expect(res.status).toBe(302);
+    expect(params.get("error")).toBe("naver_oauth_error");
+    expect(params.get("error_description")).toBe(
+      "네이버 로그인 요청이 취소되었거나 실패했습니다.",
+    );
+    expect(String(params.get("error_description"))).not.toContain(
+      "raw_provider",
+    );
+    expect(exchangeMock).not.toHaveBeenCalled();
+    expect(fetchUserMock).not.toHaveBeenCalled();
+  });
+
   it("필수 파라미터가 누락되면 cookie를 비우고 provider API를 호출하지 않는다", async () => {
     const attempt = await createAttempt({ provider: "naver" });
     const jar: CookieJar = new Map([
