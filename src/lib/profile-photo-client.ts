@@ -93,14 +93,11 @@ async function getIdToken(): Promise<IdTokenResult> {
       };
     }
     return { ok: true, idToken: await auth.currentUser.getIdToken() };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       kind: "error",
-      message:
-        error instanceof Error && error.message
-          ? `ID 토큰을 가져오지 못했습니다. ${error.message}`
-          : "ID 토큰을 가져오지 못했습니다.",
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     };
   }
 }
@@ -128,10 +125,7 @@ export async function updateProfilePhoto(
     return {
       ok: false,
       kind: "error",
-      message:
-        error instanceof Error && error.message
-          ? `프로필 사진 변경 요청에 실패했습니다. ${error.message}`
-          : "프로필 사진 변경 요청에 실패했습니다.",
+      message: "프로필 사진 변경 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 

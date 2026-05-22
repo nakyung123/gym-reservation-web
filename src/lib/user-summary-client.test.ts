@@ -57,22 +57,25 @@ describe("fetchUserSummary", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("ID 토큰을 가져오지 못하면 API를 호출하지 않고 error를 반환한다", async () => {
+  it("ID 토큰 획득 실패는 Firebase 원문을 노출하지 않는다", async () => {
     getFirebaseClient.mockReturnValue({
       auth: {
         currentUser: {
-          getIdToken: vi.fn().mockRejectedValue(new Error("token unavailable")),
+          getIdToken: vi.fn().mockRejectedValue(new Error("raw token detail")),
         },
       },
     });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchUserSummary()).resolves.toEqual({
+    const result = await fetchUserSummary();
+
+    expect(result).toEqual({
       ok: false,
       kind: "error",
-      message: "ID 토큰을 가져오지 못했습니다. token unavailable",
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     });
+    expect(JSON.stringify(result)).not.toContain("raw token detail");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -91,6 +94,23 @@ describe("fetchUserSummary", () => {
       headers: { Authorization: "Bearer id-token" },
       signal: undefined,
     });
+  });
+
+  it("내 정보 요청 실패는 네트워크 원문을 노출하지 않는다", async () => {
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const result = await fetchUserSummary();
+
+    expect(result).toEqual({
+      ok: false,
+      kind: "error",
+      message: "내 정보 요청에 실패했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw network detail");
   });
 
   it("401 응답은 auth-required로 매핑한다", async () => {

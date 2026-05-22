@@ -34,11 +34,10 @@ export async function signInWithGoogle(): Promise<SignInWithGoogleResult> {
       };
     }
 
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Google 계정 로그인에 실패했습니다.";
-
-    return { ok: false, cancelled: false, message };
+    return {
+      ok: false,
+      cancelled: false,
+      message: "Google 계정 로그인에 실패했습니다. 다시 시도해 주세요.",
+    };
   }
 }

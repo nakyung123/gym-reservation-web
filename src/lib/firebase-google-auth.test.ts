@@ -75,15 +75,17 @@ describe("signInWithGoogle", () => {
     ).toContain("다른 로그인 방식");
   });
 
-  it("알 수 없는 오류는 Error.message를 그대로 반환한다", async () => {
+  it("알 수 없는 오류는 Firebase 원문을 노출하지 않는다", async () => {
     mockAuthForSignIn();
-    signInWithPopup.mockRejectedValue(makeFirebaseError("auth/unknown", "boom"));
+    signInWithPopup.mockRejectedValue(
+      makeFirebaseError("auth/unknown", "firebase internal detail"),
+    );
 
     const result = await signInWithGoogle();
     expect(result).toEqual({
       ok: false,
       cancelled: false,
-      message: "boom",
+      message: "Google 계정 로그인에 실패했습니다. 다시 시도해 주세요.",
     });
   });
 });

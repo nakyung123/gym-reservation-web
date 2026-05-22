@@ -20,12 +20,6 @@ type IdTokenResult =
   | { ok: true; idToken: string }
   | { ok: false; reason: "auth-required" | "error"; message: string };
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message
-    ? error.message
-    : "알 수 없는 오류";
-}
-
 async function getIdToken(): Promise<IdTokenResult> {
   try {
     const { auth } = getFirebaseClient();
@@ -37,11 +31,11 @@ async function getIdToken(): Promise<IdTokenResult> {
       };
     }
     return { ok: true, idToken: await auth.currentUser.getIdToken() };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "error",
-      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     };
   }
 }
@@ -68,14 +62,11 @@ export async function withdrawAccount(
       },
       body: JSON.stringify(input),
     });
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "error",
-      message:
-        error instanceof Error && error.message
-          ? `회원 탈퇴 요청에 실패했습니다. ${error.message}`
-          : "회원 탈퇴 요청에 실패했습니다.",
+      message: "회원 탈퇴 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 

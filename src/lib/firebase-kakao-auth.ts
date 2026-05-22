@@ -24,10 +24,10 @@ export async function startKakaoLogin(): Promise<StartKakaoLoginResult> {
   let response: Response;
   try {
     response = await fetch("/api/auth/kakao/start", { method: "POST" });
-  } catch (error) {
+  } catch {
     return {
       ok: false,
-      message: `카카오 로그인 시작에 실패했습니다. ${describeError(error)}`,
+      message: "카카오 로그인 시작 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
   if (!response.ok) {
@@ -62,11 +62,11 @@ export async function finalizeKakaoHandover(input: {
   const { auth } = getFirebaseClient();
   try {
     await signInWithCustomToken(auth, tokenResult.customToken);
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "other",
-      message: `Firebase 로그인에 실패했습니다. ${describeError(error)}`,
+      message: "카카오 로그인에 실패했습니다. 처음부터 다시 시도해 주세요.",
     };
   }
 
@@ -105,11 +105,11 @@ async function callFinalize(ticketId: string): Promise<FinalizeKakaoResult> {
   let idToken: string;
   try {
     idToken = await user.getIdToken();
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "other",
-      message: `ID 토큰을 가져오지 못했습니다. ${describeError(error)}`,
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     };
   }
 
@@ -123,11 +123,11 @@ async function callFinalize(ticketId: string): Promise<FinalizeKakaoResult> {
       },
       body: JSON.stringify({ ticketId }),
     });
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "other",
-      message: `로그인 마감 요청 실패: ${describeError(error)}`,
+      message: "로그인 마감 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
@@ -190,11 +190,11 @@ async function exchangeTicketForCustomToken(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ticketId }),
     });
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "other",
-      message: `토큰 교환 요청 실패: ${describeError(error)}`,
+      message: "토큰 교환 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
@@ -217,12 +217,6 @@ async function exchangeTicketForCustomToken(
     };
   }
   return { ok: true, customToken: data.customToken };
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error && error.message
-    ? error.message
-    : "알 수 없는 오류";
 }
 
 async function readErrorMessage(

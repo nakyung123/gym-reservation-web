@@ -78,6 +78,28 @@ describe("profile-photo-client", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("ID 토큰 획득 실패는 Firebase 원문을 노출하지 않는다", async () => {
+    getFirebaseClient.mockReturnValue({
+      auth: {
+        currentUser: {
+          getIdToken: vi.fn().mockRejectedValue(new Error("raw token detail")),
+        },
+      },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await updateProfilePhoto(null);
+
+    expect(result).toEqual({
+      ok: false,
+      kind: "error",
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw token detail");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("프로필 사진 변경 요청에 토큰과 본문을 함께 보낸다", async () => {
     mockCurrentUser();
     const fetchMock = mockFetch(
@@ -103,6 +125,23 @@ describe("profile-photo-client", () => {
       body: JSON.stringify({ photoBase64: profile.photoBase64 }),
       signal: undefined,
     });
+  });
+
+  it("프로필 사진 요청 실패는 네트워크 원문을 노출하지 않는다", async () => {
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const result = await updateProfilePhoto(profile.photoBase64);
+
+    expect(result).toEqual({
+      ok: false,
+      kind: "error",
+      message: "프로필 사진 변경 요청에 실패했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw network detail");
   });
 
   it("인증 실패 응답은 서버 message를 보존하고 auth-required로 매핑한다", async () => {
