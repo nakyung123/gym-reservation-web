@@ -115,6 +115,21 @@ describe("admin gym client", () => {
     });
   });
 
+  it("시설 목록 요청 실패는 네트워크 원문을 노출하지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const result = await fetchAdminGyms("admin-token");
+
+    expect(result).toEqual({
+      ok: false,
+      message: "시설 목록 요청에 실패했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw network detail");
+  });
+
   it("성공 status여도 시설 저장 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
     mockFetch(
       Response.json({

@@ -89,22 +89,23 @@ describe("fetchReservationSlots", () => {
     });
   });
 
-  it("returns an error result for network failures", async () => {
+  it("network failure 원문을 사용자 메시지에 노출하지 않는다", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockRejectedValue(new Error("network down")),
     );
 
-    await expect(
-      fetchReservationSlots({
-        gymId: slot.gymId,
-        sport,
-        date: slot.date,
-      }),
-    ).resolves.toMatchObject({
-      ok: false,
-      message: expect.stringContaining("network down"),
+    const result = await fetchReservationSlots({
+      gymId: slot.gymId,
+      sport,
+      date: slot.date,
     });
+
+    expect(result).toEqual({
+      ok: false,
+      message: "슬롯 정보를 불러오지 못했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("network down");
   });
 
   it("rethrows abort errors so callers can ignore cancelled requests", async () => {

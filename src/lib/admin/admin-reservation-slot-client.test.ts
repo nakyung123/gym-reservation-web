@@ -114,6 +114,30 @@ describe("admin reservation slot client", () => {
     });
   });
 
+  it("단일 슬롯 요청 실패는 네트워크 원문을 노출하지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const result = await updateReservationSlotPolicy(
+      {
+        gymId: slot.gymId,
+        sport,
+        date: slot.date,
+        time: slot.time,
+        isClosed: true,
+      },
+      "admin-token",
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "슬롯 정책 변경 요청에 실패했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw network detail");
+  });
+
   it("maps valid bulk success responses", async () => {
     const secondSlot = { ...slot, date: "2026-05-21", time: "11:00" };
     const fetchMock = mockFetch(

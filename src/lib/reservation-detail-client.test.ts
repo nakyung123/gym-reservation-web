@@ -87,16 +87,19 @@ describe("fetchUserReservation", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns error without calling the API when reading the ID token fails", async () => {
+  it("ID 토큰 획득 실패는 Firebase 원문을 노출하지 않는다", async () => {
     mockCurrentUserTokenError();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchUserReservation(reservation.id)).resolves.toMatchObject({
+    const result = await fetchUserReservation(reservation.id);
+
+    expect(result).toEqual({
       ok: false,
       kind: "error",
-      message: expect.stringContaining("token unavailable"),
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     });
+    expect(JSON.stringify(result)).not.toContain("token unavailable");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -215,5 +218,22 @@ describe("fetchUserReservation", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
 
     await expect(fetchUserReservation(reservation.id)).rejects.toBe(abortError);
+  });
+
+  it("예약 상세 요청 실패는 네트워크 원문을 노출하지 않는다", async () => {
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const result = await fetchUserReservation(reservation.id);
+
+    expect(result).toEqual({
+      ok: false,
+      kind: "error",
+      message: "예약 상세 요청에 실패했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw network detail");
   });
 });

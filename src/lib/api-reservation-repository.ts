@@ -70,12 +70,6 @@ function sortReservations(reservations: Reservation[]): Reservation[] {
   );
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message
-    ? error.message
-    : "알 수 없는 오류";
-}
-
 async function readResponseMessage(
   response: Response,
   fallbackMessage: string,
@@ -157,11 +151,11 @@ async function getIdToken(authRequiredMessage: string): Promise<IdTokenResult> {
       };
     }
     return { ok: true, idToken: await auth.currentUser.getIdToken() };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       reason: "remote-unavailable",
-      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     };
   }
 }
@@ -188,14 +182,14 @@ async function fetchReservations(userId: string): Promise<void> {
     response = await fetch("/api/reservations", {
       headers: { Authorization: `Bearer ${token.idToken}` },
     });
-  } catch (error) {
+  } catch {
     if (lastFetchedUserId !== userId) {
       return;
     }
     setCurrentSnapshot(
       createReservationsFailedSnapshot(
         remoteReservationUnavailable(
-          `예약 목록 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`,
+          "예약 목록 요청에 실패했습니다. 다시 시도해 주세요.",
         ),
       ),
     );
@@ -342,11 +336,11 @@ async function createReservation(
         time: reservation.time,
       }),
     });
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: "failed",
-      message: `예약 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`,
+      message: "예약 요청에 실패했습니다. 다시 시도해 주세요.",
       reason: "remote-unavailable",
     };
   }
@@ -445,11 +439,11 @@ async function cancelReservation(
         headers: { Authorization: `Bearer ${token.idToken}` },
       },
     );
-  } catch (error) {
+  } catch {
     return {
       ok: false,
       status: "failed",
-      message: `예약 취소 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`,
+      message: "예약 취소 요청에 실패했습니다. 다시 시도해 주세요.",
       reason: "remote-unavailable",
     };
   }

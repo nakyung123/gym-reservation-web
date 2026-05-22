@@ -64,7 +64,7 @@ export async function fetchReservationSlots(input: {
     }
     return {
       ok: false,
-      message: `슬롯 정보를 불러오지 못했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "슬롯 정보를 불러오지 못했습니다. 다시 시도해 주세요.",
     };
   }
 

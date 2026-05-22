@@ -141,7 +141,7 @@ describe("apiReservationRepository", () => {
       ok: false,
       status: "failed",
       reason: "remote-unavailable",
-      message: expect.stringContaining("token unavailable"),
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -162,7 +162,7 @@ describe("apiReservationRepository", () => {
       expect(apiReservationRepository.read()).toMatchObject({
         ok: false,
         reason: "remote-unavailable",
-        message: expect.stringContaining("token unavailable"),
+        message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
       });
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -499,7 +499,7 @@ describe("apiReservationRepository", () => {
       ok: false,
       status: "failed",
       reason: "remote-unavailable",
-      message: expect.stringContaining("network down"),
+      message: "예약 요청에 실패했습니다. 다시 시도해 주세요.",
     });
   });
 
@@ -514,7 +514,7 @@ describe("apiReservationRepository", () => {
       ok: false,
       status: "failed",
       reason: "remote-unavailable",
-      message: expect.stringContaining("token unavailable"),
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

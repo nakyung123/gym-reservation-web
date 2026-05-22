@@ -92,6 +92,21 @@ describe("fetchAdminOverview", () => {
     });
   });
 
+  it("운영 요약 요청 실패는 네트워크 원문을 노출하지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const result = await fetchAdminOverview(overview.date, "admin-token");
+
+    expect(result).toEqual({
+      ok: false,
+      message: "관리자 운영 요약 요청에 실패했습니다. 다시 시도해 주세요.",
+    });
+    expect(JSON.stringify(result)).not.toContain("raw network detail");
+  });
+
   it("rethrows abort errors so callers can ignore cancelled requests", async () => {
     const abortError = new Error("aborted");
     abortError.name = "AbortError";

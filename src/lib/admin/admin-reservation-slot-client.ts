@@ -74,8 +74,7 @@ export async function updateReservationSlotPolicy(
     }
     return {
       ok: false,
-      message:
-        `슬롯 정책 변경 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "슬롯 정책 변경 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
@@ -139,8 +138,7 @@ export async function bulkUpdateReservationSlotPolicy(
     return {
       ok: false,
       kind: "error",
-      message:
-        `슬롯 일괄 변경 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "슬롯 일괄 변경 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 

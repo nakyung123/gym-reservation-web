@@ -32,12 +32,6 @@ function setCurrentSet(next: Set<string>) {
   notifyListeners();
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message
-    ? error.message
-    : "알 수 없는 오류";
-}
-
 async function getIdToken(authRequiredMessage: string): Promise<IdTokenResult> {
   try {
     const { auth } = getFirebaseClient();
@@ -45,10 +39,10 @@ async function getIdToken(authRequiredMessage: string): Promise<IdTokenResult> {
       return { ok: false, message: authRequiredMessage };
     }
     return { ok: true, idToken: await auth.currentUser.getIdToken() };
-  } catch (error) {
+  } catch {
     return {
       ok: false,
-      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+      message: "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
     };
   }
 }
@@ -80,8 +74,8 @@ async function fetchFavorites(userId: string): Promise<void> {
     response = await fetch("/api/favorites", {
       headers: { Authorization: `Bearer ${token.idToken}` },
     });
-  } catch (error) {
-    failLoad(`즐겨찾기 목록 요청에 실패했습니다. ${getErrorMessage(error)}`);
+  } catch {
+    failLoad("즐겨찾기 목록 요청에 실패했습니다. 다시 시도해 주세요.");
     return;
   }
 
@@ -154,13 +148,18 @@ async function syncToggle(gymId: string, shouldAdd: boolean): Promise<void> {
     throw new Error(token.message);
   }
 
-  const response = await fetch(
-    `/api/favorites/${encodeURIComponent(gymId)}`,
-    {
-      method: shouldAdd ? "PUT" : "DELETE",
-      headers: { Authorization: `Bearer ${token.idToken}` },
-    },
-  );
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/favorites/${encodeURIComponent(gymId)}`,
+      {
+        method: shouldAdd ? "PUT" : "DELETE",
+        headers: { Authorization: `Bearer ${token.idToken}` },
+      },
+    );
+  } catch {
+    throw new Error("즐겨찾기 변경 요청에 실패했습니다. 다시 시도해 주세요.");
+  }
 
   let data: { message?: unknown } = {};
   try {

@@ -57,8 +57,7 @@ export async function fetchAdminGyms(
     }
     return {
       ok: false,
-      message:
-        `시설 목록을 불러오지 못했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "시설 목록 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
@@ -118,11 +117,10 @@ async function mutateAdminGym(
       },
       body: JSON.stringify(payload),
     });
-  } catch (error) {
+  } catch {
     return {
       ok: false,
-      message:
-        `시설 저장 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "시설 저장 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 

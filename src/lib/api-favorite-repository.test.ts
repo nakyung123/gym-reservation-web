@@ -214,7 +214,9 @@ describe("apiFavoriteRepository", () => {
       expect([...repository.getSnapshot()]).toEqual([]);
     });
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(repository.getErrorSnapshot()).toContain("token unavailable");
+    expect(repository.getErrorSnapshot()).toBe(
+      "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
+    );
   });
 
   it("rolls back an optimistic favorite when no user is signed in", async () => {
@@ -383,10 +385,30 @@ describe("apiFavoriteRepository", () => {
     const unsubscribe = repository.subscribe(vi.fn());
 
     await vi.waitFor(() => {
-      expect(repository.getLoadErrorSnapshot()).toContain("load token expired");
+      expect(repository.getLoadErrorSnapshot()).toBe(
+        "로그인 인증 정보를 확인하지 못했습니다. 다시 로그인해 주세요.",
+      );
     });
 
     unsubscribe();
+  });
+
+  it("toggle network failures do not expose raw error details", async () => {
+    mockCurrentUser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("raw network detail")),
+    );
+
+    const repository = await loadRepository();
+    repository.toggle("gym-a");
+
+    await vi.waitFor(() => {
+      expect(repository.getErrorSnapshot()).toBe(
+        "즐겨찾기 변경 요청에 실패했습니다. 다시 시도해 주세요.",
+      );
+    });
+    expect(repository.getErrorSnapshot()).not.toContain("raw network detail");
   });
 
   it("clears the load error when a subsequent fetch succeeds", async () => {

@@ -93,8 +93,7 @@ export async function fetchAdminReservation(
     }
     return {
       ok: false,
-      message:
-        `관리자 예약 상세 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "관리자 예약 상세 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
@@ -148,8 +147,7 @@ export async function fetchAdminReservations(
     }
     return {
       ok: false,
-      message:
-        `관리자 예약 목록 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "관리자 예약 목록 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
@@ -216,8 +214,7 @@ export async function updateAdminReservationStatus(
     }
     return {
       ok: false,
-      message:
-        `관리자 예약 상태 변경 요청에 실패했습니다. ${error instanceof Error ? error.message : ""}`.trim(),
+      message: "관리자 예약 상태 변경 요청에 실패했습니다. 다시 시도해 주세요.",
     };
   }
 
