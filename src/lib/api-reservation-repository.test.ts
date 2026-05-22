@@ -170,6 +170,60 @@ describe("apiReservationRepository", () => {
     unsubscribe();
   });
 
+  it("uses the server message when a reservation list request fails", async () => {
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: reservation.userId,
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    mockFetch(
+      Response.json(
+        { message: "예약 목록을 불러오지 못했습니다." },
+        { status: 500 },
+      ),
+    );
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(apiReservationRepository.read()).toEqual({
+        ok: false,
+        reason: "remote-unavailable",
+        message: "예약 목록을 불러오지 못했습니다.",
+      });
+    });
+
+    unsubscribe();
+  });
+
+  it("maps reservation list auth failures to auth-required", async () => {
+    getCurrentFirebaseAuthSession.mockReturnValue({
+      ok: true,
+      userId: reservation.userId,
+    });
+    subscribeFirebaseAuthSession.mockReturnValue(vi.fn());
+    mockCurrentUser();
+    mockFetch(
+      Response.json(
+        { message: "ID 토큰 검증에 실패했습니다." },
+        { status: 401 },
+      ),
+    );
+
+    const unsubscribe = apiReservationRepository.subscribe(vi.fn());
+
+    await vi.waitFor(() => {
+      expect(apiReservationRepository.read()).toEqual({
+        ok: false,
+        reason: "auth-required",
+        message: "ID 토큰 검증에 실패했습니다.",
+      });
+    });
+
+    unsubscribe();
+  });
+
   it("maps created reservation responses", async () => {
     mockCurrentUser();
     const fetchMock = mockFetch(
@@ -491,5 +545,72 @@ describe("apiReservationRepository", () => {
         headers: { Authorization: "Bearer id-token" },
       },
     );
+  });
+
+  it("maps missing reservation cancel responses to not-found", async () => {
+    mockCurrentUser();
+    mockFetch(
+      Response.json(
+        { message: "취소할 예약을 찾을 수 없습니다." },
+        { status: 404 },
+      ),
+    );
+
+    await expect(
+      apiReservationRepository.cancel("missing-reservation"),
+    ).resolves.toEqual({
+      ok: false,
+      status: "not-found",
+      message: "취소할 예약을 찾을 수 없습니다.",
+      reservations: [],
+    });
+  });
+
+  it("maps not-cancellable cancel responses and keeps the returned reservation", async () => {
+    mockCurrentUser();
+    const used = { ...reservation, status: "used" as const };
+    mockFetch(
+      Response.json(
+        {
+          status: "not-cancellable",
+          reservation: used,
+          message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
+        },
+        { status: 409 },
+      ),
+    );
+
+    await expect(
+      apiReservationRepository.cancel(reservation.id),
+    ).resolves.toEqual({
+      ok: false,
+      status: "not-cancellable",
+      message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
+      reservation: used,
+      reservations: [used],
+    });
+    expect(apiReservationRepository.read()).toEqual({
+      ok: true,
+      reservations: [used],
+    });
+  });
+
+  it("maps cancel auth failures to failed auth-required", async () => {
+    mockCurrentUser();
+    mockFetch(
+      Response.json(
+        { message: "다른 사용자의 예약은 취소할 수 없습니다." },
+        { status: 403 },
+      ),
+    );
+
+    await expect(
+      apiReservationRepository.cancel(reservation.id),
+    ).resolves.toEqual({
+      ok: false,
+      status: "failed",
+      message: "다른 사용자의 예약은 취소할 수 없습니다.",
+      reason: "auth-required",
+    });
   });
 });

@@ -76,6 +76,18 @@ function getErrorMessage(error: unknown): string {
     : "알 수 없는 오류";
 }
 
+async function readResponseMessage(
+  response: Response,
+  fallbackMessage: string,
+): Promise<string> {
+  try {
+    const data = (await response.json()) as { message?: unknown };
+    return typeof data.message === "string" ? data.message : fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
+}
+
 function isSameReservation(left: Reservation, right: Reservation): boolean {
   return (
     left.id === right.id &&
@@ -194,12 +206,15 @@ async function fetchReservations(userId: string): Promise<void> {
     if (lastFetchedUserId !== userId) {
       return;
     }
+    const fallbackMessage = `예약 목록을 불러오지 못했습니다. status=${response.status}`;
+    const message = await readResponseMessage(response, fallbackMessage);
+    const failure =
+      response.status === 401 || response.status === 403
+        ? reservationAuthRequired(message)
+        : remoteReservationUnavailable(message);
+
     setCurrentSnapshot(
-      createReservationsFailedSnapshot(
-        remoteReservationUnavailable(
-          `예약 목록을 불러오지 못했습니다. status=${response.status}`,
-        ),
-      ),
+      createReservationsFailedSnapshot(failure),
     );
     return;
   }
