@@ -16,21 +16,45 @@ export type WithdrawAccountResult =
       status?: number;
     };
 
-async function getIdToken(): Promise<string | null> {
-  const { auth } = getFirebaseClient();
-  if (!auth.currentUser) return null;
-  return auth.currentUser.getIdToken();
+type IdTokenResult =
+  | { ok: true; idToken: string }
+  | { ok: false; reason: "auth-required" | "error"; message: string };
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "알 수 없는 오류";
+}
+
+async function getIdToken(): Promise<IdTokenResult> {
+  try {
+    const { auth } = getFirebaseClient();
+    if (!auth.currentUser) {
+      return {
+        ok: false,
+        reason: "auth-required",
+        message: "로그인 후 다시 시도해 주세요.",
+      };
+    }
+    return { ok: true, idToken: await auth.currentUser.getIdToken() };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: "error",
+      message: `ID 토큰을 가져오지 못했습니다. ${getErrorMessage(error)}`,
+    };
+  }
 }
 
 export async function withdrawAccount(
   input: WithdrawalInput,
 ): Promise<WithdrawAccountResult> {
-  const idToken = await getIdToken();
-  if (!idToken) {
+  const token = await getIdToken();
+  if (!token.ok) {
     return {
       ok: false,
-      reason: "auth-required",
-      message: "로그인 후 다시 시도해 주세요.",
+      reason: token.reason,
+      message: token.message,
     };
   }
 
@@ -39,7 +63,7 @@ export async function withdrawAccount(
     response = await fetch("/api/me/withdraw", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${idToken}`,
+        Authorization: `Bearer ${token.idToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(input),
