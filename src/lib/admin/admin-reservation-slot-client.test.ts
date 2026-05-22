@@ -82,6 +82,32 @@ describe("admin reservation slot client", () => {
     });
   });
 
+  it("단일 슬롯 변경 실패 시 서버 메시지를 유지한다", async () => {
+    mockFetch(
+      Response.json(
+        { message: "체육관 정보를 불러오지 못했습니다." },
+        { status: 500 },
+      ),
+    );
+
+    await expect(
+      updateReservationSlotPolicy(
+        {
+          gymId: slot.gymId,
+          sport,
+          date: slot.date,
+          time: slot.time,
+          isClosed: true,
+        },
+        "admin-token",
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      message: "체육관 정보를 불러오지 못했습니다.",
+      status: 500,
+    });
+  });
+
   it("maps valid bulk success responses", async () => {
     const secondSlot = { ...slot, date: "2026-05-21", time: "11:00" };
     const fetchMock = mockFetch(
@@ -211,6 +237,33 @@ describe("admin reservation slot client", () => {
       ok: false,
       kind: "error",
       status: 409,
+    });
+  });
+
+  it("일괄 슬롯 변경 실패 시 서버 메시지를 유지한다", async () => {
+    mockFetch(
+      Response.json(
+        { message: "슬롯 정책을 일괄 변경하지 못했습니다." },
+        { status: 500 },
+      ),
+    );
+
+    await expect(
+      bulkUpdateReservationSlotPolicy(
+        {
+          gymId: slot.gymId,
+          sport,
+          dates: [slot.date],
+          times: [slot.time],
+          isClosed: true,
+        },
+        "admin-token",
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "슬롯 정책을 일괄 변경하지 못했습니다.",
+      status: 500,
     });
   });
 
