@@ -44,13 +44,19 @@ export async function checkNicknameAvailability(
     return { ok: false, message: "닉네임 조회 요청에 실패했습니다." };
   }
 
-  if (!response.ok) {
-    return { ok: false, message: `닉네임 조회 실패 (status=${response.status})` };
-  }
-
   const body = (await response.json().catch(() => null)) as
-    | { available?: boolean; reason?: string }
+    | { available?: boolean; reason?: string; message?: unknown }
     | null;
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      message:
+        typeof body?.message === "string"
+          ? body.message
+          : `닉네임 조회 실패 (status=${response.status})`,
+    };
+  }
 
   if (body?.available === true) return { ok: true, available: true };
   if (body?.available === false) {
