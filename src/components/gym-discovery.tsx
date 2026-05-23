@@ -255,9 +255,11 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
           </div>
         </div>
 
-        {/* "가까운 순" 선택 상태에서 위치가 비어 있으면 sortGyms가 이름순으로 폴백되므로
-            사용자에게 정렬 결과가 의도와 다를 수 있음을 짧게 안내한다. */}
-        {selectedSort === "distance" && !location ? (
+        {/* "가까운 순"이 적용 중이거나(selectedSort), 권한 허용을 기다리는 상태(pendingSort)
+            에서 위치가 비어 있으면 sortGyms가 이름순으로 폴백되므로 사용자에게 정렬 결과가
+            의도와 다를 수 있음을 짧게 안내한다. */}
+        {(selectedSort === "distance" || pendingSort === "distance") &&
+        !location ? (
           <p
             className="mt-3 text-xs font-semibold text-amber-700"
             role="status"
