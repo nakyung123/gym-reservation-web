@@ -123,6 +123,9 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
   const [selectedDate, setSelectedDate] = useState(getTodayValue);
   const [userIdInput, setUserIdInput] = useState("");
   const [limitInput, setLimitInput] = useState("100");
+  // 서버 조회 결과를 다시 부르지 않고 그 위에서 빠르게 좁히기 위한 클라이언트 검색.
+  // 예약번호(전체/8자리)/시설명/사용자 ID에 대해 대소문자 무시 부분 일치로 적용한다.
+  const [searchInput, setSearchInput] = useState("");
   const [reservationsState, setReservationsState] =
     useState<ReservationsState>({ status: "idle" });
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -146,7 +149,27 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     reservationsState.status === "ready"
       ? reservationsState.reservations
       : EMPTY_RESERVATIONS;
-  const statusCounts = useMemo(() => countByStatus(reservations), [reservations]);
+  // 서버에서 받은 전체 결과(reservations)를 그대로 두고, 화면 표시용으로 검색어를 적용.
+  // 빈 검색어이면 동일 배열을 그대로 사용해 불필요한 재계산을 피한다.
+  const visibleReservations = useMemo(() => {
+    const query = searchInput.trim().toLowerCase();
+    if (!query) {
+      return reservations;
+    }
+    return reservations.filter((reservation) => {
+      const gymName =
+        gymsById.get(reservation.gymId)?.name?.toLowerCase() ?? "";
+      return (
+        reservation.id.toLowerCase().includes(query) ||
+        gymName.includes(query) ||
+        reservation.userId.toLowerCase().includes(query)
+      );
+    });
+  }, [gymsById, reservations, searchInput]);
+  const statusCounts = useMemo(
+    () => countByStatus(visibleReservations),
+    [visibleReservations],
+  );
   const parsedLimit = Number.parseInt(limitInput, 10);
   const isLimitValid =
     Number.isInteger(parsedLimit) && parsedLimit >= 1 && parsedLimit <= 200;
@@ -746,6 +769,29 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               limit은 1 이상 200 이하의 정수여야 합니다.
             </p>
           ) : null}
+
+          {/* 빠른 검색은 서버 재조회 없이 현재 목록에 즉시 적용된다.
+              데이터가 커지면 서버 검색 API로 분리해 같은 입력란을 재사용한다. */}
+          <div className="mt-3 flex flex-col gap-1">
+            <label
+              htmlFor="admin-reservation-search"
+              className="text-xs font-semibold text-slate-700"
+            >
+              빠른 검색
+            </label>
+            <input
+              id="admin-reservation-search"
+              type="text"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="예약번호·시설명·사용자 ID 부분 검색"
+              className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            />
+            <p className="text-[11px] text-slate-500">
+              현재 조회된 목록에서 즉시 적용됩니다. 서버 조건을 바꾸려면 위의
+              조회 조건을 변경한 뒤 조회를 누르세요.
+            </p>
+          </div>
         </section>
 
         {notice ? (
@@ -907,7 +953,9 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
             </div>
             {reservationsState.status === "ready" ? (
               <span className="text-xs font-semibold text-slate-500">
-                총 {reservations.length}건
+                {searchInput.trim()
+                  ? `총 ${visibleReservations.length}건 / 조회 ${reservations.length}건`
+                  : `총 ${reservations.length}건`}
               </span>
             ) : null}
           </div>
@@ -933,10 +981,14 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           ) : null}
 
           {reservationsState.status === "ready" ? (
-            reservations.length === 0 ? (
+            visibleReservations.length === 0 ? (
               <AdminEmptyState
                 title="조건에 맞는 예약이 없습니다"
-                description="다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
+                description={
+                  searchInput.trim() && reservations.length > 0
+                    ? "검색어와 일치하는 예약이 없습니다. 검색어를 비우거나 다시 조회해 보세요."
+                    : "다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
+                }
               />
             ) : (
               <div className="mt-4 overflow-x-auto">
@@ -967,7 +1019,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {reservations.map((reservation) => {
+                    {visibleReservations.map((reservation) => {
                       const gym = gymsById.get(reservation.gymId);
                       const isSelectedDetail =
                         selectedDetailId === reservation.id;
