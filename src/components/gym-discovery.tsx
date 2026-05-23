@@ -254,6 +254,17 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             ) : null}
           </div>
         </div>
+
+        {/* "가까운 순" 선택 상태에서 위치가 비어 있으면 sortGyms가 이름순으로 폴백되므로
+            사용자에게 정렬 결과가 의도와 다를 수 있음을 짧게 안내한다. */}
+        {selectedSort === "distance" && !location ? (
+          <p
+            className="mt-3 text-xs font-semibold text-amber-700"
+            role="status"
+          >
+            위치 정보가 없어 이름순으로 표시됩니다. ‘가까운 순’을 다시 눌러 권한을 허용해 주세요.
+          </p>
+        ) : null}
       </div>
 
       {toggleError && (
