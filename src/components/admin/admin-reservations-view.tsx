@@ -793,9 +793,9 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                   type="button"
                   onClick={() => setSearchInput("")}
                   aria-label="검색어 지우기"
-                  className="h-10 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                  className="h-10 shrink-0 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
                 >
-                  검색어 지우기
+                  지우기
                 </button>
               ) : null}
             </div>
@@ -864,20 +864,31 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
 
             {/* 검색어가 적용된 상태에서 상세에 떠 있는 예약이 목록(visibleReservations)에
                 포함되지 않으면 사용자가 행을 못 보고 상세만 떠 있는 상황이 된다. 데이터는
-                안전하게 유지하되, 그 사실을 명시한다. detailState가 ready 상태에서만 의미. */}
+                안전하게 유지하되, 그 사실을 명시하고 검색어를 한 번에 풀 수 있는 CTA를
+                같이 둔다. detailState가 ready 상태에서만 의미. */}
             {detailState.status === "ready" &&
             searchInput.trim() &&
             !visibleReservations.some(
               (reservation) =>
                 reservation.id === detailState.reservation.id,
             ) ? (
-              <p
+              <div
                 className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800"
                 role="status"
               >
-                이 예약은 현재 검색어에 일치하지 않아 아래 표에서 숨겨졌습니다.
-                상세 정보는 그대로 유지됩니다.
-              </p>
+                <p>
+                  이 예약은 현재 검색어에 일치하지 않아 아래 표에서 숨겨졌습니다.
+                  상세 정보는 그대로 유지됩니다.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSearchInput("")}
+                  aria-label="검색어 지우기"
+                  className="mt-2 inline-flex h-7 items-center rounded-md border border-amber-300 bg-white px-2 text-xs font-semibold text-amber-800 transition hover:border-amber-500 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                >
+                  검색어 지우기
+                </button>
+              </div>
             ) : null}
 
             {detailState.status === "ready" ? (
@@ -1012,14 +1023,31 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
 
           {reservationsState.status === "ready" ? (
             visibleReservations.length === 0 ? (
-              <AdminEmptyState
-                title="조건에 맞는 예약이 없습니다"
-                description={
-                  searchInput.trim() && reservations.length > 0
-                    ? "검색어와 일치하는 예약이 없습니다. 검색어를 비우거나 다시 조회해 보세요."
-                    : "다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
-                }
-              />
+              <>
+                <AdminEmptyState
+                  title="조건에 맞는 예약이 없습니다"
+                  description={
+                    searchInput.trim() && reservations.length > 0
+                      ? "검색어와 일치하는 예약이 없습니다. 검색어를 비우거나 다시 조회해 보세요."
+                      : "다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
+                  }
+                />
+                {/* 검색어가 적용된 상태에서 빈 결과면 사용자가 입력 영역까지 올라가지
+                    않고 바로 검색어를 풀 수 있도록 CTA를 같이 노출한다. 서버 조회
+                    조건은 그대로 두고 클라이언트 검색만 비운다. */}
+                {searchInput.trim() && reservations.length > 0 ? (
+                  <div className="mt-3 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setSearchInput("")}
+                      aria-label="검색어 지우기"
+                      className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                    >
+                      검색어 지우기
+                    </button>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="mt-4 overflow-x-auto">
                 <table className="min-w-full border-collapse text-sm">
