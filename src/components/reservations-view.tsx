@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
@@ -35,6 +36,15 @@ const reservationFilterLabels: Record<ReservationFilter, string> = {
   used: reservationStatusLabel.used,
   cancelled: reservationStatusLabel.cancelled,
 };
+
+// URL ?status=... 쿼리는 /api/reservations 의 status 필터와 동일한 어휘를 사용한다.
+// 값이 없거나 지원하지 않으면 "all"로 해석한다.
+function parseFilterFromParam(value: string | null): ReservationFilter {
+  if (value === "reserved" || value === "used" || value === "cancelled") {
+    return value;
+  }
+  return "all";
+}
 
 function compareReservationsForDisplay(
   left: Reservation,
@@ -75,8 +85,22 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   const [pendingCancelReservationId, setPendingCancelReservationId] = useState<
     string | null
   >(null);
-  const [reservationFilter, setReservationFilter] =
-    useState<ReservationFilter>("all");
+  // 필터 상태는 URL ?status= 쿼리를 SSOT로 본다. router.replace로 갱신하면
+  // useSearchParams가 새 값을 내려주고, 그 결과로 displayReservations가 재계산된다.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const reservationFilter = parseFilterFromParam(searchParams.get("status"));
+  const updateReservationFilter = (next: ReservationFilter) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "all") {
+      params.delete("status");
+    } else {
+      params.set("status", next);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  };
   const reservationSnapshot = useSyncExternalStore(
     reservationRepository.subscribe,
     reservationRepository.getSnapshot,
@@ -288,7 +312,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                   aria-pressed={isSelected}
                   onClick={() => {
                     setPendingCancelReservationId(null);
-                    setReservationFilter(filter);
+                    updateReservationFilter(filter);
                   }}
                   className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
                     isSelected
