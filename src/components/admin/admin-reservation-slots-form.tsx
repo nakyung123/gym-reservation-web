@@ -83,6 +83,27 @@ function getTodayValue(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+// "YYYY-MM-DD"에 days만큼 더한 새 값을 같은 형식으로 반환한다.
+// 잘못된 형식이면 null을 반환해 호출자가 무시할 수 있게 한다.
+function addDaysToDateValue(value: string, days: number): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+  const [, yearText, monthText, dayText] = match;
+  const date = new Date(
+    Number(yearText),
+    Number(monthText) - 1,
+    Number(dayText) + days,
+  );
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+const BULK_DATE_WEEK_PRESETS = [1, 2, 3, 4] as const;
+
 function isAbortError(error: unknown): boolean {
   return (
     (error instanceof DOMException && error.name === "AbortError") ||
@@ -524,6 +545,40 @@ export function AdminReservationSlotsForm({
     );
   };
 
+  // selectedDate 기준 N*7일 후 날짜를 추가 날짜 목록에 넣는다.
+  // 같은 헬퍼(addAdminBulkSlotDate)를 거치므로 중복·형식·한도 검증을 공통으로 적용한다.
+  const handleAddBulkWeekPreset = (weeks: number) => {
+    if (isSavingSlotChange) return;
+
+    const nextDate = addDaysToDateValue(selectedDate, weeks * 7);
+    if (!nextDate) {
+      setBulkDateNotice({
+        tone: "error",
+        message: "조회 날짜를 먼저 정확히 선택해주세요.",
+      });
+      return;
+    }
+
+    const result = addAdminBulkSlotDate(bulkTargetDates, nextDate);
+    if (!result.ok) {
+      setBulkDateNotice({ tone: "error", message: result.message });
+      return;
+    }
+
+    setBulkAdditionalDates(
+      result.dates.filter((date) => date !== selectedDate),
+    );
+    setBulkDateNotice({
+      tone: "info",
+      message: `${nextDate} 날짜가 추가되었습니다.`,
+    });
+    setBulkSaveState((prev) =>
+      prev.status === "idle" || prev.status === "saving"
+        ? prev
+        : { status: "idle" },
+    );
+  };
+
   const handleRemoveBulkDate = (date: string) => {
     if (isSavingSlotChange) return;
     setBulkAdditionalDates((prev) => prev.filter((item) => item !== date));
@@ -911,6 +966,24 @@ export function AdminReservationSlotsForm({
                       >
                         날짜 추가
                       </button>
+                    </div>
+                    {/* 운영자가 매주 같은 요일에 동일 정책을 반영하는 반복 작업을 줄이기 위한 프리셋.
+                        조회 날짜(selectedDate)에 7·14·21·28일을 더해 같은 헬퍼를 거쳐 추가한다. */}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-500">
+                        빠른 추가
+                      </span>
+                      {BULK_DATE_WEEK_PRESETS.map((weeks) => (
+                        <button
+                          key={weeks}
+                          type="button"
+                          onClick={() => handleAddBulkWeekPreset(weeks)}
+                          disabled={isSavingSlotChange}
+                          className="h-7 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                        >
+                          +{weeks}주 같은 요일
+                        </button>
+                      ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="inline-flex h-7 items-center rounded-full border border-sky-200 bg-sky-50 px-3 text-xs font-semibold text-sky-800">
