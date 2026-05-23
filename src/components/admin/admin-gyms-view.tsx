@@ -137,6 +137,13 @@ function parseInteger(value: string): number | null {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
+// 예약 가능 시간은 슬롯 키이자 화면 표시에 그대로 쓰이므로 HH:MM 형식을 강제한다.
+// 00:00 ~ 23:59 범위를 벗어나는 값은 거부.
+const TIME_VALUE_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+function isValidTimeValue(value: string): boolean {
+  return TIME_VALUE_PATTERN.test(value);
+}
+
 function sortGyms(gyms: AdminGym[]): AdminGym[] {
   return [...gyms].sort(
     (left, right) =>
@@ -203,6 +210,21 @@ function buildPayload(
     sportPrices[sport] = price;
   }
 
+  const availableTimes = splitTextList(draft.availableTimesText);
+  if (availableTimes.length === 0) {
+    return {
+      tone: "error",
+      message: "예약 가능 시간을 1개 이상 입력해야 합니다.",
+    };
+  }
+  const invalidTime = availableTimes.find((time) => !isValidTimeValue(time));
+  if (invalidTime) {
+    return {
+      tone: "error",
+      message: `예약 가능 시간은 HH:MM 형식이어야 합니다. (잘못된 입력: ${invalidTime})`,
+    };
+  }
+
   const basePayload: AdminGymUpdateInput = {
     name: draft.name.trim(),
     region: draft.region.trim(),
@@ -216,7 +238,7 @@ function buildPayload(
     sports: draft.sports,
     sportPrices,
     facilities: splitTextList(draft.facilitiesText),
-    availableTimes: splitTextList(draft.availableTimesText),
+    availableTimes,
     closedDays: splitTextList(draft.closedDaysText),
     isActive: draft.isActive,
   };
@@ -661,6 +683,28 @@ export function AdminGymsView() {
                 운영 중
               </label>
             </div>
+
+            {/* 수정 모드에서 운영시간/예약 가능 시간/종목/가격 변경은 기존 예약·슬롯에
+                영향을 줄 수 있으므로 운영자에게 한 줄로 사전 안내한다. */}
+            {formMode === "edit" ? (
+              <p
+                className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800"
+                role="status"
+              >
+                수정 사항은 기존 예약·슬롯에 영향을 줄 수 있습니다. 운영시간·종목·시간대를 바꾸기 전에 영향 범위를 확인하세요.
+              </p>
+            ) : null}
+
+            {/* 비활성화 토글은 사용자 노출/예약 흐름을 즉시 끊는다. 운영 중 → 비활성으로
+                바뀐 상태에서만 별도 인라인 경고를 노출해 실수 저장을 줄인다. */}
+            {!draft.isActive ? (
+              <p
+                className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800"
+                role="alert"
+              >
+                저장하면 이 시설은 비활성화됩니다. 기존 예약은 유지되지만 새 예약은 받지 못하고, 사용자 목록에서 노출되지 않습니다.
+              </p>
+            ) : null}
 
             <div className="mt-5 grid gap-4">
               <div className="grid gap-3 sm:grid-cols-2">
