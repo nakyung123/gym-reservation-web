@@ -106,11 +106,13 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
     return sortGyms(matches, selectedSort, location);
   }, [gyms, query, selectedRegion, selectedSort, selectedSport, favoritesOnly, favorites, location]);
 
-  const hasActiveFilter =
+  // 즐겨찾기 외 다른 필터(검색/지역/종목)가 걸려 있는지. 즐겨찾기 빈 상태에서 다른
+  // 조건도 함께 적용 중이라는 사실을 사용자가 인지하도록 메시지 분기에 사용한다.
+  const hasNonFavoritesFilter =
     query.trim().length > 0 ||
     selectedRegion !== "전체" ||
-    selectedSport !== "전체" ||
-    favoritesOnly;
+    selectedSport !== "전체";
+  const hasActiveFilter = hasNonFavoritesFilter || favoritesOnly;
 
   const clearFilters = () => {
     setQuery("");
@@ -301,21 +303,27 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             {favoritesOnly
               ? loadError
                 ? "즐겨찾기 목록을 불러오지 못했습니다"
-                : "즐겨찾기한 체육관이 없습니다"
+                : hasNonFavoritesFilter
+                  ? "조건에 맞는 즐겨찾기 체육관이 없습니다"
+                  : "즐겨찾기한 체육관이 없습니다"
               : "조건에 맞는 체육관이 없습니다"}
           </p>
           <p className="mt-2 text-sm text-slate-600">
             {favoritesOnly
               ? loadError
                 ? "잠시 후 다시 시도해 주세요."
-                : "체육관 목록에서 하트 버튼을 눌러 즐겨찾기를 추가해 보세요."
+                : hasNonFavoritesFilter
+                  ? "검색/지역/종목 조건을 풀거나 즐겨찾기 모드를 해제해 보세요."
+                  : "체육관 목록에서 하트 버튼을 눌러 즐겨찾기를 추가해 보세요."
               : "검색어를 줄이거나 지역, 종목 조건을 바꿔보세요."}
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {/* 즐겨찾기만 보기 상태에서는 사용자가 다른 체육관에서 하트를 눌러야
                 즐겨찾기가 채워지므로, "즐겨찾기 해제" CTA를 명시적으로 둔다.
-                "조건 초기화"는 다른 필터까지 함께 비우는 별도 동작이라 그대로 유지. */}
-            {favoritesOnly && !loadError ? (
+                "조건 초기화"는 다른 필터까지 함께 비우는 별도 동작이라 그대로 유지.
+                로드 실패 상태에서도 모드를 끄고 빠져나갈 수 있도록 loadError 가드는
+                두지 않는다. */}
+            {favoritesOnly ? (
               <button
                 type="button"
                 onClick={() => setFavoritesOnly(false)}
