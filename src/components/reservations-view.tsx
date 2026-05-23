@@ -463,9 +463,31 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             {reservationFilterLabels[reservationFilter]} 내역이 없습니다
           </p>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            다른 상태를 선택하거나 체육관 상세 화면에서 새 예약을 진행할 수
-            있습니다.
+            {reservationFilter === "all"
+              ? "체육관 상세 화면에서 새 예약을 진행할 수 있습니다."
+              : "다른 상태를 선택하거나 체육관 상세 화면에서 새 예약을 진행할 수 있습니다."}
           </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {reservationFilter !== "all" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingCancelReservationId(null);
+                  updateReservationFilter("all");
+                }}
+                aria-label="예약 상태 필터를 전체로 보기"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                전체 보기
+              </button>
+            ) : null}
+            <Link
+              href="/gyms"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              체육관 찾기
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="grid gap-4">
