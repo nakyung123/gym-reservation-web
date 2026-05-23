@@ -317,6 +317,19 @@ describe("DELETE /api/reservations/[reservationId]", () => {
       where: { id: created.reservation.id },
     });
     expect(row.status).toBe("reserved");
+
+    // 거부된 취소가 슬롯 카운터를 감소시키지 않는지 확인 (정합성 검증).
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
   });
 
   it("이미 이용 완료된 예약은 409로 응답하고 변경하지 않는다", async () => {
@@ -355,6 +368,87 @@ describe("DELETE /api/reservations/[reservationId]", () => {
     expect(body.detail).toMatchObject({
       cancellation: { reason: "not-reserved" },
     });
+
+    // 거부된 취소가 슬롯 카운터를 감소시키지 않는지 확인 (정합성 검증).
+    // 이용 완료 상태는 슬롯 카운터를 그대로 유지하므로 1이어야 한다.
+    const slot = await prisma.reservationSlot.findUniqueOrThrow({
+      where: {
+        gymId_sport_date_time: {
+          gymId: created.reservation.gymId,
+          sport: created.reservation.sport,
+          date: created.reservation.date,
+          time: created.reservation.time,
+        },
+      },
+    });
+    expect(slot.reservedCount).toBe(1);
+  });
+
+  it("취소 마감 시간이 지난 예약은 409로 응답하고 슬롯을 변경하지 않는다", async () => {
+    // 가짜 시간을 설정해 예약 생성 시점에는 충분히 미래, 취소 시점에는
+    // 2시간 이내로 보이도록 만들어 cancel-deadline-passed 분기를 실제로 트리거한다.
+    const fixedDate = "2026-12-01";
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 11, 1, 6, 0));
+      verifyIdToken.mockResolvedValue({ uid: "deadline-cancel-route-user" });
+      const created = await createReservationInDb({
+        userId: "deadline-cancel-route-user",
+        draft: {
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date: fixedDate,
+          time: "10:00",
+        },
+        gym: TEST_GYM,
+      });
+      expect(created.ok).toBe(true);
+      if (!created.ok) return;
+
+      // 예약 시작(10:00) 약 1시간 59분 전 → 2시간 컷오프 내라 취소 불가.
+      vi.setSystemTime(new Date(2026, 11, 1, 8, 1));
+
+      const response = await DELETE(
+        requestFor(created.reservation.id, "test-id-token", "DELETE"),
+        contextFor(created.reservation.id),
+      );
+      const body = (await response.json()) as {
+        status?: unknown;
+        reservation?: { status?: unknown };
+        message?: unknown;
+        detail?: { cancellation?: { canCancel?: unknown; reason?: unknown } };
+      };
+
+      expect(response.status).toBe(409);
+      expect(body.status).toBe("not-cancellable");
+      expect(body.message).toBe(
+        "이용 시작 2시간 전까지만 취소할 수 있습니다.",
+      );
+      expect(body.reservation).toMatchObject({ status: "reserved" });
+      expect(body.detail).toMatchObject({
+        cancellation: { canCancel: false, reason: "cancel-deadline-passed" },
+      });
+
+      const row = await prisma.reservation.findUniqueOrThrow({
+        where: { id: created.reservation.id },
+      });
+      expect(row.status).toBe("reserved");
+
+      const slot = await prisma.reservationSlot.findUniqueOrThrow({
+        where: {
+          gymId_sport_date_time: {
+            gymId: TEST_GYM.id,
+            sport: "배드민턴",
+            date: fixedDate,
+            time: "10:00",
+          },
+        },
+      });
+      expect(slot.reservedCount).toBe(1);
+      expect(await prisma.reservationLock.count()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("예약이 없으면 404를 반환한다", async () => {
