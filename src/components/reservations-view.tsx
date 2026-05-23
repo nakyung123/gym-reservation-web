@@ -72,8 +72,20 @@ type ReservationsViewProps = {
 };
 
 export function ReservationsView({ gyms }: ReservationsViewProps) {
-  // 미로그인 시 /login?from=/reservations 으로 redirect.
-  useRequireAuth({ from: "/reservations" });
+  // 필터 상태는 URL ?status= 쿼리를 SSOT로 본다. router.replace로 갱신하면
+  // useSearchParams가 새 값을 내려주고, 그 결과로 displayReservations가 재계산된다.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const reservationFilter = parseFilterFromParam(searchParams.get("status"));
+
+  // 미로그인 시 /login?from=<현재경로+쿼리> 로 redirect.
+  // 예: /reservations?status=cancelled 로 진입한 경우 로그인 후 필터까지 복원되도록 쿼리를 보존한다.
+  const searchParamsQuery = searchParams.toString();
+  const authFromPath = searchParamsQuery
+    ? `${pathname}?${searchParamsQuery}`
+    : pathname;
+  useRequireAuth({ from: authFromPath });
 
   const [actionNotice, setActionNotice] = useState<{
     tone: keyof typeof noticeStyles;
@@ -85,12 +97,6 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   const [pendingCancelReservationId, setPendingCancelReservationId] = useState<
     string | null
   >(null);
-  // 필터 상태는 URL ?status= 쿼리를 SSOT로 본다. router.replace로 갱신하면
-  // useSearchParams가 새 값을 내려주고, 그 결과로 displayReservations가 재계산된다.
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const reservationFilter = parseFilterFromParam(searchParams.get("status"));
   const updateReservationFilter = (next: ReservationFilter) => {
     const params = new URLSearchParams(searchParams.toString());
     if (next === "all") {
