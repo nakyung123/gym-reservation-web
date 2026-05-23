@@ -779,14 +779,26 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
             >
               빠른 검색
             </label>
-            <input
-              id="admin-reservation-search"
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="예약번호·시설명·사용자 ID 부분 검색"
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            />
+            <div className="flex gap-2">
+              <input
+                id="admin-reservation-search"
+                type="text"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="예약번호·시설명·사용자 ID 부분 검색"
+                className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              />
+              {searchInput.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput("")}
+                  aria-label="검색어 지우기"
+                  className="h-10 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                >
+                  검색어 지우기
+                </button>
+              ) : null}
+            </div>
             <p className="text-[11px] text-slate-500">
               현재 조회된 목록에서 즉시 적용됩니다. 서버 조건을 바꾸려면 위의
               조회 조건을 변경한 뒤 조회를 누르세요.
@@ -847,6 +859,24 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 role="alert"
               >
                 {detailState.message}
+              </p>
+            ) : null}
+
+            {/* 검색어가 적용된 상태에서 상세에 떠 있는 예약이 목록(visibleReservations)에
+                포함되지 않으면 사용자가 행을 못 보고 상세만 떠 있는 상황이 된다. 데이터는
+                안전하게 유지하되, 그 사실을 명시한다. detailState가 ready 상태에서만 의미. */}
+            {detailState.status === "ready" &&
+            searchInput.trim() &&
+            !visibleReservations.some(
+              (reservation) =>
+                reservation.id === detailState.reservation.id,
+            ) ? (
+              <p
+                className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800"
+                role="status"
+              >
+                이 예약은 현재 검색어에 일치하지 않아 아래 표에서 숨겨졌습니다.
+                상세 정보는 그대로 유지됩니다.
               </p>
             ) : null}
 
