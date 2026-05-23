@@ -21,7 +21,7 @@ const reservation: Reservation = {
 describe("reservation detail helpers", () => {
   it("creates active admission and cancellable metadata for a future reservation", () => {
     const detail = createUserReservationDetail(reservation, {
-      now: new Date("2026-05-20T06:00:00.000+09:00"),
+      now: new Date(2026, 4, 20, 6, 0),
     });
 
     expect(detail.cancellation).toMatchObject({
@@ -41,7 +41,7 @@ describe("reservation detail helpers", () => {
 
   it("marks reservation as not cancellable after the cancellation deadline", () => {
     const detail = createUserReservationDetail(reservation, {
-      now: new Date("2026-05-20T08:01:00.000+09:00"),
+      now: new Date(2026, 4, 20, 8, 1),
     });
 
     expect(detail.cancellation).toMatchObject({
