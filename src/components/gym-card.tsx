@@ -101,12 +101,26 @@ export function GymCard({
           </div>
         </div>
 
-        <Link
-          href={`/gyms/${gym.id}`}
-          className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-        >
-          상세 보기
-        </Link>
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link
+            href={`/gyms/${gym.id}`}
+            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          >
+            상세 보기
+          </Link>
+          {/* 즐겨찾기한 체육관 카드에서는 상세를 거치지 않고 바로 예약 폼으로
+              진입할 수 있는 단축 액션을 제공한다. /reserve/[gymId]에서 본인 인증
+              가드가 동작하므로 별도 로그인 모달은 필요하지 않다. */}
+          {isFavorite ? (
+            <Link
+              href={`/reserve/${gym.id}`}
+              aria-label={`${gym.name} 예약하기`}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            >
+              예약하기
+            </Link>
+          ) : null}
+        </div>
       </div>
     </article>
   );
