@@ -23,6 +23,10 @@ import {
 import { formatGymPrice, getGymSportPrice } from "@/lib/gym-utils";
 import { createReservation } from "@/lib/reservation-service";
 import {
+  isInitialDateInWindow,
+  resolveReservationFormInitial,
+} from "@/lib/reservation-form-initial";
+import {
   getReservationTimeState,
   type ReservationTimeState,
 } from "@/lib/reservation-rules";
@@ -136,23 +140,15 @@ function getTimeButtonClass(
 
 export function ReservationForm({ gym }: ReservationFormProps) {
   // /reserve/[gymId]?sport=&date=&time= 쿼리를 폼 초기 상태에 반영한다.
-  // - 지원하지 않는 sport/time/date는 조용히 다른 유효 값으로 fallback하지 않고
-  //   "쿼리만 무시"한다(기존 default가 그대로 적용됨).
-  // - date는 YYYY-MM-DD 포맷을 우선 검사하고, dateOptions가 준비되면 7일 윈도우
-  //   안쪽인지 1회 추가 검증한다(범위 밖이면 명시적으로 무시하고 안내).
+  // 형식 검증과 sport/time 허용 여부는 resolveReservationFormInitial이 SSOT.
+  // 7일 윈도우 검사는 dateOptions가 준비되는 시점에 isInitialDateInWindow로 한다.
   const searchParams = useSearchParams();
-  const querySport = searchParams.get("sport");
-  const queryDate = searchParams.get("date");
-  const queryTime = searchParams.get("time");
-  const initialSport: Sport = gym.sports.includes(querySport as Sport)
-    ? (querySport as Sport)
-    : gym.sports[0];
-  const initialTime =
-    queryTime && gym.availableTimes.includes(queryTime)
-      ? queryTime
-      : gym.availableTimes[0];
-  const initialSelectedDate =
-    queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate) ? queryDate : null;
+  const { initialSport, initialTime, initialSelectedDate } =
+    resolveReservationFormInitial(gym, {
+      sport: searchParams.get("sport"),
+      date: searchParams.get("date"),
+      time: searchParams.get("time"),
+    });
 
   // 미로그인 시 /login?from=<현재 경로+쿼리> 로 redirect. 작업 3의 sport/date/time
   // 쿼리가 로그인 redirect 후에도 복원되도록 query를 통째로 from에 보존한다.
@@ -227,10 +223,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     if (!queryDateCheckPendingRef.current) return;
     if (dateOptions.length === 0) return;
     queryDateCheckPendingRef.current = false;
-    const isInWindow = dateOptions.some(
-      (date) => date.value === initialSelectedDate,
+    const inWindow = isInitialDateInWindow(
+      initialSelectedDate,
+      dateOptions.map((date) => date.value),
     );
-    if (!isInWindow) {
+    if (!inWindow) {
       setSelectedDate(null);
       setNotice(
         "선택한 날짜는 예약 가능 범위(7일) 밖이라 무시되었습니다. 다른 날짜를 선택해 주세요.",
