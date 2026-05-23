@@ -431,6 +431,37 @@ export function ReservationDetailView({
   const admissionEntryCode =
     serverDetail?.admission.entryCode ?? liveDetail.admission.entryCode;
 
+  // 시설 주소를 사용자 clipboard에 복사한다. https/secure context 한정으로 동작하며
+  // 실패 시 actionNotice로 그대로 보고한다(말없는 fallback 금지 규칙).
+  const handleCopyAddress = async (address: string) => {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.clipboard ||
+      typeof navigator.clipboard.writeText !== "function"
+    ) {
+      setActionNotice({
+        tone: "error",
+        message:
+          "이 브라우저에서는 주소 복사를 지원하지 않습니다. 주소를 길게 눌러 직접 복사해 주세요.",
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(address);
+      setActionNotice({
+        tone: "success",
+        message: "시설 주소를 복사했습니다.",
+      });
+    } catch {
+      setActionNotice({
+        tone: "error",
+        message:
+          "주소 복사에 실패했습니다. 주소를 길게 눌러 직접 복사해 주세요.",
+      });
+    }
+  };
+
   const handleCancel = async () => {
     if (isCancelling || !canCancelReservation) {
       return;
@@ -608,6 +639,25 @@ export function ReservationDetailView({
               >
                 체육관 상세
               </Link>
+              {/* 이용 당일 시설로 가는 동선을 줄인다. clipboard와 외부 지도 링크는
+                  추가 권한이나 외부 의존을 만들지 않는다. .ics 캘린더 다운로드는
+                  timezone/end-time 계산이 별도 작업으로 필요하므로 이번엔 제외. */}
+              <button
+                type="button"
+                onClick={() => handleCopyAddress(gymSummary.gym!.address)}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                주소 복사
+              </button>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gymSummary.gym.address)}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${gymSummary.name} 길찾기 (외부 지도 새 탭)`}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                길찾기
+              </a>
               {reservation.status === "reserved" ? (
                 <Link
                   href={`/reserve/${gymSummary.gym.id}`}
