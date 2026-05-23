@@ -307,15 +307,29 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 : "체육관 목록에서 하트 버튼을 눌러 즐겨찾기를 추가해 보세요."
               : "검색어를 줄이거나 지역, 종목 조건을 바꿔보세요."}
           </p>
-          {hasActiveFilter ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="mt-4 inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-            >
-              조건 초기화
-            </button>
-          ) : null}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            {/* 즐겨찾기만 보기 상태에서는 사용자가 다른 체육관에서 하트를 눌러야
+                즐겨찾기가 채워지므로, "즐겨찾기 해제" CTA를 명시적으로 둔다.
+                "조건 초기화"는 다른 필터까지 함께 비우는 별도 동작이라 그대로 유지. */}
+            {favoritesOnly && !loadError ? (
+              <button
+                type="button"
+                onClick={() => setFavoritesOnly(false)}
+                className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                즐겨찾기 해제하고 전체 보기
+              </button>
+            ) : null}
+            {hasActiveFilter ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                조건 초기화
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
     </section>
