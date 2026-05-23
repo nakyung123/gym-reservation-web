@@ -168,6 +168,25 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
     [gymsById, reservations],
   );
 
+  // 최근 예약한 시설 5개. createdAt 내림차순으로 훑으며 gymId 중복을 제거하고,
+  // 현재 운영 중인 시설 목록(gymsById)에 없는 gymId는 건너뛴다. 취소/이용완료
+  // 상태도 포함해 "최근 다녀온 시설"이라는 의미에 맞춘다.
+  const recentGymIds = useMemo(() => {
+    const sorted = [...reservations].sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    );
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const reservation of sorted) {
+      if (seen.has(reservation.gymId)) continue;
+      seen.add(reservation.gymId);
+      if (!gymsById.has(reservation.gymId)) continue;
+      result.push(reservation.gymId);
+      if (result.length >= 5) break;
+    }
+    return result;
+  }, [gymsById, reservations]);
+
   const activeReservations = useMemo(
     () =>
       reservations.filter((reservation) => reservation.status === "reserved"),
@@ -412,6 +431,31 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
           </div>
         </div>
       </div>
+
+      {recentGymIds.length > 0 ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-sky-700">최근 예약한 시설</p>
+          <p className="mt-1 text-xs text-slate-500">
+            같은 시설로 다시 예약을 시작할 수 있습니다.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recentGymIds.map((gymId) => {
+              const gym = gymsById.get(gymId);
+              if (!gym) return null;
+              return (
+                <Link
+                  key={gymId}
+                  href={`/reserve/${encodeURIComponent(gymId)}`}
+                  aria-label={`${gym.name}로 다시 예약`}
+                  className="inline-flex h-9 items-center rounded-md border border-sky-300 bg-sky-50 px-3 text-xs font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                >
+                  {gym.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {displayReservations.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
