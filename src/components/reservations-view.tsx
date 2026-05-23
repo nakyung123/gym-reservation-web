@@ -27,11 +27,13 @@ const noticeStyles = {
 
 type ReservationFilter = "all" | "reserved" | "used" | "cancelled";
 
+// 상태 레이블은 reservation-ticket의 SSOT(reservationStatusLabel)를 그대로 따른다.
+// "전체"만 필터 전용으로 별도 정의.
 const reservationFilterLabels: Record<ReservationFilter, string> = {
   all: "전체",
-  reserved: "예약 완료",
-  used: "이용 완료",
-  cancelled: "예약 취소",
+  reserved: reservationStatusLabel.reserved,
+  used: reservationStatusLabel.used,
+  cancelled: reservationStatusLabel.cancelled,
 };
 
 function compareReservationsForDisplay(
