@@ -97,9 +97,8 @@ export async function GET(request: NextRequest) {
   try {
     const tokenSet = await exchangeKakaoCode(code);
     kakaoProfile = await fetchKakaoUserInfo(tokenSet.accessToken);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[kakao callback] token/userinfo failed:", detail);
+  } catch {
+    console.error("[kakao callback] token/userinfo failed");
     return errorRedirect(
       origin,
       "kakao_api_failed",
@@ -121,9 +120,8 @@ export async function GET(request: NextRequest) {
       handoverNonce,
       profilePayload,
     });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[kakao callback] ticket creation failed:", detail);
+  } catch {
+    console.error("[kakao callback] ticket creation failed");
     return errorRedirect(
       origin,
       "handover_ticket_failed",

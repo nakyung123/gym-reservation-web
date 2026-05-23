@@ -92,9 +92,8 @@ export async function GET(request: NextRequest) {
     // 네이버는 token 교환 시 state도 함께 요구한다.
     const tokenSet = await exchangeNaverCode(code, state);
     naverProfile = await fetchNaverUserInfo(tokenSet.accessToken);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[naver callback] token/userinfo failed:", detail);
+  } catch {
+    console.error("[naver callback] token/userinfo failed");
     return errorRedirect(
       origin,
       "naver_api_failed",
@@ -114,9 +113,8 @@ export async function GET(request: NextRequest) {
       handoverNonce,
       profilePayload,
     });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[naver callback] ticket creation failed:", detail);
+  } catch {
+    console.error("[naver callback] ticket creation failed");
     return errorRedirect(
       origin,
       "handover_ticket_failed",

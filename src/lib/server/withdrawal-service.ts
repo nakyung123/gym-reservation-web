@@ -27,8 +27,8 @@ export async function withdrawAccount(
     activeReservationCount = await prisma.reservation.count({
       where: { userId, status: "reserved" },
     });
-  } catch (error) {
-    console.error("[withdraw] active reservation check failed:", error);
+  } catch {
+    console.error("[withdraw] active reservation check failed");
     return {
       ok: false,
       reason: "error",
@@ -53,8 +53,8 @@ export async function withdrawAccount(
       prisma.favorite.deleteMany({ where: { userId } }),
       prisma.userProfile.deleteMany({ where: { userId } }),
     ]);
-  } catch (error) {
-    console.error("[withdraw] DB user data delete failed:", error);
+  } catch {
+    console.error("[withdraw] DB user data delete failed");
     return {
       ok: false,
       reason: "error",
@@ -77,9 +77,7 @@ export async function withdrawAccount(
       return { ok: true };
     }
     console.error(
-      "[withdraw] Firebase Auth user delete failed (DB delete succeeded):",
-      userId,
-      error,
+      "[withdraw] Firebase Auth user delete failed after DB delete succeeded",
     );
     return {
       ok: false,
@@ -96,8 +94,8 @@ export async function withdrawAccount(
     await prisma.withdrawalReason.create({
       data: { category: input.category, detail: input.detail },
     });
-  } catch (error) {
-    console.warn("[withdraw] withdrawal reason record failed:", error);
+  } catch {
+    console.warn("[withdraw] withdrawal reason record failed");
   }
 
   return { ok: true };

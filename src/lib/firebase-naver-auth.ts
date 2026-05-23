@@ -158,8 +158,8 @@ async function callFinalize(ticketId: string): Promise<FinalizeNaverResult> {
   try {
     await user.getIdToken(true);
     await user.reload();
-  } catch (error) {
-    console.warn("[naver finalize] currentUser refresh failed:", error);
+  } catch {
+    console.warn("[naver finalize] currentUser refresh failed");
   }
 
   return {

@@ -71,7 +71,7 @@ async function cleanupExpiredAttempts(): Promise<void> {
     await prisma.oAuthAttempt.deleteMany({
       where: { expiresAt: { lt: new Date() } },
     });
-  } catch (error) {
-    console.error("[oauth-attempt-store] cleanup failed:", error);
+  } catch {
+    console.error("[oauth-attempt-store] cleanup failed");
   }
 }

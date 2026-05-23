@@ -31,8 +31,8 @@ function readStoredIds() {
       window.localStorage.getItem(LEGACY_STORAGE_KEY);
 
     return raw ? normalizeIds(JSON.parse(raw)) : [];
-  } catch (error) {
-    console.error("즐겨찾기 정보를 불러오지 못했습니다.", error);
+  } catch {
+    console.error("즐겨찾기 정보를 불러오지 못했습니다.");
     return [];
   }
 }
@@ -44,8 +44,8 @@ function writeStoredIds(ids: string[]) {
 
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-  } catch (error) {
-    console.error("즐겨찾기 정보를 저장하지 못했습니다.", error);
+  } catch {
+    console.error("즐겨찾기 정보를 저장하지 못했습니다.");
   }
 }
 

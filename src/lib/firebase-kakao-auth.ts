@@ -166,8 +166,8 @@ async function callFinalize(ticketId: string): Promise<FinalizeKakaoResult> {
   try {
     await user.getIdToken(true);
     await user.reload();
-  } catch (error) {
-    console.warn("[kakao finalize] currentUser refresh failed:", error);
+  } catch {
+    console.warn("[kakao finalize] currentUser refresh failed");
   }
 
   return {

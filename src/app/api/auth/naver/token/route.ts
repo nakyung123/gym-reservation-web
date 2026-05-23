@@ -76,9 +76,8 @@ export async function POST(request: NextRequest) {
     customToken = await getAdminAuth().createCustomToken(ticket.targetUid, {
       provider: ticket.provider,
     });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[naver token] createCustomToken failed:", detail);
+  } catch {
+    console.error("[naver token] createCustomToken failed");
     return Response.json(
       { message: "Custom Token 발급에 실패했습니다." },
       { status: 500 },
@@ -87,9 +86,8 @@ export async function POST(request: NextRequest) {
 
   try {
     await markTokenIssued(ticketId);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[naver token] markTokenIssued failed:", detail);
+  } catch {
+    console.error("[naver token] markTokenIssued failed");
     return Response.json(
       { message: "Custom Token 발급에 실패했습니다." },
       { status: 500 },

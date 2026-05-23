@@ -32,9 +32,8 @@ export async function POST(_request: NextRequest) {
     const authorizeUrl = buildNaverAuthorizeUrl({ state });
 
     return Response.json({ authorizeUrl });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[naver start] failed:", detail);
+  } catch {
+    console.error("[naver start] failed");
     return Response.json(
       { message: NAVER_LOGIN_UNAVAILABLE_MESSAGE },
       { status: 500 },

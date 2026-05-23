@@ -54,10 +54,8 @@ function createFailedSnapshot(message: string) {
   });
 }
 
-function getAuthFailureMessage(error: unknown) {
-  const detail =
-    error instanceof Error && error.message ? ` ${error.message}` : "";
-  return `Firebase 인증 상태를 확인하지 못했습니다.${detail}`;
+function getAuthFailureMessage() {
+  return "Firebase 인증 상태를 확인하지 못했습니다. 다시 시도해 주세요.";
 }
 
 function startAuthSession() {
@@ -76,12 +74,12 @@ function startAuthSession() {
         }
         setCurrentSnapshot(SIGNED_OUT_SNAPSHOT);
       },
-      (error) => {
-        setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage(error)));
+      () => {
+        setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage()));
       },
     );
-  } catch (error) {
-    setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage(error)));
+  } catch {
+    setCurrentSnapshot(createFailedSnapshot(getAuthFailureMessage()));
   }
 }
 

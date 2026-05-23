@@ -37,9 +37,8 @@ export async function POST(_request: NextRequest) {
     });
 
     return Response.json({ authorizeUrl });
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("[kakao start] failed:", detail);
+  } catch {
+    console.error("[kakao start] failed");
     return Response.json(
       { message: KAKAO_LOGIN_UNAVAILABLE_MESSAGE },
       { status: 500 },

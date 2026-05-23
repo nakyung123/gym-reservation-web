@@ -60,8 +60,8 @@ export async function signupWithEmail(input: {
     try {
       await sendEmailVerification(credential.user);
       emailVerificationSent = true;
-    } catch (error) {
-      console.warn("[email signup] sendEmailVerification failed:", error);
+    } catch {
+      console.warn("[email signup] sendEmailVerification failed");
     }
 
     return { ok: true, emailVerificationSent };
@@ -90,9 +90,9 @@ export async function sendPasswordReset(
   try {
     await sendPasswordResetEmail(auth, email);
     return { ok: true };
-  } catch (error) {
+  } catch {
     // email enumeration 방어를 위해 generic 메시지로 응답을 통일하는 건 호출자가 결정.
-    console.warn("[email reset] sendPasswordResetEmail failed:", error);
+    console.warn("[email reset] sendPasswordResetEmail failed");
     return { ok: false, message: GENERIC_PASSWORD_RESET_ERROR };
   }
 }
@@ -106,8 +106,8 @@ export async function resendEmailVerification(): Promise<SendEmailVerificationRe
   try {
     await sendEmailVerification(user);
     return { ok: true };
-  } catch (error) {
-    console.warn("[email verification] sendEmailVerification failed:", error);
+  } catch {
+    console.warn("[email verification] sendEmailVerification failed");
     return { ok: false, message: GENERIC_EMAIL_VERIFICATION_ERROR };
   }
 }

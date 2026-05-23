@@ -177,8 +177,8 @@ async function cleanupExpiredTickets(): Promise<void> {
     await prisma.authHandoverTicket.deleteMany({
       where: { expiresAt: { lt: new Date() } },
     });
-  } catch (error) {
-    console.error("[handover-ticket] cleanup failed:", error);
+  } catch {
+    console.error("[handover-ticket] cleanup failed");
   }
 }
 
