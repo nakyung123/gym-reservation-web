@@ -1106,9 +1106,9 @@ export function AdminReservationSlotsForm({
                       className="mt-2 text-xs font-semibold text-rose-700"
                       role="alert"
                     >
-                      한 번에 최대{" "}
+                      현재 대상 {bulkTargetCount}건 · 한 번에 최대{" "}
                       {ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT}건까지만
-                      적용할 수 있습니다.
+                      적용할 수 있습니다. 날짜나 시간을 줄여 다시 시도해주세요.
                     </p>
                   ) : null}
                   {bulkSaveState.status === "success" ? (
