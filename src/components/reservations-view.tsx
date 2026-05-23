@@ -442,12 +442,25 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                     </div>
                   </dl>
 
-                  <Link
-                    href={`/reservations/${encodeURIComponent(reservation.id)}`}
-                    className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-                  >
-                    상세 보기
-                  </Link>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <Link
+                      href={`/reservations/${encodeURIComponent(reservation.id)}`}
+                      className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                    >
+                      상세 보기
+                    </Link>
+                    {/* 시설이 현재 데이터에서 사라진 예약(isMissingFromCurrentData)은
+                        실제 진입해도 예약 폼이 없으므로 "다시 예약" 버튼을 숨긴다. */}
+                    {!gymSummary.isMissingFromCurrentData ? (
+                      <Link
+                        href={`/reserve/${encodeURIComponent(reservation.gymId)}?sport=${encodeURIComponent(reservation.sport)}&date=${encodeURIComponent(reservation.date)}&time=${encodeURIComponent(reservation.time)}`}
+                        aria-label={`${gymName} ${reservation.sport} ${reservation.date} ${reservation.time} 조건으로 다시 예약`}
+                        className="inline-flex h-10 items-center justify-center rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      >
+                        다시 예약
+                      </Link>
+                    ) : null}
+                  </div>
 
                   {reservation.status === "reserved" ? (
                     !canCancelReservation ? (
