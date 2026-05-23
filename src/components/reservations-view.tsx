@@ -27,6 +27,7 @@ const noticeStyles = {
 };
 
 type ReservationFilter = "all" | "reserved" | "used" | "cancelled";
+type ReservationSort = "upcoming" | "recent";
 
 // 상태 레이블은 reservation-ticket의 SSOT(reservationStatusLabel)를 그대로 따른다.
 // "전체"만 필터 전용으로 별도 정의.
@@ -35,6 +36,11 @@ const reservationFilterLabels: Record<ReservationFilter, string> = {
   reserved: reservationStatusLabel.reserved,
   used: reservationStatusLabel.used,
   cancelled: reservationStatusLabel.cancelled,
+};
+
+const reservationSortLabels: Record<ReservationSort, string> = {
+  upcoming: "가까운 예약순",
+  recent: "최근 생성순",
 };
 
 // URL ?status=... 쿼리는 /api/reservations 의 status 필터와 동일한 어휘를 사용한다.
@@ -46,10 +52,17 @@ function parseFilterFromParam(value: string | null): ReservationFilter {
   return "all";
 }
 
-function compareReservationsForDisplay(
-  left: Reservation,
-  right: Reservation,
-) {
+// URL ?sort=upcoming|recent. 잘못된 값은 default "upcoming"으로 해석한다.
+function parseSortFromParam(value: string | null): ReservationSort {
+  if (value === "recent") {
+    return "recent";
+  }
+  return "upcoming";
+}
+
+// 예약중을 먼저 묶어 이용 일시 오름차순으로 보여주고, 그 외 상태는 생성 시각
+// 내림차순으로 정렬한다. (기본 정렬)
+function compareReservationsByUpcoming(left: Reservation, right: Reservation) {
   const leftGroup = left.status === "reserved" ? 0 : 1;
   const rightGroup = right.status === "reserved" ? 0 : 1;
 
@@ -67,6 +80,17 @@ function compareReservationsForDisplay(
   return right.createdAt.localeCompare(left.createdAt);
 }
 
+// 모든 예약을 createdAt 내림차순으로만 정렬한다.
+function compareReservationsByRecent(left: Reservation, right: Reservation) {
+  return right.createdAt.localeCompare(left.createdAt);
+}
+
+function getReservationComparator(sort: ReservationSort) {
+  return sort === "recent"
+    ? compareReservationsByRecent
+    : compareReservationsByUpcoming;
+}
+
 type ReservationsViewProps = {
   gyms: Gym[];
 };
@@ -78,6 +102,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const reservationFilter = parseFilterFromParam(searchParams.get("status"));
+  const reservationSort = parseSortFromParam(searchParams.get("sort"));
 
   // 미로그인 시 /login?from=<현재경로+쿼리> 로 redirect.
   // 예: /reservations?status=cancelled 로 진입한 경우 로그인 후 필터까지 복원되도록 쿼리를 보존한다.
@@ -103,6 +128,17 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
       params.delete("status");
     } else {
       params.set("status", next);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  };
+  // sort default("upcoming")은 URL에 기록하지 않아 깔끔한 기본 URL을 유지한다.
+  const updateReservationSort = (next: ReservationSort) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "upcoming") {
+      params.delete("sort");
+    } else {
+      params.set("sort", next);
     }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
@@ -160,8 +196,8 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             ? true
             : reservation.status === reservationFilter,
         )
-        .sort(compareReservationsForDisplay),
-    [reservationFilter, reservations],
+        .sort(getReservationComparator(reservationSort)),
+    [reservationFilter, reservationSort, reservations],
   );
 
   const requestCancel = (reservationId: string) => {
@@ -340,6 +376,40 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
               );
             },
           )}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500">정렬</span>
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="예약 정렬"
+          >
+            {(Object.keys(reservationSortLabels) as ReservationSort[]).map(
+              (sort) => {
+                const isSelected = reservationSort === sort;
+
+                return (
+                  <button
+                    key={sort}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setPendingCancelReservationId(null);
+                      updateReservationSort(sort);
+                    }}
+                    className={`h-8 rounded-md border px-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                      isSelected
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                    }`}
+                  >
+                    {reservationSortLabels[sort]}
+                  </button>
+                );
+              },
+            )}
+          </div>
         </div>
       </div>
 
