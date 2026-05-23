@@ -69,7 +69,7 @@ const unavailableTimeLabels = {
   "invalid-date-time": "형식 오류",
   "past-time": "지난 시간",
   "closed-day": "휴관일",
-  "duplicate-active-reservation": "내 예약",
+  "duplicate-active-reservation": "이미 예약함",
 };
 
 const noticeStyles: Record<NoticeTone, string> = {
@@ -170,6 +170,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slotsState, setSlotsState] = useState<SlotsState>({ status: "idle" });
   const [slotsRefetchToken, setSlotsRefetchToken] = useState(0);
+  // 사용자가 시간 버튼을 직접 누른 적이 있는지 추적해서, 자동으로 다른 시간으로
+  // 바뀌었을 때만 안내를 띄운다. 초기 진입 시 자동 전환은 안내하지 않아
+  // 안내가 noisy해지지 않게 한다.
+  const [userTouchedTime, setUserTouchedTime] = useState(false);
   const resetNotice = useCallback(() => {
     setNotice(null);
     setNoticeReservation(null);
@@ -623,8 +627,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       }
                       if (slotsFetchPending) return "확인 중";
                       if (slotsFetchError) return "확인 불가";
-                      if (isClosed) return "마감";
-                      if (isFull) return "마감";
+                      if (isClosed) return "운영 마감";
+                      if (isFull) return "정원 마감";
                       if (slot) return `잔여 ${slot.remaining}명`;
                       return null;
                     })();
@@ -636,7 +640,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                         return "예약 가능 인원을 확인하고 있습니다.";
                       if (slotsFetchError) return slotsFetchError;
                       if (isClosed) return "운영자가 마감한 시간대입니다.";
-                      if (isFull) return "이 시간대는 마감되었습니다.";
+                      if (isFull) return "이 시간대는 정원이 다 찼습니다.";
                       if (slot)
                         return `정원 ${slot.capacity}명 중 ${slot.remaining}명 예약 가능`;
                       return "예약 가능";
@@ -650,6 +654,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                         aria-pressed={!isDisabled && isSelected}
                         aria-label={`${time}${timeLabel ? ` - ${timeLabel}` : " - 예약 가능"}`}
                         onClick={() => {
+                          setUserTouchedTime(true);
                           setSelectedTime(time);
                           resetNotice();
                         }}
@@ -684,10 +689,25 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     선택해주세요.
                   </p>
                 ) : (
-                  <p className="mt-3 text-xs leading-5 text-slate-500">
-                    {availableTimeCount}개 시간대 예약 가능 · 마감/지난 시간/내
-                    예약 시간은 선택할 수 없습니다.
-                  </p>
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs leading-5 text-slate-500">
+                      예약 가능 {availableTimeCount}/{gym.availableTimes.length}개
+                      시간대 · 마감/지난 시간/이미 예약한 시간은 선택할 수
+                      없습니다.
+                    </p>
+                    {userTouchedTime &&
+                    !hasReservationNotice &&
+                    selectedTime !== effectiveSelectedTime ? (
+                      <p
+                        className="text-xs font-semibold leading-5 text-amber-700"
+                        role="status"
+                      >
+                        원래 선택한 {selectedTime}은 예약할 수 없어
+                        {" "}
+                        {effectiveSelectedTime}으로 변경되었습니다.
+                      </p>
+                    ) : null}
+                  </div>
                 )}
               </>
             ) : (
