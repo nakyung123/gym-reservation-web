@@ -415,10 +415,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           ? reservationReadResult.message
           : !selectedTimeState.available
             ? selectedTimeState.message
-            : slotsFetchPending || !slotsLookup
-              ? "예약 가능 인원을 확인하고 있습니다."
-                : slotsFetchError
-                  ? slotsFetchError
+            : slotsFetchError
+              ? slotsFetchError
+              : slotsFetchPending || !slotsLookup
+                ? "예약 가능 인원을 확인하고 있습니다."
                 : selectedSlot && selectedSlot.status !== "available"
                   ? "선택한 시간대는 마감되었습니다."
                   : null;
