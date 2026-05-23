@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -136,9 +137,31 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   // 미로그인 시 /login?from=/reserve/<gymId> 으로 redirect.
   useRequireAuth({ from: `/reserve/${gym.id}` });
 
-  const [selectedSport, setSelectedSport] = useState<Sport>(gym.sports[0]);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState(gym.availableTimes[0]);
+  // /reserve/[gymId]?sport=&date=&time= 쿼리를 폼 초기 상태에 반영한다.
+  // - 지원하지 않는 sport/time/date는 조용히 다른 유효 값으로 fallback하지 않고
+  //   "쿼리만 무시"한다(기존 default가 그대로 적용됨).
+  // - date는 YYYY-MM-DD 포맷만 검사한다. 7일 윈도우 밖이면 effectiveSelectedDate
+  //   로직이 자연스럽게 today로 표시하므로 사용자가 의도와 다른 값을 모르고
+  //   submit하지 않도록 화면에 그대로 노출된다.
+  const searchParams = useSearchParams();
+  const querySport = searchParams.get("sport");
+  const queryDate = searchParams.get("date");
+  const queryTime = searchParams.get("time");
+  const initialSport: Sport = gym.sports.includes(querySport as Sport)
+    ? (querySport as Sport)
+    : gym.sports[0];
+  const initialTime =
+    queryTime && gym.availableTimes.includes(queryTime)
+      ? queryTime
+      : gym.availableTimes[0];
+  const initialSelectedDate =
+    queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate) ? queryDate : null;
+
+  const [selectedSport, setSelectedSport] = useState<Sport>(initialSport);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    initialSelectedDate,
+  );
+  const [selectedTime, setSelectedTime] = useState(initialTime);
   const [notice, setNotice] = useState<string | null>(null);
   const [noticeTone, setNoticeTone] = useState<NoticeTone>("success");
   const [noticeReservation, setNoticeReservation] =

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { ReservationForm } from "@/components/reservation-form";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
@@ -32,7 +33,17 @@ export default async function ReservePage({ params }: ReservePageProps) {
         >
           체육관 상세로
         </Link>
-        <ReservationForm gym={gym} />
+        {/* ReservationForm이 useSearchParams로 ?sport=&date=&time= 쿼리를
+            폼 초기값에 반영하므로 정적 프리렌더 경로에서 Suspense 경계가 필요하다. */}
+        <Suspense
+          fallback={
+            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-500 shadow-sm">
+              예약 폼을 준비하고 있습니다.
+            </div>
+          }
+        >
+          <ReservationForm gym={gym} />
+        </Suspense>
       </section>
     </main>
   );
