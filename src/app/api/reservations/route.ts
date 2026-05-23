@@ -5,7 +5,7 @@ import {
   listUserReservations,
 } from "@/lib/server/db-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
-import { isSport } from "@/lib/domain-constants";
+import { isReservationStatus, isSport } from "@/lib/domain-constants";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +16,19 @@ export async function GET(request: NextRequest) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
 
+  const status = request.nextUrl.searchParams.get("status");
+  if (status !== null && !isReservationStatus(status)) {
+    return Response.json(
+      { message: "status는 reserved, cancelled, used 중 하나여야 합니다." },
+      { status: 400 },
+    );
+  }
+
   let reservations: Awaited<ReturnType<typeof listUserReservations>>;
   try {
-    reservations = await listUserReservations(auth.uid);
+    reservations = await listUserReservations(auth.uid, {
+      status: status ?? undefined,
+    });
   } catch (error) {
     return serverErrorResponse(
       "예약 목록을 불러오지 못했습니다.",

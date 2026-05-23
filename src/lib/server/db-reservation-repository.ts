@@ -487,9 +487,13 @@ export async function updateReservationSlotPolicies({
 
 export async function listUserReservations(
   userId: string,
+  input: { status?: ReservationStatus } = {},
 ): Promise<Reservation[]> {
   const rows = await prisma.reservation.findMany({
-    where: { userId },
+    where: {
+      userId,
+      ...(input.status === undefined ? {} : { status: input.status }),
+    },
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toDomainReservation);
