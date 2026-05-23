@@ -485,12 +485,13 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
   });
 
   it("using a cancelled reservation returns 409 and keeps it cancelled", async () => {
+    const date = futureDate(14);
     const created = await createReservationInDb({
       userId: "admin-patch-cancelled-to-used-user",
       draft: {
         gymId: TEST_GYM.id,
         sport: TEST_GYM.sports[0],
-        date: futureDate(14),
+        date,
         time: "10:00",
       },
       gym: TEST_GYM,
@@ -517,6 +518,16 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     expect(body.status).toBe("not-usable");
     expect(body.reservation?.status).toBe("cancelled");
     await expectReservationLockToBeCleared(created.reservation.id);
+    // 거부된 used 처리가 슬롯 카운터를 재증가시키지 않는지 확인.
+    // 직전 취소에서 0으로 떨어진 값이 그대로여야 한다.
+    await expect(
+      getSlotReservedCount({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+      }),
+    ).resolves.toBe(0);
   });
 
   it("cancelling a used reservation returns 409 and keeps it used", async () => {
