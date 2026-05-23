@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT,
   addAdminBulkSlotDate,
+  addDaysToDateValue,
   getAdminBulkSlotTargetCount,
   isAdminBulkSlotTargetOverLimit,
   isAdminBulkSlotDateValue,
@@ -67,5 +68,45 @@ describe("admin reservation slot policy helpers", () => {
         timeCount: 1,
       }),
     ).toBe(true);
+  });
+});
+
+describe("addDaysToDateValue", () => {
+  it("adds N days within the same month and pads zero-prefixed parts", () => {
+    expect(addDaysToDateValue("2026-05-20", 7)).toBe("2026-05-27");
+    expect(addDaysToDateValue("2026-05-01", 1)).toBe("2026-05-02");
+  });
+
+  it("rolls over month boundaries (28 days from late January)", () => {
+    expect(addDaysToDateValue("2026-01-31", 7)).toBe("2026-02-07");
+    expect(addDaysToDateValue("2026-01-15", 28)).toBe("2026-02-12");
+  });
+
+  it("rolls over year boundaries", () => {
+    expect(addDaysToDateValue("2026-12-30", 7)).toBe("2027-01-06");
+  });
+
+  it("handles leap year February (2024)", () => {
+    expect(addDaysToDateValue("2024-02-22", 7)).toBe("2024-02-29");
+    expect(addDaysToDateValue("2024-02-29", 7)).toBe("2024-03-07");
+  });
+
+  it("handles non-leap year February (2026) without skipping a real day", () => {
+    expect(addDaysToDateValue("2026-02-22", 7)).toBe("2026-03-01");
+    expect(addDaysToDateValue("2026-02-28", 7)).toBe("2026-03-07");
+  });
+
+  it("accepts each +1~+4주 preset for the same starting date", () => {
+    expect(addDaysToDateValue("2026-05-20", 7)).toBe("2026-05-27");
+    expect(addDaysToDateValue("2026-05-20", 14)).toBe("2026-06-03");
+    expect(addDaysToDateValue("2026-05-20", 21)).toBe("2026-06-10");
+    expect(addDaysToDateValue("2026-05-20", 28)).toBe("2026-06-17");
+  });
+
+  it("returns null for invalid format inputs", () => {
+    expect(addDaysToDateValue("2026/05/20", 7)).toBeNull();
+    expect(addDaysToDateValue("2026-5-20", 7)).toBeNull();
+    expect(addDaysToDateValue("", 7)).toBeNull();
+    expect(addDaysToDateValue("abc", 7)).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import {
 import {
   ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT,
   addAdminBulkSlotDate,
+  addDaysToDateValue,
   getAdminBulkSlotTargetCount,
   isAdminBulkSlotDateValue,
   isAdminBulkSlotTargetOverLimit,
@@ -81,25 +82,6 @@ function pad(value: number) {
 function getTodayValue(): string {
   const now = new Date();
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-// "YYYY-MM-DD"에 days만큼 더한 새 값을 같은 형식으로 반환한다.
-// 잘못된 형식이면 null을 반환해 호출자가 무시할 수 있게 한다.
-function addDaysToDateValue(value: string, days: number): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    return null;
-  }
-  const [, yearText, monthText, dayText] = match;
-  const date = new Date(
-    Number(yearText),
-    Number(monthText) - 1,
-    Number(dayText) + days,
-  );
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
 const BULK_DATE_WEEK_PRESETS = [1, 2, 3, 4] as const;
