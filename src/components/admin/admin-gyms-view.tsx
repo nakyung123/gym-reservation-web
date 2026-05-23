@@ -165,6 +165,21 @@ function buildPayload(
   draft: GymDraft,
   mode: FormMode,
 ): { ok: true; payload: AdminGym | AdminGymUpdateInput } | Notice {
+  // 신규 시설은 id가 URL/슬롯 키로 쓰여 빈 값을 절대 허용할 수 없다.
+  // 수정 모드에서는 입력란이 disabled라 빈 값이 들어올 수 없어 검사 생략.
+  if (mode === "create" && draft.id.trim().length === 0) {
+    return { tone: "error", message: "시설 ID는 비울 수 없습니다." };
+  }
+  if (draft.name.trim().length === 0) {
+    return { tone: "error", message: "시설명은 비울 수 없습니다." };
+  }
+  if (draft.region.trim().length === 0) {
+    return { tone: "error", message: "지역구는 비울 수 없습니다." };
+  }
+  if (draft.address.trim().length === 0) {
+    return { tone: "error", message: "주소는 비울 수 없습니다." };
+  }
+
   const basePrice = parseInteger(draft.basePrice);
   if (basePrice === null) {
     return { tone: "error", message: "기본 이용료는 정수로 입력해야 합니다." };
@@ -222,6 +237,16 @@ function buildPayload(
     return {
       tone: "error",
       message: `예약 가능 시간은 HH:MM 형식이어야 합니다. (잘못된 입력: ${invalidTime})`,
+    };
+  }
+  // 시간대는 슬롯 키로 그대로 쓰이므로 중복 입력은 슬롯 생성/표시에서 충돌 위험이 있다.
+  const duplicateTime = availableTimes.find(
+    (time, index) => availableTimes.indexOf(time) !== index,
+  );
+  if (duplicateTime) {
+    return {
+      tone: "error",
+      message: `예약 가능 시간이 중복되었습니다. (${duplicateTime})`,
     };
   }
 
@@ -696,13 +721,16 @@ export function AdminGymsView() {
             ) : null}
 
             {/* 비활성화 토글은 사용자 노출/예약 흐름을 즉시 끊는다. 운영 중 → 비활성으로
-                바뀐 상태에서만 별도 인라인 경고를 노출해 실수 저장을 줄인다. */}
+                바뀐 상태에서만 별도 인라인 경고를 노출해 실수 저장을 줄인다. 신규/수정에서
+                문구가 달라지는데, 신규에는 "기존 예약" 개념이 없으므로 분기한다. */}
             {!draft.isActive ? (
               <p
                 className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800"
                 role="alert"
               >
-                저장하면 이 시설은 비활성화됩니다. 기존 예약은 유지되지만 새 예약은 받지 못하고, 사용자 목록에서 노출되지 않습니다.
+                {formMode === "create"
+                  ? "저장하면 이 시설은 비활성 상태로 생성됩니다. 사용자 목록과 예약 흐름에서 노출되지 않습니다."
+                  : "저장하면 이 시설은 비활성화됩니다. 기존 예약은 유지되지만 새 예약은 받지 못하고, 사용자 목록에서 노출되지 않습니다."}
               </p>
             ) : null}
 
