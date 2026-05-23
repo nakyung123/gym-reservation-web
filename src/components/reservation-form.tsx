@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -134,15 +135,11 @@ function getTimeButtonClass(
 }
 
 export function ReservationForm({ gym }: ReservationFormProps) {
-  // 미로그인 시 /login?from=/reserve/<gymId> 으로 redirect.
-  useRequireAuth({ from: `/reserve/${gym.id}` });
-
   // /reserve/[gymId]?sport=&date=&time= 쿼리를 폼 초기 상태에 반영한다.
   // - 지원하지 않는 sport/time/date는 조용히 다른 유효 값으로 fallback하지 않고
   //   "쿼리만 무시"한다(기존 default가 그대로 적용됨).
-  // - date는 YYYY-MM-DD 포맷만 검사한다. 7일 윈도우 밖이면 effectiveSelectedDate
-  //   로직이 자연스럽게 today로 표시하므로 사용자가 의도와 다른 값을 모르고
-  //   submit하지 않도록 화면에 그대로 노출된다.
+  // - date는 YYYY-MM-DD 포맷을 우선 검사하고, dateOptions가 준비되면 7일 윈도우
+  //   안쪽인지 1회 추가 검증한다(범위 밖이면 명시적으로 무시하고 안내).
   const searchParams = useSearchParams();
   const querySport = searchParams.get("sport");
   const queryDate = searchParams.get("date");
@@ -156,6 +153,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       : gym.availableTimes[0];
   const initialSelectedDate =
     queryDate && /^\d{4}-\d{2}-\d{2}$/.test(queryDate) ? queryDate : null;
+
+  // 미로그인 시 /login?from=<현재 경로+쿼리> 로 redirect. 작업 3의 sport/date/time
+  // 쿼리가 로그인 redirect 후에도 복원되도록 query를 통째로 from에 보존한다.
+  const searchParamsQuery = searchParams.toString();
+  const authFromPath = searchParamsQuery
+    ? `/reserve/${gym.id}?${searchParamsQuery}`
+    : `/reserve/${gym.id}`;
+  useRequireAuth({ from: authFromPath });
 
   const [selectedSport, setSelectedSport] = useState<Sport>(initialSport);
   const [selectedDate, setSelectedDate] = useState<string | null>(
@@ -210,6 +215,30 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     "";
   const isDateReady =
     dateOptions.length > 0 && effectiveSelectedDate.length > 0;
+
+  // 쿼리로 받은 date가 7일 예약 가능 범위 안인지 dateOptions가 준비되는 시점에 1회만
+  // 검증한다. 범위 밖이면 selectedDate를 null로 돌려 today가 표시되게 하고
+  // 사용자가 의도와 다른 날짜를 모르고 submit하지 않도록 notice 영역에 안내한다.
+  // ref가 1회만 통과시키므로 cascading render는 없다. set-state-in-effect 규칙은
+  // 사용자 위치/권한 훅과 동일한 패턴으로 명시 disable한다.
+  const queryDateCheckPendingRef = useRef(initialSelectedDate !== null);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!queryDateCheckPendingRef.current) return;
+    if (dateOptions.length === 0) return;
+    queryDateCheckPendingRef.current = false;
+    const isInWindow = dateOptions.some(
+      (date) => date.value === initialSelectedDate,
+    );
+    if (!isInWindow) {
+      setSelectedDate(null);
+      setNotice(
+        "선택한 날짜는 예약 가능 범위(7일) 밖이라 무시되었습니다. 다른 날짜를 선택해 주세요.",
+      );
+      setNoticeTone("warning");
+    }
+  }, [dateOptions, initialSelectedDate]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const price = useMemo(
     () => getGymSportPrice(gym, selectedSport),
