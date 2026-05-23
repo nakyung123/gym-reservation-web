@@ -349,6 +349,60 @@ describe("POST /api/reservations", () => {
     expect(await prisma.reservationLock.count()).toBe(0);
   });
 
+  it("체육관이 지원하지 않는 종목이면 422를 반환하고 예약을 만들지 않는다", async () => {
+    // TEST_GYM은 배드민턴/농구만 지원하므로 "풋살"은 유효한 Sport지만
+    // 해당 체육관 정책상 거부되어 sport-unavailable 분기로 들어가야 한다.
+    verifyIdToken.mockResolvedValue({ uid: "sport-unavailable-route-user" });
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "풋살",
+        date: futureDate(),
+        time: "10:00",
+      }),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      message?: unknown;
+    };
+
+    expect(response.status).toBe(422);
+    expect(body.status).toBe("rejected");
+    expect(body.message).toBe(
+      "선택한 종목은 이 체육관에서 예약할 수 없습니다.",
+    );
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
+  it("체육관 운영시간에 없는 시간대면 422를 반환하고 예약을 만들지 않는다", async () => {
+    // TEST_GYM.availableTimes = [10:00, 11:00, 12:00, 14:00]
+    // 13:00은 형식은 정상이지만 운영시간이 아니라 time-unavailable 분기로 가야 한다.
+    verifyIdToken.mockResolvedValue({ uid: "time-unavailable-route-user" });
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "13:00",
+      }),
+    );
+    const body = (await response.json()) as {
+      status?: unknown;
+      message?: unknown;
+    };
+
+    expect(response.status).toBe(422);
+    expect(body.status).toBe("rejected");
+    expect(body.message).toBe(
+      "선택한 시간은 이 체육관에서 예약할 수 없습니다.",
+    );
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
   it("ID 토큰 검증에 실패하면 401을 반환하고 예약을 만들지 않는다", async () => {
     verifyIdToken.mockRejectedValue(new Error("expired token"));
 
