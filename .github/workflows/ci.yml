@@ -38,9 +38,9 @@ jobs:
       NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
       NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
       NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-      NEXT_PUBLIC_GYM_DATA_BACKEND: mock
-      NEXT_PUBLIC_FAVORITE_DATA_BACKEND: local
-      NEXT_PUBLIC_RESERVATION_DATA_BACKEND: mock
+      NEXT_PUBLIC_GYM_DATA_BACKEND: db
+      NEXT_PUBLIC_FAVORITE_DATA_BACKEND: db
+      NEXT_PUBLIC_RESERVATION_DATA_BACKEND: db
       # 테스트 DB URL. setup-db가 운영 DB 오염을 막기 위해 gym_reservation_test 포함 여부를 검사한다.
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/gym_reservation_test?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/gym_reservation_test?schema=public
