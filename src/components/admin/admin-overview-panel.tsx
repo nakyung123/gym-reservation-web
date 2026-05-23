@@ -12,6 +12,7 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import { reservationStatusLabel } from "@/components/reservation-ticket";
 
 type OverviewState =
   | { status: "idle" }
@@ -191,7 +192,9 @@ export function AdminOverviewPanel() {
       {overview ? (
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-500">예약 완료</p>
+            <p className="text-xs font-semibold text-slate-500">
+              {reservationStatusLabel.reserved}
+            </p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {overview.reservations.reserved}건
             </p>
@@ -200,12 +203,14 @@ export function AdminOverviewPanel() {
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-500">이용 완료</p>
+            <p className="text-xs font-semibold text-slate-500">
+              {reservationStatusLabel.used}
+            </p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {overview.reservations.used}건
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              취소 {overview.reservations.cancelled}건
+              {reservationStatusLabel.cancelled} {overview.reservations.cancelled}건
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -214,7 +219,7 @@ export function AdminOverviewPanel() {
               {formatGymPrice(overview.revenue.expected)}
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              이용 완료 {formatGymPrice(overview.revenue.used)}
+              {reservationStatusLabel.used} {formatGymPrice(overview.revenue.used)}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">

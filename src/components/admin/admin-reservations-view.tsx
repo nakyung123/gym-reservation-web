@@ -14,6 +14,7 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import { reservationStatusLabel } from "@/components/reservation-ticket";
 import type { Gym, Reservation, ReservationStatus } from "@/types/domain";
 
 type DetailState =
@@ -51,19 +52,17 @@ type ActionState = {
   nextStatus: "used" | "cancelled";
 };
 
-const statusLabels: Record<ReservationStatus, string> = {
-  reserved: "예약 완료",
-  cancelled: "예약 취소",
-  used: "이용 완료",
-};
-
+// 상태 레이블은 reservation-ticket의 SSOT(reservationStatusLabel)를 그대로 따른다.
+// 관리자 필터는 "전체"만 별도 정의.
 const filterLabels: Record<ReservationFilter, string> = {
   all: "전체",
-  reserved: "예약 완료",
-  cancelled: "예약 취소",
-  used: "이용 완료",
+  reserved: reservationStatusLabel.reserved,
+  cancelled: reservationStatusLabel.cancelled,
+  used: reservationStatusLabel.used,
 };
 
+// 관리자 테이블은 사용자 화면(borderless rounded-md)과 달리 의도적으로
+// border 있는 pill 스타일을 쓰므로 별도 정의를 유지한다.
 const statusBadgeStyles: Record<ReservationStatus, string> = {
   reserved: "border-emerald-200 bg-emerald-50 text-emerald-800",
   cancelled: "border-slate-200 bg-slate-100 text-slate-600",
@@ -869,7 +868,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                       <span
                         className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-semibold ${statusBadgeStyles[detailState.reservation.status]}`}
                       >
-                        {statusLabels[detailState.reservation.status]}
+                        {reservationStatusLabel[detailState.reservation.status]}
                       </span>
                     </p>
                   </div>
@@ -896,8 +895,9 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               <h2 className="text-sm font-bold text-slate-950">예약 목록</h2>
               {reservationsState.status === "ready" ? (
                 <p className="mt-1 text-xs text-slate-500">
-                  예약 완료 {statusCounts.reserved}건 · 이용 완료{" "}
-                  {statusCounts.used}건 · 예약 취소 {statusCounts.cancelled}건
+                  {reservationStatusLabel.reserved} {statusCounts.reserved}건 ·{" "}
+                  {reservationStatusLabel.used} {statusCounts.used}건 ·{" "}
+                  {reservationStatusLabel.cancelled} {statusCounts.cancelled}건
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-slate-500">
@@ -1027,7 +1027,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                             <span
                               className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-semibold ${statusBadgeStyles[reservation.status]}`}
                             >
-                              {statusLabels[reservation.status]}
+                              {reservationStatusLabel[reservation.status]}
                             </span>
                           </td>
                           <td className="min-w-44 px-3 py-3">
