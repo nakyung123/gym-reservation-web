@@ -229,6 +229,10 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                       openPromptModal();
                       return;
                     }
+                    // 거리순이 아닌 다른 정렬을 명시 선택하면 보류 중이던 거리순 의도도
+                    // 함께 해제한다. 그렇지 않으면 나중에 권한이 granted로 바뀔 때
+                    // 사용자가 의도와 다르게 거리순으로 자동 전환된다.
+                    setPendingSort(null);
                     setSelectedSort(sort);
                   }}
                   aria-pressed={isActive}
