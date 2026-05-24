@@ -36,6 +36,18 @@ function getSlotUsageLabel(overview: AdminReservationOverview) {
   return `${Math.round((overview.slots.reservedCount / overview.slots.capacity) * 100)}%`;
 }
 
+// 전체 예약이 0이면 분모가 없어 비율 표시가 의미 없으므로 null을 돌려준다.
+function getCancellationRateLabel(
+  overview: AdminReservationOverview,
+): string | null {
+  if (overview.reservations.total === 0) {
+    return null;
+  }
+  const ratio =
+    (overview.reservations.cancelled / overview.reservations.total) * 100;
+  return `${ratio.toFixed(1)}%`;
+}
+
 export function AdminOverviewPanel() {
   const [tokenInput, setTokenInput] = useState("");
   const [savedToken, setSavedToken] = useState<string | null>(null);
@@ -190,7 +202,13 @@ export function AdminOverviewPanel() {
       ) : null}
 
       {overview ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <p className="mt-5 text-xs font-semibold text-slate-500">
+          조회 날짜 {selectedDate}
+        </p>
+      ) : null}
+
+      {overview ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-500">
               {reservationStatusLabel.reserved}
@@ -211,6 +229,9 @@ export function AdminOverviewPanel() {
             </p>
             <p className="mt-1 text-xs text-slate-500">
               {reservationStatusLabel.cancelled} {overview.reservations.cancelled}건
+              {getCancellationRateLabel(overview)
+                ? ` (${getCancellationRateLabel(overview)})`
+                : ""}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
