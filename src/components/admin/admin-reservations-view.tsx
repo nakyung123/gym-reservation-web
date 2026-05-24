@@ -809,9 +809,17 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
         {notice ? (
           <div
             role="alert"
-            className={`rounded-lg border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
+            className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
           >
-            {notice.message}
+            <p className="flex-1">{notice.message}</p>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="알림 닫기"
+              className="shrink-0 rounded-md border border-transparent px-2 py-0.5 text-xs font-semibold transition hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2"
+            >
+              닫기
+            </button>
           </div>
         ) : null}
 
@@ -847,7 +855,8 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               <button
                 type="button"
                 onClick={handleCloseDetail}
-                className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                disabled={Boolean(actionState)}
+                className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               >
                 닫기
               </button>
