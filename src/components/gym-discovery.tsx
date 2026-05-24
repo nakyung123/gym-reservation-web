@@ -70,7 +70,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
   const [pendingSort, setPendingSort] = useState<GymSort | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const { favorites, toggleFavorite, isFavorite, toggleError, loadError } = useFavorites();
-  const { location, openPromptModal } = useUserLocation();
+  const { location, permission, openPromptModal } = useUserLocation();
 
   // location이 채워지고 pendingSort가 있으면 정렬 적용 후 pending 해제.
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -226,8 +226,12 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                     // 거리순은 위치 권한이 필요하다. 권한이 없으면 정렬을 적용하지 않고
                     // 권한 안내 모달을 띄우되 의도를 pendingSort로 보존한다 → 사용자가
                     // 허용을 마치면 useEffect가 자동으로 거리순으로 전환한다.
+                    // 단 denied(차단) 상태에서는 권한 변경 이벤트가 들어오지 않을 수
+                    // 있으므로 pendingSort 약속을 걸지 않고 모달만 띄운다.
                     if (sort === "distance" && !location) {
-                      setPendingSort("distance");
+                      if (permission !== "denied") {
+                        setPendingSort("distance");
+                      }
                       openPromptModal();
                       return;
                     }
@@ -263,14 +267,17 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
 
         {/* "가까운 순"이 적용 중이거나(selectedSort), 권한 허용을 기다리는 상태(pendingSort)
             에서 위치가 비어 있으면 sortGyms가 이름순으로 폴백되므로 사용자에게 정렬 결과가
-            의도와 다를 수 있음을 짧게 안내한다. */}
+            의도와 다를 수 있음을 짧게 안내한다. 차단(denied) 상태에서는 다시 누르라는 안내가
+            의미 없으므로 메시지를 분기한다. */}
         {(selectedSort === "distance" || pendingSort === "distance") &&
         !location ? (
           <p
             className="mt-3 text-xs font-semibold text-amber-700"
             role="status"
           >
-            위치 정보가 없어 이름순으로 표시됩니다. ‘가까운 순’을 다시 눌러 권한을 허용해 주세요.
+            {permission === "denied"
+              ? "위치 권한이 차단되어 거리순을 사용할 수 없습니다. 브라우저 설정에서 위치 권한을 허용한 뒤 새로고침해 주세요."
+              : "위치 정보가 없어 이름순으로 표시됩니다. ‘가까운 순’을 다시 눌러 권한을 허용해 주세요."}
           </p>
         ) : null}
       </div>
