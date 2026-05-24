@@ -150,6 +150,73 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
               </span>
             ))}
           </div>
+
+          {/* 이용/취소 안내, 시설 정보, 주소·문의·운영시간을 한 블록으로 묶어
+              사용자가 예약 직전에 필요한 정보를 한 번에 확인하도록 한다. 모든
+              값은 gym 데이터(openHours, closedDays, address, facilities, sports,
+              availableTimes, officialUrl)에서만 가져온다. */}
+          <section
+            className="mt-6 rounded-md border border-slate-200 bg-slate-50 p-5"
+            aria-label="예약 안내"
+          >
+            <h2 className="text-lg font-bold text-slate-950">예약 안내</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              예약하기 전에 아래 내용을 확인해 주세요.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-950">이용 안내</h3>
+                <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
+                  <li>운영시간: {gym.openHours}</li>
+                  <li>운영 시간대: {gym.availableTimes.length}개</li>
+                  <li>최저 이용료: {formatGymPrice(lowestPrice)}부터</li>
+                  <li>예약 후 결제는 시설에서 안내를 따라주세요.</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-950">취소 안내</h3>
+                <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
+                  <li>
+                    내 예약 → 예약 상세에서 취소 가능 기한 안에 취소할 수
+                    있습니다.
+                  </li>
+                  <li>취소 정책은 예약 시점 기준으로 적용됩니다.</li>
+                  <li>
+                    이용 일시가 지난 예약은 자동으로 이용 완료 상태로
+                    표시됩니다.
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-950">시설 정보</h3>
+                <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
+                  <li>지원 종목: {gym.sports.length}개</li>
+                  <li>편의시설: {gym.facilities.length}개</li>
+                  <li>휴관일: {gym.closedDays.join(", ")}</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-950">
+                  주소·문의·운영시간
+                </h3>
+                <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
+                  <li>주소: {gym.address}</li>
+                  <li>운영시간: {gym.openHours}</li>
+                  <li>
+                    문의·자세한 안내:{" "}
+                    <a
+                      href={gym.officialUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                    >
+                      공식 시설 안내 (새 탭)
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
         </div>
 
         <aside className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
