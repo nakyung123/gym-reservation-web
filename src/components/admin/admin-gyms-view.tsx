@@ -625,18 +625,37 @@ export function AdminGymsView() {
 
             {gymsState.status === "ready" ? (
               filteredGyms.length === 0 ? (
-                <AdminEmptyState
-                  title={
-                    gyms.length === 0
-                      ? "등록된 시설이 없습니다"
-                      : "조건에 맞는 시설이 없습니다"
-                  }
-                  description={
-                    gyms.length === 0
-                      ? "오른쪽 양식에서 신규 시설을 추가할 수 있습니다."
-                      : "검색어나 상태 필터를 바꿔 다시 확인해 보세요."
-                  }
-                />
+                <>
+                  <AdminEmptyState
+                    title={
+                      gyms.length === 0
+                        ? "등록된 시설이 없습니다"
+                        : "조건에 맞는 시설이 없습니다"
+                    }
+                    description={
+                      gyms.length === 0
+                        ? "오른쪽 양식에서 신규 시설을 추가할 수 있습니다."
+                        : "검색어나 상태 필터를 바꿔 다시 확인해 보세요."
+                    }
+                  />
+                  {/* 원본 시설은 있지만 검색/상태 필터로 가려진 경우에만 조건
+                      초기화 CTA를 노출한다. 검색어와 상태 필터를 한 번에 푼다. */}
+                  {gyms.length > 0 &&
+                  (searchInput.trim() || statusFilter !== "all") ? (
+                    <div className="mt-3 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchInput("");
+                          setStatusFilter("all");
+                        }}
+                        className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      >
+                        조건 초기화
+                      </button>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
                   {filteredGyms.map((gym) => {
@@ -647,8 +666,10 @@ export function AdminGymsView() {
                         key={gym.id}
                         type="button"
                         onClick={() => handleSelectGym(gym)}
-                        className={`grid w-full gap-2 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
-                          selected ? "bg-sky-50" : "hover:bg-slate-50"
+                        className={`grid w-full gap-2 border-l-4 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                          selected
+                            ? "border-sky-500 bg-sky-50"
+                            : "border-transparent hover:bg-slate-50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
