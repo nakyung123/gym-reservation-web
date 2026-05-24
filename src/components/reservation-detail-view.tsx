@@ -564,8 +564,12 @@ export function ReservationDetailView({
         {/* 확인서 핵심 정보: 체육관/종목/이용일시/결제금액/취소 가능 기한.
             취소 기한은 reserved+canCancel일 때만 deadline을 노출하고, 그 외에는
             cancellation 메시지 또는 "—"로 의미를 명확히 한다. 별도 계산은 하지
-            않고 SSOT(liveDetail.cancellation)의 값만 표시한다. */}
-        <dl className="mt-6 grid gap-4 rounded-md border border-slate-200 bg-white px-4 py-4 sm:grid-cols-2">
+            않고 SSOT(liveDetail.cancellation)의 값만 표시한다. 본문과 약간의 톤
+            차이를 두어 "확인서 핵심"이라는 시각적 무게를 명확히 한다. */}
+        <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          확인서 핵심
+        </p>
+        <dl className="mt-2 grid gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
               체육관
