@@ -99,6 +99,28 @@ export function GymCard({
               </span>
             ))}
           </div>
+
+          {/* 사용자가 카드에서 바로 판단할 수 있는 메타 배지. 슬롯 조회 없이
+              안전하게 말할 수 있는 정보만 노출하고, "예약 가능/마감"은 표시하지
+              않는다. 종목 chip이 길어진 카드에서도 줄바꿈으로 자연스럽게 흐른다. */}
+          <div
+            className="mt-3 flex flex-wrap gap-1.5"
+            aria-label="시설 정보 요약"
+          >
+            <span className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700">
+              종목 {gym.sports.length}개
+            </span>
+            {gym.openHours ? (
+              <span className="inline-flex h-6 items-center rounded-full border border-sky-200 bg-sky-50 px-2 text-xs font-semibold text-sky-800">
+                운영시간 안내
+              </span>
+            ) : null}
+            {gym.closedDays.length > 0 ? (
+              <span className="inline-flex h-6 items-center rounded-full border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-800">
+                휴관일 있음
+              </span>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
