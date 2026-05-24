@@ -52,6 +52,7 @@ type RowDraft = { capacity: number; isClosed: boolean };
 
 type RowSaveState =
   | { status: "saving" }
+  | { status: "success" }
   | { status: "error"; message: string };
 
 type BulkDateNotice = { tone: "error" | "info"; message: string };
@@ -443,10 +444,11 @@ export function AdminReservationSlotsForm({
         });
         return next;
       });
+      // 저장 성공을 사용자에게 알리는 짧은 상태. draft 재수정 또는 다음 저장 진입 시
+      // 기존 정리 로직(handleDraftChange/handleSaveRow 진입부)에서 자연스럽게 사라진다.
       setRowSaveStates((prev) => {
-        if (!prev.has(slot.time)) return prev;
         const next = new Map(prev);
-        next.delete(slot.time);
+        next.set(slot.time, { status: "success" });
         return next;
       });
     } else {
@@ -1195,6 +1197,7 @@ export function AdminReservationSlotsForm({
                       const dirty = isRowDirty(slot);
                       const saveState = rowSaveStates.get(slot.time);
                       const isSaving = saveState?.status === "saving";
+                      const isSaveSuccess = saveState?.status === "success";
                       const saveError =
                         saveState?.status === "error"
                           ? saveState.message
@@ -1213,7 +1216,9 @@ export function AdminReservationSlotsForm({
                       return (
                         <tr
                           key={slot.time}
-                          className="border-b border-slate-100 align-top"
+                          className={`border-b border-slate-100 align-top ${
+                            isSaving ? "bg-emerald-50/60" : ""
+                          }`}
                         >
                           <td className="px-3 py-3">
                             <input
@@ -1294,6 +1299,14 @@ export function AdminReservationSlotsForm({
                                     ? "저장"
                                     : "변경 없음"}
                               </button>
+                              {isSaveSuccess ? (
+                                <p
+                                  className="text-xs font-semibold text-emerald-700"
+                                  role="status"
+                                >
+                                  저장 완료
+                                </p>
+                              ) : null}
                               {saveError ? (
                                 <p
                                   className="text-xs font-semibold text-rose-700"
