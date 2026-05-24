@@ -693,13 +693,14 @@ export function ReservationDetailView({
                 </Link>
               ) : (
                 // 이용 완료/취소된 예약 상세에서도 같은 시설로 다시 예약 진입을 제공.
-                // 현재 예약의 sport/date/time을 query로 전달해 작업 3에서 폼 초기값에 활용한다.
+                // 현재 예약의 sport/date/time을 query로 전달해 reserve 폼 초기값에 활용한다.
+                // 라벨은 reservations-view의 예약 카드와 동일하게 "다시 예약"으로 통일한다.
                 <Link
                   href={`/reserve/${encodeURIComponent(gymSummary.gym.id)}?sport=${encodeURIComponent(reservation.sport)}&date=${encodeURIComponent(reservation.date)}&time=${encodeURIComponent(reservation.time)}`}
                   aria-label={`${gymSummary.name} ${reservation.sport} 같은 조건으로 다시 예약`}
                   className="inline-flex h-10 items-center justify-center rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                 >
-                  같은 시설 예약하기
+                  다시 예약
                 </Link>
               )}
             </div>
