@@ -43,12 +43,46 @@ describe("getReservationRangeLowerBound", () => {
     );
   });
 
-  it("월말 경계에서 정상적으로 한 달 빼기를 처리한다", () => {
-    // 3월 31일에서 한 달 빼면 2월 28/29일 → setUTCMonth가 자동으로 안전한
-    // 마지막 날짜로 정렬한다. (현재 구현은 2/28 또는 윤년에 따라 다를 수 있어
-    // 형식만 확인한다.)
-    const result = getReservationRangeLowerBound("month", "2025-03-31");
-    expect(result).toMatch(/^2025-03-0[1-9]|^2025-02-2[8-9]/);
+  it("month: 3월 31일에서 한 달 빼면 2월 28일로 clamp한다 (평년)", () => {
+    expect(getReservationRangeLowerBound("month", "2025-03-31")).toBe(
+      "2025-02-28",
+    );
+  });
+
+  it("month: 윤년 3월 31일은 2월 29일로 clamp한다", () => {
+    expect(getReservationRangeLowerBound("month", "2024-03-31")).toBe(
+      "2024-02-29",
+    );
+  });
+
+  it("month: 5월 31일에서 한 달 빼면 4월 30일로 clamp한다", () => {
+    expect(getReservationRangeLowerBound("month", "2026-05-31")).toBe(
+      "2026-04-30",
+    );
+  });
+
+  it("month: 1월 31일에서 한 달 빼면 전년 12월 31일이다", () => {
+    expect(getReservationRangeLowerBound("month", "2026-01-31")).toBe(
+      "2025-12-31",
+    );
+  });
+
+  it("quarter: 5월 31일에서 세 달 빼면 2월 28일로 clamp한다", () => {
+    expect(getReservationRangeLowerBound("quarter", "2025-05-31")).toBe(
+      "2025-02-28",
+    );
+  });
+
+  it("quarter: 윤년 5월 31일에서 세 달 빼면 2월 29일로 clamp한다", () => {
+    expect(getReservationRangeLowerBound("quarter", "2024-05-31")).toBe(
+      "2024-02-29",
+    );
+  });
+
+  it("quarter: 1월 31일에서 세 달 빼면 전년 10월 31일이다", () => {
+    expect(getReservationRangeLowerBound("quarter", "2026-01-31")).toBe(
+      "2025-10-31",
+    );
   });
 
   it("잘못된 today 입력은 null을 반환한다", () => {
