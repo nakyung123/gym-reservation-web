@@ -521,8 +521,70 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     }
   };
 
+  // 가벼운 단계 표시. 현재 흐름(좌측 선택 → 우측 요약/제출 → 노티스)에 맞춰
+  // 사용자의 진행 위치만 시각화한다. 멀티스텝 폼으로 변환하지 않는다.
+  const reservationStep: 1 | 2 | 3 =
+    hasReservationNotice && noticeTone === "success"
+      ? 3
+      : userTouchedTime && !submitDisabledReason && !hasReservationNotice
+        ? 2
+        : 1;
+  const reservationSteps: { id: 1 | 2 | 3; label: string }[] = [
+    { id: 1, label: "예약 정보" },
+    { id: 2, label: "확인" },
+    { id: 3, label: "완료" },
+  ];
+
   return (
-    <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[1fr_360px]">
+    <div className="flex w-full min-w-0 flex-col gap-5">
+      <ol
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+        aria-label="예약 진행 단계"
+      >
+        {reservationSteps.map((step, index) => {
+          const isCurrent = reservationStep === step.id;
+          const isDone = reservationStep > step.id;
+          return (
+            <li
+              key={step.id}
+              className="flex items-center gap-2"
+              aria-current={isCurrent ? "step" : undefined}
+            >
+              <span
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
+                  isDone
+                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    : isCurrent
+                      ? "border-sky-600 bg-sky-600 text-white"
+                      : "border-slate-300 bg-white text-slate-500"
+                }`}
+                aria-hidden="true"
+              >
+                {isDone ? "✓" : step.id}
+              </span>
+              <span
+                className={`text-sm font-semibold ${
+                  isCurrent
+                    ? "text-sky-800"
+                    : isDone
+                      ? "text-emerald-700"
+                      : "text-slate-500"
+                }`}
+              >
+                {step.label}
+              </span>
+              {index < reservationSteps.length - 1 ? (
+                <span
+                  aria-hidden="true"
+                  className="ml-1 hidden h-px w-6 bg-slate-200 sm:inline-block"
+                />
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[1fr_360px]">
       <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm font-semibold text-sky-700">예약 선택</p>
         <h1 className="mt-2 text-3xl font-bold text-slate-950">{gym.name}</h1>
@@ -721,6 +783,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
       <aside className="min-w-0 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-sm font-semibold text-emerald-700">예약 요약</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          아래 정보를 확인하고 예약하기 버튼을 눌러주세요.
+        </p>
         <dl className="mt-4 grid gap-3 text-sm">
           <div className="flex justify-between gap-4">
             <dt className="text-slate-500">체육관</dt>
@@ -807,6 +872,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           </div>
         ) : null}
       </aside>
+      </div>
     </div>
   );
 }
