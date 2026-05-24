@@ -104,15 +104,38 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           <h2 className="mt-6 text-lg font-bold text-slate-950">
             종목별 이용료
           </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            카드를 누르면 해당 종목으로 예약 흐름이 시작됩니다.
+          </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {gym.sports.map((sport) => (
-              <div
+              <Link
                 key={sport}
-                className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700"
+                href={`/reserve/${encodeURIComponent(gym.id)}?sport=${encodeURIComponent(sport)}`}
+                aria-label={`${gym.name} ${sport} 예약 시작`}
+                className="group flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 transition hover:border-sky-400 hover:bg-sky-50 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               >
-                <span className="font-semibold text-slate-950">{sport}</span>
-                <span>{formatGymPrice(getGymSportPrice(gym, sport))}</span>
-              </div>
+                <span className="font-semibold text-slate-950 group-hover:text-sky-900">
+                  {sport}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span>{formatGymPrice(getGymSportPrice(gym, sport))}</span>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 text-slate-400 transition group-hover:text-sky-700"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </span>
+              </Link>
             ))}
           </div>
 
