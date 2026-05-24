@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { GymCard } from "@/components/gym-card";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -114,6 +115,40 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
     selectedSport !== "전체";
   const hasActiveFilter = hasNonFavoritesFilter || favoritesOnly;
 
+  // 가벼운 클라이언트 측 추천. 즐겨찾기 체육관들의 region 중 가장 많은 지역에서
+  // 즐겨찾기 외 체육관을 최대 3개 추천한다. 즐겨찾기 신호가 없으면 null이라
+  // 섹션 자체가 숨는다. /gyms는 비로그인도 접근 가능한 라우트라 예약 저장소
+  // 구독은 일부러 도입하지 않는다 — 인증 의존이 늘면 비로그인 fetch가 발동할
+  // 수 있고 라우트 비용도 커진다. 즐겨찾기만 보기 모드(favoritesOnly)에서는 본
+  // 화면 의도와 어긋나므로 노출하지 않는다.
+  const recommendation = useMemo<
+    { kind: "favorite-region"; region: string; gyms: Gym[] } | null
+  >(() => {
+    if (favoritesOnly) return null;
+    if (favorites.size === 0) return null;
+
+    const favGyms = gyms.filter((gym) => favorites.has(gym.id));
+    const regionCount = new Map<string, number>();
+    for (const gym of favGyms) {
+      regionCount.set(gym.region, (regionCount.get(gym.region) ?? 0) + 1);
+    }
+    let topRegion: string | null = null;
+    let topCount = 0;
+    for (const [region, count] of regionCount.entries()) {
+      if (count > topCount) {
+        topRegion = region;
+        topCount = count;
+      }
+    }
+    if (!topRegion) return null;
+
+    const candidates = gyms
+      .filter((gym) => gym.region === topRegion && !favorites.has(gym.id))
+      .slice(0, 3);
+    if (candidates.length === 0) return null;
+    return { kind: "favorite-region", region: topRegion, gyms: candidates };
+  }, [favorites, favoritesOnly, gyms]);
+
   const clearFilters = () => {
     setQuery("");
     setSelectedRegion("전체");
@@ -208,8 +243,11 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         </div>
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* 즐겨찾기 모드일 때 헤더 카운트도 "즐겨찾기 N개"로 분기해 사용자가
+              현재 어떤 뷰에 있는지 한눈에 인식하게 한다. 토글 자체는 종목 필터
+              아래에 그대로 둔다. */}
           <p className="text-sm text-slate-600">
-            총{" "}
+            {favoritesOnly ? "즐겨찾기 " : "총 "}
             <strong className="text-slate-950">{filteredGyms.length}</strong>개
             체육관
           </p>
@@ -281,6 +319,36 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
           </p>
         ) : null}
       </div>
+
+      {/* 가벼운 추천 섹션. 즐겨찾기 신호가 없거나 후보가 없으면 null이라 섹션
+          자체가 사라진다. 추천 근거(어느 지역인지)는 보조 문구에서 한 번
+          짚어준다. 카드 그리드와 톤이 너무 비슷해지지 않도록 옅은 sky 톤을 쓴다. */}
+      {recommendation ? (
+        <aside
+          className="rounded-lg border border-sky-200 bg-sky-50/40 p-4"
+          aria-label="즐겨찾기 기반 추천"
+        >
+          <p className="text-sm font-semibold text-sky-800">
+            즐겨찾기한 지역의 다른 체육관
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            즐겨찾기한 {recommendation.region}을(를) 기준으로 최대 3곳을
+            보여줍니다.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {recommendation.gyms.map((gym) => (
+              <Link
+                key={gym.id}
+                href={`/gyms/${gym.id}`}
+                aria-label={`${gym.name} 상세 보기`}
+                className="inline-flex h-9 items-center rounded-md border border-sky-300 bg-white px-3 text-xs font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                {gym.name}
+              </Link>
+            ))}
+          </div>
+        </aside>
+      ) : null}
 
       {toggleError && (
         <p role="alert" className="text-sm font-semibold text-rose-700">
