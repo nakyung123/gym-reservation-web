@@ -659,8 +659,11 @@ export function ReservationDetailView({
                 길찾기
               </a>
               {reservation.status === "reserved" ? (
+                // 같은 시설·같은 종목으로 다른 시간을 추가 예약하는 흐름을 가속하기 위해
+                // sport만 prefill한다. date/time은 새 예약이므로 비워둔다.
                 <Link
-                  href={`/reserve/${gymSummary.gym.id}`}
+                  href={`/reserve/${encodeURIComponent(gymSummary.gym.id)}?sport=${encodeURIComponent(reservation.sport)}`}
+                  aria-label={`${gymSummary.name} ${reservation.sport} 추가 예약`}
                   className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                 >
                   추가 예약
