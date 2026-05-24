@@ -517,7 +517,10 @@ export function ReservationDetailView({
           내 예약으로
         </Link>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-sky-700">
+          예약 확인서
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className={`rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
           >
@@ -537,8 +540,8 @@ export function ReservationDetailView({
           {gymSummary.name}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          {reservation.date} {reservation.time}에 이용할 {reservation.sport}{" "}
-          예약 상세입니다.
+          {reservation.date} {reservation.time} · {reservation.sport} 예약
+          확인서입니다.
         </p>
 
         {gymSummary.isMissingFromCurrentData ? (
@@ -558,7 +561,11 @@ export function ReservationDetailView({
           </div>
         ) : null}
 
-        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+        {/* 확인서 핵심 정보: 체육관/종목/이용일시/결제금액/취소 가능 기한.
+            취소 기한은 reserved+canCancel일 때만 deadline을 노출하고, 그 외에는
+            cancellation 메시지 또는 "—"로 의미를 명확히 한다. 별도 계산은 하지
+            않고 SSOT(liveDetail.cancellation)의 값만 표시한다. */}
+        <dl className="mt-6 grid gap-4 rounded-md border border-slate-200 bg-white px-4 py-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
               체육관
@@ -591,23 +598,35 @@ export function ReservationDetailView({
               {formatGymPrice(reservation.price)}
             </dd>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <dt className="text-xs font-semibold uppercase text-slate-500">
-              예약일
+              취소 가능 기한
             </dt>
             <dd className="mt-1 text-sm font-semibold text-slate-950">
-              {formatReservationCreatedAt(reservation.createdAt)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-semibold uppercase text-slate-500">
-              예약 ID
-            </dt>
-            <dd className="mt-1 break-all font-mono text-sm text-slate-950">
-              {reservation.id}
+              {reservation.status === "reserved" &&
+              canCancelReservation &&
+              cancellationDeadline
+                ? `${formatCancellationDeadline(cancellationDeadline)}까지`
+                : reservation.status === "reserved"
+                  ? cancellationMessage
+                  : "—"}
             </dd>
           </div>
         </dl>
+
+        <div className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+          <p className="font-semibold text-slate-700">참고 정보</p>
+          <dl className="mt-2 grid gap-2 sm:grid-cols-[120px_1fr]">
+            <dt className="text-slate-500">예약일</dt>
+            <dd className="text-slate-800">
+              {formatReservationCreatedAt(reservation.createdAt)}
+            </dd>
+            <dt className="text-slate-500">예약 ID</dt>
+            <dd className="break-all font-mono text-slate-800">
+              {reservation.id}
+            </dd>
+          </dl>
+        </div>
 
         {gymSummary.gym ? (
           <div className="mt-6 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
@@ -688,12 +707,7 @@ export function ReservationDetailView({
             <h2 className="text-sm font-bold text-slate-950">예약 취소</h2>
             {canCancelReservation ? (
               <>
-                {cancellationDeadline ? (
-                  <p className="mt-2 text-sm text-slate-600">
-                    {formatCancellationDeadline(cancellationDeadline)}까지 취소할
-                    수 있습니다.
-                  </p>
-                ) : null}
+                {/* 취소 가능 기한은 상단 확인서 핵심 dl에서 노출하므로 중복 표시는 생략. */}
                 {confirmingCancel ? (
                   <div
                     className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
