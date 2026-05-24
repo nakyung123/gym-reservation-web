@@ -7,6 +7,14 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import { formatGymPrice } from "@/lib/gym-utils";
 import { createUserReservationDetail } from "@/lib/reservation-detail";
+import {
+  getReservationRangeLowerBound,
+  getTodayDateValue,
+  isReservationDateInRange,
+  parseReservationRange,
+  reservationRangeLabels,
+  type ReservationRange,
+} from "@/lib/reservation-range";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import {
@@ -103,6 +111,8 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   const searchParams = useSearchParams();
   const reservationFilter = parseFilterFromParam(searchParams.get("status"));
   const reservationSort = parseSortFromParam(searchParams.get("sort"));
+  // ?range=week|month|quarter. 기본 "all"은 URL에 기록하지 않는다.
+  const reservationRange = parseReservationRange(searchParams.get("range"));
 
   // 미로그인 시 /login?from=<현재경로+쿼리> 로 redirect.
   // 예: /reservations?status=cancelled 로 진입한 경우 로그인 후 필터까지 복원되도록 쿼리를 보존한다.
@@ -143,6 +153,17 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname);
   };
+  // range default("all")는 URL에 기록하지 않는다.
+  const updateReservationRange = (next: ReservationRange) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "all") {
+      params.delete("range");
+    } else {
+      params.set("range", next);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  };
   const reservationSnapshot = useSyncExternalStore(
     reservationRepository.subscribe,
     reservationRepository.getSnapshot,
@@ -169,19 +190,22 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   );
 
   // 최근 예약한 시설 5개. createdAt 내림차순으로 훑으며 gymId 중복을 제거하고,
-  // 현재 운영 중인 시설 목록(gymsById)에 없는 gymId는 건너뛴다. 취소/이용완료
-  // 상태도 포함해 "최근 다녀온 시설"이라는 의미에 맞춘다.
-  const recentGymIds = useMemo(() => {
+  // 현재 운영 중인 시설 목록(gymsById)에 없는 gymId는 건너뛴다. 최근 선택한 종목을
+  // 함께 보존해 같은 시설 예약 진입 시 종목을 미리 선택한다.
+  const recentGymEntries = useMemo(() => {
     const sorted = [...reservations].sort((left, right) =>
       right.createdAt.localeCompare(left.createdAt),
     );
     const seen = new Set<string>();
-    const result: string[] = [];
+    const result: Pick<Reservation, "gymId" | "sport">[] = [];
     for (const reservation of sorted) {
       if (seen.has(reservation.gymId)) continue;
       seen.add(reservation.gymId);
       if (!gymsById.has(reservation.gymId)) continue;
-      result.push(reservation.gymId);
+      result.push({
+        gymId: reservation.gymId,
+        sport: reservation.sport,
+      });
       if (result.length >= 5) break;
     }
     return result;
@@ -207,6 +231,14 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
     used: usedReservations.length,
     cancelled: cancelledReservations.length,
   };
+  // 기간 필터 하한은 현재 분 단위 시각으로 환산한 오늘 날짜 기준으로 계산한다.
+  // 분 갱신 hook이 자정을 넘기면 today가 자동으로 다음 날로 바뀐다.
+  const rangeLowerBound = useMemo(() => {
+    const today = currentMinuteValue
+      ? getTodayDateValue(new Date(currentMinuteValue))
+      : getTodayDateValue();
+    return getReservationRangeLowerBound(reservationRange, today);
+  }, [currentMinuteValue, reservationRange]);
   const displayReservations = useMemo(
     () =>
       reservations
@@ -215,8 +247,16 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             ? true
             : reservation.status === reservationFilter,
         )
+        .filter((reservation) =>
+          isReservationDateInRange(reservation.date, rangeLowerBound),
+        )
         .sort(getReservationComparator(reservationSort)),
-    [reservationFilter, reservationSort, reservations],
+    [
+      rangeLowerBound,
+      reservationFilter,
+      reservationSort,
+      reservations,
+    ],
   );
 
   const requestCancel = (reservationId: string) => {
@@ -430,26 +470,60 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             )}
           </div>
         </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-slate-500">기간</span>
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="예약 기간 필터"
+          >
+            {(Object.keys(reservationRangeLabels) as ReservationRange[]).map(
+              (range) => {
+                const isSelected = reservationRange === range;
+
+                return (
+                  <button
+                    key={range}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      setPendingCancelReservationId(null);
+                      updateReservationRange(range);
+                    }}
+                    className={`h-8 rounded-md border px-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                      isSelected
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                    }`}
+                  >
+                    {reservationRangeLabels[range]}
+                  </button>
+                );
+              },
+            )}
+          </div>
+        </div>
       </div>
 
-      {recentGymIds.length > 0 ? (
+      {recentGymEntries.length > 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-sky-700">최근 예약한 시설</p>
           <p className="mt-1 text-xs text-slate-500">
-            같은 시설로 다시 예약을 시작할 수 있습니다.
+            최근 예약한 종목으로 다시 예약을 시작할 수 있습니다.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {recentGymIds.map((gymId) => {
-              const gym = gymsById.get(gymId);
+            {recentGymEntries.map((entry) => {
+              const gym = gymsById.get(entry.gymId);
               if (!gym) return null;
               return (
                 <Link
-                  key={gymId}
-                  href={`/reserve/${encodeURIComponent(gymId)}`}
-                  aria-label={`${gym.name}로 다시 예약`}
+                  key={entry.gymId}
+                  href={`/reserve/${encodeURIComponent(entry.gymId)}?sport=${encodeURIComponent(entry.sport)}`}
+                  aria-label={`${gym.name} ${entry.sport} 종목으로 다시 예약`}
                   className="inline-flex h-9 items-center rounded-md border border-sky-300 bg-sky-50 px-3 text-xs font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                 >
-                  {gym.name}
+                  {gym.name} · {entry.sport}
                 </Link>
               );
             })}
@@ -460,14 +534,31 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
       {displayReservations.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
           <p className="text-base font-bold text-slate-950">
-            {reservationFilterLabels[reservationFilter]} 내역이 없습니다
+            {reservationRange !== "all"
+              ? `최근 ${reservationRangeLabels[reservationRange]} 내 ${reservationFilterLabels[reservationFilter]} 내역이 없습니다`
+              : `${reservationFilterLabels[reservationFilter]} 내역이 없습니다`}
           </p>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            {reservationFilter === "all"
-              ? "체육관 상세 화면에서 새 예약을 진행할 수 있습니다."
-              : "다른 상태를 선택하거나 체육관 상세 화면에서 새 예약을 진행할 수 있습니다."}
+            {reservationRange !== "all"
+              ? "기간을 전체로 바꾸거나 다른 상태를 선택해 보세요."
+              : reservationFilter === "all"
+                ? "체육관 상세 화면에서 새 예약을 진행할 수 있습니다."
+                : "다른 상태를 선택하거나 체육관 상세 화면에서 새 예약을 진행할 수 있습니다."}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {reservationRange !== "all" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingCancelReservationId(null);
+                  updateReservationRange("all");
+                }}
+                aria-label="예약 기간 필터를 전체로 보기"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              >
+                기간 전체로
+              </button>
+            ) : null}
             {reservationFilter !== "all" ? (
               <button
                 type="button"
