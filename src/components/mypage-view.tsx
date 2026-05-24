@@ -377,6 +377,25 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
         />
       </div>
 
+      {/* 데이터 유무와 무관하게 항상 노출하는 빠른 이동 동선. 비밀번호 변경/회원
+          탈퇴는 페이지 하단에 이미 있으므로 여기서는 내 예약/체육관 찾기만 둔다. */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/reservations"
+          aria-label="내 예약 목록으로 이동"
+          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+        >
+          내 예약 보기
+        </Link>
+        <Link
+          href="/gyms"
+          aria-label="체육관 목록으로 이동"
+          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+        >
+          체육관 찾기
+        </Link>
+      </div>
+
       {hasNoData ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
           <p className="text-base font-bold text-slate-950">
