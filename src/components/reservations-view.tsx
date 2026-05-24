@@ -506,6 +506,19 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
         </div>
       </div>
 
+      {/* 상태 chip의 count는 전체 reservations 기준이라 range 적용 후 표시 건수와
+          어긋날 수 있다. range가 걸려 있고 표시 건수가 있으면 표 위에 한 줄로
+          현재 보이는 건수를 명시해 오해를 줄인다. (count 자체는 그대로 둠) */}
+      {reservationRange !== "all" && displayReservations.length > 0 ? (
+        <p
+          className="rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600"
+          role="status"
+        >
+          최근 {reservationRangeLabels[reservationRange]} 내{" "}
+          {reservationFilterLabels[reservationFilter]} {displayReservations.length}건 표시
+        </p>
+      ) : null}
+
       {recentGymEntries.length > 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-sky-700">최근 예약한 시설</p>
