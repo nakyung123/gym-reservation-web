@@ -561,11 +561,6 @@ export function ReservationDetailView({
           </div>
         ) : null}
 
-        {/* 확인서 핵심 정보: 체육관/종목/이용일시/결제금액/취소 가능 기한.
-            취소 기한은 reserved+canCancel일 때만 deadline을 노출하고, 그 외에는
-            cancellation 메시지 또는 "—"로 의미를 명확히 한다. 별도 계산은 하지
-            않고 SSOT(liveDetail.cancellation)의 값만 표시한다. 본문과 약간의 톤
-            차이를 두어 "확인서 핵심"이라는 시각적 무게를 명확히 한다. */}
         <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
           확인서 핵심
         </p>
@@ -712,7 +707,6 @@ export function ReservationDetailView({
             <h2 className="text-sm font-bold text-slate-950">예약 취소</h2>
             {canCancelReservation ? (
               <>
-                {/* 취소 가능 기한은 상단 확인서 핵심 dl에서 노출하므로 중복 표시는 생략. */}
                 {confirmingCancel ? (
                   <div
                     className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"

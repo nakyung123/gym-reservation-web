@@ -860,13 +860,30 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     </dd>
                   </div>
                 </dl>
-                <Link
-                  href="/reservations"
-                  aria-label="내 예약 목록 보기"
-                  className={`mt-3 inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${noticeLinkStyles[noticeTone]}`}
-                >
-                  내 예약 보기
-                </Link>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {noticeTone === "success" ? (
+                    <Link
+                      href={`/reservations/${noticeReservation.id}`}
+                      aria-label="방금 만든 예약 상세 보기"
+                      className={`inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${noticeLinkStyles[noticeTone]}`}
+                    >
+                      예약 상세 보기
+                    </Link>
+                  ) : null}
+                  <Link
+                    href="/reservations"
+                    aria-label="내 예약 목록 보기"
+                    className={`inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                      noticeTone === "success"
+                        ? "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50 focus-visible:ring-emerald-500"
+                        : noticeTone === "warning"
+                          ? "border-amber-300 bg-white text-amber-800 hover:bg-amber-50 focus-visible:ring-amber-500"
+                          : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50 focus-visible:ring-rose-500"
+                    }`}
+                  >
+                    내 예약 보기
+                  </Link>
+                </div>
               </>
             ) : null}
           </div>
