@@ -165,8 +165,6 @@ function getErrorMessage(error: unknown): string {
     : "알 수 없는 오류가 발생했습니다.";
 }
 
-// 디버깅용 status는 console.error로만 남기고 사용자에게는 message만 보여준다.
-// 5xx는 서버 측 문제이므로 사용자 책임처럼 보이는 status= 같은 부착어를 만들지 않는다.
 function logErrorStatus(
   context: string,
   message: string,
@@ -191,7 +189,6 @@ function getAccountName(user: User): string {
   return "이름 없음";
 }
 
-// 사진 미설정 시 표시할 기본 silhouette 아이콘 (heroicons user solid 인라인 SVG).
 function UserSilhouetteIcon() {
   return (
     <svg
@@ -377,8 +374,6 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
         />
       </div>
 
-      {/* 데이터 유무와 무관하게 항상 노출하는 빠른 이동 동선. 비밀번호 변경/회원
-          탈퇴는 페이지 하단에 이미 있으므로 여기서는 내 예약/체육관 찾기만 둔다. */}
       <div className="flex flex-wrap gap-2">
         <Link
           href="/reservations"
@@ -657,8 +652,6 @@ export function MypageView() {
       if (prev.status !== "ready") {
         return prev;
       }
-      // 입력 중에는 form만 갱신하고 persistedNickname/persistedPhotoBase64는 유지
-      // (저장 전 헤더 반영 방지, 사진은 별도 흐름).
       return {
         status: "ready",
         form: updater(prev.form),
@@ -739,7 +732,6 @@ export function MypageView() {
         setProfileState({
           status: "ready",
           form: profileToForm(result.profile),
-          // 저장 성공 시점에 persistedNickname 갱신 → 헤더/요약이 이때 새 닉네임으로 반영된다.
           persistedNickname: result.profile?.nickname ?? null,
           persistedPhotoBase64: result.profile?.photoBase64 ?? null,
         });
@@ -778,13 +770,11 @@ export function MypageView() {
     }
   };
 
-  // 사진 변경 버튼 클릭 → 숨겨진 file input 트리거.
   const handlePhotoButtonClick = () => {
     if (photoSaveState.status === "uploading") return;
     fileInputRef.current?.click();
   };
 
-  // 파일 선택 후 → 검증 + 리사이즈 → updateProfilePhoto → persistedPhotoBase64 갱신.
   const handlePhotoFileChange = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -817,7 +807,6 @@ export function MypageView() {
     setPhotoSaveState({ status: "idle" });
   };
 
-  // 기본 이미지로 변경: photoBase64를 null로.
   const handleResetPhoto = async () => {
     if (photoSaveState.status === "uploading") return;
     setPhotoSaveState({ status: "uploading" });
