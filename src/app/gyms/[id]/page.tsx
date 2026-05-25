@@ -151,10 +151,6 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             ))}
           </div>
 
-          {/* 예약 직전에 필요한 정보를 짧게 묶은 안내 섹션. 본문 dl(주소/운영시간/
-              휴관일), 종목별 이용료, 편의시설 chip과 정보가 겹치지 않도록 각 항목
-              문장을 줄이고, 카드는 3개(이용 안내 / 취소 안내 / 시설 정보)로 둔다.
-              공식 시설 안내 링크는 "시설 정보"에 통합한다. */}
           <section
             className="mt-6 rounded-md border border-slate-200 bg-slate-50 p-5"
             aria-label="예약 안내"
@@ -163,7 +159,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             <p className="mt-1 text-xs text-slate-500">
               예약하기 전에 아래 내용을 확인해 주세요.
             </p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
                 <h3 className="text-sm font-bold text-slate-950">이용 안내</h3>
                 <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
@@ -180,22 +176,6 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
                     있습니다.
                   </li>
                   <li>이용 일시가 지나면 자동으로 이용 완료로 표시됩니다.</li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-950">시설 정보</h3>
-                <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
-                  <li>휴관일: {gym.closedDays.join(", ")}</li>
-                  <li>
-                    <a
-                      href={gym.officialUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-                    >
-                      공식 시설 안내 (새 탭)
-                    </a>
-                  </li>
                 </ul>
               </div>
             </div>
@@ -227,16 +207,6 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             ))}
           </div>
           <ReserveCtaButton gymId={gym.id} />
-
-          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-            <h3 className="text-sm font-bold text-slate-950">예약 전 확인</h3>
-            <ul className="mt-2 grid gap-2 text-sm leading-6 text-slate-600">
-              <li>휴관일: {gym.closedDays.join(", ")}</li>
-              <li>운영시간: {gym.openHours}</li>
-              <li>최저 이용료: {formatGymPrice(lowestPrice)}</li>
-              <li>앱에서 만든 예약은 실제 시설 예약으로 접수되지 않습니다.</li>
-            </ul>
-          </div>
         </aside>
       </section>
     </main>
