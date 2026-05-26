@@ -621,12 +621,12 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             return (
               <article
                 key={reservation.id}
-                className={`grid gap-5 rounded-lg border bg-white p-5 shadow-sm lg:grid-cols-[1fr_auto] ${
+                className={`grid gap-5 rounded-lg border bg-white p-4 shadow-sm sm:p-5 lg:grid-cols-[1fr_auto] ${
                   isInactive ? "border-slate-200 opacity-70" : "border-slate-200"
                 }`}
                 aria-label={`${gymName} ${reservation.sport} 예약 - ${reservationStatusLabel[reservation.status]}`}
               >
-                <div>
+                <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
@@ -643,7 +643,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                     ) : null}
                   </div>
 
-                  <h2 className="mt-3 text-2xl font-bold text-slate-950">
+                  <h2 className="mt-3 break-keep text-xl font-bold text-slate-950 sm:text-2xl">
                     {gymName}
                   </h2>
 
@@ -682,10 +682,10 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                     </div>
                   </dl>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <Link
                       href={`/reservations/${encodeURIComponent(reservation.id)}`}
-                      className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      className="inline-flex h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:w-auto"
                     >
                       상세 보기
                     </Link>
@@ -695,7 +695,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                       <Link
                         href={`/reserve/${encodeURIComponent(reservation.gymId)}?sport=${encodeURIComponent(reservation.sport)}&date=${encodeURIComponent(reservation.date)}&time=${encodeURIComponent(reservation.time)}`}
                         aria-label={`${gymName} ${reservation.sport} ${reservation.date} ${reservation.time} 조건으로 다시 예약`}
-                        className="inline-flex h-10 items-center justify-center rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                        className="inline-flex h-10 w-full items-center justify-center rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 sm:w-auto"
                       >
                         다시 예약
                       </Link>

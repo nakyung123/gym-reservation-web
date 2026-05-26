@@ -163,8 +163,6 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
               <div>
                 <h3 className="text-sm font-bold text-slate-950">이용 안내</h3>
                 <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
-                  <li>운영 시간대 {gym.availableTimes.length}개</li>
-                  <li>최저 이용료 {formatGymPrice(lowestPrice)}부터</li>
                   <li>결제는 시설 안내를 따라주세요.</li>
                 </ul>
               </div>

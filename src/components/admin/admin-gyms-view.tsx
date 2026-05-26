@@ -552,7 +552,9 @@ export function AdminGymsView() {
                 <button
                   type="button"
                   onClick={() => void loadGyms()}
-                  disabled={!savedToken || gymsState.status === "loading"}
+                  disabled={
+                    !savedToken || gymsState.status === "loading" || saving
+                  }
                   className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                 >
                   새로고침
@@ -560,7 +562,8 @@ export function AdminGymsView() {
                 <button
                   type="button"
                   onClick={handleNew}
-                  className="h-10 rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                  disabled={saving}
+                  className="h-10 rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                 >
                   신규 시설
                 </button>
@@ -666,7 +669,8 @@ export function AdminGymsView() {
                         key={gym.id}
                         type="button"
                         onClick={() => handleSelectGym(gym)}
-                        className={`grid w-full gap-2 border-l-4 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                        disabled={saving}
+                        className={`grid w-full gap-2 border-l-4 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                           selected
                             ? "border-sky-500 bg-sky-50"
                             : "border-transparent hover:bg-slate-50"
@@ -724,7 +728,8 @@ export function AdminGymsView() {
                   onChange={(event) =>
                     updateDraft({ isActive: event.target.checked })
                   }
-                  className="h-4 w-4 rounded border-slate-300"
+                  disabled={saving}
+                  className="h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 운영 중
               </label>
@@ -755,7 +760,12 @@ export function AdminGymsView() {
               </p>
             ) : null}
 
-            <div className="mt-5 grid gap-4">
+            {/* 저장 중에는 폼 입력 전체를 잠가 응답 도착 시 사용자가 작업 중이던 입력이
+                덮어쓰이는 충돌을 막는다. fieldset 기본 스타일은 grid 레이아웃에 맞게 무력화. */}
+            <fieldset
+              disabled={saving}
+              className="mt-5 grid min-w-0 gap-4 border-0 p-0"
+            >
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
                   시설 ID
@@ -990,7 +1000,7 @@ export function AdminGymsView() {
                   입력 초기화
                 </button>
               </div>
-            </div>
+            </fieldset>
           </section>
         </div>
       </section>

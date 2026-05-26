@@ -1059,7 +1059,10 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               </>
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full border-collapse text-sm">
+                {/* 모바일에서는 폭이 좁아 break-all이 사용자 ID를 1자씩 세로로 떨어뜨린다.
+                    min-w로 좁은 viewport는 가로 스크롤로 풀리게 하고, w-full로 넓은
+                    viewport에서는 카드 폭을 그대로 채운다. */}
+                <table className="w-full min-w-[800px] border-collapse text-sm">
                   <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     <tr>
                       <th className="border-b border-slate-200 px-3 py-2 text-left">
