@@ -3,6 +3,11 @@ import { validateAdminGymPayload } from "@/lib/admin/admin-gym-schema";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
+import {
+  checkRateLimit,
+  extractClientIp,
+  rateLimitedJsonResponse,
+} from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +21,14 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ gymId: string }> },
 ) {
+  const ipLimit = await checkRateLimit({
+    scope: "admin-api:ip",
+    identifier: extractClientIp(request.headers),
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
+
   const auth = verifyAdminTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });

@@ -18,6 +18,10 @@ import {
   OAUTH_HANDOVER_COOKIE,
   safeEqualToken,
 } from "@/lib/server/oauth/oauth-state";
+import {
+  checkRateLimit,
+  extractClientIp,
+} from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +38,21 @@ export async function GET(request: NextRequest) {
   const state = params.get("state");
   const oauthError = params.get("error");
   const origin = request.nextUrl.origin;
+
+  // callback은 provider redirect라 정상 사용자는 1~2회만 호출. IP 기반으로 폭주만 차단.
+  const ipLimit = await checkRateLimit({
+    scope: "oauth-callback:ip",
+    identifier: extractClientIp(request.headers),
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!ipLimit.ok) {
+    return errorRedirect(
+      origin,
+      "rate_limited",
+      "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    );
+  }
 
   const cookieStore = await cookies();
   const attemptCookie = cookieStore.get(OAUTH_ATTEMPT_COOKIE);

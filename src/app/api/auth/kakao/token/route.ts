@@ -9,6 +9,11 @@ import {
   OAUTH_HANDOVER_COOKIE,
   safeEqualToken,
 } from "@/lib/server/oauth/oauth-state";
+import {
+  checkRateLimit,
+  extractClientIp,
+  rateLimitedJsonResponse,
+} from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +24,14 @@ export const dynamic = "force-dynamic";
 // 신규/기존 판정은 이 단계에서 하지 않는다 (finalize transaction이 결정).
 
 export async function POST(request: NextRequest) {
+  const ipLimit = await checkRateLimit({
+    scope: "oauth-token:ip",
+    identifier: extractClientIp(request.headers),
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
+
   let body: { ticketId?: unknown };
   try {
     body = (await request.json()) as typeof body;
@@ -36,6 +49,16 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  // ticketId 기반 제한: 같은 ticket을 5분 안에 10회까지만 customToken 교환 허용.
+  // ticket TTL과 동일 윈도우. ticketId 자체는 helper가 HMAC 해시한다.
+  const ticketLimit = await checkRateLimit({
+    scope: "oauth-token:ticket",
+    identifier: `kakao:${ticketId}`,
+    limit: 10,
+    windowMs: 5 * 60_000,
+  });
+  if (!ticketLimit.ok) return rateLimitedJsonResponse(ticketLimit);
 
   const cookieStore = await cookies();
   const nonceCookie = cookieStore.get(OAUTH_HANDOVER_COOKIE);

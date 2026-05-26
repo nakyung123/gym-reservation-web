@@ -8,6 +8,11 @@ import {
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
   updateReservationSlotPolicies,
 } from "@/lib/server/db-reservation-repository";
+import {
+  checkRateLimit,
+  extractClientIp,
+  rateLimitedJsonResponse,
+} from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +53,14 @@ function parseStringList(value: unknown): string[] | null {
 }
 
 export async function PATCH(request: NextRequest) {
+  const ipLimit = await checkRateLimit({
+    scope: "admin-api:ip",
+    identifier: extractClientIp(request.headers),
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
+
   const auth = verifyAdminTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });

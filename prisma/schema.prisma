@@ -156,6 +156,23 @@ model OAuthAttempt {
   @@map("oauth_attempts")
 }
 
+// 범용 rate limit bucket. scope + identifierHash + windowStart 복합 PK로 같은 윈도우의
+// 같은 식별자 요청을 누적 카운트한다. identifierHash는 helper(src/lib/server/rate-limit.ts)가
+// HMAC-SHA256(RATE_LIMIT_HMAC_SECRET, raw)로 산출한 hex 문자열이다. 원문 IP/email/token은
+// 절대 저장하지 않는다. 만료된 행은 helper 호출 시 opportunistic cleanup.
+model RateLimitBucket {
+  scope          String   @db.VarChar(64)
+  identifierHash String   @map("identifier_hash") @db.VarChar(64)
+  windowStart    DateTime @map("window_start") @db.Timestamp(3)
+  count          Int      @default(0)
+  expiresAt      DateTime @map("expires_at") @db.Timestamp(3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  @@id([scope, identifierHash, windowStart])
+  @@index([expiresAt], map: "idx_rate_limit_expires")
+  @@map("rate_limit_buckets")
+}
+
 // /callback 이후 클라이언트 handover 흐름을 control하는 1회용 ticket.
 // 상태 머신: "pending" -> "token_issued" -> "signed_in" -> "finalized".
 //   pending      : callback 완료, customToken 미발급

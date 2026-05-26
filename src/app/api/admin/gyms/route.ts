@@ -6,6 +6,20 @@ import {
   createAdminGym,
   listAdminGyms,
 } from "@/lib/server/db-gym-admin-repository";
+import {
+  checkRateLimit,
+  extractClientIp,
+  rateLimitedJsonResponse,
+} from "@/lib/server/rate-limit";
+
+async function enforceAdminApiIpLimit(request: NextRequest) {
+  return checkRateLimit({
+    scope: "admin-api:ip",
+    identifier: extractClientIp(request.headers),
+    limit: 60,
+    windowMs: 60_000,
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +31,9 @@ function mutationStatusCode(status: string): number {
 }
 
 export async function GET(request: NextRequest) {
+  const ipLimit = await enforceAdminApiIpLimit(request);
+  if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
+
   const auth = verifyAdminTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });
@@ -36,6 +53,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const ipLimit = await enforceAdminApiIpLimit(request);
+  if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
+
   const auth = verifyAdminTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });

@@ -14,6 +14,11 @@ import {
   OAUTH_HANDOVER_COOKIE,
   safeEqualToken,
 } from "@/lib/server/oauth/oauth-state";
+import {
+  checkRateLimit,
+  extractClientIp,
+  rateLimitedJsonResponse,
+} from "@/lib/server/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +28,16 @@ const FINALIZE_FAILURE_MESSAGE = "로그인 마감 처리에 실패했습니다.
 // 익명 흐름 제거 후 migration이 사라져 profile sync만 수행.
 
 export async function POST(request: NextRequest) {
+  // IP 기반만 추가. ticket 기반 제한은 기존 handover_tickets.finalize_attempt_count(MAX 5)에서
+  // 이미 강제하므로 중복 구현 안 함.
+  const ipLimit = await checkRateLimit({
+    scope: "oauth-finalize:ip",
+    identifier: extractClientIp(request.headers),
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
+
   const auth = await verifyIdTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });
