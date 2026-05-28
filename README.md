@@ -8,7 +8,7 @@
 
 사용자는 서울 공공체육시설 샘플 데이터를 바탕으로 체육관을 검색하고, 종목과 날짜, 시간대를 선택해 예약을 생성할 수 있습니다. 생성된 예약은 실제 시설 예약으로 접수되지 않으며, 예약 흐름과 운영 관리 기능을 검증하기 위한 데이터로 동작합니다.
 
-현재 저장소는 Postgres(운영: Supabase / 로컬: Docker)와 Prisma 6을 기본 데이터 저장소로 사용하고, Firebase Auth(이메일·Google·카카오·네이버)로 사용자를 식별합니다. 관리자 화면에서는 예약 상태, 시간대별 슬롯, 시설 정보를 관리할 수 있습니다.
+현재 저장소는 Postgres(운영: Supabase / 로컬: Docker)와 Prisma 6을 기본 데이터 저장소로 사용하고, Firebase Auth(이메일·Google·카카오·네이버)로 사용자를 식별합니다. 관리자 API는 Firebase ID 토큰의 custom claim `admin: true`로 권한을 확인하며, 관리자 페이지는 별도 Basic Auth로 1차 잠금을 겁니다. 관리자 화면에서는 예약 상태, 시간대별 슬롯, 시설 정보를 관리할 수 있습니다.
 
 ## 주요 기능
 
@@ -17,6 +17,7 @@
 - 체육관 상세 정보, 운영시간, 휴관일, 종목별 이용료 확인
 - 즐겨찾기 등록 및 해제
 - Firebase Auth(이메일·Google·카카오·네이버) 통합 로그인과 사용자 식별
+- Firebase App Check(reCAPTCHA v3) 클라이언트 통합
 - 예약 생성, 목록 조회, 상세 조회, 취소
 - 예약 목록과 상세 화면의 모바일 입장권 확인
 - 동일 사용자 기준 중복 활성 예약 방지
@@ -48,15 +49,12 @@ npm install
 
 ### 2. 환경 변수 설정
 
-`.env.local`에 Firebase 웹 앱 설정, Postgres 연결 정보, 관리자 API 토큰을 설정합니다. 실제 값은 저장소에 커밋하지 않습니다. 자세한 항목은 `.env.example` 주석을 참고하세요.
+`.env.local`에 Firebase 웹 앱 설정과 Postgres 연결 정보를 설정합니다. 실제 값은 저장소에 커밋하지 않습니다. 자세한 항목은 `.env.example` 주석을 참고하세요.
 
 ```bash
 # Postgres (운영은 Supabase의 POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING 매핑)
 DATABASE_URL=postgresql://...
 DIRECT_URL=postgresql://...
-
-# 관리자 API
-ADMIN_API_TOKEN=
 
 # Firebase 클라이언트
 NEXT_PUBLIC_FIREBASE_API_KEY=
@@ -65,11 +63,11 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY=
 
-# Firebase Admin (서버 ID 토큰 검증)
-FIREBASE_ADMIN_PROJECT_ID=
-FIREBASE_ADMIN_CLIENT_EMAIL=
-FIREBASE_ADMIN_PRIVATE_KEY=
+# Firebase Admin (서버 ID 토큰 검증, custom claim 확인)
+GOOGLE_APPLICATION_CREDENTIALS=./secrets/firebase-admin.json
+# 또는 FIREBASE_ADMIN_PROJECT_ID / FIREBASE_ADMIN_CLIENT_EMAIL / FIREBASE_ADMIN_PRIVATE_KEY
 
 # 카카오/네이버 OAuth (서버 전용)
 KAKAO_REST_API_KEY=
@@ -83,6 +81,11 @@ NAVER_REDIRECT_URI=http://localhost:3000/api/auth/naver/callback
 NEXT_PUBLIC_GYM_DATA_BACKEND=db
 NEXT_PUBLIC_FAVORITE_DATA_BACKEND=db
 NEXT_PUBLIC_RESERVATION_DATA_BACKEND=db
+
+# 관리자 페이지 Basic Auth와 rate limit HMAC (서버 전용)
+ADMIN_PAGE_USER=
+ADMIN_PAGE_PASSWORD=
+RATE_LIMIT_HMAC_SECRET=
 ```
 
 로컬 dev DB는 `docker compose up -d`로 Postgres 컨테이너를 띄운 뒤 위 환경변수를 채웁니다.
@@ -110,7 +113,9 @@ npm run dev
 - `/admin/reservation-slots`: 날짜, 종목, 시간대별 정원과 마감 상태 단건/일괄 관리
 - `/admin/gyms`: 시설 추가, 수정, 활성/비활성 관리
 
-관리자 API 요청에는 `.env.local`의 `ADMIN_API_TOKEN`과 같은 값을 화면에 저장해야 합니다. 토큰은 브라우저 `sessionStorage`에만 저장됩니다.
+관리자 API(`/api/admin/*`)는 Firebase ID 토큰의 custom claim `admin: true`가 부여된 계정으로 로그인한 상태에서만 동작합니다. claim은 운영자가 Firebase Admin SDK 또는 별도 운영 도구로 사전에 부여해야 합니다. 이 저장소에는 claim 부여용 범용 스크립트를 포함하지 않습니다.
+
+`/admin` 페이지의 Basic Auth는 API 권한과 별개인 1차 잠금입니다. 자격은 `.env.local` 또는 운영 환경 변수의 `ADMIN_PAGE_USER` / `ADMIN_PAGE_PASSWORD`로 설정합니다.
 
 ## 프로젝트 구조
 
@@ -137,13 +142,14 @@ gym-reservation-web/
 
 ```text
 Client UI
-  ├─ Firebase Auth (이메일/Google/카카오/네이버)
+  ├─ Firebase Auth + App Check (이메일/Google/카카오/네이버)
   ├─ 사용자 예약/즐겨찾기/프로필/탈퇴 API 호출
-  └─ 관리자 API 호출
+  └─ 관리자 API 호출 (Firebase ID token 첨부)
 
 Next.js Route Handler
   ├─ Firebase ID token 검증 (Firebase Admin)
-  ├─ 관리자 token 검증
+  ├─ 관리자 custom claim admin=true 검증
+  ├─ OAuth/admin API rate limit
   └─ 도메인 서비스 호출
 
 Repository / Service
@@ -159,10 +165,13 @@ Postgres (Supabase 운영 / Docker dev)
   ├─ reservations / reservation_locks / reservation_slots
   ├─ user_profiles
   ├─ withdrawal_reasons (익명 사유 통계)
-  └─ oauth_attempts / auth_handover_tickets (카카오·네이버 흐름)
+  ├─ oauth_attempts / auth_handover_tickets (카카오·네이버 흐름)
+  └─ rate_limit_buckets (DB 기반 rate limit)
 ```
 
 데이터 소스는 repository provider에서 선택합니다. 기본값은 `db`(Postgres)이며 `mock`/`local` 어댑터는 시연/dev 보조용입니다. 옛 환경 변수 `NEXT_PUBLIC_*_DATA_SOURCE`는 폐기됐고 살아 있으면 명시적으로 throw합니다.
+
+Supabase 운영 DB는 주요 public 테이블에 RLS를 활성화하고 정책을 두지 않는 deny-default 방식을 사용합니다. 앱 서버의 Prisma 연결은 서버 전용 경계에서만 사용하며, 브라우저는 Supabase 클라이언트로 DB에 직접 접근하지 않습니다.
 
 ## 기술적 이슈 & 해결
 
@@ -186,18 +195,30 @@ Postgres (Supabase 운영 / Docker dev)
 
 관리자 슬롯 변경은 단건 저장과 일괄 저장 모두 같은 서버 검증을 통과해야 합니다. 존재하지 않는 시설·종목 조합, 변경 대상 시설 불일치, 예약 인원보다 낮은 정원, 허용 범위를 벗어난 정원은 저장하지 않고 명시적인 오류를 반환합니다.
 
+### 관리자 API 인증과 rate limit
+
+관리자 페이지(`/admin`)는 Basic Auth로 1차 잠금을 걸고, 관리자 API(`/api/admin/*`)는 Firebase ID 토큰의 custom claim `admin: true`를 서버에서 검증합니다. 이전의 공유 시크릿 기반 `x-admin-token` / `ADMIN_API_TOKEN` 방식은 사용하지 않습니다.
+
+OAuth 시작·callback·token·finalize 흐름과 관리자 API, 관리자 페이지는 DB 기반 rate limit을 통과해야 합니다. 식별자는 `RATE_LIMIT_HMAC_SECRET`으로 HMAC 해시해 저장하며, 원문 IP·ticket·token 값은 저장하지 않습니다.
+
+### 서버 오류 응답
+
+API 서버 오류는 사용자에게 generic 메시지로 응답하고, 내부 오류의 원문 message/stack은 응답에 포함하지 않습니다. 서버 로그에는 오류 타입, 이름, whitelist된 오류 코드처럼 안전한 진단 정보만 남깁니다.
+
 ## 성능 개선
 
 - 체육관 목록과 상세 화면은 Server Component에서 데이터를 조회해 초기 렌더링에 필요한 클라이언트 JavaScript를 줄였습니다.
 - `/gyms/[id]`, `/reserve/[gymId]`는 현재 활성 체육관 목록을 기준으로 정적 경로를 생성합니다.
 - 예약 가능 시간대는 시설의 `availableTimes`와 저장된 `reservation_slots`를 조합해 필요한 날짜·종목 범위만 조회합니다.
 - 관리자 화면은 목록 조회와 저장 요청을 분리해 필요한 시점에만 API를 호출합니다.
+- Firebase App Check는 site key가 있는 브라우저 환경에서만 초기화되며, Firebase SDK가 App Check 토큰을 자동으로 첨부합니다.
 
 ## 테스트
 
 ```bash
 npx tsc --noEmit --pretty false
 npm run lint
+npm run test:unit
 npm run test
 npm run build
 ```
@@ -217,6 +238,9 @@ npm run build
 - 사용자 예약 상세 조회
 - 관리자 운영 요약 집계
 - 관리자 시설 추가, 수정, 비활성화 정책
+- 관리자 custom claim 인증
+- OAuth/admin API rate limit
+- 서버 오류 응답의 원문 메시지 비노출
 
 ## 향후 개선 계획
 
@@ -226,4 +250,4 @@ npm run build
 - 내 정보와 설정 화면 확장
 - 소모임 기능 검토
 - 예약 알림 기능 검토 (FCM 또는 이메일)
-- Upstash Redis + rate limit 도입 (OAuth start / nickname 가용성 / 민감 액션)
+- 결제 도입 시 서버 기준 금액 검증과 결제 상태 도메인 설계
