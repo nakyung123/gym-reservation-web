@@ -1,17 +1,22 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, PATCH } from "@/app/api/admin/reservations/[reservationId]/route";
+import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-const adminToken = "test-admin-token";
+vi.mock("@/lib/server/admin-auth", () => ({
+  verifyAdminTokenFromRequest: vi.fn(),
+}));
 
-function requestFor(reservationId: string, token = adminToken): NextRequest {
+const ADMIN_BEARER = "Bearer admin-test-id-token";
+
+function requestFor(reservationId: string, bearer = ADMIN_BEARER): NextRequest {
   return new NextRequest(
     `http://localhost:3000/api/admin/reservations/${encodeURIComponent(reservationId)}`,
     {
-      headers: { "x-admin-token": token },
+      headers: { authorization: bearer },
     },
   );
 }
@@ -19,15 +24,15 @@ function requestFor(reservationId: string, token = adminToken): NextRequest {
 function patchRequestFor(
   reservationId: string,
   status: unknown,
-  token = adminToken,
+  bearer = ADMIN_BEARER,
 ): NextRequest {
-  return rawPatchRequestFor(reservationId, JSON.stringify({ status }), token);
+  return rawPatchRequestFor(reservationId, JSON.stringify({ status }), bearer);
 }
 
 function rawPatchRequestFor(
   reservationId: string,
   body: BodyInit,
-  token = adminToken,
+  bearer = ADMIN_BEARER,
 ): NextRequest {
   return new NextRequest(
     `http://localhost:3000/api/admin/reservations/${encodeURIComponent(reservationId)}`,
@@ -35,11 +40,26 @@ function rawPatchRequestFor(
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": token,
+        authorization: bearer,
       },
       body,
     },
   );
+}
+
+function setAdminAuthOk() {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValue({
+    ok: true,
+    uid: "admin-test-uid",
+  });
+}
+
+function setAdminAuthError(status: 401 | 403, message: string) {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValueOnce({
+    ok: false,
+    status,
+    message,
+  });
 }
 
 function contextFor(reservationId: string) {
@@ -72,14 +92,14 @@ async function getSlotReservedCount(input: {
 
 describe("GET /api/admin/reservations/[reservationId]", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰이 있으면 예약 단건을 조회한다", async () => {
+  it("관리자 인증이 있으면 예약 단건을 조회한다", async () => {
     const created = await createReservationInDb({
       userId: "admin-detail-user",
       draft: {
@@ -108,7 +128,9 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
     });
   });
 
-  it("관리자 토큰이 없으면 조회하지 않는다", async () => {
+  it("Authorization 헤더가 없으면 조회하지 않는다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const response = await GET(
       new NextRequest(
         "http://localhost:3000/api/admin/reservations/missing-reservation",
@@ -118,11 +140,11 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
   });
 
-  it("returns 503 when the admin token is not configured", async () => {
-    delete process.env.ADMIN_API_TOKEN;
+  it("admin claim이 없으면 403을 반환한다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
 
     const response = await GET(
       requestFor("missing-reservation"),
@@ -130,21 +152,8 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
     );
     const body = (await response.json()) as { message?: unknown };
 
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
-  });
-
-  it("관리자 토큰이 틀리면 403을 반환한다", async () => {
-    const response = await GET(
-      requestFor("missing-reservation", "wrong-token"),
-      contextFor("missing-reservation"),
-    );
-    const body = (await response.json()) as { message?: unknown };
-
     expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
+    expect(body.message).toBe("관리자 권한이 없습니다.");
   });
 
   it("존재하지 않는 예약 ID는 404를 반환한다", async () => {
@@ -177,14 +186,14 @@ describe("GET /api/admin/reservations/[reservationId]", () => {
 
 describe("PATCH /api/admin/reservations/[reservationId]", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰이 있으면 예약을 이용 완료 처리한다", async () => {
+  it("관리자 인증이 있으면 예약을 이용 완료 처리한다", async () => {
     const created = await createReservationInDb({
       userId: "admin-patch-user",
       draft: {
@@ -253,7 +262,9 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     ).resolves.not.toBeNull();
   });
 
-  it("관리자 토큰이 없으면 예약 상태를 변경하지 않는다", async () => {
+  it("Authorization 헤더가 없으면 예약 상태를 변경하지 않는다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const created = await createReservationInDb({
       userId: "admin-patch-auth-user",
       draft: {
@@ -281,54 +292,22 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
     });
     expect(row.status).toBe("reserved");
   });
 
-  it("wrong admin token returns 403 and keeps the reservation unchanged", async () => {
+  it("admin claim이 없으면 403을 반환하고 예약을 변경하지 않는다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
+
     const created = await createReservationInDb({
-      userId: "admin-patch-wrong-token-user",
+      userId: "admin-patch-no-claim-user",
       draft: {
         gymId: TEST_GYM.id,
         sport: TEST_GYM.sports[0],
         date: futureDate(10),
-        time: "10:00",
-      },
-      gym: TEST_GYM,
-    });
-    expect(created.ok).toBe(true);
-    if (!created.ok) return;
-
-    const response = await PATCH(
-      patchRequestFor(created.reservation.id, "used", "wrong-token"),
-      contextFor(created.reservation.id),
-    );
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
-    const row = await prisma.reservation.findUniqueOrThrow({
-      where: { id: created.reservation.id },
-    });
-    expect(row.status).toBe("reserved");
-    await expect(
-      prisma.reservationLock.findUnique({
-        where: { activeKey: row.activeKey },
-      }),
-    ).resolves.not.toBeNull();
-  });
-
-  it("returns 503 and keeps the reservation unchanged when the admin token is not configured", async () => {
-    delete process.env.ADMIN_API_TOKEN;
-    const created = await createReservationInDb({
-      userId: "admin-patch-missing-config-user",
-      draft: {
-        gymId: TEST_GYM.id,
-        sport: TEST_GYM.sports[0],
-        date: futureDate(16),
         time: "10:00",
       },
       gym: TEST_GYM,
@@ -342,10 +321,8 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     );
     const body = (await response.json()) as { message?: unknown };
 
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
+    expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 권한이 없습니다.");
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
     });

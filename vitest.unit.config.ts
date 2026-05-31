@@ -16,7 +16,16 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["src/lib/server/admin-page-auth.test.ts"],
+    include: [
+      "src/lib/server/admin-page-auth.test.ts",
+      "src/lib/server/admin-auth.test.ts",
+      "src/lib/server/api-error-response.test.ts",
+      "src/lib/admin/admin-auth-headers.test.ts",
+      "src/lib/admin/admin-gym-client.test.ts",
+      "src/lib/admin/admin-overview-client.test.ts",
+      "src/lib/admin/admin-reservation-client.test.ts",
+      "src/lib/admin/admin-reservation-slot-client.test.ts",
+    ],
   },
   resolve: {
     alias: {

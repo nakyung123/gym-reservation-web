@@ -7,7 +7,6 @@ import {
   fetchAdminReservations,
   updateAdminReservationStatus,
 } from "@/lib/admin/admin-reservation-client";
-import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
 import {
   AdminButtonSpinner,
@@ -115,8 +114,6 @@ function countByStatus(reservations: Reservation[]) {
 }
 
 export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
-  const [tokenInput, setTokenInput] = useState("");
-  const [savedToken, setSavedToken] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] =
     useState<ReservationFilter>("reserved");
   const [selectedGymId, setSelectedGymId] = useState("");
@@ -174,25 +171,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
   const isLimitValid =
     Number.isInteger(parsedLimit) && parsedLimit >= 1 && parsedLimit <= 200;
   const canQuery =
-    Boolean(savedToken) &&
-    isLimitValid &&
-    !actionState &&
-    reservationsState.status !== "loading";
-
-  // hydration 이후 sessionStorage의 토큰을 한 번만 읽는다.
-  // 토큰 평문을 input value에 되채우지 않는다 (DOM/스냅샷 평문 노출 방지).
-  // savedToken만 복원하면 조회는 그대로 동작하고, 입력란은 빈 채로 둔다.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const timer = window.setTimeout(() => {
-      const stored = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-      if (stored) {
-        setSavedToken(stored);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
+    isLimitValid && !actionState && reservationsState.status !== "loading";
 
   // 현재 필터 값을 키 문자열로 보관. handleQuery에서 fetch 전 캡처해
   // 응답 도착 시 stale 여부를 비교한다.
@@ -269,67 +248,51 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     setDetailState({ status: "idle" });
   }, []);
 
-  const handleOpenDetail = useCallback(
-    async (reservationId: string) => {
-      if (!savedToken) {
-        setDetailState({
-          status: "error",
-          reservationId,
-          message: "관리자 토큰을 저장한 뒤 상세를 조회할 수 있습니다.",
-        });
+  const handleOpenDetail = useCallback(async (reservationId: string) => {
+    // 직전 상세 요청은 abort. 응답 도착 시점에 사용자가 다른 행을 눌렀거나
+    // 닫았다면 그 응답이 현재 화면을 덮지 않게 한다.
+    detailAbortRef.current?.abort();
+    const controller = new AbortController();
+    detailAbortRef.current = controller;
+
+    setDetailState({ status: "loading", reservationId });
+
+    let result;
+    try {
+      result = await fetchAdminReservation(reservationId, controller.signal);
+    } catch (error) {
+      if (isAbortError(error)) {
         return;
       }
-
-      // 직전 상세 요청은 abort. 응답 도착 시점에 사용자가 다른 행을 눌렀거나
-      // 닫았다면 그 응답이 현재 화면을 덮지 않게 한다.
-      detailAbortRef.current?.abort();
-      const controller = new AbortController();
-      detailAbortRef.current = controller;
-
-      setDetailState({ status: "loading", reservationId });
-
-      let result;
-      try {
-        result = await fetchAdminReservation(
-          reservationId,
-          savedToken,
-          controller.signal,
-        );
-      } catch (error) {
-        if (isAbortError(error)) {
-          return;
-        }
-        // helper가 abort 외 예외는 result로 변환하므로 여기는 사실상 도달하지 않음.
-        setDetailState({
-          status: "error",
-          reservationId,
-          message:
-            error instanceof Error
-              ? error.message
-              : "예약 상세를 불러오지 못했습니다.",
-        });
-        return;
-      }
-
-      // 응답 도착 시점에 controller가 교체되었다면(다른 요청이 시작됐다면) 무시.
-      if (detailAbortRef.current !== controller) {
-        return;
-      }
-      detailAbortRef.current = null;
-
-      if (result.ok) {
-        setDetailState({ status: "ready", reservation: result.reservation });
-        return;
-      }
-
+      // helper가 abort 외 예외는 result로 변환하므로 여기는 사실상 도달하지 않음.
       setDetailState({
         status: "error",
         reservationId,
-        message: result.message,
+        message:
+          error instanceof Error
+            ? error.message
+            : "예약 상세를 불러오지 못했습니다.",
       });
-    },
-    [savedToken],
-  );
+      return;
+    }
+
+    // 응답 도착 시점에 controller가 교체되었다면(다른 요청이 시작됐다면) 무시.
+    if (detailAbortRef.current !== controller) {
+      return;
+    }
+    detailAbortRef.current = null;
+
+    if (result.ok) {
+      setDetailState({ status: "ready", reservation: result.reservation });
+      return;
+    }
+
+    setDetailState({
+      status: "error",
+      reservationId,
+      message: result.message,
+    });
+  }, []);
 
   // unmount 시 진행 중 목록/상세/상태 변경 요청을 모두 abort.
   useEffect(() => {
@@ -343,42 +306,8 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     };
   }, []);
 
-  const handleSaveToken = useCallback(() => {
-    const trimmed = tokenInput.trim();
-    if (!trimmed) {
-      return;
-    }
-    window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmed);
-    setSavedToken(trimmed);
-  }, [tokenInput]);
-
-  const handleForgetToken = useCallback(() => {
-    window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-    setSavedToken(null);
-    setTokenInput("");
-    setReservationsState({ status: "idle" });
-    setNotice(null);
-    setConfirmCancelId(null);
-    listAbortRef.current?.abort();
-    listAbortRef.current = null;
-    detailAbortRef.current?.abort();
-    detailAbortRef.current = null;
-    actionAbortRef.current?.abort();
-    actionAbortRef.current = null;
-    setDetailState({ status: "idle" });
-    setActionState(null);
-  }, []);
-
   const handleQuery = useCallback(async () => {
     if (actionState) {
-      return;
-    }
-
-    if (!savedToken) {
-      setReservationsState({
-        status: "error",
-        message: "관리자 토큰을 저장한 뒤 조회할 수 있습니다.",
-      });
       return;
     }
 
@@ -420,7 +349,6 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           userId: userIdInput.trim() || undefined,
           limit: parsedLimit,
         },
-        savedToken,
         controller.signal,
       );
     } catch (error) {
@@ -466,7 +394,6 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     isLimitValid,
     parsedLimit,
     actionState,
-    savedToken,
     selectedDate,
     selectedGymId,
     selectedStatus,
@@ -477,7 +404,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     reservation: Reservation,
     nextStatus: "used" | "cancelled",
   ) => {
-    if (!savedToken || actionState) {
+    if (actionState) {
       return;
     }
 
@@ -494,7 +421,6 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
       result = await updateAdminReservationStatus(
         reservation.id,
         nextStatus,
-        savedToken,
         controller.signal,
       );
     } catch (error) {
@@ -538,10 +464,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
       actionIsPending && actionState.nextStatus === "cancelled";
     const isMarkingUsed =
       actionIsPending && actionState.nextStatus === "used";
-    const canAct =
-      reservation.status === "reserved" &&
-      Boolean(savedToken) &&
-      !actionState;
+    const canAct = reservation.status === "reserved" && !actionState;
 
     if (reservation.status !== "reserved") {
       return (
@@ -618,6 +541,9 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
             <h1 className="mt-1 text-2xl font-bold text-slate-950">
               예약 관리
             </h1>
+            <p className="mt-1 text-xs text-slate-500">
+              관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 동작합니다.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -634,47 +560,6 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
             </Link>
           </div>
         </header>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">관리자 토큰</h2>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input
-              type="password"
-              value={tokenInput}
-              onChange={(event) => setTokenInput(event.target.value)}
-              placeholder="x-admin-token 값"
-              autoComplete="off"
-              spellCheck={false}
-              className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSaveToken}
-                disabled={tokenInput.trim().length === 0}
-                className="h-10 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-              >
-                토큰 저장
-              </button>
-              <button
-                type="button"
-                onClick={handleForgetToken}
-                disabled={!savedToken && tokenInput.length === 0}
-                className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-              >
-                토큰 잊기
-              </button>
-            </div>
-          </div>
-          <p
-            className={`mt-2 text-xs font-semibold ${savedToken ? "text-emerald-700" : "text-amber-700"}`}
-            role="status"
-          >
-            {savedToken
-              ? "토큰이 세션에 저장되어 관리자 요청에 사용됩니다."
-              : "저장된 토큰이 없습니다."}
-          </p>
-        </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-950">조회 조건</h2>
@@ -1114,7 +999,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                             <button
                               type="button"
                               onClick={() => handleOpenDetail(reservation.id)}
-                              disabled={!savedToken || isDetailLoading}
+                              disabled={isDetailLoading}
                               className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                               aria-pressed={isSelectedDetail}
                             >

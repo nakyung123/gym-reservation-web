@@ -11,7 +11,6 @@ import {
   fetchAdminGyms,
   updateAdminGym,
 } from "@/lib/admin/admin-gym-client";
-import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
 import {
   AdminButtonSpinner,
@@ -282,8 +281,6 @@ function buildPayload(
 }
 
 export function AdminGymsView() {
-  const [tokenInput, setTokenInput] = useState("");
-  const [savedToken, setSavedToken] = useState<string | null>(null);
   const [gymsState, setGymsState] = useState<GymsState>({ status: "idle" });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -320,62 +317,29 @@ export function AdminGymsView() {
     [gyms],
   );
 
-  const loadGyms = useCallback(
-    async (tokenOverride?: string) => {
-      const token = tokenOverride ?? savedToken;
-      if (!token) {
-        setGymsState({
-          status: "error",
-          message: "관리자 토큰을 저장한 뒤 시설 목록을 조회할 수 있습니다.",
-        });
-        return;
-      }
+  const loadGyms = useCallback(async () => {
+    setGymsState({ status: "loading" });
+    setNotice(null);
+    const result = await fetchAdminGyms();
 
-      setGymsState({ status: "loading" });
-      setNotice(null);
-      const result = await fetchAdminGyms(token);
+    if (result.ok) {
+      setGymsState({ status: "ready", gyms: sortGyms(result.gyms) });
+      return;
+    }
 
-      if (result.ok) {
-        setGymsState({ status: "ready", gyms: sortGyms(result.gyms) });
-        return;
-      }
+    setGymsState({ status: "error", message: result.message });
+  }, []);
 
-      setGymsState({ status: "error", message: result.message });
-    },
-    [savedToken],
-  );
-
-  // hydration 이후 sessionStorage의 토큰을 한 번만 읽는다.
-  // 토큰 평문을 input value에 되채우지 않는다 (DOM/스냅샷 평문 노출 방지).
-  // savedToken만 복원하면 목록 로드/조회는 그대로 동작하고, 입력란은 빈 채로 둔다.
+  // 마운트 직후 한 번 시설 목록을 자동 로드한다. Authorization 헤더는
+  // admin client helper가 현재 로그인된 Firebase user의 ID token을 첨부한다.
+  // effect body에서 곧바로 setState(loading)를 호출하지 않도록 setTimeout(0)로 미뤄
+  // cascading render 경고를 피한다.
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const timer = window.setTimeout(() => {
-      const stored = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-      if (stored) {
-        setSavedToken(stored);
-        void loadGyms(stored);
-      }
+      void loadGyms();
     }, 0);
-
     return () => window.clearTimeout(timer);
   }, [loadGyms]);
-
-  const handleSaveToken = () => {
-    const trimmed = tokenInput.trim();
-    if (!trimmed) return;
-    window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmed);
-    setSavedToken(trimmed);
-    void loadGyms(trimmed);
-  };
-
-  const handleForgetToken = () => {
-    window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-    setSavedToken(null);
-    setTokenInput("");
-    setGymsState({ status: "idle" });
-    setNotice(null);
-  };
 
   const handleNew = () => {
     setFormMode("create");
@@ -415,11 +379,7 @@ export function AdminGymsView() {
   };
 
   const handleSave = async () => {
-    if (!savedToken || saving) {
-      setNotice({
-        tone: "error",
-        message: "관리자 토큰을 저장한 뒤 시설 정보를 저장할 수 있습니다.",
-      });
+    if (saving) {
       return;
     }
 
@@ -434,11 +394,10 @@ export function AdminGymsView() {
 
     const result =
       formMode === "create"
-        ? await createAdminGym(payload.payload as AdminGym, savedToken)
+        ? await createAdminGym(payload.payload as AdminGym)
         : await updateAdminGym(
             draft.id,
             payload.payload as AdminGymUpdateInput,
-            savedToken,
           );
 
     if (result.ok) {
@@ -465,6 +424,9 @@ export function AdminGymsView() {
             <h1 className="mt-1 text-2xl font-bold text-slate-950">
               시설 관리
             </h1>
+            <p className="mt-1 text-xs text-slate-500">
+              관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 동작합니다.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -487,47 +449,6 @@ export function AdminGymsView() {
             </Link>
           </div>
         </header>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">관리자 토큰</h2>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input
-              type="password"
-              value={tokenInput}
-              onChange={(event) => setTokenInput(event.target.value)}
-              placeholder="x-admin-token 값"
-              autoComplete="off"
-              spellCheck={false}
-              className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSaveToken}
-                disabled={tokenInput.trim().length === 0}
-                className="h-10 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-              >
-                토큰 저장
-              </button>
-              <button
-                type="button"
-                onClick={handleForgetToken}
-                disabled={!savedToken && tokenInput.length === 0}
-                className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-              >
-                토큰 잊기
-              </button>
-            </div>
-          </div>
-          <p
-            className={`mt-2 text-xs font-semibold ${savedToken ? "text-emerald-700" : "text-amber-700"}`}
-            role="status"
-          >
-            {savedToken
-              ? "토큰이 세션에 저장되어 관리자 요청에 사용됩니다."
-              : "저장된 토큰이 없습니다."}
-          </p>
-        </section>
 
         {notice ? (
           <div
@@ -552,9 +473,7 @@ export function AdminGymsView() {
                 <button
                   type="button"
                   onClick={() => void loadGyms()}
-                  disabled={
-                    !savedToken || gymsState.status === "loading" || saving
-                  }
+                  disabled={gymsState.status === "loading" || saving}
                   className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
                 >
                   새로고침
@@ -605,13 +524,6 @@ export function AdminGymsView() {
                 )}
               </div>
             </div>
-
-            {gymsState.status === "idle" ? (
-              <AdminEmptyState
-                title="관리자 토큰이 필요합니다"
-                description="토큰을 저장하면 시설 목록을 자동으로 불러옵니다."
-              />
-            ) : null}
 
             {gymsState.status === "loading" ? (
               <AdminLoadingRow message="시설 목록을 불러오는 중입니다." />

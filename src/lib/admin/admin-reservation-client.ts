@@ -1,5 +1,6 @@
 "use client";
 
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isReservation } from "@/lib/reservation-repository";
 import type { Reservation, ReservationStatus } from "@/types/domain";
 
@@ -75,15 +76,17 @@ function buildReservationsUrl(filters: AdminReservationFilters): string {
 
 export async function fetchAdminReservation(
   reservationId: string,
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminReservationDetailResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch(
       `/api/admin/reservations/${encodeURIComponent(reservationId)}`,
       {
-        headers: { "x-admin-token": token },
+        headers: auth.headers,
         signal,
       },
     );
@@ -132,13 +135,15 @@ export async function fetchAdminReservation(
 
 export async function fetchAdminReservations(
   filters: AdminReservationFilters,
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminReservationListResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch(buildReservationsUrl(filters), {
-      headers: { "x-admin-token": token },
+      headers: auth.headers,
       signal,
     });
   } catch (error) {
@@ -191,9 +196,11 @@ export async function fetchAdminReservations(
 export async function updateAdminReservationStatus(
   reservationId: string,
   status: "used" | "cancelled",
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminReservationActionResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch(
@@ -202,7 +209,7 @@ export async function updateAdminReservationStatus(
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-token": token,
+          ...auth.headers,
         },
         body: JSON.stringify({ status }),
         signal,

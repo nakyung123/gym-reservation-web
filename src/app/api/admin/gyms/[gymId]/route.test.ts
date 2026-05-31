@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/gyms/[gymId]/route";
+import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import {
   cancelReservationAsAdminInDb,
   createReservationInDb,
@@ -10,7 +11,11 @@ import { prisma } from "@/lib/server/prisma-client";
 import type { AdminGym } from "@/types/domain";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-const adminToken = "test-admin-token";
+vi.mock("@/lib/server/admin-auth", () => ({
+  verifyAdminTokenFromRequest: vi.fn(),
+}));
+
+const ADMIN_BEARER = "Bearer admin-test-id-token";
 
 const updateBody: Omit<AdminGym, "id"> = {
   ...TEST_GYM,
@@ -23,30 +28,45 @@ function contextFor(gymId: string) {
   return { params: Promise.resolve({ gymId }) };
 }
 
-function patchRequest(body: unknown, token = adminToken) {
+function patchRequest(body: unknown, bearer = ADMIN_BEARER) {
   return new NextRequest(
     `http://localhost:3000/api/admin/gyms/${TEST_GYM.id}`,
     {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": token,
+        authorization: bearer,
       },
       body: JSON.stringify(body),
     },
   );
 }
 
+function setAdminAuthOk() {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValue({
+    ok: true,
+    uid: "admin-test-uid",
+  });
+}
+
+function setAdminAuthError(status: 401 | 403, message: string) {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValueOnce({
+    ok: false,
+    status,
+    message,
+  });
+}
+
 describe("PATCH /api/admin/gyms/[gymId]", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰과 올바른 본문이 있으면 시설 정보를 수정한다", async () => {
+  it("관리자 인증과 올바른 본문이 있으면 시설 정보를 수정한다", async () => {
     const response = await PATCH(patchRequest(updateBody), contextFor(TEST_GYM.id));
     const body = (await response.json()) as {
       gym?: { id?: unknown; name?: unknown; basePrice?: unknown };
@@ -68,7 +88,9 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
     expect(row.basePrice).toBe(13000);
   });
 
-  it("관리자 토큰이 없으면 401을 반환하고 수정하지 않는다", async () => {
+  it("Authorization 헤더가 없으면 401을 반환하고 수정하지 않는다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const response = await PATCH(
       new NextRequest(`http://localhost:3000/api/admin/gyms/${TEST_GYM.id}`, {
         method: "PATCH",
@@ -80,7 +102,7 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
 
     const row = await prisma.gym.findUniqueOrThrow({
       where: { id: TEST_GYM.id },
@@ -88,24 +110,8 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
     expect(row.name).toBe(TEST_GYM.name);
   });
 
-  it("관리자 토큰이 틀리면 403을 반환하고 수정하지 않는다", async () => {
-    const response = await PATCH(
-      patchRequest(updateBody, "wrong-token"),
-      contextFor(TEST_GYM.id),
-    );
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
-
-    const row = await prisma.gym.findUniqueOrThrow({
-      where: { id: TEST_GYM.id },
-    });
-    expect(row.name).toBe(TEST_GYM.name);
-  });
-
-  it("관리자 토큰이 설정되지 않았으면 503을 반환하고 수정하지 않는다", async () => {
-    delete process.env.ADMIN_API_TOKEN;
+  it("admin claim이 없으면 403을 반환하고 수정하지 않는다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
 
     const response = await PATCH(
       patchRequest(updateBody),
@@ -113,10 +119,8 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
     );
     const body = (await response.json()) as { message?: unknown };
 
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
+    expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 권한이 없습니다.");
 
     const row = await prisma.gym.findUniqueOrThrow({
       where: { id: TEST_GYM.id },
@@ -130,7 +134,7 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-token": adminToken,
+          authorization: ADMIN_BEARER,
         },
         body: "{",
       }),

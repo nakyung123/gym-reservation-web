@@ -1,5 +1,6 @@
 "use client";
 
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import {
   isAdminGym,
   type AdminGymUpdateInput,
@@ -42,13 +43,15 @@ function getMessage(data: { message?: unknown }, fallback: string): string {
 }
 
 export async function fetchAdminGyms(
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminGymListResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch("/api/admin/gyms", {
-      headers: { "x-admin-token": token },
+      headers: auth.headers,
       signal,
     });
   } catch (error) {
@@ -83,21 +86,18 @@ export async function fetchAdminGyms(
 
 export async function createAdminGym(
   payload: AdminGym,
-  token: string,
 ): Promise<AdminGymMutationResult> {
-  return mutateAdminGym("/api/admin/gyms", "POST", payload, token);
+  return mutateAdminGym("/api/admin/gyms", "POST", payload);
 }
 
 export async function updateAdminGym(
   gymId: string,
   payload: AdminGymUpdateInput,
-  token: string,
 ): Promise<AdminGymMutationResult> {
   return mutateAdminGym(
     `/api/admin/gyms/${encodeURIComponent(gymId)}`,
     "PATCH",
     payload,
-    token,
   );
 }
 
@@ -105,15 +105,17 @@ async function mutateAdminGym(
   url: string,
   method: "POST" | "PATCH",
   payload: AdminGymMutationPayload,
-  token: string,
 ): Promise<AdminGymMutationResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch(url, {
       method,
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": token,
+        ...auth.headers,
       },
       body: JSON.stringify(payload),
     });

@@ -15,7 +15,8 @@
     "test": "dotenv -e .env.test.local -v PRISMA_ENV=test -- vitest run",
     "test:watch": "dotenv -e .env.test.local -v PRISMA_ENV=test -- vitest",
     "test:unit": "vitest run --config vitest.unit.config.ts",
-    "db:test:migrate": "dotenv -e .env.test.local -v PRISMA_ENV=test -- prisma migrate deploy"
+    "db:test:migrate": "dotenv -e .env.test.local -v PRISMA_ENV=test -- prisma migrate deploy",
+    "admin:grant-claim": "dotenv -e .env.local -- node scripts/grant-admin-claim.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

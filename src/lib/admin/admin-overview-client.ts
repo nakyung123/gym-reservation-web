@@ -1,5 +1,7 @@
 "use client";
 
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
+
 export type AdminReservationOverview = {
   date: string;
   reservations: {
@@ -74,15 +76,17 @@ function isAdminReservationOverview(
 
 export async function fetchAdminOverview(
   date: string,
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminOverviewResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch(
       `/api/admin/overview?date=${encodeURIComponent(date)}`,
       {
-        headers: { "x-admin-token": token },
+        headers: auth.headers,
         signal,
       },
     );

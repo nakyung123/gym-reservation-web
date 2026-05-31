@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATCH } from "@/app/api/admin/reservation-slots/bulk/route";
+import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import {
   createReservationInDb,
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
@@ -8,7 +9,11 @@ import {
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-const adminToken = "test-admin-token";
+vi.mock("@/lib/server/admin-auth", () => ({
+  verifyAdminTokenFromRequest: vi.fn(),
+}));
+
+const ADMIN_BEARER = "Bearer admin-test-id-token";
 
 type BulkSlotPolicyBody = {
   gymId: string;
@@ -19,22 +24,37 @@ type BulkSlotPolicyBody = {
   isClosed?: boolean;
 };
 
-function rawRequestFor(body: unknown, token = adminToken): NextRequest {
+function rawRequestFor(body: unknown, bearer = ADMIN_BEARER): NextRequest {
   return new NextRequest(
     "http://localhost:3000/api/admin/reservation-slots/bulk",
     {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": token,
+        authorization: bearer,
       },
       body: JSON.stringify(body),
     },
   );
 }
 
-function requestFor(body: BulkSlotPolicyBody, token = adminToken): NextRequest {
-  return rawRequestFor(body, token);
+function requestFor(body: BulkSlotPolicyBody, bearer = ADMIN_BEARER): NextRequest {
+  return rawRequestFor(body, bearer);
+}
+
+function setAdminAuthOk() {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValue({
+    ok: true,
+    uid: "admin-test-uid",
+  });
+}
+
+function setAdminAuthError(status: 401 | 403, message: string) {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValueOnce({
+    ok: false,
+    status,
+    message,
+  });
 }
 
 async function createTwoReservationsForSlot(date: string, userPrefix: string) {
@@ -61,14 +81,14 @@ async function createTwoReservationsForSlot(date: string, userPrefix: string) {
 
 describe("PATCH /api/admin/reservation-slots/bulk", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰이 있으면 여러 슬롯 정책을 한 번에 변경한다", async () => {
+  it("관리자 인증이 있으면 여러 슬롯 정책을 한 번에 변경한다", async () => {
     const firstDate = futureDate();
     const secondDate = futureDate(8);
 
@@ -127,7 +147,9 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
     expect(await prisma.reservationSlot.count()).toBe(1);
   });
 
-  it("관리자 토큰이 없으면 변경하지 않는다", async () => {
+  it("Authorization 헤더가 없으면 변경하지 않는다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const response = await PATCH(
       new NextRequest(
         "http://localhost:3000/api/admin/reservation-slots/bulk",
@@ -147,32 +169,12 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
-  it("관리자 토큰이 틀리면 403을 반환하고 변경하지 않는다", async () => {
-    const response = await PATCH(
-      requestFor(
-        {
-          gymId: TEST_GYM.id,
-          sport: "배드민턴",
-          dates: [futureDate()],
-          times: ["10:00"],
-          isClosed: true,
-        },
-        "wrong-token",
-      ),
-    );
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
-    expect(await prisma.reservationSlot.count()).toBe(0);
-  });
-
-  it("returns 503 and does not change slots when the admin token is not configured", async () => {
-    delete process.env.ADMIN_API_TOKEN;
+  it("admin claim이 없으면 403을 반환하고 변경하지 않는다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
 
     const response = await PATCH(
       requestFor({
@@ -185,10 +187,8 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
     );
     const body = (await response.json()) as { message?: unknown };
 
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
+    expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 권한이 없습니다.");
     expect(await prisma.reservationSlot.count()).toBe(0);
   });
 
@@ -200,7 +200,7 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            "x-admin-token": adminToken,
+            authorization: ADMIN_BEARER,
           },
           body: "{",
         },

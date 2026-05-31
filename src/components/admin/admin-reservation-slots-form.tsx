@@ -17,7 +17,6 @@ import {
   isAdminBulkSlotTargetOverLimit,
   normalizeAdminBulkSlotDates,
 } from "@/lib/admin/admin-reservation-slot-policy";
-import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import {
   AdminButtonSpinner,
   AdminEmptyState,
@@ -106,8 +105,6 @@ export function AdminReservationSlotsForm({
   gyms,
 }: AdminReservationSlotsFormProps) {
   const initialGym = gyms[0] ?? null;
-  const [tokenInput, setTokenInput] = useState("");
-  const [savedToken, setSavedToken] = useState<string | null>(null);
   const [selectedGymId, setSelectedGymId] = useState<string>(
     initialGym?.id ?? "",
   );
@@ -156,21 +153,6 @@ export function AdminReservationSlotsForm({
     queryKeyRef.current = `${selectedGymId}|${selectedSport}|${selectedDate}`;
   }, [selectedGymId, selectedSport, selectedDate]);
 
-  // hydration 이후 sessionStorage의 토큰을 한 번만 읽는다.
-  // 토큰 평문을 input value에 되채우지 않는다 (DOM/스냅샷 평문 노출 방지).
-  // savedToken만 복원하면 조회는 그대로 동작하고, 입력란은 빈 채로 둔다.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const timer = window.setTimeout(() => {
-      const stored = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-      if (stored) {
-        setSavedToken(stored);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
   const abortRowSaveRequests = useCallback(() => {
     for (const controller of rowSaveAbortRefs.current.values()) {
       controller.abort();
@@ -203,22 +185,6 @@ export function AdminReservationSlotsForm({
       abortSlotRequests();
     };
   }, [abortSlotRequests]);
-
-  const handleSaveToken = useCallback(() => {
-    const trimmed = tokenInput.trim();
-    if (!trimmed) {
-      return;
-    }
-    window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmed);
-    setSavedToken(trimmed);
-  }, [tokenInput]);
-
-  const handleForgetToken = useCallback(() => {
-    window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-    setSavedToken(null);
-    setTokenInput("");
-    resetSlotState();
-  }, [resetSlotState]);
 
   const handleGymChange = (gymId: string) => {
     if (isSavingSlotChange) return;
@@ -355,7 +321,7 @@ export function AdminReservationSlotsForm({
   const handleSaveRow = async (slot: ReservationSlotAvailability) => {
     if (isSavingSlotChange) return;
     if (bulkAbortRef.current || rowSaveAbortRefs.current.size > 0) return;
-    if (!savedToken || !selectedGym || !selectedSport) return;
+    if (!selectedGym || !selectedSport) return;
     const draft = rowDrafts.get(slot.time);
     if (!draft) return;
     if (!isValidCapacity(draft.capacity)) {
@@ -392,7 +358,6 @@ export function AdminReservationSlotsForm({
           capacity: draft.capacity,
           isClosed: draft.isClosed,
         },
-        savedToken,
         controller.signal,
       );
     } catch (error) {
@@ -590,7 +555,6 @@ export function AdminReservationSlotsForm({
   });
 
   const canBulkApply =
-    Boolean(savedToken) &&
     selectedTimes.size > 0 &&
     bulkTargetDates.length > 0 &&
     !hasInvalidBulkTargetDate &&
@@ -601,7 +565,7 @@ export function AdminReservationSlotsForm({
     bulkSaveState.status !== "saving";
 
   const handleBulkApply = async () => {
-    if (!savedToken || !selectedGym || !selectedSport) return;
+    if (!selectedGym || !selectedSport) return;
     if (bulkAbortRef.current || rowSaveAbortRefs.current.size > 0) return;
     if (
       selectedTimes.size === 0 ||
@@ -640,11 +604,7 @@ export function AdminReservationSlotsForm({
 
     let result;
     try {
-      result = await bulkUpdateReservationSlotPolicy(
-        input,
-        savedToken,
-        controller.signal,
-      );
+      result = await bulkUpdateReservationSlotPolicy(input, controller.signal);
     } catch (error) {
       if (isAbortError(error)) {
         return;
@@ -743,6 +703,9 @@ export function AdminReservationSlotsForm({
             <p className="mt-2 text-sm text-slate-600">
               체육관·종목·날짜를 선택해 시간대별 정원과 마감 여부를 관리합니다.
             </p>
+            <p className="mt-1 text-xs text-slate-500">
+              관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 동작합니다.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -759,54 +722,6 @@ export function AdminReservationSlotsForm({
             </Link>
           </div>
         </header>
-
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">관리자 토큰</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            토큰은 이 브라우저 세션의 sessionStorage에만 저장됩니다. 새 탭이나
-            창을 닫으면 사라집니다.
-          </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input
-              type="password"
-              value={tokenInput}
-              onChange={(event) => setTokenInput(event.target.value)}
-              placeholder="x-admin-token 값"
-              autoComplete="off"
-              spellCheck={false}
-              disabled={isSavingSlotChange}
-              className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSaveToken}
-                disabled={tokenInput.trim().length === 0 || isSavingSlotChange}
-                className="h-10 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-              >
-                토큰 저장
-              </button>
-              <button
-                type="button"
-                onClick={handleForgetToken}
-                disabled={
-                  (!savedToken && tokenInput.length === 0) || isSavingSlotChange
-                }
-                className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-              >
-                토큰 잊기
-              </button>
-            </div>
-          </div>
-          <p
-            className={`mt-2 text-xs font-semibold ${savedToken ? "text-emerald-700" : "text-amber-700"}`}
-            role="status"
-          >
-            {savedToken
-              ? "토큰이 세션에 저장되어 PATCH 요청에 사용됩니다."
-              : "저장된 토큰이 없습니다. 변경 저장 전에 토큰을 입력하세요."}
-          </p>
-        </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-950">조회 조건</h2>
@@ -1071,11 +986,6 @@ export function AdminReservationSlotsForm({
                       )}
                     </button>
                   </div>
-                  {!savedToken ? (
-                    <p className="mt-2 text-xs font-semibold text-amber-700">
-                      관리자 토큰을 먼저 저장해주세요.
-                    </p>
-                  ) : null}
                   {selectedTimes.size === 0 ? (
                     <p className="mt-2 text-xs text-slate-500">
                       아래 표에서 일괄 적용할 시간을 선택하세요.
@@ -1206,7 +1116,6 @@ export function AdminReservationSlotsForm({
                         draft.capacity,
                       );
                       const canSave =
-                        Boolean(savedToken) &&
                         dirty &&
                         rowCapacityIsValid &&
                         !hasRowSaving &&

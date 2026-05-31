@@ -1,5 +1,6 @@
 "use client";
 
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isReservationSlotAvailability } from "@/lib/reservation-slot-availability";
 import type { ReservationSlotAvailability, Sport } from "@/types/domain";
 
@@ -54,16 +55,18 @@ function isValidUpdatedCount(value: unknown, slots: unknown[]): value is number 
 
 export async function updateReservationSlotPolicy(
   input: AdminUpdateSlotInput,
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminUpdateSlotResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) return { ok: false, message: auth.message, status: 401 };
+
   let response: Response;
   try {
     response = await fetch("/api/admin/reservation-slots", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": token,
+        ...auth.headers,
       },
       body: JSON.stringify(input),
       signal,
@@ -117,16 +120,20 @@ export async function updateReservationSlotPolicy(
 
 export async function bulkUpdateReservationSlotPolicy(
   input: AdminBulkUpdateSlotInput,
-  token: string,
   signal?: AbortSignal,
 ): Promise<AdminBulkUpdateSlotResult> {
+  const auth = await getAdminAuthHeader();
+  if (!auth.ok) {
+    return { ok: false, kind: "error", message: auth.message, status: 401 };
+  }
+
   let response: Response;
   try {
     response = await fetch("/api/admin/reservation-slots/bulk", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": token,
+        ...auth.headers,
       },
       body: JSON.stringify(input),
       signal,

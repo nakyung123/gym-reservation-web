@@ -1,8 +1,8 @@
 import "server-only";
 
 // 관리자 페이지(/admin) 잠금 전용 Basic Auth.
-// 관리자 API(/api/admin/*)의 ADMIN_API_TOKEN과는 완전히 분리된 자격이다.
-// (ADMIN_API_TOKEN은 src/lib/server/admin-auth.ts에서 그대로 사용한다.)
+// 관리자 API(/api/admin/*)는 Firebase ID 토큰 + custom claim admin=true 로 별도 검증한다.
+// (src/lib/server/admin-auth.ts 참조)
 
 export type AdminPageAuthResult =
   | { ok: true }

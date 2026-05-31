@@ -9,8 +9,8 @@ import {
 // 문서: node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md
 //
 // 이 proxy는 관리자 페이지(/admin, /admin/...)에 1차 잠금을 건다.
-// - /api/admin/* Route Handler는 별도 ADMIN_API_TOKEN(x-admin-token 헤더)로 보호되며,
-//   본 matcher에서 의도적으로 제외한다.
+// - /api/admin/* Route Handler는 Firebase ID token + custom claim admin=true 로
+//   별도 검증되며(src/lib/server/admin-auth.ts), 본 matcher에서 의도적으로 제외한다.
 // - 인증 자격은 ADMIN_PAGE_USER / ADMIN_PAGE_PASSWORD env로만 받는다.
 //   NEXT_PUBLIC_ 접두어를 절대 붙이지 않는다.
 

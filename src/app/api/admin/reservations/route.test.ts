@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/api/admin/reservations/route";
+import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import {
   cancelReservationAsAdminInDb,
   createReservationInDb,
@@ -9,16 +10,35 @@ import {
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-const adminToken = "test-admin-token";
+vi.mock("@/lib/server/admin-auth", () => ({
+  verifyAdminTokenFromRequest: vi.fn(),
+}));
 
-function requestFor(params: Record<string, string> = {}, token = adminToken) {
+const ADMIN_BEARER = "Bearer admin-test-id-token";
+
+function requestFor(params: Record<string, string> = {}, bearer = ADMIN_BEARER) {
   const url = new URL("http://localhost:3000/api/admin/reservations");
   Object.entries(params).forEach(([key, value]) => {
     url.searchParams.set(key, value);
   });
 
   return new NextRequest(url, {
-    headers: { "x-admin-token": token },
+    headers: { authorization: bearer },
+  });
+}
+
+function setAdminAuthOk() {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValue({
+    ok: true,
+    uid: "admin-test-uid",
+  });
+}
+
+function setAdminAuthError(status: 401 | 403, message: string) {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValueOnce({
+    ok: false,
+    status,
+    message,
   });
 }
 
@@ -48,14 +68,14 @@ async function createReservation({
 
 describe("GET /api/admin/reservations", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰이 있으면 필터 조건에 맞는 예약 목록을 반환한다", async () => {
+  it("관리자 인증이 있으면 필터 조건에 맞는 예약 목록을 반환한다", async () => {
     const date = futureDate();
     const target = await createReservation({
       userId: "admin-list-user-a",
@@ -123,34 +143,26 @@ describe("GET /api/admin/reservations", () => {
     expect(body.reservations).toHaveLength(1);
   });
 
-  it("관리자 토큰이 없으면 401을 반환한다", async () => {
+  it("Authorization 헤더가 없으면 401을 반환한다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const response = await GET(
       new NextRequest("http://localhost:3000/api/admin/reservations"),
     );
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
   });
 
-  it("관리자 토큰이 틀리면 403을 반환한다", async () => {
-    const response = await GET(requestFor({}, "wrong-token"));
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
-  });
-
-  it("returns 503 when the admin token is not configured", async () => {
-    delete process.env.ADMIN_API_TOKEN;
+  it("admin claim이 없으면 403을 반환한다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
 
     const response = await GET(requestFor());
     const body = (await response.json()) as { message?: unknown };
 
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
+    expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 권한이 없습니다.");
   });
 
   it("status가 올바르지 않으면 400을 반환한다", async () => {

@@ -1,4 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import {
   createAdminGym,
   fetchAdminGyms,
@@ -6,6 +8,10 @@ import {
 } from "@/lib/admin/admin-gym-client";
 import { ADMIN_GYM_SPORTS } from "@/lib/admin/admin-gym-schema";
 import type { AdminGym } from "@/types/domain";
+
+vi.mock("@/lib/admin/admin-auth-headers", () => ({
+  getAdminAuthHeader: vi.fn(),
+}));
 
 const sport = ADMIN_GYM_SPORTS[0];
 
@@ -36,28 +42,56 @@ function mockFetch(response: Response) {
   return fetchMock;
 }
 
+function setAuthHeaderOk(idToken = "test-id-token") {
+  vi.mocked(getAdminAuthHeader).mockResolvedValue({
+    ok: true,
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+}
+
 describe("admin gym client", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  beforeEach(() => {
+    setAuthHeaderOk();
   });
 
-  it("fetches admin gyms from a valid API response", async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  it("Authorization: Bearer 헤더로 시설 목록을 조회한다", async () => {
     const fetchMock = mockFetch(Response.json({ gyms: [gym] }));
 
-    await expect(fetchAdminGyms("admin-token")).resolves.toEqual({
+    await expect(fetchAdminGyms()).resolves.toEqual({
       ok: true,
       gyms: [gym],
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/gyms", {
-      headers: { "x-admin-token": "admin-token" },
+      headers: { Authorization: "Bearer test-id-token" },
       signal: undefined,
     });
+  });
+
+  it("로그인 상태가 아니면 401 결과로 즉시 끝낸다", async () => {
+    vi.mocked(getAdminAuthHeader).mockResolvedValue({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchAdminGyms()).resolves.toEqual({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+      status: 401,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects malformed admin gym list responses", async () => {
     mockFetch(Response.json({ gyms: [{ ...gym, isActive: "true" }] }));
 
-    await expect(fetchAdminGyms("admin-token")).resolves.toMatchObject({
+    await expect(fetchAdminGyms()).resolves.toMatchObject({
       ok: false,
       status: 200,
     });
@@ -68,7 +102,7 @@ describe("admin gym client", () => {
       Response.json({ gym, message: "시설 정보가 저장되었습니다." }),
     );
 
-    await expect(createAdminGym(gym, "admin-token")).resolves.toEqual({
+    await expect(createAdminGym(gym)).resolves.toEqual({
       ok: true,
       gym,
       message: "시설 정보가 저장되었습니다.",
@@ -77,7 +111,7 @@ describe("admin gym client", () => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": "admin-token",
+        Authorization: "Bearer test-id-token",
       },
       body: JSON.stringify(gym),
     });
@@ -92,7 +126,7 @@ describe("admin gym client", () => {
     );
 
     await expect(
-      updateAdminGym(gym.id, { ...gym, officialUrl: "ftp://example.com" }, "admin-token"),
+      updateAdminGym(gym.id, { ...gym, officialUrl: "ftp://example.com" }),
     ).resolves.toEqual({
       ok: false,
       message: "공식 URL은 http 또는 https 주소여야 합니다.",
@@ -108,7 +142,7 @@ describe("admin gym client", () => {
       ),
     );
 
-    await expect(fetchAdminGyms("admin-token")).resolves.toEqual({
+    await expect(fetchAdminGyms()).resolves.toEqual({
       ok: false,
       message: "시설 목록을 불러오지 못했습니다.",
       status: 500,
@@ -121,7 +155,7 @@ describe("admin gym client", () => {
       vi.fn().mockRejectedValue(new Error("raw network detail")),
     );
 
-    const result = await fetchAdminGyms("admin-token");
+    const result = await fetchAdminGyms();
 
     expect(result).toEqual({
       ok: false,
@@ -138,7 +172,7 @@ describe("admin gym client", () => {
       }),
     );
 
-    await expect(createAdminGym(gym, "admin-token")).resolves.toEqual({
+    await expect(createAdminGym(gym)).resolves.toEqual({
       ok: false,
       message: "시설 저장 응답 형식이 올바르지 않습니다.",
       status: 200,
@@ -150,6 +184,6 @@ describe("admin gym client", () => {
     abortError.name = "AbortError";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
 
-    await expect(fetchAdminGyms("admin-token")).rejects.toBe(abortError);
+    await expect(fetchAdminGyms()).rejects.toBe(abortError);
   });
 });

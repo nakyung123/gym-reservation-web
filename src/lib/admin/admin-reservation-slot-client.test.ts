@@ -1,9 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import {
   bulkUpdateReservationSlotPolicy,
   updateReservationSlotPolicy,
 } from "@/lib/admin/admin-reservation-slot-client";
 import type { ReservationSlotAvailability, Sport } from "@/types/domain";
+
+vi.mock("@/lib/admin/admin-auth-headers", () => ({
+  getAdminAuthHeader: vi.fn(),
+}));
 
 const sport = "배드민턴" as Sport;
 
@@ -25,31 +31,40 @@ function mockFetch(response: Response) {
   return fetchMock;
 }
 
+function setAuthHeaderOk(idToken = "test-id-token") {
+  vi.mocked(getAdminAuthHeader).mockResolvedValue({
+    ok: true,
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+}
+
 describe("admin reservation slot client", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  beforeEach(() => {
+    setAuthHeaderOk();
   });
 
-  it("updates a single slot policy from a valid API response", async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  it("Authorization: Bearer 헤더로 단일 슬롯 정책을 변경한다", async () => {
     const fetchMock = mockFetch(Response.json({ slot }));
 
     await expect(
-      updateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          date: slot.date,
-          time: slot.time,
-          capacity: 4,
-        },
-        "admin-token",
-      ),
+      updateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        date: slot.date,
+        time: slot.time,
+        capacity: 4,
+      }),
     ).resolves.toEqual({ ok: true, slot });
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/reservation-slots", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-token": "admin-token",
+        Authorization: "Bearer test-id-token",
       },
       body: JSON.stringify({
         gymId: slot.gymId,
@@ -62,6 +77,30 @@ describe("admin reservation slot client", () => {
     });
   });
 
+  it("단일 슬롯: 로그인 상태가 아니면 401 결과로 즉시 끝낸다", async () => {
+    vi.mocked(getAdminAuthHeader).mockResolvedValue({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      updateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        date: slot.date,
+        time: slot.time,
+        isClosed: true,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+      status: 401,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("성공 status여도 단일 슬롯 응답 형식이 틀리면 성공으로 보지 않는다", async () => {
     mockFetch(
       Response.json({
@@ -71,16 +110,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      updateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          date: slot.date,
-          time: slot.time,
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      updateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        date: slot.date,
+        time: slot.time,
+        isClosed: true,
+      }),
     ).resolves.toEqual({
       ok: false,
       message: "슬롯 정책 변경 응답 형식이 올바르지 않습니다.",
@@ -97,16 +133,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      updateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          date: slot.date,
-          time: slot.time,
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      updateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        date: slot.date,
+        time: slot.time,
+        isClosed: true,
+      }),
     ).resolves.toEqual({
       ok: false,
       message: "체육관 정보를 불러오지 못했습니다.",
@@ -120,16 +153,13 @@ describe("admin reservation slot client", () => {
       vi.fn().mockRejectedValue(new Error("raw network detail")),
     );
 
-    const result = await updateReservationSlotPolicy(
-      {
-        gymId: slot.gymId,
-        sport,
-        date: slot.date,
-        time: slot.time,
-        isClosed: true,
-      },
-      "admin-token",
-    );
+    const result = await updateReservationSlotPolicy({
+      gymId: slot.gymId,
+      sport,
+      date: slot.date,
+      time: slot.time,
+      isClosed: true,
+    });
 
     expect(result).toEqual({
       ok: false,
@@ -138,7 +168,7 @@ describe("admin reservation slot client", () => {
     expect(JSON.stringify(result)).not.toContain("raw network detail");
   });
 
-  it("maps valid bulk success responses", async () => {
+  it("Authorization: Bearer 헤더로 일괄 슬롯 정책을 변경한다", async () => {
     const secondSlot = { ...slot, date: "2026-05-21", time: "11:00" };
     const fetchMock = mockFetch(
       Response.json({
@@ -148,16 +178,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      bulkUpdateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          dates: [slot.date, secondSlot.date],
-          times: [slot.time],
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date, secondSlot.date],
+        times: [slot.time],
+        isClosed: true,
+      }),
     ).resolves.toEqual({
       ok: true,
       slots: [slot, secondSlot],
@@ -169,7 +196,7 @@ describe("admin reservation slot client", () => {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-token": "admin-token",
+          Authorization: "Bearer test-id-token",
         },
         body: JSON.stringify({
           gymId: slot.gymId,
@@ -183,6 +210,31 @@ describe("admin reservation slot client", () => {
     );
   });
 
+  it("일괄 슬롯: 로그인 상태가 아니면 401 결과로 즉시 끝낸다", async () => {
+    vi.mocked(getAdminAuthHeader).mockResolvedValue({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date],
+        times: [slot.time],
+        isClosed: true,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      kind: "error",
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+      status: 401,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects bulk success responses with mismatched update counts", async () => {
     mockFetch(
       Response.json({
@@ -192,16 +244,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      bulkUpdateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          dates: [slot.date],
-          times: [slot.time],
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date],
+        times: [slot.time],
+        isClosed: true,
+      }),
     ).resolves.toMatchObject({
       ok: false,
       kind: "error",
@@ -222,16 +271,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      bulkUpdateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          dates: [slot.date],
-          times: [slot.time],
-          capacity: 1,
-        },
-        "admin-token",
-      ),
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date],
+        times: [slot.time],
+        capacity: 1,
+      }),
     ).resolves.toEqual({
       ok: false,
       kind: "conflict",
@@ -253,16 +299,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      bulkUpdateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          dates: [slot.date],
-          times: [slot.time],
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date],
+        times: [slot.time],
+        isClosed: true,
+      }),
     ).resolves.toMatchObject({
       ok: false,
       kind: "error",
@@ -279,16 +322,13 @@ describe("admin reservation slot client", () => {
     );
 
     await expect(
-      bulkUpdateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          dates: [slot.date],
-          times: [slot.time],
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date],
+        times: [slot.time],
+        isClosed: true,
+      }),
     ).resolves.toEqual({
       ok: false,
       kind: "error",
@@ -303,16 +343,13 @@ describe("admin reservation slot client", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
 
     await expect(
-      bulkUpdateReservationSlotPolicy(
-        {
-          gymId: slot.gymId,
-          sport,
-          dates: [slot.date],
-          times: [slot.time],
-          isClosed: true,
-        },
-        "admin-token",
-      ),
+      bulkUpdateReservationSlotPolicy({
+        gymId: slot.gymId,
+        sport,
+        dates: [slot.date],
+        times: [slot.time],
+        isClosed: true,
+      }),
     ).rejects.toBe(abortError);
   });
 });

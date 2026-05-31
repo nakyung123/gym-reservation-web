@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   const ipLimit = await enforceAdminApiIpLimit(request);
   if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
 
-  const auth = verifyAdminTokenFromRequest(request);
+  const auth = await verifyAdminTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   const ipLimit = await enforceAdminApiIpLimit(request);
   if (!ipLimit.ok) return rateLimitedJsonResponse(ipLimit);
 
-  const auth = verifyAdminTokenFromRequest(request);
+  const auth = await verifyAdminTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }

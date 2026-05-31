@@ -1,12 +1,17 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/admin/gyms/route";
+import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import type { AdminGym } from "@/types/domain";
 import { TEST_GYM } from "@tests/setup-db";
 
-const adminToken = "test-admin-token";
+vi.mock("@/lib/server/admin-auth", () => ({
+  verifyAdminTokenFromRequest: vi.fn(),
+}));
+
+const ADMIN_BEARER = "Bearer admin-test-id-token";
 
 const newAdminGym: AdminGym = {
   ...TEST_GYM,
@@ -15,33 +20,48 @@ const newAdminGym: AdminGym = {
   isActive: true,
 };
 
-function adminRequest(url: string, token = adminToken) {
+function adminRequest(url: string, bearer = ADMIN_BEARER) {
   return new NextRequest(url, {
-    headers: { "x-admin-token": token },
+    headers: { authorization: bearer },
   });
 }
 
-function postRequest(body: unknown, token = adminToken) {
+function postRequest(body: unknown, bearer = ADMIN_BEARER) {
   return new NextRequest("http://localhost:3000/api/admin/gyms", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-admin-token": token,
+      authorization: bearer,
     },
     body: JSON.stringify(body),
   });
 }
 
+function setAdminAuthOk() {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValue({
+    ok: true,
+    uid: "admin-test-uid",
+  });
+}
+
+function setAdminAuthError(status: 401 | 403, message: string) {
+  vi.mocked(verifyAdminTokenFromRequest).mockResolvedValueOnce({
+    ok: false,
+    status,
+    message,
+  });
+}
+
 describe("GET /api/admin/gyms", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰이 있으면 비활성 시설까지 조회한다", async () => {
+  it("관리자 인증을 통과하면 비활성 시설까지 조회한다", async () => {
     const updated = await updateAdminGym(TEST_GYM.id, {
       ...TEST_GYM,
       isActive: false,
@@ -64,38 +84,28 @@ describe("GET /api/admin/gyms", () => {
     ]);
   });
 
-  it("관리자 토큰이 없으면 401을 반환한다", async () => {
+  it("Authorization 헤더가 없으면 401을 반환한다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const response = await GET(
       new NextRequest("http://localhost:3000/api/admin/gyms"),
     );
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
   });
 
-  it("관리자 토큰이 틀리면 403을 반환한다", async () => {
-    const response = await GET(
-      adminRequest("http://localhost:3000/api/admin/gyms", "wrong-token"),
-    );
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
-  });
-
-  it("returns 503 when the admin token is not configured", async () => {
-    delete process.env.ADMIN_API_TOKEN;
+  it("admin claim이 없으면 403을 반환한다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
 
     const response = await GET(
       adminRequest("http://localhost:3000/api/admin/gyms"),
     );
     const body = (await response.json()) as { message?: unknown };
 
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
+    expect(response.status).toBe(403);
+    expect(body.message).toBe("관리자 권한이 없습니다.");
   });
 
   it("시설 목록 조회 중 서버 오류가 발생하면 500을 반환한다", async () => {
@@ -116,14 +126,14 @@ describe("GET /api/admin/gyms", () => {
 
 describe("POST /api/admin/gyms", () => {
   beforeEach(() => {
-    process.env.ADMIN_API_TOKEN = adminToken;
+    setAdminAuthOk();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("관리자 토큰과 올바른 본문이 있으면 시설을 추가한다", async () => {
+  it("관리자 인증과 올바른 본문이 있으면 시설을 추가한다", async () => {
     const response = await POST(postRequest(newAdminGym));
     const body = (await response.json()) as {
       gym?: { id?: unknown; name?: unknown; isActive?: unknown };
@@ -148,7 +158,9 @@ describe("POST /api/admin/gyms", () => {
     );
   });
 
-  it("관리자 토큰이 없으면 401을 반환하고 추가하지 않는다", async () => {
+  it("Authorization 헤더가 없으면 401을 반환하고 추가하지 않는다", async () => {
+    setAdminAuthError(401, "관리자 인증이 필요합니다.");
+
     const response = await POST(
       new NextRequest("http://localhost:3000/api/admin/gyms", {
         method: "POST",
@@ -159,16 +171,18 @@ describe("POST /api/admin/gyms", () => {
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(401);
-    expect(body.message).toBe("관리자 API 토큰이 필요합니다.");
+    expect(body.message).toBe("관리자 인증이 필요합니다.");
     expect(await prisma.gym.count()).toBe(1);
   });
 
-  it("returns 403 and does not create a gym when the admin token is wrong", async () => {
-    const response = await POST(postRequest(newAdminGym, "wrong-token"));
+  it("admin claim이 없으면 403을 반환하고 추가하지 않는다", async () => {
+    setAdminAuthError(403, "관리자 권한이 없습니다.");
+
+    const response = await POST(postRequest(newAdminGym));
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(403);
-    expect(body.message).toBe("관리자 API 토큰이 올바르지 않습니다.");
+    expect(body.message).toBe("관리자 권한이 없습니다.");
     expect(await prisma.gym.count()).toBe(1);
   });
 
@@ -178,7 +192,7 @@ describe("POST /api/admin/gyms", () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-token": adminToken,
+          authorization: ADMIN_BEARER,
         },
         body: "{",
       }),
@@ -220,19 +234,6 @@ describe("POST /api/admin/gyms", () => {
     expect(response.status).toBe(409);
     expect(body.status).toBe("duplicate");
     expect(body.message).toBe("이미 같은 ID의 시설이 있습니다.");
-    expect(await prisma.gym.count()).toBe(1);
-  });
-
-  it("관리자 토큰이 설정되지 않았으면 503을 반환한다", async () => {
-    delete process.env.ADMIN_API_TOKEN;
-
-    const response = await POST(postRequest(newAdminGym));
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(503);
-    expect(body.message).toBe(
-      "관리자 기능을 일시적으로 사용할 수 없습니다.",
-    );
     expect(await prisma.gym.count()).toBe(1);
   });
 

@@ -5,7 +5,8 @@
 // 검사 대상:
 // 1. ADMIN_PAGE_USER / ADMIN_PAGE_PASSWORD
 //    - 관리자 페이지(/admin) Basic Auth용. 누락 시 admin 페이지가 503으로 잠긴다.
-//    - ADMIN_API_TOKEN과 별개 자격. 같은 값으로 두지 말 것.
+//    - /api/admin/*는 Firebase ID token + custom claim admin=true 로 별도 검증되며
+//      이 가드와는 완전히 분리된 자격이다. (src/lib/server/admin-auth.ts)
 // 2. RATE_LIMIT_HMAC_SECRET (16자 이상)
 //    - OAuth/admin API rate-limit helper(src/lib/server/rate-limit.ts)의 HMAC 키.
 //    - 누락 / 16자 미만이면 helper가 throw → 운영에서 OAuth·admin API가 500으로 묶임.

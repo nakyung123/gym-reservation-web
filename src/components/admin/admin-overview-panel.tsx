@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   fetchAdminOverview,
   type AdminReservationOverview,
 } from "@/lib/admin/admin-overview-client";
-import { ADMIN_TOKEN_STORAGE_KEY } from "@/lib/admin/admin-token";
 import { formatGymPrice } from "@/lib/gym-utils";
 import {
   AdminButtonSpinner,
@@ -49,55 +48,14 @@ function getCancellationRateLabel(
 }
 
 export function AdminOverviewPanel() {
-  const [tokenInput, setTokenInput] = useState("");
-  const [savedToken, setSavedToken] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(getTodayValue);
   const [overviewState, setOverviewState] = useState<OverviewState>({
     status: "idle",
   });
 
-  // hydration 이후 sessionStorage의 토큰을 한 번만 읽는다.
-  // 토큰 평문을 input value에 되채우지 않는다 (DOM/스냅샷 평문 노출 방지).
-  // savedToken만 복원하면 조회는 그대로 동작하고, 입력란은 빈 채로 둔다.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const timer = window.setTimeout(() => {
-      const stored = window.sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
-      if (stored) {
-        setSavedToken(stored);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  const handleSaveToken = useCallback(() => {
-    const trimmed = tokenInput.trim();
-    if (!trimmed) {
-      return;
-    }
-    window.sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, trimmed);
-    setSavedToken(trimmed);
-  }, [tokenInput]);
-
-  const handleForgetToken = useCallback(() => {
-    window.sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-    setSavedToken(null);
-    setTokenInput("");
-    setOverviewState({ status: "idle" });
-  }, []);
-
   const handleQuery = useCallback(async () => {
-    if (!savedToken) {
-      setOverviewState({
-        status: "error",
-        message: "관리자 토큰을 저장한 뒤 조회할 수 있습니다.",
-      });
-      return;
-    }
-
     setOverviewState({ status: "loading" });
-    const result = await fetchAdminOverview(selectedDate, savedToken);
+    const result = await fetchAdminOverview(selectedDate);
 
     if (result.ok) {
       setOverviewState({ status: "ready", overview: result.overview });
@@ -105,7 +63,7 @@ export function AdminOverviewPanel() {
     }
 
     setOverviewState({ status: "error", message: result.message });
-  }, [savedToken, selectedDate]);
+  }, [selectedDate]);
 
   const overview =
     overviewState.status === "ready" ? overviewState.overview : null;
@@ -120,71 +78,39 @@ export function AdminOverviewPanel() {
           </p>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-[220px_160px_auto]">
-          <input
-            type="password"
-            value={tokenInput}
-            onChange={(event) => setTokenInput(event.target.value)}
-            placeholder="x-admin-token 값"
-            autoComplete="off"
-            spellCheck={false}
-            className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-          />
+        <div className="grid gap-2 sm:grid-cols-[160px_auto]">
           <input
             type="date"
             value={selectedDate}
             onChange={(event) => setSelectedDate(event.target.value)}
             className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleSaveToken}
-              disabled={tokenInput.trim().length === 0}
-              className="h-10 rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-            >
-              토큰 저장
-            </button>
-            <button
-              type="button"
-              onClick={handleQuery}
-              disabled={!savedToken || overviewState.status === "loading"}
-              className="h-10 rounded-md bg-sky-700 px-3 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
-            >
-              {overviewState.status === "loading" ? (
-                <span className="inline-flex items-center gap-2">
-                  <AdminButtonSpinner />
-                  조회 중
-                </span>
-              ) : (
-                "조회"
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleQuery}
+            disabled={overviewState.status === "loading"}
+            className="h-10 rounded-md bg-sky-700 px-3 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          >
+            {overviewState.status === "loading" ? (
+              <span className="inline-flex items-center gap-2">
+                <AdminButtonSpinner />
+                조회 중
+              </span>
+            ) : (
+              "조회"
+            )}
+          </button>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <p
-          className={`text-xs font-semibold ${savedToken ? "text-emerald-700" : "text-amber-700"}`}
-          role="status"
-        >
-          {savedToken ? "토큰이 세션에 저장되어 있습니다." : "저장된 토큰이 없습니다."}
-        </p>
-        <button
-          type="button"
-          onClick={handleForgetToken}
-          disabled={!savedToken && tokenInput.length === 0}
-          className="h-7 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-600 transition hover:border-rose-400 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
-        >
-          토큰 잊기
-        </button>
-      </div>
+      <p className="mt-3 text-xs font-semibold text-slate-500">
+        관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 조회됩니다.
+      </p>
 
       {overviewState.status === "idle" ? (
         <AdminEmptyState
           title="아직 운영 요약을 조회하지 않았습니다"
-          description="관리자 토큰을 저장하고 날짜를 선택한 뒤 조회를 누르면 요약이 표시됩니다."
+          description="날짜를 선택한 뒤 조회를 누르면 요약이 표시됩니다."
         />
       ) : null}
 

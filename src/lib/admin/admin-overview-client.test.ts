@@ -1,8 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import {
   fetchAdminOverview,
   type AdminReservationOverview,
 } from "@/lib/admin/admin-overview-client";
+
+vi.mock("@/lib/admin/admin-auth-headers", () => ({
+  getAdminAuthHeader: vi.fn(),
+}));
 
 const overview: AdminReservationOverview = {
   date: "2026-05-20",
@@ -32,42 +38,66 @@ function mockFetch(response: Response) {
   return fetchMock;
 }
 
+function setAuthHeaderOk(idToken = "test-id-token") {
+  vi.mocked(getAdminAuthHeader).mockResolvedValue({
+    ok: true,
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+}
+
 describe("fetchAdminOverview", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  beforeEach(() => {
+    setAuthHeaderOk();
   });
 
-  it("returns overview data from a valid API response", async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetAllMocks();
+  });
+
+  it("Authorization: Bearer 헤더로 운영 요약을 조회한다", async () => {
     const fetchMock = mockFetch(Response.json({ overview }));
 
-    await expect(
-      fetchAdminOverview(overview.date, "admin-token"),
-    ).resolves.toEqual({
+    await expect(fetchAdminOverview(overview.date)).resolves.toEqual({
       ok: true,
       overview,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/admin/overview?date=${overview.date}`,
       {
-        headers: { "x-admin-token": "admin-token" },
+        headers: { Authorization: "Bearer test-id-token" },
         signal: undefined,
       },
     );
   });
 
+  it("로그인 상태가 아니면 401 결과로 즉시 끝낸다", async () => {
+    vi.mocked(getAdminAuthHeader).mockResolvedValue({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchAdminOverview(overview.date)).resolves.toEqual({
+      ok: false,
+      message: "관리자 기능을 사용하려면 먼저 로그인해 주세요.",
+      status: 401,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns the API error message", async () => {
     mockFetch(
       Response.json(
-        { message: "관리자 API 토큰이 올바르지 않습니다." },
+        { message: "관리자 권한이 없습니다." },
         { status: 403 },
       ),
     );
 
-    await expect(
-      fetchAdminOverview(overview.date, "wrong-token"),
-    ).resolves.toEqual({
+    await expect(fetchAdminOverview(overview.date)).resolves.toEqual({
       ok: false,
-      message: "관리자 API 토큰이 올바르지 않습니다.",
+      message: "관리자 권한이 없습니다.",
       status: 403,
     });
   });
@@ -83,9 +113,7 @@ describe("fetchAdminOverview", () => {
       }),
     );
 
-    await expect(
-      fetchAdminOverview(overview.date, "admin-token"),
-    ).resolves.toEqual({
+    await expect(fetchAdminOverview(overview.date)).resolves.toEqual({
       ok: false,
       message: "관리자 운영 요약 응답 형식이 올바르지 않습니다.",
       status: 200,
@@ -98,7 +126,7 @@ describe("fetchAdminOverview", () => {
       vi.fn().mockRejectedValue(new Error("raw network detail")),
     );
 
-    const result = await fetchAdminOverview(overview.date, "admin-token");
+    const result = await fetchAdminOverview(overview.date);
 
     expect(result).toEqual({
       ok: false,
@@ -112,8 +140,6 @@ describe("fetchAdminOverview", () => {
     abortError.name = "AbortError";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
 
-    await expect(
-      fetchAdminOverview(overview.date, "admin-token"),
-    ).rejects.toBe(abortError);
+    await expect(fetchAdminOverview(overview.date)).rejects.toBe(abortError);
   });
 });
