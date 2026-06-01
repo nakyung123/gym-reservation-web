@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
   let profileSynced = true;
   try {
     profileSynced = await syncProfile(ticket.targetUid, ticket.profilePayload);
-  } catch (error) {
-    await recordFailureSafely(ticketId, error, "[naver finalize]");
+  } catch {
+    await recordFailureSafely(ticketId, "[naver finalize]");
     console.error("[naver finalize] sync failed");
     return Response.json(
       { message: FINALIZE_FAILURE_MESSAGE, retryable: true },
@@ -143,8 +143,8 @@ export async function POST(request: NextRequest) {
     if (!finalized) {
       throw new Error("markFinalized returned null");
     }
-  } catch (error) {
-    await recordFailureSafely(ticketId, error, "[naver finalize]");
+  } catch {
+    await recordFailureSafely(ticketId, "[naver finalize]");
     console.error("[naver finalize] finalize state transition failed");
     return Response.json(
       { message: FINALIZE_FAILURE_MESSAGE, retryable: true },
@@ -156,13 +156,12 @@ export async function POST(request: NextRequest) {
 
 async function recordFailureSafely(
   ticketId: string,
-  error: unknown,
   logPrefix: string,
 ): Promise<void> {
-  const message =
-    error instanceof Error ? error.message : "unknown finalize error";
   try {
-    await recordFinalizeFailure(ticketId, message);
+    // 외부 서비스/SDK 오류 message에는 계정 식별자나 내부 사유가 섞일 수 있으므로
+    // DB에는 고정된 실패 분류만 남긴다. 사용자 응답도 FINALIZE_FAILURE_MESSAGE로 통일한다.
+    await recordFinalizeFailure(ticketId, "finalize_failed");
   } catch {
     console.error(`${logPrefix} record failure failed`);
   }

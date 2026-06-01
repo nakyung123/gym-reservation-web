@@ -281,7 +281,7 @@ describe("/api/auth/naver/finalize", () => {
         status: "signed_in",
         finalizeAttemptCount: 1,
       });
-      expect(stored?.lastFinalizeError).toContain("firebase update failed");
+      expect(stored?.lastFinalizeError).toBe("finalize_failed");
     } finally {
       errorSpy.mockRestore();
     }

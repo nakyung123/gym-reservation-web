@@ -168,6 +168,32 @@ describe("POST /api/reservations", () => {
     expect(slot.reservedCount).toBe(1);
   });
 
+  it("요청 본문에 price가 있어도 서버 기준 sport 가격으로 예약 금액을 저장한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "server-price-user" });
+    const date = futureDate(1);
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "11:00",
+        price: 1,
+      }),
+    );
+    const body = (await response.json()) as {
+      reservation?: { id?: unknown; price?: unknown };
+    };
+
+    expect(response.status).toBe(201);
+    expect(body.reservation?.price).toBe(12000);
+
+    const stored = await prisma.reservation.findUniqueOrThrow({
+      where: { id: String(body.reservation?.id) },
+    });
+    expect(stored.price).toBe(12000);
+  });
+
   it("같은 사용자의 같은 활성 예약은 409 duplicate로 응답하고 슬롯을 다시 늘리지 않는다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "duplicate-route-user" });
     const date = futureDate();
