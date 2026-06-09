@@ -69,7 +69,7 @@ export function AdminOverviewPanel() {
     overviewState.status === "ready" ? overviewState.overview : null;
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-bold text-slate-950">운영 요약</h2>
@@ -83,13 +83,13 @@ export function AdminOverviewPanel() {
             type="date"
             value={selectedDate}
             onChange={(event) => setSelectedDate(event.target.value)}
-            className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
           <button
             type="button"
             onClick={handleQuery}
             disabled={overviewState.status === "loading"}
-            className="h-10 rounded-md bg-sky-700 px-3 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            className="h-10 rounded-md bg-accent px-3 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             {overviewState.status === "loading" ? (
               <span className="inline-flex items-center gap-2">
@@ -120,7 +120,7 @@ export function AdminOverviewPanel() {
 
       {overviewState.status === "error" ? (
         <p
-          className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800"
+          className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
           role="alert"
         >
           {overviewState.message}
@@ -135,7 +135,7 @@ export function AdminOverviewPanel() {
 
       {overview ? (
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-lg border border-line bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-500">
               {reservationStatusLabel.reserved}
             </p>
@@ -146,7 +146,7 @@ export function AdminOverviewPanel() {
               전체 {overview.reservations.total}건
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-lg border border-line bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-500">
               {reservationStatusLabel.used}
             </p>
@@ -160,7 +160,7 @@ export function AdminOverviewPanel() {
                 : ""}
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-lg border border-line bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-500">예상 매출</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {formatGymPrice(overview.revenue.expected)}
@@ -169,7 +169,7 @@ export function AdminOverviewPanel() {
               {reservationStatusLabel.used} {formatGymPrice(overview.revenue.used)}
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-lg border border-line bg-slate-50 p-4">
             <p className="text-xs font-semibold text-slate-500">슬롯 사용률</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {getSlotUsageLabel(overview)}

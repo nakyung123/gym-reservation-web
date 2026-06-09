@@ -8,12 +8,12 @@
 export function AdminLoadingRow({ message }: { message: string }) {
   return (
     <div
-      className="mt-4 flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600"
+      className="mt-4 flex items-center gap-3 rounded-md border border-line bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600"
       aria-live="polite"
       aria-busy="true"
     >
       <span
-        className="size-5 shrink-0 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600"
+        className="size-5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent"
         aria-hidden="true"
       />
       {message}
@@ -30,7 +30,7 @@ export function AdminEmptyState({
   description?: string;
 }) {
   return (
-    <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+    <div className="mt-4 rounded-md border border-dashed border-line-strong bg-slate-50 px-4 py-8 text-center">
       <p className="text-sm font-semibold text-slate-700">{title}</p>
       {description ? (
         <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>

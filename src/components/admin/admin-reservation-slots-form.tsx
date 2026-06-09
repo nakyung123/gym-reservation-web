@@ -70,9 +70,9 @@ const STATUS_BADGE_STYLES: Record<
   ReservationSlotAvailability["status"],
   string
 > = {
-  available: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  full: "bg-amber-50 text-amber-800 border-amber-200",
-  closed: "bg-slate-100 text-slate-700 border-slate-300",
+  available: "bg-success/10 text-success border-success/30",
+  full: "bg-warning/10 text-warning border-warning/30",
+  closed: "bg-slate-100 text-slate-700 border-line-strong",
 };
 
 function pad(value: number) {
@@ -696,7 +696,7 @@ export function AdminReservationSlotsForm({
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-sky-700">관리자</p>
+            <p className="text-sm font-semibold text-accent-strong">관리자</p>
             <h1 className="mt-1 text-2xl font-bold text-slate-950">
               슬롯 관리
             </h1>
@@ -710,20 +710,20 @@ export function AdminReservationSlotsForm({
           <div className="flex flex-wrap gap-2">
             <Link
               href="/admin"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               관리자 홈
             </Link>
             <Link
               href="/admin/reservations"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               예약 관리
             </Link>
           </div>
         </header>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-950">조회 조건</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
             <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -732,7 +732,7 @@ export function AdminReservationSlotsForm({
                 value={selectedGymId}
                 onChange={(event) => handleGymChange(event.target.value)}
                 disabled={isSavingSlotChange}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {gyms.length === 0 ? (
                   <option value="">체육관이 없습니다</option>
@@ -753,7 +753,7 @@ export function AdminReservationSlotsForm({
                   handleSportChange(event.target.value as Sport)
                 }
                 disabled={!selectedGym || isSavingSlotChange}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {selectedGym ? (
                   selectedGym.sports.map((sport) => (
@@ -773,14 +773,14 @@ export function AdminReservationSlotsForm({
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
                 disabled={isSavingSlotChange}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </label>
             <button
               type="button"
               onClick={handleQuery}
               disabled={!canQuery || slotsState.status === "loading"}
-              className="h-10 self-end rounded-md bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="h-10 self-end rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {slotsState.status === "loading" ? (
                 <span className="inline-flex items-center gap-2">
@@ -793,13 +793,13 @@ export function AdminReservationSlotsForm({
             </button>
           </div>
           {isSavingSlotChange ? (
-            <p className="mt-2 text-xs font-semibold text-amber-700">
+            <p className="mt-2 text-xs font-semibold text-warning">
               저장이 끝난 뒤 조회 조건을 변경할 수 있습니다.
             </p>
           ) : null}
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-950">시간대 슬롯</h2>
 
           {slotsState.status === "idle" ? (
@@ -815,7 +815,7 @@ export function AdminReservationSlotsForm({
 
           {slotsState.status === "error" ? (
             <p
-              className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+              className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
               role="alert"
             >
               {slotsState.message}
@@ -830,7 +830,7 @@ export function AdminReservationSlotsForm({
               />
             ) : (
               <>
-                <div className="mt-3 rounded-md border border-sky-200 bg-sky-50/40 p-4">
+                <div className="mt-3 rounded-md border border-accent/20 bg-accent-tint p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-900">
                       일괄 적용
@@ -842,7 +842,7 @@ export function AdminReservationSlotsForm({
                         : ""}
                     </p>
                   </div>
-                  <div className="mt-3 rounded-md border border-slate-200 bg-white p-3">
+                  <div className="mt-3 rounded-md border border-line bg-white p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
                       <div className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
                         추가 날짜
@@ -854,14 +854,14 @@ export function AdminReservationSlotsForm({
                             setBulkDateNotice(null);
                           }}
                           disabled={isSavingSlotChange}
-                          className="h-9 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          className="h-9 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={handleAddBulkDate}
                         disabled={isSavingSlotChange}
-                        className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                        className="h-9 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         날짜 추가
                       </button>
@@ -878,20 +878,20 @@ export function AdminReservationSlotsForm({
                           type="button"
                           onClick={() => handleAddBulkWeekPreset(weeks)}
                           disabled={isSavingSlotChange}
-                          className="h-7 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                          className="h-7 rounded-md border border-line-strong bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                         >
                           +{weeks}주 같은 요일
                         </button>
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="inline-flex h-7 items-center rounded-full border border-sky-200 bg-sky-50 px-3 text-xs font-semibold text-sky-800">
+                      <span className="inline-flex h-7 items-center rounded-full border border-accent/20 bg-accent-tint px-3 text-xs font-semibold text-accent-strong">
                         조회 날짜 {selectedDate}
                       </span>
                       {bulkAdditionalDates.map((date) => (
                         <span
                           key={date}
-                          className="inline-flex h-7 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700"
+                          className="inline-flex h-7 items-center gap-2 rounded-full border border-line bg-slate-50 px-3 text-xs font-semibold text-slate-700"
                         >
                           {date}
                           <button
@@ -899,7 +899,7 @@ export function AdminReservationSlotsForm({
                             onClick={() => handleRemoveBulkDate(date)}
                             disabled={isSavingSlotChange}
                             aria-label={`${date} 적용 날짜 제거`}
-                            className="rounded text-slate-500 transition hover:text-rose-700 disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                            className="rounded text-slate-500 transition hover:text-error disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             ×
                           </button>
@@ -910,8 +910,8 @@ export function AdminReservationSlotsForm({
                       <p
                         className={`mt-2 text-xs font-semibold ${
                           bulkDateNotice.tone === "error"
-                            ? "text-rose-700"
-                            : "text-emerald-700"
+                            ? "text-error"
+                            : "text-success"
                         }`}
                         role={
                           bulkDateNotice.tone === "error" ? "alert" : "status"
@@ -931,7 +931,7 @@ export function AdminReservationSlotsForm({
                             setBulkCapacityEnabled(event.target.checked)
                           }
                           disabled={isSavingSlotChange}
-                          className="h-4 w-4 rounded border-slate-300"
+                          className="h-4 w-4 rounded border-line-strong"
                         />
                         정원 변경
                       </label>
@@ -950,7 +950,7 @@ export function AdminReservationSlotsForm({
                           setBulkCapacity(parsed);
                         }}
                         disabled={!bulkCapacityEnabled || isSavingSlotChange}
-                        className="h-9 w-24 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        className="h-9 w-24 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       />
                     </div>
                     <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -963,7 +963,7 @@ export function AdminReservationSlotsForm({
                           )
                         }
                         disabled={isSavingSlotChange}
-                        className="h-9 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                        className="h-9 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       >
                         <option value="none">변경 안 함</option>
                         <option value="close">마감 적용</option>
@@ -974,7 +974,7 @@ export function AdminReservationSlotsForm({
                       type="button"
                       onClick={handleBulkApply}
                       disabled={!canBulkApply}
-                      className="h-9 rounded-md bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      className="h-9 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                     >
                       {bulkSaveState.status === "saving" ? (
                         <span className="inline-flex items-center gap-2">
@@ -998,7 +998,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {hasInvalidBulkTargetDate ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-rose-700"
+                      className="mt-2 text-xs font-semibold text-error"
                       role="alert"
                     >
                       적용 날짜는 YYYY-MM-DD 형식이어야 합니다.
@@ -1006,7 +1006,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {!isBulkCapacityValid ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-rose-700"
+                      className="mt-2 text-xs font-semibold text-error"
                       role="alert"
                     >
                       정원은 {BULK_MIN_CAPACITY}명 이상 {BULK_MAX_CAPACITY}
@@ -1015,7 +1015,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {isOverBulkLimit ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-rose-700"
+                      className="mt-2 text-xs font-semibold text-error"
                       role="alert"
                     >
                       현재 대상 {bulkTargetCount}건 · 한 번에 최대{" "}
@@ -1025,7 +1025,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {bulkSaveState.status === "success" ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-emerald-700"
+                      className="mt-2 text-xs font-semibold text-success"
                       role="status"
                     >
                       {bulkSaveState.updatedCount}건이 반영되었습니다.
@@ -1033,7 +1033,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {bulkSaveState.status === "error" ? (
                     <p
-                      className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-2 text-xs font-semibold text-rose-800"
+                      className="mt-2 rounded-md border border-error/30 bg-error/10 p-2 text-xs font-semibold text-error"
                       role="alert"
                     >
                       {bulkSaveState.message}
@@ -1041,13 +1041,13 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {bulkSaveState.status === "conflict" ? (
                     <div
-                      className="mt-2 rounded-md border border-rose-200 bg-rose-50 p-3"
+                      className="mt-2 rounded-md border border-error/30 bg-error/10 p-3"
                       role="alert"
                     >
-                      <p className="text-xs font-semibold text-rose-800">
+                      <p className="text-xs font-semibold text-error">
                         {bulkSaveState.message}
                       </p>
-                      <ul className="mt-2 flex flex-col gap-1 text-xs text-rose-900">
+                      <ul className="mt-2 flex flex-col gap-1 text-xs text-error">
                         {bulkSaveState.conflicts.map((conflict) => (
                           <li key={`${conflict.date}_${conflict.time}`}>
                             {conflict.date} {conflict.time} · 예약{" "}
@@ -1055,7 +1055,7 @@ export function AdminReservationSlotsForm({
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-2 text-xs text-rose-700">
+                      <p className="mt-2 text-xs text-error">
                         이번 일괄 변경은 적용되지 않았습니다. 충돌 시간을
                         제외하고 다시 적용해주세요.
                       </p>
@@ -1066,7 +1066,7 @@ export function AdminReservationSlotsForm({
                 <table className="min-w-full border-collapse text-sm">
                   <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     <tr>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         <input
                           type="checkbox"
                           checked={isAllSelected}
@@ -1075,25 +1075,25 @@ export function AdminReservationSlotsForm({
                           }
                           disabled={isSavingSlotChange}
                           aria-label="전체 선택"
-                          className="h-4 w-4 rounded border-slate-300"
+                          className="h-4 w-4 rounded border-line-strong"
                         />
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         시간
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         정원
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         마감
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         예약 / 잔여
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         상태
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         저장
                       </th>
                     </tr>
@@ -1125,8 +1125,8 @@ export function AdminReservationSlotsForm({
                       return (
                         <tr
                           key={slot.time}
-                          className={`border-b border-slate-100 align-top ${
-                            isSaving ? "bg-emerald-50/60" : ""
+                          className={`border-b border-line align-top ${
+                            isSaving ? "bg-accent-tint" : ""
                           }`}
                         >
                           <td className="px-3 py-3">
@@ -1141,7 +1141,7 @@ export function AdminReservationSlotsForm({
                               }
                               disabled={isSavingSlotChange}
                               aria-label={`${slot.time} 일괄 선택`}
-                              className="h-4 w-4 rounded border-slate-300"
+                              className="h-4 w-4 rounded border-line-strong"
                             />
                           </td>
                           <td className="px-3 py-3 font-semibold text-slate-900">
@@ -1165,7 +1165,7 @@ export function AdminReservationSlotsForm({
                                 });
                               }}
                               disabled={isSavingSlotChange}
-                              className="h-9 w-24 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                              className="h-9 w-24 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             />
                           </td>
                           <td className="px-3 py-3">
@@ -1179,7 +1179,7 @@ export function AdminReservationSlotsForm({
                                   })
                                 }
                                 disabled={isSavingSlotChange}
-                                className="h-4 w-4 rounded border-slate-300"
+                                className="h-4 w-4 rounded border-line-strong"
                               />
                               마감
                             </label>
@@ -1200,7 +1200,7 @@ export function AdminReservationSlotsForm({
                                 type="button"
                                 onClick={() => handleSaveRow(slot)}
                                 disabled={!canSave}
-                                className="h-9 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                                className="h-9 rounded-md bg-accent px-3 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                               >
                                 {isSaving
                                   ? "저장 중"
@@ -1210,7 +1210,7 @@ export function AdminReservationSlotsForm({
                               </button>
                               {isSaveSuccess ? (
                                 <p
-                                  className="text-xs font-semibold text-emerald-700"
+                                  className="text-xs font-semibold text-success"
                                   role="status"
                                 >
                                   저장 완료
@@ -1218,7 +1218,7 @@ export function AdminReservationSlotsForm({
                               ) : null}
                               {saveError ? (
                                 <p
-                                  className="text-xs font-semibold text-rose-700"
+                                  className="text-xs font-semibold text-error"
                                   role="alert"
                                 >
                                   {saveError}
@@ -1226,7 +1226,7 @@ export function AdminReservationSlotsForm({
                               ) : null}
                               {!rowCapacityIsValid ? (
                                 <p
-                                  className="text-xs font-semibold text-rose-700"
+                                  className="text-xs font-semibold text-error"
                                   role="alert"
                                 >
                                   정원은 1~999명이어야 합니다.

@@ -53,8 +53,8 @@ type GymDraft = {
 };
 
 const noticeStyles: Record<Notice["tone"], string> = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  error: "border-rose-200 bg-rose-50 text-rose-800",
+  success: "border-success/30 bg-success/10 text-success",
+  error: "border-error/30 bg-error/10 text-error",
 };
 
 const statusFilterLabels: Record<StatusFilter, string> = {
@@ -420,7 +420,7 @@ export function AdminGymsView() {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-sky-700">관리자</p>
+            <p className="text-sm font-semibold text-accent-strong">관리자</p>
             <h1 className="mt-1 text-2xl font-bold text-slate-950">
               시설 관리
             </h1>
@@ -431,19 +431,19 @@ export function AdminGymsView() {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/admin"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               관리자 홈
             </Link>
             <Link
               href="/admin/reservations"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               예약 관리
             </Link>
             <Link
               href="/admin/reservation-slots"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               슬롯 관리
             </Link>
@@ -460,7 +460,7 @@ export function AdminGymsView() {
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">시설 목록</h2>
@@ -474,7 +474,7 @@ export function AdminGymsView() {
                   type="button"
                   onClick={() => void loadGyms()}
                   disabled={gymsState.status === "loading" || saving}
-                  className="h-10 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                  className="h-10 rounded-md border border-line-strong px-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   새로고침
                 </button>
@@ -482,7 +482,7 @@ export function AdminGymsView() {
                   type="button"
                   onClick={handleNew}
                   disabled={saving}
-                  className="h-10 rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                  className="h-10 rounded-md bg-accent px-3 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   신규 시설
                 </button>
@@ -495,7 +495,7 @@ export function AdminGymsView() {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="시설명, 지역구, 주소"
-                className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
               <div
                 className="flex flex-wrap gap-2"
@@ -511,10 +511,10 @@ export function AdminGymsView() {
                         type="button"
                         aria-pressed={selected}
                         onClick={() => setStatusFilter(filter)}
-                        className={`h-9 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                        className={`h-9 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                           selected
-                            ? "border-slate-950 bg-slate-950 text-white"
-                            : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                            ? "border-accent bg-accent text-white"
+                            : "border-line-strong bg-white text-slate-700 hover:border-accent hover:text-accent-strong"
                         }`}
                       >
                         {statusFilterLabels[filter]}
@@ -531,7 +531,7 @@ export function AdminGymsView() {
 
             {gymsState.status === "error" ? (
               <p
-                className="mt-5 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+                className="mt-5 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
                 role="alert"
               >
                 {gymsState.message}
@@ -564,7 +564,7 @@ export function AdminGymsView() {
                           setSearchInput("");
                           setStatusFilter("all");
                         }}
-                        className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                        className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         조건 초기화
                       </button>
@@ -572,7 +572,7 @@ export function AdminGymsView() {
                   ) : null}
                 </>
               ) : (
-                <div className="mt-5 divide-y divide-slate-100 border-y border-slate-100">
+                <div className="mt-5 divide-y divide-line border-y border-line">
                   {filteredGyms.map((gym) => {
                     const selected =
                       formMode === "edit" && draft.id === gym.id;
@@ -582,9 +582,9 @@ export function AdminGymsView() {
                         type="button"
                         onClick={() => handleSelectGym(gym)}
                         disabled={saving}
-                        className={`grid w-full gap-2 border-l-4 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`grid w-full gap-2 border-l-4 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                           selected
-                            ? "border-sky-500 bg-sky-50"
+                            ? "border-accent bg-accent-tint"
                             : "border-transparent hover:bg-slate-50"
                         }`}
                       >
@@ -600,8 +600,8 @@ export function AdminGymsView() {
                           <span
                             className={`inline-flex h-6 shrink-0 items-center rounded-full border px-2 text-xs font-semibold ${
                               gym.isActive
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                : "border-slate-200 bg-slate-100 text-slate-600"
+                                ? "border-success/30 bg-success/10 text-success"
+                                : "border-line bg-slate-100 text-slate-600"
                             }`}
                           >
                             {gym.isActive ? "운영 중" : "비활성"}
@@ -623,7 +623,7 @@ export function AdminGymsView() {
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">
@@ -641,7 +641,7 @@ export function AdminGymsView() {
                     updateDraft({ isActive: event.target.checked })
                   }
                   disabled={saving}
-                  className="h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-4 w-4 rounded border-line-strong disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 운영 중
               </label>
@@ -651,7 +651,7 @@ export function AdminGymsView() {
                 영향을 줄 수 있으므로 운영자에게 한 줄로 사전 안내한다. */}
             {formMode === "edit" ? (
               <p
-                className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800"
+                className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning"
                 role="status"
               >
                 수정 사항은 기존 예약·슬롯에 영향을 줄 수 있습니다. 운영시간·종목·시간대를 바꾸기 전에 영향 범위를 확인하세요.
@@ -663,7 +663,7 @@ export function AdminGymsView() {
                 문구가 달라지는데, 신규에는 "기존 예약" 개념이 없으므로 분기한다. */}
             {!draft.isActive ? (
               <p
-                className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800"
+                className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-xs font-semibold text-error"
                 role="alert"
               >
                 {formMode === "create"
@@ -686,7 +686,7 @@ export function AdminGymsView() {
                     value={draft.id}
                     onChange={(event) => updateDraft({ id: event.target.value })}
                     disabled={formMode === "edit"}
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -697,7 +697,7 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ name: event.target.value })
                     }
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
               </div>
@@ -711,7 +711,7 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ region: event.target.value })
                     }
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -722,7 +722,7 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ openHours: event.target.value })
                     }
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
               </div>
@@ -735,7 +735,7 @@ export function AdminGymsView() {
                   onChange={(event) =>
                     updateDraft({ address: event.target.value })
                   }
-                  className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 />
               </label>
 
@@ -747,7 +747,7 @@ export function AdminGymsView() {
                   onChange={(event) =>
                     updateDraft({ officialUrl: event.target.value })
                   }
-                  className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 />
               </label>
 
@@ -762,7 +762,7 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ basePrice: event.target.value })
                     }
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
               </div>
@@ -780,7 +780,7 @@ export function AdminGymsView() {
                       updateDraft({ latitude: event.target.value })
                     }
                     placeholder="예: 37.5665"
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -795,7 +795,7 @@ export function AdminGymsView() {
                       updateDraft({ longitude: event.target.value })
                     }
                     placeholder="예: 126.9780"
-                    className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
               </div>
@@ -808,7 +808,7 @@ export function AdminGymsView() {
                     updateDraft({ description: event.target.value })
                   }
                   rows={3}
-                  className="rounded-md border border-slate-300 px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 />
               </label>
 
@@ -822,14 +822,14 @@ export function AdminGymsView() {
                     return (
                       <div
                         key={sport}
-                        className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-md border border-slate-200 px-3 py-2"
+                        className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-md border border-line px-3 py-2"
                       >
                         <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
                           <input
                             type="checkbox"
                             checked={selected}
                             onChange={() => handleSportToggle(sport)}
-                            className="h-4 w-4 rounded border-slate-300"
+                            className="h-4 w-4 rounded border-line-strong"
                           />
                           {sport}
                         </label>
@@ -843,7 +843,7 @@ export function AdminGymsView() {
                           }
                           disabled={!selected}
                           aria-label={`${sport} 이용료`}
-                          className="h-9 min-w-0 rounded-md border border-slate-300 px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                          className="h-9 min-w-0 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                         />
                       </div>
                     );
@@ -860,7 +860,7 @@ export function AdminGymsView() {
                       updateDraft({ facilitiesText: event.target.value })
                     }
                     rows={5}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -871,7 +871,7 @@ export function AdminGymsView() {
                       updateDraft({ availableTimesText: event.target.value })
                     }
                     rows={5}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -882,7 +882,7 @@ export function AdminGymsView() {
                       updateDraft({ closedDaysText: event.target.value })
                     }
                     rows={5}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   />
                 </label>
               </div>
@@ -892,7 +892,7 @@ export function AdminGymsView() {
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="h-10 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                  className="h-10 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   {saving ? (
                     <span className="inline-flex items-center gap-2">
@@ -907,7 +907,7 @@ export function AdminGymsView() {
                   type="button"
                   onClick={handleNew}
                   disabled={saving}
-                  className="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                  className="h-10 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   입력 초기화
                 </button>
