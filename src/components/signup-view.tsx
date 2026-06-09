@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { signupWithEmail } from "@/lib/firebase-email-auth";
+import {
+  PASSWORD_POLICY_HINT,
+  validatePasswordPolicy,
+} from "@/lib/password-policy";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
 import { ensureUserProfile } from "@/lib/user-profile-client";
 import { PasswordField, TextField } from "@/components/form-fields";
@@ -25,12 +29,6 @@ function validateEmail(value: string): string | null {
   return null;
 }
 
-function validatePassword(value: string): string | null {
-  if (value.length === 0) return null;
-  if (value.length < 8) return "비밀번호는 8자 이상이어야 합니다.";
-  return null;
-}
-
 type SignupStep = "terms" | "form";
 
 export function SignupView() {
@@ -46,7 +44,7 @@ export function SignupView() {
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
 
   const emailError = validateEmail(email);
-  const passwordError = validatePassword(password);
+  const passwordError = validatePasswordPolicy(password);
   const passwordConfirmError =
     passwordConfirm.length > 0 && passwordConfirm !== password
       ? "비밀번호 확인이 일치하지 않습니다."
@@ -98,11 +96,12 @@ export function SignupView() {
           error={emailError}
         />
         <PasswordField
-          label="비밀번호 (8자 이상)"
+          label="비밀번호"
           autoComplete="new-password"
           value={password}
           onChange={setPassword}
           error={passwordError}
+          hint={PASSWORD_POLICY_HINT}
         />
         <PasswordField
           label="비밀번호 확인"

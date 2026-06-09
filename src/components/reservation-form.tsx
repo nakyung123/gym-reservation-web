@@ -405,28 +405,53 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       })
     : selectedTimeStateCandidate;
   const selectedSlot = slotsLookup?.get(effectiveSelectedTime) ?? null;
-  const submitDisabledReason = isSubmitting
-    ? "예약을 처리하고 있습니다."
-    : !authSession.ok
-      ? authSession.message
-      : !isDateReady
-        ? "예약 날짜를 준비하고 있습니다."
-        : !reservationReadResult.ok
-          ? reservationReadResult.message
-          : !selectedTimeState.available
-            ? selectedTimeState.message
-            : slotsFetchError
-              ? slotsFetchError
-              : slotsFetchPending || !slotsLookup
-                ? "예약 가능 인원을 확인하고 있습니다."
-                : selectedSlot && selectedSlot.status !== "available"
-                  ? "선택한 시간대는 마감되었습니다."
-                  : null;
-  const timeSelectionDisabledLabel =
+  // auth/예약 read가 아직 준비되지 않은 전이적 로딩 상태(not-ready)인지.
+  // 이 상태는 에러가 아니라 로딩이므로 중립 표시로 다룬다.
+  const isReservationDataLoading =
     (!authSession.ok && authSession.reason === "not-ready") ||
-    (!reservationReadResult.ok && reservationReadResult.reason === "not-ready")
-      ? "확인 중"
-      : "확인 불가";
+    (!reservationReadResult.ok && reservationReadResult.reason === "not-ready");
+  // 예약 버튼 비활성 사유 + 톤. "pending"은 전이적 로딩/대기(중립 표시),
+  // "blocked"는 사용자가 조치해야 하는 실제 차단(에러 표시).
+  // not-ready 같은 로딩 사유를 error-red로 보여주지 않는다.
+  const submitDisabled: {
+    message: string;
+    tone: "pending" | "blocked";
+  } | null = isSubmitting
+    ? { message: "예약을 처리하고 있습니다.", tone: "pending" }
+    : !authSession.ok
+      ? {
+          message: authSession.message,
+          tone: authSession.reason === "not-ready" ? "pending" : "blocked",
+        }
+      : !isDateReady
+        ? { message: "예약 날짜를 준비하고 있습니다.", tone: "pending" }
+        : !reservationReadResult.ok
+          ? {
+              message: reservationReadResult.message,
+              tone:
+                reservationReadResult.reason === "not-ready"
+                  ? "pending"
+                  : "blocked",
+            }
+          : !selectedTimeState.available
+            ? { message: selectedTimeState.message, tone: "blocked" }
+            : slotsFetchError
+              ? { message: slotsFetchError, tone: "blocked" }
+              : slotsFetchPending || !slotsLookup
+                ? {
+                    message: "예약 가능 인원을 확인하고 있습니다.",
+                    tone: "pending",
+                  }
+                : selectedSlot && selectedSlot.status !== "available"
+                  ? {
+                      message: "선택한 시간대는 마감되었습니다.",
+                      tone: "blocked",
+                    }
+                  : null;
+  const submitDisabledReason = submitDisabled?.message ?? null;
+  const timeSelectionDisabledLabel = isReservationDataLoading
+    ? "확인 중"
+    : "확인 불가";
   const shouldShowSubmitDisabledReason =
     Boolean(submitDisabledReason) && !hasReservationNotice;
   const availableTimeCount = useMemo(() => {
@@ -748,9 +773,15 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   })}
                 </div>
                 {timeSelectionDisabledReason ? (
-                  <p className="mt-3 text-sm font-semibold text-warning" role="alert">
-                    {timeSelectionDisabledReason}
-                  </p>
+                  isReservationDataLoading ? (
+                    <p className="mt-3 text-xs leading-5 text-slate-500" role="status">
+                      {timeSelectionDisabledReason}
+                    </p>
+                  ) : (
+                    <p className="mt-3 text-sm font-semibold text-warning" role="alert">
+                      {timeSelectionDisabledReason}
+                    </p>
+                  )
                 ) : slotsFetchError ? (
                   <p className="mt-3 text-sm font-semibold text-error" role="alert">
                     {slotsFetchError}
@@ -838,9 +869,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           {reserveButtonLabel}
         </button>
 
-        {shouldShowSubmitDisabledReason ? (
-          <p className="mt-3 text-sm font-semibold text-error" role="alert">
-            {submitDisabledReason}
+        {shouldShowSubmitDisabledReason && submitDisabled ? (
+          <p
+            className={`mt-3 text-sm font-semibold ${
+              submitDisabled.tone === "pending" ? "text-slate-500" : "text-error"
+            }`}
+            role={submitDisabled.tone === "pending" ? "status" : "alert"}
+          >
+            {submitDisabled.message}
           </p>
         ) : null}
 

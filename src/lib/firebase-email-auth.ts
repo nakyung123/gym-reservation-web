@@ -133,9 +133,13 @@ function mapSignupError(error: unknown): {
         message: "이메일 형식이 올바르지 않습니다.",
       };
     case "auth/weak-password":
+    case "auth/password-does-not-meet-requirements":
+      // Firebase 프로젝트 비밀번호 정책(8자+/소문자/숫자/특수문자) 미충족.
+      // 클라 검증이 안전망 역할을 하지만 정책 변경/우회 시 여기서 구체 안내한다.
       return {
         reason: "weak-password",
-        message: "비밀번호가 너무 약합니다. 8자 이상으로 설정해 주세요.",
+        message:
+          "비밀번호가 정책을 충족하지 않습니다. 8자 이상이며 영문 소문자·숫자·특수문자를 포함해 주세요.",
       };
     default:
       return {

@@ -10,6 +10,10 @@ import {
   updateMyPassword,
   type UpdatePasswordFailureReason,
 } from "@/lib/firebase-password-update";
+import {
+  PASSWORD_POLICY_HINT,
+  validatePasswordPolicy,
+} from "@/lib/password-policy";
 import { PasswordField } from "@/components/form-fields";
 
 type AuthUserState =
@@ -26,12 +30,6 @@ type SubmitState =
       reason: UpdatePasswordFailureReason;
       message: string;
     };
-
-function validateNewPassword(value: string): string | null {
-  if (value.length === 0) return null;
-  if (value.length < 8) return "비밀번호는 8자 이상이어야 합니다.";
-  return null;
-}
 
 export function PasswordChangeView() {
   const router = useRouter();
@@ -98,7 +96,7 @@ export function PasswordChangeView() {
       ? submitState.message
       : null;
 
-  const newPasswordError = validateNewPassword(newPassword);
+  const newPasswordError = validatePasswordPolicy(newPassword);
   const newPasswordConfirmError =
     newPasswordConfirm.length > 0 && newPasswordConfirm !== newPassword
       ? "새 비밀번호 확인이 일치하지 않습니다."
@@ -169,11 +167,12 @@ export function PasswordChangeView() {
             disabled={isLoading || isSuccess}
           />
           <PasswordField
-            label="새 비밀번호 (8자 이상)"
+            label="새 비밀번호"
             autoComplete="new-password"
             value={newPassword}
             onChange={setNewPassword}
             error={newPasswordError ?? sameAsCurrentError}
+            hint={PASSWORD_POLICY_HINT}
             disabled={isLoading || isSuccess}
           />
           <PasswordField
