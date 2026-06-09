@@ -76,15 +76,15 @@ export function SignupTermsStep({ onAgree }: { onAgree: () => void }) {
   }
 
   return (
-    <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold text-slate-950">서비스 이용 동의</h1>
       <p className="mt-1 text-sm text-slate-600">
         가입을 진행하기 위해 아래 약관에 동의해 주세요. 필수 항목 동의 후 다음으로 넘어갈 수 있습니다.
       </p>
 
-      <div className="mt-5 rounded-md border border-slate-200">
+      <div className="mt-5 rounded-md border border-line">
         <AgreeAllRow checked={allChecked} onChange={toggleAll} />
-        <ul className="divide-y divide-slate-200">
+        <ul className="divide-y divide-line">
           {TERMS.map((t) => (
             <TermRow
               key={t.key}
@@ -102,7 +102,7 @@ export function SignupTermsStep({ onAgree }: { onAgree: () => void }) {
         type="button"
         onClick={onAgree}
         disabled={!requiredOk}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
       >
         동의하고 계속하기
       </button>
@@ -121,14 +121,14 @@ function AgreeAllRow({
   return (
     <label
       htmlFor={id}
-      className="flex cursor-pointer items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3"
+      className="flex cursor-pointer items-center gap-3 border-b border-line bg-slate-50 px-4 py-3"
     >
       <input
         id={id}
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="size-4 cursor-pointer accent-slate-950"
+        className="size-4 cursor-pointer accent-accent"
       />
       <span className="text-sm font-semibold text-slate-900">
         약관 전체 동의하기
@@ -159,13 +159,13 @@ function TermRow({
           type="checkbox"
           checked={checked}
           onChange={onCheck}
-          className="size-4 cursor-pointer accent-slate-950"
+          className="size-4 cursor-pointer accent-accent"
         />
         <label htmlFor={id} className="flex-1 cursor-pointer text-sm text-slate-800">
           {term.label}{" "}
           <span
             className={
-              term.required ? "text-rose-600" : "text-slate-500"
+              term.required ? "text-error" : "text-slate-500"
             }
           >
             ({term.required ? "필수" : "선택"})

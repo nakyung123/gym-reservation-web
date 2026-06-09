@@ -25,7 +25,7 @@ export function ResetPasswordView() {
   }
 
   return (
-    <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold text-slate-950">비밀번호 재설정</h1>
       <p className="mt-1 text-sm text-slate-600">
         가입하신 이메일을 입력하면 재설정 링크가 포함된 메일이 발송됩니다.
@@ -33,7 +33,7 @@ export function ResetPasswordView() {
 
       {submitState.kind === "sent" ? (
         <p
-          className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          className="mt-5 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
           role="status"
         >
           {GENERIC_MESSAGE}
@@ -48,13 +48,13 @@ export function ResetPasswordView() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+              className="h-10 rounded-md border border-line-strong px-3 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
             />
           </label>
           <button
             type="submit"
             disabled={submitState.kind === "loading"}
-            className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {submitState.kind === "loading" ? "전송 중" : "재설정 메일 보내기"}
           </button>
@@ -64,7 +64,7 @@ export function ResetPasswordView() {
       <p className="mt-5 text-center text-sm text-slate-600">
         <Link
           href="/login"
-          className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+          className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
           로그인으로 돌아가기
         </Link>
