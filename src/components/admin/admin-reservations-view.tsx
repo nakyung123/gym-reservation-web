@@ -62,15 +62,17 @@ const filterLabels: Record<ReservationFilter, string> = {
 
 // 관리자 테이블은 사용자 화면(borderless rounded-md)과 달리 의도적으로
 // border 있는 pill 스타일을 쓰므로 별도 정의를 유지한다.
+// 색 의미는 사용자 화면 SSOT(reservation-ticket의 reservationStatusBadgeStyles)와 맞춘다.
+// 예약중=accent 틴트, 취소=error, 사용완료=중립. 단 관리자 테이블은 bordered pill 포맷을 유지한다.
 const statusBadgeStyles: Record<ReservationStatus, string> = {
-  reserved: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  cancelled: "border-slate-200 bg-slate-100 text-slate-600",
-  used: "border-sky-200 bg-sky-50 text-sky-800",
+  reserved: "border-accent/20 bg-accent-tint text-accent-strong",
+  cancelled: "border-error/30 bg-error/10 text-error",
+  used: "border-line bg-surface-2 text-muted",
 };
 
 const noticeStyles: Record<Notice["tone"], string> = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  error: "border-rose-200 bg-rose-50 text-rose-800",
+  success: "border-success/30 bg-success/10 text-success",
+  error: "border-error/30 bg-error/10 text-error",
 };
 
 const EMPTY_RESERVATIONS: Reservation[] = [];
@@ -477,7 +479,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     if (confirmCancelId === reservation.id) {
       return (
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold text-rose-700">
+          <p className="text-xs font-semibold text-error">
             이 예약을 취소할까요?
           </p>
           <div className="flex gap-2">
@@ -485,7 +487,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               type="button"
               onClick={() => handleUpdateStatus(reservation, "cancelled")}
               disabled={!canAct}
-              className="h-8 rounded-md bg-rose-700 px-3 text-xs font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              className="h-8 rounded-md bg-error px-3 text-xs font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {isCancelling ? "취소 중" : "취소 확정"}
             </button>
@@ -493,7 +495,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               type="button"
               onClick={() => setConfirmCancelId(null)}
               disabled={Boolean(actionState)}
-              className="h-8 rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="h-8 rounded-md border border-line-strong px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               유지
             </button>
@@ -508,7 +510,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           type="button"
           onClick={() => handleUpdateStatus(reservation, "used")}
           disabled={!canAct}
-          className="h-8 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+          className="h-8 rounded-md bg-accent px-3 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           {isMarkingUsed ? "처리 중" : "이용 완료"}
         </button>
@@ -516,7 +518,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           type="button"
           onClick={() => setConfirmCancelId(reservation.id)}
           disabled={!canAct}
-          className="h-8 rounded-md border border-rose-200 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+          className="h-8 rounded-md border border-error/30 px-3 text-xs font-semibold text-error transition hover:bg-error/10 disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           관리자 취소
         </button>
@@ -537,7 +539,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-sky-700">관리자</p>
+            <p className="text-sm font-semibold text-accent-strong">관리자</p>
             <h1 className="mt-1 text-2xl font-bold text-slate-950">
               예약 관리
             </h1>
@@ -548,20 +550,20 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           <div className="flex flex-wrap gap-2">
             <Link
               href="/admin"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               관리자 홈
             </Link>
             <Link
               href="/admin/reservation-slots"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               슬롯 관리
             </Link>
           </div>
         </header>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <h2 className="text-sm font-bold text-slate-950">조회 조건</h2>
           <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.2fr_1fr_1.3fr_90px_auto]">
             <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
@@ -571,7 +573,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 onChange={(event) =>
                   setSelectedStatus(event.target.value as ReservationFilter)
                 }
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {(Object.keys(filterLabels) as ReservationFilter[]).map(
                   (status) => (
@@ -588,7 +590,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               <select
                 value={selectedGymId}
                 onChange={(event) => setSelectedGymId(event.target.value)}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <option value="">전체</option>
                 {gyms.map((gym) => (
@@ -605,7 +607,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 type="date"
                 value={selectedDate}
                 onChange={(event) => setSelectedDate(event.target.value)}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </label>
 
@@ -616,7 +618,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 value={userIdInput}
                 onChange={(event) => setUserIdInput(event.target.value)}
                 placeholder="전체"
-                className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </label>
 
@@ -629,7 +631,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 step={1}
                 value={limitInput}
                 onChange={(event) => setLimitInput(event.target.value)}
-                className="h-10 rounded-md border border-slate-300 px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
             </label>
 
@@ -637,7 +639,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
               type="button"
               onClick={handleQuery}
               disabled={!canQuery}
-              className="h-10 self-end rounded-md bg-sky-700 px-4 text-sm font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="h-10 self-end rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {reservationsState.status === "loading" ? (
                 <span className="inline-flex items-center gap-2">
@@ -650,7 +652,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
             </button>
           </div>
           {!isLimitValid ? (
-            <p className="mt-2 text-xs font-semibold text-rose-700" role="alert">
+            <p className="mt-2 text-xs font-semibold text-error" role="alert">
               limit은 1 이상 200 이하의 정수여야 합니다.
             </p>
           ) : null}
@@ -671,14 +673,14 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="예약번호·시설명·사용자 ID 부분 검색"
-                className="h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                className="h-10 flex-1 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               />
               {searchInput.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => setSearchInput("")}
                   aria-label="검색어 지우기"
-                  className="h-10 shrink-0 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-rose-400 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                  className="h-10 shrink-0 rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   지우기
                 </button>
@@ -709,7 +711,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
         ) : null}
 
         {detailState.status !== "idle" ? (
-          <section className="rounded-lg border border-sky-200 bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-accent/20 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-950">
@@ -722,7 +724,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                     aria-busy="true"
                   >
                     <span
-                      className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600"
+                      className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent"
                       aria-hidden="true"
                     />
                     예약 상세를 불러오는 중입니다.
@@ -741,7 +743,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 type="button"
                 onClick={handleCloseDetail}
                 disabled={Boolean(actionState)}
-                className="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="h-8 rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 닫기
               </button>
@@ -749,7 +751,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
 
             {detailState.status === "error" ? (
               <p
-                className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+                className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
                 role="alert"
               >
                 {detailState.message}
@@ -767,7 +769,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 reservation.id === detailState.reservation.id,
             ) ? (
               <div
-                className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800"
+                className="mt-4 rounded-md border border-warning/30 bg-warning/10 p-3 text-xs font-semibold text-warning"
                 role="status"
               >
                 <p>
@@ -778,7 +780,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                   type="button"
                   onClick={() => setSearchInput("")}
                   aria-label="검색어 지우기"
-                  className="mt-2 inline-flex h-7 items-center rounded-md border border-amber-300 bg-white px-2 text-xs font-semibold text-amber-800 transition hover:border-amber-500 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                  className="mt-2 inline-flex h-7 items-center rounded-md border border-warning/40 bg-white px-2 text-xs font-semibold text-warning transition hover:border-warning hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   검색어 지우기
                 </button>
@@ -862,7 +864,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 border-t border-slate-100 pt-4">
+                <div className="mt-4 border-t border-line pt-4">
                   {renderReservationActions(detailState.reservation)}
                 </div>
               </>
@@ -870,7 +872,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           </section>
         ) : null}
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-sm font-bold text-slate-950">예약 목록</h2>
@@ -908,7 +910,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
 
           {reservationsState.status === "error" ? (
             <p
-              className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800"
+              className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
               role="alert"
             >
               {reservationsState.message}
@@ -935,7 +937,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                       type="button"
                       onClick={() => setSearchInput("")}
                       aria-label="검색어 지우기"
-                      className="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                      className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                     >
                       검색어 지우기
                     </button>
@@ -950,25 +952,25 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 <table className="w-full min-w-[800px] border-collapse text-sm">
                   <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
                     <tr>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         예약
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         시설
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         이용 일시
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         사용자
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         결제
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         상태
                       </th>
-                      <th className="border-b border-slate-200 px-3 py-2 text-left">
+                      <th className="border-b border-line px-3 py-2 text-left">
                         처리
                       </th>
                     </tr>
@@ -985,8 +987,8 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                       return (
                         <tr
                           key={reservation.id}
-                          className={`border-b border-slate-100 align-top ${
-                            isSelectedDetail ? "bg-sky-50/60" : ""
+                          className={`border-b border-line align-top ${
+                            isSelectedDetail ? "bg-accent-tint" : ""
                           }`}
                         >
                           <td className="px-3 py-3">
@@ -1000,7 +1002,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                               type="button"
                               onClick={() => handleOpenDetail(reservation.id)}
                               disabled={isDetailLoading}
-                              className="mt-2 inline-flex h-7 items-center rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                              className="mt-2 inline-flex h-7 items-center rounded-md border border-line-strong bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                               aria-pressed={isSelectedDetail}
                             >
                               {isDetailLoading ? "여는 중" : "상세"}

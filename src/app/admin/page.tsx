@@ -27,7 +27,7 @@ export default function AdminPage() {
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
       <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <header>
-          <p className="text-sm font-semibold text-sky-700">관리자</p>
+          <p className="text-sm font-semibold text-accent-strong">관리자</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-950">
             운영 관리
           </h1>
@@ -40,9 +40,9 @@ export default function AdminPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-sky-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="rounded-lg border border-line bg-white p-5 shadow-sm transition hover:border-accent hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              <span className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-50 px-2 text-xs font-semibold text-slate-600">
+              <span className="inline-flex h-6 items-center rounded-full border border-line bg-slate-50 px-2 text-xs font-semibold text-slate-600">
                 {item.meta}
               </span>
               <h2 className="mt-4 text-xl font-bold text-slate-950">
