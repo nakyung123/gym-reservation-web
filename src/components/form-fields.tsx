@@ -48,9 +48,26 @@ function EyeOffIcon() {
   );
 }
 
+// 입력값 지우기(clear) 버튼용 X 라인 아이콘. 이모지/글리프 대신 SVG 사용.
+function ClearIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      className="size-3"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
 // 회원가입/로그인 폼용 재사용 입력 컴포넌트.
 // 실시간 validation은 호출자가 props.error로 제어한다. 빈 문자열/null이면 정상 상태.
-// 비밀번호 필드는 show/hide 토글 + clear ✕ 버튼 제공.
+// 비밀번호 필드는 show/hide 토글 + clear <ClearIcon /> 버튼 제공.
 
 type CommonProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -65,7 +82,7 @@ type CommonProps = Omit<
 };
 
 function hintClassName(tone: "info" | "success" | undefined): string {
-  if (tone === "success") return "text-xs font-semibold text-emerald-700";
+  if (tone === "success") return "text-xs font-semibold text-success";
   return "text-xs text-slate-500";
 }
 
@@ -98,8 +115,8 @@ export function TextField({
           aria-describedby={showError ? errorId : undefined}
           className={`h-10 w-full rounded-md border px-3 pr-9 text-sm focus:outline-none focus:ring-2 ${
             showError
-              ? "border-rose-400 focus:border-rose-500 focus:ring-rose-200"
-              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200"
+              ? "border-error focus:border-error focus:ring-error/30"
+              : "border-line-strong focus:border-accent focus:ring-accent/30"
           }`}
           {...rest}
         />
@@ -113,12 +130,12 @@ export function TextField({
             aria-label={`${label} 지우기`}
             className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-slate-200 text-xs text-slate-700 transition hover:bg-slate-300"
           >
-            ✕
+            <ClearIcon />
           </button>
         ) : null}
       </div>
       {showError ? (
-        <p id={errorId} className="text-xs font-semibold text-rose-700">
+        <p id={errorId} className="text-xs font-semibold text-error">
           {error}
         </p>
       ) : hint ? (
@@ -157,8 +174,8 @@ export function PasswordField({
           aria-describedby={showError ? errorId : undefined}
           className={`h-10 w-full rounded-md border px-3 pr-20 text-sm focus:outline-none focus:ring-2 ${
             showError
-              ? "border-rose-400 focus:border-rose-500 focus:ring-rose-200"
-              : "border-slate-300 focus:border-sky-500 focus:ring-sky-200"
+              ? "border-error focus:border-error focus:ring-error/30"
+              : "border-line-strong focus:border-accent focus:ring-accent/30"
           }`}
           {...rest}
         />
@@ -173,7 +190,7 @@ export function PasswordField({
               aria-label={`${label} 지우기`}
               className="inline-flex size-6 items-center justify-center rounded-full bg-slate-200 text-xs text-slate-700 transition hover:bg-slate-300"
             >
-              ✕
+              <ClearIcon />
             </button>
           ) : null}
           <button
@@ -188,7 +205,7 @@ export function PasswordField({
         </div>
       </div>
       {showError ? (
-        <p id={errorId} className="text-xs font-semibold text-rose-700">
+        <p id={errorId} className="text-xs font-semibold text-error">
           {error}
         </p>
       ) : hint ? (

@@ -124,7 +124,7 @@ export function LoginView() {
   const isLoading = submitState.kind === "loading";
 
   return (
-    <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold text-slate-950">로그인</h1>
       <p className="mt-1 text-sm text-slate-600">
         이메일/비밀번호 또는 소셜 계정으로 로그인하세요.
@@ -148,7 +148,7 @@ export function LoginView() {
         <button
           type="submit"
           disabled={isLoading || !isFormValid}
-          className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isLoading ? "로그인 중" : "이메일로 로그인"}
         </button>
@@ -156,7 +156,7 @@ export function LoginView() {
 
       {submitState.kind === "error" ? (
         <p
-          className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+          className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
           role="alert"
         >
           {submitState.message}
@@ -164,9 +164,9 @@ export function LoginView() {
       ) : null}
 
       <div className="my-5 flex items-center gap-2 text-xs text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />
+        <span className="h-px flex-1 bg-line" />
         <span>또는</span>
-        <span className="h-px flex-1 bg-slate-200" />
+        <span className="h-px flex-1 bg-line" />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -174,7 +174,7 @@ export function LoginView() {
           type="button"
           onClick={handleGoogle}
           disabled={isLoading}
-          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 disabled:cursor-not-allowed disabled:border-slate-200"
+          className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent disabled:cursor-not-allowed disabled:border-line"
         >
           Google로 로그인
         </button>
@@ -200,14 +200,14 @@ export function LoginView() {
         계정이 없으신가요?{" "}
         <Link
           href={`/signup${fromPath !== "/mypage" ? `?from=${encodeURIComponent(fromPath)}` : ""}`}
-          className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+          className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
           회원가입
         </Link>
         {"  ·  "}
         <Link
           href="/reset-password"
-          className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+          className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
           비밀번호 재설정
         </Link>

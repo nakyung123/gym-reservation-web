@@ -80,7 +80,7 @@ export function SignupView() {
   }
 
   return (
-    <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
       <h1 className="text-xl font-bold text-slate-950">회원가입</h1>
       <p className="mt-1 text-sm text-slate-600">
         이메일과 비밀번호로 가입하세요. 닉네임은 자동으로 만들어지며 가입 후 내 정보에서 변경할 수 있습니다.
@@ -113,7 +113,7 @@ export function SignupView() {
         <button
           type="submit"
           disabled={isLoading || !isFormValid}
-          className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           {isLoading ? "가입 중" : "가입하기"}
         </button>
@@ -121,7 +121,7 @@ export function SignupView() {
 
       {submitState.kind === "error" ? (
         <p
-          className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+          className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
           role="alert"
         >
           {submitState.message}
@@ -132,7 +132,7 @@ export function SignupView() {
         이미 계정이 있으신가요?{" "}
         <Link
           href="/login"
-          className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+          className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
           로그인
         </Link>

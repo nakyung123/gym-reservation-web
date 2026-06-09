@@ -104,15 +104,15 @@ export function HandoverFlow() {
   if (state.kind === "loading") {
     return (
       <section
-        className={`${PANEL_BASE} border-slate-200 text-center`}
+        className={`${PANEL_BASE} border-line text-center`}
         aria-busy="true"
       >
-        <p className="text-sm font-semibold text-sky-700">로그인 처리</p>
+        <p className="text-sm font-semibold text-accent-strong">로그인 처리</p>
         <h1 className="mt-2 text-xl font-bold">
           {`${providerLabel} 계정으로 로그인하고 있습니다`}
         </h1>
         <div className="mt-6 flex justify-center" aria-hidden="true">
-          <span className="size-8 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
+          <span className="size-8 animate-spin rounded-full border-2 border-line border-t-accent" />
         </div>
       </section>
     );
@@ -121,7 +121,7 @@ export function HandoverFlow() {
   if (state.kind === "error") {
     return (
       <section
-        className={`${PANEL_BASE} border-rose-200 bg-rose-50 text-rose-900`}
+        className={`${PANEL_BASE} border-error/30 bg-error/10 text-error`}
         role="alert"
       >
         <p className="text-sm font-semibold">로그인 실패</p>
@@ -132,7 +132,7 @@ export function HandoverFlow() {
             <button
               type="button"
               onClick={() => runRetry(state.ticketId as string)}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-rose-600 px-4 text-sm font-semibold text-white transition hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               다시 시도
             </button>
@@ -140,7 +140,7 @@ export function HandoverFlow() {
           <button
             type="button"
             onClick={() => router.replace("/login")}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-rose-300 bg-white px-4 text-sm font-semibold text-rose-700 transition hover:border-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-error/30 bg-white px-4 text-sm font-semibold text-error transition hover:border-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             로그인 페이지로
           </button>
@@ -152,12 +152,12 @@ export function HandoverFlow() {
   // success
   return (
     <section
-      className={`${PANEL_BASE} border-emerald-200 bg-emerald-50 text-emerald-900 text-center`}
+      className={`${PANEL_BASE} border-success/30 bg-success/10 text-success text-center`}
       role="status"
     >
       <p className="text-sm font-semibold">로그인 완료</p>
       <h1 className="mt-2 text-xl font-bold">{`${providerLabel} 계정으로 로그인했습니다`}</h1>
-      <p className="mt-3 text-xs text-emerald-800">
+      <p className="mt-3 text-xs text-success">
         잠시 후 마이페이지로 이동합니다.
       </p>
     </section>
