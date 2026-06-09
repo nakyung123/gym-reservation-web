@@ -16,9 +16,9 @@ export function GymDistanceBadge({
   const km = calculateGymDistanceKm({ latitude, longitude }, location);
   if (km === null) return null;
   return (
-    <div className="rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
-      <p className="text-xs font-semibold text-sky-700">거리</p>
-      <p className="mt-1 text-lg font-bold text-sky-900">
+    <div className="rounded-md border border-accent/20 bg-accent-tint px-4 py-3">
+      <p className="text-xs font-semibold text-accent-strong">거리</p>
+      <p className="mt-1 text-lg font-bold text-accent-strong">
         {formatDistanceKm(km)}
       </p>
     </div>

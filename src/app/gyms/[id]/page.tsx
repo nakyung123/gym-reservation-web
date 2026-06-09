@@ -35,10 +35,10 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
       <section className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
           <Link
             href="/gyms"
-            className="rounded text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            className="rounded text-sm font-semibold text-accent-strong hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             체육관 목록으로
           </Link>
@@ -53,7 +53,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
               href={gym.officialUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong px-3 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               공식 시설 안내
             </a>
@@ -61,16 +61,16 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           </div>
 
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <p className="text-xs font-semibold text-emerald-700">
+            <div className="rounded-md border border-accent/20 bg-accent-tint px-4 py-3">
+              <p className="text-xs font-semibold text-accent-strong">
                 최저 이용료
               </p>
-              <p className="mt-1 text-lg font-bold text-emerald-900">
+              <p className="mt-1 text-lg font-bold text-accent-strong">
                 {formatGymPrice(lowestPrice)}부터
               </p>
             </div>
             <GymDistanceBadge latitude={gym.latitude} longitude={gym.longitude} />
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="rounded-md border border-line bg-slate-50 px-4 py-3">
               <p className="text-xs font-semibold text-slate-500">종목</p>
               <p className="mt-1 text-lg font-bold text-slate-950">
                 {gym.sports.length}개
@@ -113,9 +113,9 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
                 key={sport}
                 href={`/reserve/${encodeURIComponent(gym.id)}?sport=${encodeURIComponent(sport)}`}
                 aria-label={`${gym.name} ${sport} 예약 시작`}
-                className="group flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 transition hover:border-sky-400 hover:bg-sky-50 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="group flex items-center justify-between gap-4 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm text-slate-700 transition hover:border-accent hover:bg-accent-tint hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                <span className="font-semibold text-slate-950 group-hover:text-sky-900">
+                <span className="font-semibold text-slate-950 group-hover:text-accent-hover">
                   {sport}
                 </span>
                 <span className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
                   <svg
                     aria-hidden="true"
                     viewBox="0 0 24 24"
-                    className="h-4 w-4 text-slate-400 transition group-hover:text-sky-700"
+                    className="h-4 w-4 text-slate-400 transition group-hover:text-accent-strong"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2}
@@ -152,7 +152,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           </div>
 
           <section
-            className="mt-6 rounded-md border border-slate-200 bg-slate-50 p-5"
+            className="mt-6 rounded-md border border-line bg-slate-50 p-5"
             aria-label="예약 안내"
           >
             <h2 className="text-lg font-bold text-slate-950">예약 안내</h2>
@@ -180,8 +180,8 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           </section>
         </div>
 
-        <aside className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-emerald-700">예약 가능</p>
+        <aside className="rounded-lg border border-line bg-white p-6 shadow-sm">
+          <p className="text-sm font-semibold text-accent-strong">예약 가능</p>
           <h2 className="mt-2 text-xl font-bold text-slate-950">
             운영 시간대
           </h2>
@@ -198,7 +198,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
               <span
                 key={time}
                 role="listitem"
-                className="rounded-md border border-slate-200 bg-slate-50 px-2 py-2 text-center text-sm font-semibold text-slate-700"
+                className="rounded-md border border-line bg-slate-50 px-2 py-2 text-center text-sm font-semibold text-slate-700"
               >
                 {time}
               </span>
