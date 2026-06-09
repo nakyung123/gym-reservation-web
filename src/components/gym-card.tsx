@@ -22,12 +22,12 @@ export function GymCard({
   const distanceKm = calculateGymDistanceKm(gym, location);
 
   return (
-    <article className="flex flex-col justify-between overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    <article className="flex flex-col justify-between overflow-hidden rounded-lg border border-line bg-white shadow-sm">
       <div className="flex flex-1 flex-col justify-between p-5">
         <div>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-sky-700">{gym.region}</p>
+              <p className="text-sm font-semibold text-accent-strong">{gym.region}</p>
               <h3 className="mt-1 text-xl font-bold text-slate-950">
                 {gym.name}
               </h3>
@@ -39,7 +39,7 @@ export function GymCard({
                   onClick={onToggleFavorite}
                   aria-pressed={isFavorite}
                   aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
-                  className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                  className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     isFavorite
                       ? "text-rose-500 hover:text-rose-700"
                       : "text-slate-300 hover:text-rose-400"
@@ -61,7 +61,7 @@ export function GymCard({
                   </svg>
                 </button>
               )}
-              <span className="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+              <span className="rounded-md bg-accent-tint px-2.5 py-1 text-xs font-semibold text-accent-strong">
                 {formatGymPrice(lowestPrice)}부터
               </span>
             </div>
@@ -107,16 +107,16 @@ export function GymCard({
             className="mt-3 flex flex-wrap gap-1.5"
             aria-label="시설 정보 요약"
           >
-            <span className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700">
+            <span className="inline-flex h-6 items-center rounded-full border border-line bg-white px-2 text-xs font-semibold text-muted">
               종목 {gym.sports.length}개
             </span>
             {gym.openHours ? (
-              <span className="inline-flex h-6 items-center rounded-full border border-sky-200 bg-sky-50 px-2 text-xs font-semibold text-sky-800">
+              <span className="inline-flex h-6 items-center rounded-full border border-line bg-surface-2 px-2 text-xs font-semibold text-muted">
                 운영시간 안내
               </span>
             ) : null}
             {gym.closedDays.length > 0 ? (
-              <span className="inline-flex h-6 items-center rounded-full border border-amber-200 bg-amber-50 px-2 text-xs font-semibold text-amber-800">
+              <span className="inline-flex h-6 items-center rounded-full border border-warning/30 bg-warning/10 px-2 text-xs font-semibold text-warning">
                 휴관일 있음
               </span>
             ) : null}
@@ -126,7 +126,7 @@ export function GymCard({
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href={`/gyms/${gym.id}`}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong px-4 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             상세 보기
           </Link>
@@ -137,7 +137,7 @@ export function GymCard({
             <Link
               href={`/reserve/${gym.id}`}
               aria-label={`${gym.name} 예약하기`}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               예약하기
             </Link>

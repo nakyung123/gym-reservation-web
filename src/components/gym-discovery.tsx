@@ -148,7 +148,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
 
   return (
     <section className="flex flex-col gap-5">
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-end">
           <label className="flex min-w-0 flex-col gap-2">
             <span className="text-sm font-semibold text-slate-700">
@@ -158,7 +158,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="체육관명, 지역, 주소"
-              className="h-11 rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              className="h-11 rounded-md border border-line-strong px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
           </label>
 
@@ -167,7 +167,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             <select
               value={selectedRegion}
               onChange={(event) => setSelectedRegion(event.target.value)}
-              className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+              className="h-11 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
             >
               <option value="전체">전체 구</option>
               {availableRegions.map((region) => (
@@ -193,10 +193,10 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 type="button"
                 onClick={() => setSelectedSport(sport)}
                 aria-pressed={isActive}
-                className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                   isActive
-                    ? "border-slate-950 bg-slate-950 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                    ? "border-accent bg-accent text-accent-ink"
+                    : "border-line-strong bg-white text-muted hover:border-accent hover:text-accent-strong"
                 }`}
               >
                 {sport}
@@ -208,7 +208,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             type="button"
             onClick={() => setFavoritesOnly((prev) => !prev)}
             aria-pressed={favoritesOnly}
-            className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+            className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
               favoritesOnly
                 ? "border-rose-400 bg-rose-50 text-rose-700"
                 : "border-slate-300 bg-white text-slate-700 hover:border-rose-300 hover:text-rose-600"
@@ -232,7 +232,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
           </button>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-600">
             {favoritesOnly ? "즐겨찾기 " : "총 "}
             <strong className="text-slate-950">{filteredGyms.length}</strong>개
@@ -262,10 +262,10 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                     setSelectedSort(sort);
                   }}
                   aria-pressed={isActive}
-                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     isActive
-                      ? "border-sky-700 bg-sky-50 text-sky-800"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                      ? "border-accent bg-accent-tint text-accent-strong"
+                      : "border-line-strong bg-white text-muted hover:border-accent hover:text-accent-strong"
                   }`}
                 >
                   {gymSortLabels[sort]}
@@ -277,7 +277,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-rose-300 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="h-10 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 조건 초기화
               </button>
@@ -288,7 +288,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         {(selectedSort === "distance" || pendingSort === "distance") &&
         !location ? (
           <p
-            className="mt-3 text-xs font-semibold text-amber-700"
+            className="mt-3 text-xs font-semibold text-warning"
             role="status"
           >
             {permission === "denied"
@@ -300,10 +300,10 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
 
       {recommendation ? (
         <aside
-          className="rounded-lg border border-sky-200 bg-sky-50/40 p-4"
+          className="rounded-lg border border-line bg-accent-tint/40 p-4"
           aria-label="즐겨찾기 기반 추천"
         >
-          <p className="text-sm font-semibold text-sky-800">
+          <p className="text-sm font-semibold text-accent-strong">
             즐겨찾기한 지역의 다른 체육관
           </p>
           <p className="mt-1 text-xs text-slate-600">
@@ -316,7 +316,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 key={gym.id}
                 href={`/gyms/${gym.id}`}
                 aria-label={`${gym.name} 상세 보기`}
-                className="inline-flex h-9 items-center rounded-md border border-sky-300 bg-white px-3 text-xs font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-accent-strong transition hover:border-accent hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 {gym.name}
               </Link>
@@ -326,12 +326,12 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       ) : null}
 
       {toggleError && (
-        <p role="alert" className="text-sm font-semibold text-rose-700">
+        <p role="alert" className="text-sm font-semibold text-error">
           {toggleError}
         </p>
       )}
       {loadError && (
-        <p role="alert" className="text-sm font-semibold text-rose-700">
+        <p role="alert" className="text-sm font-semibold text-error">
           {loadError}
         </p>
       )}
@@ -348,7 +348,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
+        <div className="rounded-lg border border-dashed border-line-strong bg-white p-10 text-center">
           <p className="text-base font-bold text-slate-950">
             {favoritesOnly
               ? loadError
@@ -372,7 +372,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
               <button
                 type="button"
                 onClick={() => setFavoritesOnly(false)}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-3 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 {!loadError && !hasNonFavoritesFilter
                   ? "체육관 둘러보기"
@@ -383,7 +383,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong px-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 조건 초기화
               </button>

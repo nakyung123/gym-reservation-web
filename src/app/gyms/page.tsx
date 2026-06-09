@@ -8,7 +8,7 @@ export default async function GymsPage() {
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <div>
-          <p className="text-sm font-semibold text-sky-700">체육관</p>
+          <p className="text-sm font-semibold text-accent-strong">체육관</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-950">
             이용할 체육관을 선택하세요
           </h1>
