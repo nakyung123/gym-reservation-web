@@ -48,8 +48,8 @@ function parseCancellationDeadline(value: string | null): Date | null {
 }
 
 const noticeStyles = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  error: "border-rose-200 bg-rose-50 text-rose-800",
+  success: "border-success/30 bg-success/10 text-success",
+  error: "border-error/30 bg-error/10 text-error",
 };
 
 type ReservationDetailViewProps = {
@@ -103,15 +103,15 @@ function DetailState({
     <section
       className={`mx-auto w-full max-w-4xl rounded-lg border p-8 text-center shadow-sm ${
         isError
-          ? "border-rose-200 bg-rose-50 text-rose-800"
-          : "border-slate-200 bg-white text-slate-950"
+          ? "border-error/30 bg-error/10 text-error"
+          : "border-line bg-white text-slate-950"
       }`}
       aria-live={busy ? "polite" : undefined}
       aria-busy={busy || undefined}
       role={isError ? "alert" : undefined}
     >
       <p
-        className={`text-sm font-semibold ${isError ? "" : "text-sky-700"}`}
+        className={`text-sm font-semibold ${isError ? "" : "text-accent-strong"}`}
       >
         {eyebrow}
       </p>
@@ -121,12 +121,12 @@ function DetailState({
       <p className="mt-3 text-sm leading-6">{message}</p>
       {busy ? (
         <div className="mt-6 flex justify-center" aria-hidden="true">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
         </div>
       ) : (
         <Link
           href="/reservations"
-          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           내 예약으로
         </Link>
@@ -509,15 +509,15 @@ export function ReservationDetailView({
 
   return (
     <section className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
         <Link
           href="/reservations"
-          className="rounded text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          className="rounded text-sm font-semibold text-accent-strong hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           내 예약으로
         </Link>
 
-        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-sky-700">
+        <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-accent-strong">
           예약 확인서
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -530,7 +530,7 @@ export function ReservationDetailView({
             예약번호 {reservation.id.slice(0, 8)}
           </span>
           {gymSummary.isMissingFromCurrentData ? (
-            <span className="rounded-md bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+            <span className="rounded-md bg-warning/10 px-2.5 py-1 text-xs font-bold text-warning">
               시설 정보 제외됨
             </span>
           ) : null}
@@ -545,7 +545,7 @@ export function ReservationDetailView({
         </p>
 
         {gymSummary.isMissingFromCurrentData ? (
-          <p className="mt-5 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+          <p className="mt-5 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-warning">
             이 예약의 체육관 ID({reservation.gymId})는 현재 운영 중인 시설
             목록에 없습니다. 예약 기록은 유지되며 취소 가능 조건을 만족하면
             취소할 수 있습니다.
@@ -564,7 +564,7 @@ export function ReservationDetailView({
         <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
           확인서 핵심
         </p>
-        <dl className="mt-2 grid gap-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-4 sm:grid-cols-2">
+        <dl className="mt-2 grid gap-4 rounded-md border border-line bg-slate-50 px-4 py-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
               체육관
@@ -613,7 +613,7 @@ export function ReservationDetailView({
           </div>
         </dl>
 
-        <div className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
+        <div className="mt-3 rounded-md border border-line bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
           <p className="font-semibold text-slate-700">참고 정보</p>
           <dl className="mt-2 grid gap-2 sm:grid-cols-[120px_1fr]">
             <dt className="text-slate-500">예약일</dt>
@@ -628,7 +628,7 @@ export function ReservationDetailView({
         </div>
 
         {gymSummary.gym ? (
-          <div className="mt-6 rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+          <div className="mt-6 rounded-md border border-line bg-slate-50 px-4 py-3">
             <h2 className="text-sm font-bold text-slate-950">시설 정보</h2>
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
               <div>
@@ -653,7 +653,7 @@ export function ReservationDetailView({
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
                 href={`/gyms/${gymSummary.gym.id}`}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 체육관 상세
               </Link>
@@ -663,7 +663,7 @@ export function ReservationDetailView({
               <button
                 type="button"
                 onClick={() => handleCopyAddress(gymSummary.gym!.address)}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 주소 복사
               </button>
@@ -672,7 +672,7 @@ export function ReservationDetailView({
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`${gymSummary.name} 길찾기 (외부 지도 새 탭)`}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 길찾기
               </a>
@@ -682,7 +682,7 @@ export function ReservationDetailView({
                 <Link
                   href={`/reserve/${encodeURIComponent(gymSummary.gym.id)}?sport=${encodeURIComponent(reservation.sport)}`}
                   aria-label={`${gymSummary.name} ${reservation.sport} 추가 예약`}
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                  className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   추가 예약
                 </Link>
@@ -693,7 +693,7 @@ export function ReservationDetailView({
                 <Link
                   href={`/reserve/${encodeURIComponent(gymSummary.gym.id)}?sport=${encodeURIComponent(reservation.sport)}&date=${encodeURIComponent(reservation.date)}&time=${encodeURIComponent(reservation.time)}`}
                   aria-label={`${gymSummary.name} ${reservation.sport} 같은 조건으로 다시 예약`}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-sky-300 bg-sky-50 px-4 text-sm font-semibold text-sky-800 transition hover:border-sky-500 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-accent/30 bg-accent-tint px-4 text-sm font-semibold text-accent-strong transition hover:border-accent hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   다시 예약
                 </Link>
@@ -703,17 +703,17 @@ export function ReservationDetailView({
         ) : null}
 
         {reservation.status === "reserved" ? (
-          <div className="mt-6 rounded-md border border-slate-200 bg-white px-4 py-3">
+          <div className="mt-6 rounded-md border border-line bg-white px-4 py-3">
             <h2 className="text-sm font-bold text-slate-950">예약 취소</h2>
             {canCancelReservation ? (
               <>
                 {confirmingCancel ? (
                   <div
-                    className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+                    className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm text-error"
                     role="alert"
                   >
                     <p className="font-semibold">이 예약을 취소할까요?</p>
-                    <p className="mt-1 text-xs text-rose-600">
+                    <p className="mt-1 text-xs text-error">
                       {reservation.date} {reservation.time} ·{" "}
                       {reservation.sport}
                     </p>
@@ -722,7 +722,7 @@ export function ReservationDetailView({
                         type="button"
                         onClick={handleCancel}
                         disabled={isCancelling}
-                        className="h-10 rounded-md bg-rose-700 px-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                        className="h-10 rounded-md bg-error px-3 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         {isCancelling ? "취소 중" : "취소 확정"}
                       </button>
@@ -730,7 +730,7 @@ export function ReservationDetailView({
                         type="button"
                         onClick={() => setConfirmingCancel(false)}
                         disabled={isCancelling}
-                        className="h-10 rounded-md border border-rose-200 bg-white px-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                        className="h-10 rounded-md border border-error/30 bg-white px-3 text-sm font-semibold text-error transition hover:bg-error/15 disabled:cursor-not-allowed disabled:text-error/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         유지
                       </button>
@@ -743,7 +743,7 @@ export function ReservationDetailView({
                       setActionNotice(null);
                       setConfirmingCancel(true);
                     }}
-                    className="mt-4 h-10 rounded-md border border-rose-200 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                    className="mt-4 h-10 rounded-md border border-error/30 px-4 text-sm font-semibold text-error transition hover:bg-error/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                   >
                     예약 취소
                   </button>
@@ -751,7 +751,7 @@ export function ReservationDetailView({
               </>
             ) : (
               <p
-                className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800"
+                className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-semibold text-warning"
                 role="status"
               >
                 {cancellationMessage}
@@ -761,8 +761,8 @@ export function ReservationDetailView({
         ) : null}
       </div>
 
-      <aside className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-emerald-700">입장권</p>
+      <aside className="rounded-lg border border-line bg-white p-6 shadow-sm">
+        <p className="text-sm font-semibold text-accent-strong">입장권</p>
         <h2 className="mt-2 text-xl font-bold text-slate-950">
           모바일 입장권
         </h2>
