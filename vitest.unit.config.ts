@@ -25,6 +25,10 @@ export default defineConfig({
       "src/lib/admin/admin-overview-client.test.ts",
       "src/lib/admin/admin-reservation-client.test.ts",
       "src/lib/admin/admin-reservation-slot-client.test.ts",
+      // DB 불필요(firebase/auth 모킹). 메시지/매핑 회귀를 로컬 test:unit에서 잡기 위해 포함.
+      "src/lib/firebase-email-auth.test.ts",
+      "src/lib/firebase-password-update.test.ts",
+      "src/lib/password-policy.test.ts",
     ],
   },
   resolve: {

@@ -176,7 +176,25 @@ describe("updateMyPassword", () => {
     ).resolves.toEqual({
       ok: false,
       reason: "weak-password",
-      message: "새 비밀번호가 너무 약합니다. 8자 이상으로 설정해 주세요.",
+      message:
+        "새 비밀번호가 약합니다. 8자 이상이며 영문 소문자·숫자·특수문자를 포함해 주세요.",
+    });
+  });
+
+  it("auth/password-does-not-meet-requirements도 weak-password로 매핑한다", async () => {
+    mockCurrentUser({ email: "user@example.com" });
+    reauthenticateWithCredential.mockResolvedValue(undefined);
+    updatePassword.mockRejectedValue(
+      makeAuthError("auth/password-does-not-meet-requirements"),
+    );
+
+    await expect(
+      updateMyPassword({ currentPassword: "old", newPassword: "abcd1234" }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "weak-password",
+      message:
+        "새 비밀번호가 약합니다. 8자 이상이며 영문 소문자·숫자·특수문자를 포함해 주세요.",
     });
   });
 

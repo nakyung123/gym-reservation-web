@@ -104,6 +104,21 @@ describe("firebase email auth helpers", () => {
     }
   });
 
+  it("signup weak/policy password errors map to weak-password with policy message", async () => {
+    createUserWithEmailAndPassword.mockRejectedValue(
+      makeAuthError("auth/password-does-not-meet-requirements"),
+    );
+
+    await expect(
+      signupWithEmail({ email: "user@example.com", password: "abcd1234" }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "weak-password",
+      message:
+        "비밀번호가 약합니다. 8자 이상이며 영문 소문자·숫자·특수문자를 포함해 주세요.",
+    });
+  });
+
   it("signin known credential errors use the safe credential message", async () => {
     signInWithEmailAndPassword.mockRejectedValue(
       makeAuthError("auth/wrong-password"),
