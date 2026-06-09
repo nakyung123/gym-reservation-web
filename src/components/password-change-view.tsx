@@ -57,7 +57,7 @@ export function PasswordChangeView() {
 
   if (authState.status === "loading" || authState.status === "signed-out") {
     return (
-      <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-600">로그인 상태를 확인하는 중입니다...</p>
       </section>
     );
@@ -70,14 +70,14 @@ export function PasswordChangeView() {
 
   if (!isPasswordProvider) {
     return (
-      <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
         <h1 className="text-xl font-bold text-slate-950">비밀번호 변경</h1>
         <p className="mt-3 text-sm text-slate-600">
           이 계정은 소셜 로그인으로 가입되어 비밀번호를 사용하지 않습니다.
         </p>
         <Link
           href="/mypage"
-          className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
           내 정보로 돌아가기
         </Link>
@@ -153,7 +153,7 @@ export function PasswordChangeView() {
 
   return (
     <>
-      <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
         <h1 className="text-xl font-bold text-slate-950">비밀번호 변경</h1>
         <p className="mt-1 text-sm text-slate-600">
           보안을 위해 현재 비밀번호를 입력한 뒤 새 비밀번호를 설정해 주세요.
@@ -188,14 +188,14 @@ export function PasswordChangeView() {
           <div className="mt-2 flex gap-2">
             <Link
               href="/mypage"
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               취소
             </Link>
             <button
               type="submit"
               disabled={!isFormValid || isLoading || isSuccess}
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
             >
               {isLoading ? "변경 중" : "변경하기"}
             </button>
@@ -204,7 +204,7 @@ export function PasswordChangeView() {
 
         {otherError ? (
           <p
-            className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+            className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
             role="alert"
           >
             {otherError}
@@ -219,7 +219,7 @@ export function PasswordChangeView() {
           aria-modal="true"
           aria-labelledby="password-success-title"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2
               id="password-success-title"
               className="text-lg font-bold text-slate-950"
@@ -233,7 +233,7 @@ export function PasswordChangeView() {
               <button
                 type="button"
                 onClick={() => router.replace("/mypage")}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover"
               >
                 확인
               </button>

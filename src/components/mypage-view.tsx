@@ -140,16 +140,18 @@ const summaryStatusOrder: ReservationStatus[] = [
   "used",
 ];
 
+// 예약 상태 지표 카드 색상은 예약 배지 SSOT(reservation-ticket.tsx)와 정렬한다.
+// 예약중=accent 틴트, 취소=error, 사용완료=중립 회색, 그 외(전체/즐겨찾기)=중립.
 const metricToneStyles = {
-  slate: "border-slate-200 bg-white text-slate-950",
-  emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  rose: "border-rose-200 bg-rose-50 text-rose-800",
-  sky: "border-sky-200 bg-sky-50 text-sky-800",
+  neutral: "border-line bg-white text-slate-950",
+  reserved: "border-accent/20 bg-accent-tint text-accent-strong",
+  cancelled: "border-error/30 bg-error/10 text-error",
+  used: "border-line bg-surface-2 text-muted",
 };
 
 const noticeStyles: Record<NoticeState["tone"], string> = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  error: "border-rose-200 bg-rose-50 text-rose-800",
+  success: "border-success/30 bg-success/10 text-success",
+  error: "border-error/30 bg-error/10 text-error",
 };
 
 function isAbortError(error: unknown): boolean {
@@ -230,11 +232,11 @@ function formatUserId(uid: string): string {
 function LoadingPanel() {
   return (
     <section
-      className="mx-auto w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm"
+      className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm"
       aria-live="polite"
       aria-busy="true"
     >
-      <p className="text-sm font-semibold text-sky-700">내 정보</p>
+      <p className="text-sm font-semibold text-accent-strong">내 정보</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
         로그인 정보를 확인하고 있습니다
       </h1>
@@ -242,7 +244,7 @@ function LoadingPanel() {
         현재 브라우저에 연결된 계정을 확인하는 중입니다.
       </p>
       <div className="mt-6 flex justify-center" aria-hidden="true">
-        <span className="size-8 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
+        <span className="size-8 animate-spin rounded-full border-2 border-line border-t-accent" />
       </div>
     </section>
   );
@@ -251,7 +253,7 @@ function LoadingPanel() {
 function ErrorPanel({ title, message }: { title: string; message: string }) {
   return (
     <section
-      className="mx-auto w-full max-w-4xl rounded-lg border border-rose-200 bg-rose-50 p-8 text-center text-rose-800 shadow-sm"
+      className="mx-auto w-full max-w-4xl rounded-lg border border-error/30 bg-error/10 p-8 text-center text-error shadow-sm"
       role="alert"
     >
       <p className="text-sm font-semibold">내 정보</p>
@@ -265,8 +267,8 @@ function ErrorPanel({ title, message }: { title: string; message: string }) {
 
 function SignedOutPanel() {
   return (
-    <section className="mx-auto w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm">
-      <p className="text-sm font-semibold text-sky-700">내 정보</p>
+    <section className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm">
+      <p className="text-sm font-semibold text-accent-strong">내 정보</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
         로그인이 필요합니다
       </h1>
@@ -281,7 +283,7 @@ function MetricCard({
   label,
   value,
   caption,
-  tone = "slate",
+  tone = "neutral",
 }: {
   label: string;
   value: number | string;
@@ -302,7 +304,7 @@ function MetricCard({
 function LoadingMetricCard({ label }: { label: string }) {
   return (
     <div
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+      className="rounded-lg border border-line bg-white p-4 shadow-sm"
       aria-busy="true"
     >
       <p className="text-sm font-semibold text-slate-500">{label}</p>
@@ -331,7 +333,7 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
   if (summaryState.status === "error") {
     return (
       <section
-        className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-rose-800 shadow-sm"
+        className="rounded-lg border border-error/30 bg-error/10 p-5 text-error shadow-sm"
         role="alert"
       >
         <p className="text-sm font-bold">요약 정보를 불러오지 못했습니다</p>
@@ -355,17 +357,17 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
         <MetricCard
           label={reservationStatusLabel.reserved}
           value={summary.reservations.reserved}
-          tone="emerald"
+          tone="reserved"
         />
         <MetricCard
           label={reservationStatusLabel.cancelled}
           value={summary.reservations.cancelled}
-          tone="rose"
+          tone="cancelled"
         />
         <MetricCard
           label={reservationStatusLabel.used}
           value={summary.reservations.used}
-          tone="sky"
+          tone="used"
         />
         <MetricCard
           label="즐겨찾기"
@@ -378,21 +380,21 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
         <Link
           href="/reservations"
           aria-label="내 예약 목록으로 이동"
-          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           내 예약 보기
         </Link>
         <Link
           href="/gyms"
           aria-label="체육관 목록으로 이동"
-          className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           체육관 찾기
         </Link>
       </div>
 
       {hasNoData ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
+        <div className="rounded-lg border border-dashed border-line-strong bg-white p-6 text-center shadow-sm">
           <p className="text-base font-bold text-slate-950">
             아직 예약과 즐겨찾기가 없습니다
           </p>
@@ -401,7 +403,7 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
           </p>
           <Link
             href="/gyms"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             체육관 찾기
           </Link>
@@ -884,13 +886,13 @@ export function MypageView() {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-sky-700">내 정보</p>
+      <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
+        <p className="text-sm font-semibold text-accent-strong">내 정보</p>
         <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <div className="flex flex-col items-center gap-2">
               <span
-                className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 bg-cover bg-center"
+                className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-slate-100 bg-cover bg-center"
                 style={profileImageStyle}
                 role="img"
                 aria-label={`${account.displayName} 프로필 이미지`}
@@ -910,7 +912,7 @@ export function MypageView() {
                   type="button"
                   onClick={handlePhotoButtonClick}
                   disabled={photoSaveState.status === "uploading"}
-                  className="text-xs text-sky-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
+                  className="text-xs text-accent-strong underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
                 >
                   {photoSaveState.status === "uploading"
                     ? "변경 중..."
@@ -936,13 +938,13 @@ export function MypageView() {
                 {account.email}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-md bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
+                <span className="rounded-md bg-accent-tint px-2.5 py-1 text-xs font-bold text-accent-strong">
                   UID {formatUserId(account.uid)}
                 </span>
               </div>
               {photoSaveState.status === "error" ? (
                 <p
-                  className="mt-2 text-xs font-semibold text-rose-700"
+                  className="mt-2 text-xs font-semibold text-error"
                   role="alert"
                 >
                   {photoSaveState.message}
@@ -955,7 +957,7 @@ export function MypageView() {
             {account.isPasswordProvider ? (
               <Link
                 href="/mypage/password"
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 비밀번호 변경
               </Link>
@@ -964,7 +966,7 @@ export function MypageView() {
               type="button"
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-rose-300 hover:text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-error/40 hover:text-error disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {isSigningOut ? "로그아웃 중" : "로그아웃"}
             </button>
@@ -982,7 +984,7 @@ export function MypageView() {
 
         {account.showVerificationBanner ? (
           <div
-            className="mt-5 flex flex-col gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between"
+            className="mt-5 flex flex-col gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:flex-row sm:items-center sm:justify-between"
             role="status"
           >
             <p className="font-semibold">
@@ -992,7 +994,7 @@ export function MypageView() {
               type="button"
               onClick={handleResendVerification}
               disabled={isResendingVerification}
-              className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-amber-400 bg-white px-3 text-xs font-semibold text-amber-900 transition hover:border-amber-500 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-amber-200 disabled:text-amber-400"
+              className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-warning/50 bg-white px-3 text-xs font-semibold text-warning transition hover:border-warning hover:bg-warning/15 disabled:cursor-not-allowed disabled:border-warning/20 disabled:text-warning/50"
             >
               {isResendingVerification ? "전송 중" : "인증 메일 다시 보내기"}
             </button>
@@ -1013,7 +1015,7 @@ export function MypageView() {
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-sky-700">활동 요약</p>
+            <p className="text-sm font-semibold text-accent-strong">활동 요약</p>
             <h2 className="mt-2 text-2xl font-bold text-slate-950">
               예약과 즐겨찾기 현황
             </h2>
@@ -1055,9 +1057,9 @@ function ProfileSettingsSection({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-sky-700">프로필 설정</p>
+        <p className="text-sm font-semibold text-accent-strong">프로필 설정</p>
         <h2 className="text-2xl font-bold text-slate-950">
           닉네임과 선호 정보
         </h2>
@@ -1068,7 +1070,7 @@ function ProfileSettingsSection({
 
       {profileState.status === "loading" || profileState.status === "idle" ? (
         <div
-          className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-600"
+          className="mt-5 rounded-md border border-line bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-600"
           aria-live="polite"
           aria-busy="true"
         >
@@ -1078,7 +1080,7 @@ function ProfileSettingsSection({
 
       {profileState.status === "error" ? (
         <div
-          className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-4 text-sm leading-6 text-rose-800"
+          className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-4 text-sm leading-6 text-error"
           role="alert"
         >
           <p className="font-bold">프로필 설정을 불러오지 못했습니다</p>
@@ -1101,7 +1103,7 @@ function ProfileSettingsSection({
       <div className="flex justify-end pt-2">
         <Link
           href="/mypage/withdraw"
-          className="text-xs text-slate-400 underline-offset-2 hover:text-rose-700 hover:underline"
+          className="text-xs text-slate-400 underline-offset-2 hover:text-error hover:underline"
         >
           회원 탈퇴
         </Link>
@@ -1195,24 +1197,24 @@ function ProfileSettingsForm({
           aria-invalid={nicknameHasError || undefined}
           className={`h-11 rounded-md border bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
             nicknameHasError
-              ? "border-rose-400 focus-visible:ring-rose-200"
-              : "border-slate-300 focus-visible:ring-sky-500"
+              ? "border-error focus-visible:ring-error/30"
+              : "border-line-strong focus-visible:ring-accent"
           }`}
         />
         {nicknameIsTaken ? (
-          <p className="text-xs font-semibold text-rose-700" role="alert">
+          <p className="text-xs font-semibold text-error" role="alert">
             이미 사용 중인 닉네임입니다.
           </p>
         ) : nicknameIsInvalid ? (
-          <p className="text-xs font-semibold text-rose-700" role="alert">
+          <p className="text-xs font-semibold text-error" role="alert">
             사용할 수 없는 닉네임입니다. 다른 닉네임을 입력해 주세요.
           </p>
         ) : nicknameCheckFailed ? (
-          <p className="text-xs font-semibold text-amber-700" role="alert">
+          <p className="text-xs font-semibold text-warning" role="alert">
             닉네임 사용 여부를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.
           </p>
         ) : nicknameStatus === "available" && form.nickname.trim().length > 0 ? (
-          <p className="text-xs font-semibold text-emerald-700">
+          <p className="text-xs font-semibold text-success">
             사용 가능한 닉네임입니다.
           </p>
         ) : nicknameStatus === "checking" ? (
@@ -1237,7 +1239,7 @@ function ProfileSettingsForm({
           maxLength={100}
           placeholder="예: 서울 관악구"
           disabled={isSaving}
-          className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+          className="h-11 rounded-md border border-line-strong bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
         />
         <p className="text-xs text-slate-500">자주 이용하는 지역을 입력하세요.</p>
       </div>
@@ -1253,15 +1255,15 @@ function ProfileSettingsForm({
             return (
               <label
                 key={sport}
-                className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-semibold transition focus-within:ring-2 focus-within:ring-sky-500 ${
+                className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-semibold transition focus-within:ring-2 focus-within:ring-accent ${
                   checked
-                    ? "border-sky-500 bg-sky-50 text-sky-800"
-                    : "border-slate-300 bg-white text-slate-800 hover:border-sky-300"
+                    ? "border-accent bg-accent-tint text-accent-strong"
+                    : "border-line-strong bg-white text-slate-800 hover:border-accent"
                 } ${isSaving ? "cursor-not-allowed opacity-60" : ""}`}
               >
                 <input
                   type="checkbox"
-                  className="size-4 accent-sky-600"
+                  className="size-4 accent-accent"
                   checked={checked}
                   onChange={(event) =>
                     onSportToggle(sport, event.target.checked)
@@ -1279,7 +1281,7 @@ function ProfileSettingsForm({
         <label className={`inline-flex cursor-pointer items-center gap-3 text-sm font-bold text-slate-800 ${isSaving ? "cursor-not-allowed opacity-60" : ""}`}>
           <input
             type="checkbox"
-            className="size-4 accent-sky-600"
+            className="size-4 accent-accent"
             checked={form.reservationNotificationsEnabled}
             onChange={(event) => onNotificationsToggle(event.target.checked)}
             disabled={isSaving}
@@ -1294,7 +1296,7 @@ function ProfileSettingsForm({
 
       {saveState.status === "success" ? (
         <div
-          className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+          className="rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success"
           role="status"
         >
           {saveState.message}
@@ -1303,7 +1305,7 @@ function ProfileSettingsForm({
 
       {saveState.status === "error" ? (
         <div
-          className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-800"
+          className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm leading-6 text-error"
           role="alert"
         >
           <p className="font-bold">프로필 설정을 저장하지 못했습니다</p>
@@ -1315,7 +1317,7 @@ function ProfileSettingsForm({
         <button
           type="submit"
           disabled={isSaveDisabled}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           {isSaving ? "저장 중" : "저장"}
         </button>
