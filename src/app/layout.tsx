@@ -35,15 +35,31 @@ export default function RootLayout({
     <html lang="ko" className={`${notoSansKr.variable} ${geistMono.variable}`}>
       <body>
         <UserLocationProvider>
-          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+          <header className="sticky top-0 z-10 border-b border-line bg-white">
             <nav
               className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-8 lg:px-10"
               aria-label="주요 메뉴"
             >
               <Link
                 href="/"
-                className="shrink-0 rounded text-sm font-bold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="flex shrink-0 items-center gap-2 rounded-md text-base font-extrabold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
+                <span
+                  className="grid size-7 place-items-center rounded-md bg-accent text-accent-ink"
+                  aria-hidden="true"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4"
+                  >
+                    <path d="M6 4v16M18 4v16M6 12h12M3 8v8M21 8v8" />
+                  </svg>
+                </span>
                 공공체육관
               </Link>
               <AppHeaderNav />

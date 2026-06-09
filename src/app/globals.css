@@ -49,8 +49,8 @@
      slate/sky 기본 팔레트는 덮어쓰지 않으므로 기존 화면은 그대로 유지된다. */
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-border-app: var(--border-base);
-  --color-border-strong: var(--border-strong);
+  --color-line: var(--border-base); /* border-line */
+  --color-line-strong: var(--border-strong); /* border-line-strong / bg-line-strong */
   --color-muted: var(--muted);
   --color-subtle: var(--subtle);
   --color-accent: var(--accent);
