@@ -45,9 +45,11 @@
 
 ### Tailwind 패턴
 
-- 기존 컴포넌트의 스타일 토큰(`text-slate-950`, `text-sky-700`, `border-slate-200` 등)을 먼저 따른다.
-- 새 색상/spacing 토큰을 임의로 도입하지 않는다.
-- 버튼은 동일한 높이(`h-10`, `h-11`)·radius(`rounded-md`)·포커스 링(`focus-visible:ring-2 focus-visible:ring-sky-500`) 규칙을 유지한다.
+- 색상은 [`DESIGN.md`](../../DESIGN.md) + `src/app/globals.css`의 디자인 토큰을 SSOT로 따른다. accent(네이비)는 `bg-accent`/`hover:bg-accent-hover`/`text-accent-strong`/`bg-accent-tint`, 보더는 `border-line`/`border-line-strong`, 상태색은 `text-success`/`text-warning`/`text-error`(+ `/10`,`/30` 틴트). 중립 텍스트 스케일은 `text-slate-*`(950/600/500 등)를 그대로 유지한다.
+- 새 색상/spacing 토큰을 임의로 도입하지 않는다. 색을 바꿔야 하면 `globals.css`의 `--accent*` 등 CSS 변수에서 바꾼다(앱 전체가 따라온다).
+- 버튼은 동일한 높이(`h-10`, `h-11`)·radius(`rounded-md`)·포커스 링(`focus-visible:ring-2 focus-visible:ring-accent`) 규칙을 유지한다. primary 액션은 `bg-accent`, destructive는 `bg-error`/`hover:bg-error/90`.
+- 예약 상태 색은 `reservation-ticket.tsx`의 `reservationStatusBadgeStyles` SSOT를 따른다(예약중=accent 틴트, 취소=error, 사용완료=중립). 관리자 테이블은 같은 색 의미에 bordered-pill 포맷만 달리한다.
+- 의미적 예외(네이비로 바꾸지 않음): 소셜 로그인 브랜드색(카카오 옐로·네이버 그린), 즐겨찾기 하트(rose), QR 코드 모듈(검정).
 
 ### 폼
 
