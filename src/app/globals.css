@@ -1,15 +1,66 @@
 @import "tailwindcss";
 
+/* ============================================================
+   디자인 토큰 (SSOT). 색·타이포·모양·레이아웃의 단일 기준점.
+   규칙/사용법은 repo 루트 DESIGN.md 참고.
+   값만 바꾸면 @theme 유틸(bg-accent 등)과 컴포넌트에 일괄 반영된다.
+   기존 slate/sky/amber 유틸은 의도적으로 건드리지 않는다(화면별 적용은 단계적).
+   ============================================================ */
 :root {
+  /* 중립 캔버스 — 화면의 90% */
   --background: #f8fafc;
-  --foreground: #0f172a;
+  --foreground: #1f2937;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border-base: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --muted: #475569;
+  --subtle: #94a3b8;
+
+  /* 상태색 */
+  --success: #15803d;
+  --warning: #b45309;
+  --error: #dc2626;
+
+  /* 대표색(액센트) : 네이비 — 색을 바꾸려면 이 5줄만 교체 */
+  --accent: #2745b3; /* 솔리드 배경 + 흰글씨 (버튼/선택/티켓/로고) */
+  --accent-hover: #1e3690;
+  --accent-strong: #1e3a8a; /* 흰배경 위 텍스트/아이콘/eyebrow */
+  --accent-tint: #eef1fb; /* 옅은 배경(선택/호버/배지) */
+  --accent-ink: #ffffff; /* 솔리드 위 글씨 */
+
+  /* 모양 — 컴포넌트에서 rounded-[var(--r)] 형태로 사용 */
+  --r-sm: 6px;
+  --r: 8px;
+  --r-lg: 12px;
+
+  /* 레이아웃 */
+  --container-max: 1440px;
+  --container-pad: 32px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-sans-kr);
   --font-mono: var(--font-geist-mono);
+
+  /* 디자인 토큰 → Tailwind 유틸 노출 (bg-accent, text-accent-strong, border-app 등).
+     slate/sky 기본 팔레트는 덮어쓰지 않으므로 기존 화면은 그대로 유지된다. */
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border-app: var(--border-base);
+  --color-border-strong: var(--border-strong);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-tint: var(--accent-tint);
+  --color-accent-ink: var(--accent-ink);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
 }
 
 * {
@@ -24,7 +75,11 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Arial 제거 → 한국어 본문 폰트. 어절 단위 줄바꿈 + 숫자 폭 정렬 */
+  font-family: var(--font-noto-sans-kr), -apple-system, system-ui, sans-serif;
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1;
 }
 
 a {
