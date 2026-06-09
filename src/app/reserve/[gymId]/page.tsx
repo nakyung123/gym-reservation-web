@@ -29,7 +29,7 @@ export default async function ReservePage({ params }: ReservePageProps) {
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
         <Link
           href={`/gyms/${gym.id}`}
-          className="w-fit rounded text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+          className="w-fit rounded text-sm font-semibold text-accent-strong hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           체육관 상세로
         </Link>
@@ -37,7 +37,7 @@ export default async function ReservePage({ params }: ReservePageProps) {
             폼 초기값에 반영하므로 정적 프리렌더 경로에서 Suspense 경계가 필요하다. */}
         <Suspense
           fallback={
-            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-500 shadow-sm">
+            <div className="rounded-lg border border-line bg-white p-6 text-sm font-semibold text-slate-500 shadow-sm">
               예약 폼을 준비하고 있습니다.
             </div>
           }

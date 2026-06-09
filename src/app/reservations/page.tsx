@@ -18,16 +18,16 @@ export default async function ReservationsPage() {
 function ReservationsViewFallback() {
   return (
     <section
-      className="mx-auto w-full max-w-4xl rounded-lg border border-slate-200 bg-white p-8 text-center shadow-sm"
+      className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm"
       aria-live="polite"
       aria-busy="true"
     >
-      <p className="text-sm font-semibold text-sky-700">내 예약</p>
+      <p className="text-sm font-semibold text-accent-strong">내 예약</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
         예약 정보를 불러오고 있습니다
       </h1>
       <div className="mt-6 flex justify-center" aria-hidden="true">
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-sky-600" />
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
       </div>
     </section>
   );

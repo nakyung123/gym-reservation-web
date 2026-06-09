@@ -1,14 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Noto_Sans_KR } from "next/font/google";
 import { AppHeaderNav } from "@/components/app-header-nav";
 import { UserLocationProvider } from "@/hooks/use-user-location";
 import { LocationPermissionModal } from "@/components/location-permission-modal";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// 한국어 본문 폰트(공공·신뢰형). 한글 글리프가 커 preload는 끄고 swap 사용.
+const notoSansKr = Noto_Sans_KR({
+  variable: "--font-noto-sans-kr",
   subsets: ["latin"],
+  weight: ["400", "500", "700", "800"],
+  display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
@@ -28,18 +32,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="ko" className={`${notoSansKr.variable} ${geistMono.variable}`}>
       <body>
         <UserLocationProvider>
-          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+          <header className="sticky top-0 z-10 border-b border-line bg-white">
             <nav
               className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-8 lg:px-10"
               aria-label="주요 메뉴"
             >
               <Link
                 href="/"
-                className="shrink-0 rounded text-sm font-bold text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="flex shrink-0 items-center gap-2 rounded-md text-base font-extrabold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
+                <span
+                  className="grid size-7 place-items-center rounded-md bg-accent text-accent-ink"
+                  aria-hidden="true"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4"
+                  >
+                    <path d="M6 4v16M18 4v16M6 12h12M3 8v8M21 8v8" />
+                  </svg>
+                </span>
                 공공체육관
               </Link>
               <AppHeaderNav />

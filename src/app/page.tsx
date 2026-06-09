@@ -37,9 +37,9 @@ export default async function Home() {
     <main className="min-h-screen bg-background text-foreground">
       <HomeLocationPrompt />
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8 sm:px-8 lg:px-10">
-        <div className="grid gap-6 border-b border-slate-200 pb-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <div className="grid gap-6 border-b border-line pb-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <div className="max-w-3xl">
-            <p className="text-sm font-semibold text-sky-700">
+            <p className="text-sm font-semibold text-accent-strong">
               서울 공공체육시설 예약
             </p>
             <h1 className="mt-3 text-4xl font-bold tracking-normal text-slate-950 sm:text-5xl">
@@ -52,26 +52,26 @@ export default async function Home() {
             <div className="mt-6 flex flex-wrap gap-2">
               <Link
                 href="/gyms"
-                className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 체육관 찾기
               </Link>
               <Link
                 href="/reservations"
-                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-800 transition hover:border-sky-400 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-line-strong bg-white px-5 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 내 예약
               </Link>
             </div>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-sky-700">예약 흐름</p>
+          <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold text-accent-strong">예약 흐름</p>
             <div className="mt-4 grid gap-3">
               {flowSteps.map((step, index) => (
                 <div
                   key={step.title}
-                  className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-md border border-slate-100 bg-slate-50 p-3"
+                  className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-md border border-line bg-slate-50 p-3"
                 >
                   <span className="flex size-9 items-center justify-center rounded-md bg-white text-sm font-bold text-slate-950">
                     {index + 1}
@@ -94,25 +94,25 @@ export default async function Home() {
           className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
           aria-label="예약 서비스 요약"
         >
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">등록 체육관</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {gyms.length}곳
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">서울 지역구</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {availableRegions.length}개
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">예약 종목</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {availableSports.length}개
             </p>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
             <p className="text-sm font-semibold text-slate-500">최저 이용료</p>
             <p className="mt-2 text-2xl font-bold text-slate-950">
               {lowestPrice !== null ? `${formatGymPrice(lowestPrice)}부터` : "–"}
@@ -132,7 +132,7 @@ export default async function Home() {
             </div>
             <Link
               href="/gyms"
-              className="shrink-0 text-sm font-semibold text-sky-700 hover:text-sky-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 rounded"
+              className="shrink-0 text-sm font-semibold text-accent-strong hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 rounded"
             >
               전체 보기
             </Link>

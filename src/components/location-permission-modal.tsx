@@ -51,7 +51,7 @@ export function LocationPermissionModal() {
       aria-modal="true"
       aria-labelledby="location-permission-title"
     >
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+      <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
         <h2
           id="location-permission-title"
           className="text-lg font-bold text-slate-950"
@@ -65,7 +65,7 @@ export function LocationPermissionModal() {
           <button
             type="button"
             onClick={closePromptModal}
-            className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
           >
             {isDenied ? "확인" : "나중에"}
           </button>
@@ -75,7 +75,7 @@ export function LocationPermissionModal() {
               onClick={() => {
                 void requestLocation();
               }}
-              className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
             >
               {lastError ? "다시 시도" : "허용하기"}
             </button>

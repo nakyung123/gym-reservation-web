@@ -73,24 +73,24 @@ const unavailableTimeLabels = {
 };
 
 const noticeStyles: Record<NoticeTone, string> = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  error: "border-rose-200 bg-rose-50 text-rose-800",
+  success: "border-success/30 bg-success/10 text-success",
+  warning: "border-warning/30 bg-warning/10 text-warning",
+  error: "border-error/30 bg-error/10 text-error",
 };
 
 const noticeLinkStyles: Record<NoticeTone, string> = {
-  success: "bg-emerald-700 text-white hover:bg-emerald-800",
-  warning: "bg-amber-700 text-white hover:bg-amber-800",
-  error: "bg-rose-700 text-white hover:bg-rose-800",
+  success: "bg-success text-white hover:bg-success/90",
+  warning: "bg-warning text-white hover:bg-warning/90",
+  error: "bg-error text-white hover:bg-error/90",
 };
 
 const reservationNoticeButtonStyles: Record<NoticeTone, string> = {
   success:
-    "mt-6 h-11 w-full rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white transition disabled:cursor-default disabled:bg-emerald-700 disabled:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2",
+    "mt-6 h-11 w-full rounded-md bg-success px-5 text-sm font-semibold text-white transition disabled:cursor-default disabled:bg-success disabled:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
   warning:
-    "mt-6 h-11 w-full rounded-md bg-amber-700 px-5 text-sm font-semibold text-white transition disabled:cursor-default disabled:bg-amber-700 disabled:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2",
+    "mt-6 h-11 w-full rounded-md bg-warning px-5 text-sm font-semibold text-white transition disabled:cursor-default disabled:bg-warning disabled:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
   error:
-    "mt-6 h-11 w-full rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2",
+    "mt-6 h-11 w-full rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
 };
 
 function createDateOptions(todayValue: string): DateOption[] {
@@ -121,21 +121,21 @@ function getTimeButtonClass(
 ) {
   if (timeState.available) {
     return isSelected
-      ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-      : "border-slate-300 text-slate-700 hover:border-emerald-400";
+      ? "border-accent bg-accent text-accent-ink"
+      : "border-line-strong text-foreground hover:border-accent hover:text-accent-strong";
   }
 
   if (timeState.reason === "duplicate-active-reservation") {
-    return "cursor-not-allowed border-emerald-200 bg-emerald-50 text-emerald-800";
+    return "cursor-not-allowed border-accent/30 bg-accent-tint text-accent-strong";
   }
 
   if (timeState.reason === "past-time") {
-    return "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400";
+    return "cursor-not-allowed border-line bg-surface-2 text-subtle";
   }
 
   return isSelected
-    ? "cursor-not-allowed border-amber-200 bg-amber-50 text-amber-800"
-    : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400";
+    ? "cursor-not-allowed border-line bg-surface-2 text-subtle"
+    : "cursor-not-allowed border-line bg-surface-2 text-subtle";
 }
 
 export function ReservationForm({ gym }: ReservationFormProps) {
@@ -405,28 +405,53 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       })
     : selectedTimeStateCandidate;
   const selectedSlot = slotsLookup?.get(effectiveSelectedTime) ?? null;
-  const submitDisabledReason = isSubmitting
-    ? "예약을 처리하고 있습니다."
-    : !authSession.ok
-      ? authSession.message
-      : !isDateReady
-        ? "예약 날짜를 준비하고 있습니다."
-        : !reservationReadResult.ok
-          ? reservationReadResult.message
-          : !selectedTimeState.available
-            ? selectedTimeState.message
-            : slotsFetchError
-              ? slotsFetchError
-              : slotsFetchPending || !slotsLookup
-                ? "예약 가능 인원을 확인하고 있습니다."
-                : selectedSlot && selectedSlot.status !== "available"
-                  ? "선택한 시간대는 마감되었습니다."
-                  : null;
-  const timeSelectionDisabledLabel =
+  // auth/예약 read가 아직 준비되지 않은 전이적 로딩 상태(not-ready)인지.
+  // 이 상태는 에러가 아니라 로딩이므로 중립 표시로 다룬다.
+  const isReservationDataLoading =
     (!authSession.ok && authSession.reason === "not-ready") ||
-    (!reservationReadResult.ok && reservationReadResult.reason === "not-ready")
-      ? "확인 중"
-      : "확인 불가";
+    (!reservationReadResult.ok && reservationReadResult.reason === "not-ready");
+  // 예약 버튼 비활성 사유 + 톤. "pending"은 전이적 로딩/대기(중립 표시),
+  // "blocked"는 사용자가 조치해야 하는 실제 차단(에러 표시).
+  // not-ready 같은 로딩 사유를 error-red로 보여주지 않는다.
+  const submitDisabled: {
+    message: string;
+    tone: "pending" | "blocked";
+  } | null = isSubmitting
+    ? { message: "예약을 처리하고 있습니다.", tone: "pending" }
+    : !authSession.ok
+      ? {
+          message: authSession.message,
+          tone: authSession.reason === "not-ready" ? "pending" : "blocked",
+        }
+      : !isDateReady
+        ? { message: "예약 날짜를 준비하고 있습니다.", tone: "pending" }
+        : !reservationReadResult.ok
+          ? {
+              message: reservationReadResult.message,
+              tone:
+                reservationReadResult.reason === "not-ready"
+                  ? "pending"
+                  : "blocked",
+            }
+          : !selectedTimeState.available
+            ? { message: selectedTimeState.message, tone: "blocked" }
+            : slotsFetchError
+              ? { message: slotsFetchError, tone: "blocked" }
+              : slotsFetchPending || !slotsLookup
+                ? {
+                    message: "예약 가능 인원을 확인하고 있습니다.",
+                    tone: "pending",
+                  }
+                : selectedSlot && selectedSlot.status !== "available"
+                  ? {
+                      message: "선택한 시간대는 마감되었습니다.",
+                      tone: "blocked",
+                    }
+                  : null;
+  const submitDisabledReason = submitDisabled?.message ?? null;
+  const timeSelectionDisabledLabel = isReservationDataLoading
+    ? "확인 중"
+    : "확인 불가";
   const shouldShowSubmitDisabledReason =
     Boolean(submitDisabledReason) && !hasReservationNotice;
   const availableTimeCount = useMemo(() => {
@@ -454,7 +479,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       : "예약하기";
   const reserveButtonClass = hasReservationNotice
     ? reservationNoticeButtonStyles[noticeTone]
-    : "mt-6 h-11 w-full rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2";
+    : "mt-6 h-11 w-full rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
 
   const handleReserve = async () => {
     if (isSubmitting) {
@@ -538,7 +563,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   return (
     <div className="flex w-full min-w-0 flex-col gap-5">
       <ol
-        className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-white p-3 shadow-sm"
         aria-label="예약 진행 단계"
       >
         {reservationSteps.map((step, index) => {
@@ -553,22 +578,36 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <span
                 className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
                   isDone
-                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    ? "border-accent bg-accent text-white"
                     : isCurrent
-                      ? "border-sky-600 bg-sky-600 text-white"
-                      : "border-slate-300 bg-white text-slate-500"
+                      ? "border-accent bg-white text-accent-strong"
+                      : "border-line-strong bg-white text-subtle"
                 }`}
                 aria-hidden="true"
               >
-                {isDone ? "✓" : step.id}
+                {isDone ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                  >
+                    <path d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  step.id
+                )}
               </span>
               <span
                 className={`text-sm font-semibold ${
                   isCurrent
-                    ? "text-sky-800"
+                    ? "text-accent-strong"
                     : isDone
-                      ? "text-emerald-700"
-                      : "text-slate-500"
+                      ? "text-accent-strong"
+                      : "text-subtle"
                 }`}
               >
                 {step.label}
@@ -576,7 +615,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               {index < reservationSteps.length - 1 ? (
                 <span
                   aria-hidden="true"
-                  className="ml-1 hidden h-px w-6 bg-slate-200 sm:inline-block"
+                  className="ml-1 hidden h-px w-6 bg-line sm:inline-block"
                 />
               ) : null}
             </li>
@@ -585,8 +624,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       </ol>
 
       <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[1fr_360px]">
-      <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-sky-700">예약 선택</p>
+      <section className="min-w-0 rounded-lg border border-line bg-white p-6 shadow-sm">
+        <p className="text-sm font-semibold text-accent-strong">예약 선택</p>
         <h1 className="mt-2 text-3xl font-bold text-slate-950">{gym.name}</h1>
         <p className="mt-2 text-sm text-slate-600">{gym.address}</p>
 
@@ -603,10 +642,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     setSelectedSport(sport);
                     resetNotice();
                   }}
-                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     selectedSport === sport
-                      ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-slate-300 text-slate-700 hover:border-sky-400 hover:text-sky-800"
+                      ? "border-accent bg-accent text-accent-ink"
+                      : "border-line-strong text-muted hover:border-accent hover:text-accent-strong"
                   }`}
                 >
                   {sport}
@@ -628,10 +667,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       setSelectedDate(date.value);
                       resetNotice();
                     }}
-                    className={`min-w-0 rounded-md border px-3 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
+                    className={`min-w-0 rounded-md border px-3 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                       effectiveSelectedDate === date.value
-                        ? "border-slate-950 bg-slate-950 text-white"
-                        : "border-slate-300 text-slate-700 hover:border-sky-400"
+                        ? "border-accent bg-accent text-accent-ink"
+                        : "border-line-strong text-muted hover:border-accent"
                     }`}
                   >
                     <span className="block font-semibold">{date.label}</span>
@@ -641,7 +680,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   </button>
                 ))
               ) : (
-                <div className="col-span-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500 sm:col-span-4">
+                <div className="col-span-2 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500 sm:col-span-4">
                   날짜를 준비하고 있습니다.
                 </div>
               )}
@@ -676,7 +715,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       isSlotBlocked;
                     const timeButtonStateClass = (() => {
                       if (timeSelectionDisabledReason || isSlotBlocked) {
-                        return "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400";
+                        return "cursor-not-allowed border-line bg-surface-2 text-subtle";
                       }
                       return getTimeButtonClass(timeState, isSelected);
                     })();
@@ -720,7 +759,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                           setSelectedTime(time);
                           resetNotice();
                         }}
-                        className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${timeButtonStateClass}`}
+                        className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${timeButtonStateClass}`}
                         title={titleMessage}
                       >
                         <span className="block">{time}</span>
@@ -734,11 +773,17 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   })}
                 </div>
                 {timeSelectionDisabledReason ? (
-                  <p className="mt-3 text-sm font-semibold text-amber-700" role="alert">
-                    {timeSelectionDisabledReason}
-                  </p>
+                  isReservationDataLoading ? (
+                    <p className="mt-3 text-xs leading-5 text-slate-500" role="status">
+                      {timeSelectionDisabledReason}
+                    </p>
+                  ) : (
+                    <p className="mt-3 text-sm font-semibold text-warning" role="alert">
+                      {timeSelectionDisabledReason}
+                    </p>
+                  )
                 ) : slotsFetchError ? (
-                  <p className="mt-3 text-sm font-semibold text-rose-700" role="alert">
+                  <p className="mt-3 text-sm font-semibold text-error" role="alert">
                     {slotsFetchError}
                   </p>
                 ) : slotsFetchPending ? (
@@ -746,7 +791,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     예약 가능 인원을 확인하고 있습니다.
                   </p>
                 ) : availableTimeCount === 0 ? (
-                  <p className="mt-3 text-sm font-semibold text-amber-700" role="alert">
+                  <p className="mt-3 text-sm font-semibold text-warning" role="alert">
                     선택한 날짜에는 예약 가능한 시간이 없습니다. 다른 날짜를
                     선택해주세요.
                   </p>
@@ -761,7 +806,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     !hasReservationNotice &&
                     selectedTime !== effectiveSelectedTime ? (
                       <p
-                        className="text-xs font-semibold leading-5 text-amber-700"
+                        className="text-xs font-semibold leading-5 text-warning"
                         role="status"
                       >
                         원래 선택한 {selectedTime}은 예약할 수 없어
@@ -773,7 +818,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 )}
               </>
             ) : (
-              <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500">
+              <div className="mt-3 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500">
                 날짜를 준비하고 있습니다.
               </div>
             )}
@@ -781,8 +826,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         </div>
       </section>
 
-      <aside className="min-w-0 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-emerald-700">예약 요약</p>
+      <aside className="min-w-0 rounded-lg border border-line bg-white p-6 shadow-sm">
+        <p className="text-sm font-semibold text-accent-strong">예약 요약</p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
           아래 정보를 확인하고 예약하기 버튼을 눌러주세요.
         </p>
@@ -807,7 +852,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               {effectiveSelectedTime}
             </dd>
           </div>
-          <div className="flex justify-between gap-4 border-t border-slate-200 pt-3">
+          <div className="flex justify-between gap-4 border-t border-line pt-3">
             <dt className="font-bold text-slate-950">금액</dt>
             <dd className="font-bold text-slate-950">
               {formatGymPrice(price)}
@@ -824,9 +869,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           {reserveButtonLabel}
         </button>
 
-        {shouldShowSubmitDisabledReason ? (
-          <p className="mt-3 text-sm font-semibold text-rose-700" role="alert">
-            {submitDisabledReason}
+        {shouldShowSubmitDisabledReason && submitDisabled ? (
+          <p
+            className={`mt-3 text-sm font-semibold ${
+              submitDisabled.tone === "pending" ? "text-slate-500" : "text-error"
+            }`}
+            role={submitDisabled.tone === "pending" ? "status" : "alert"}
+          >
+            {submitDisabled.message}
           </p>
         ) : null}
 
@@ -875,10 +925,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     aria-label="내 예약 목록 보기"
                     className={`inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
                       noticeTone === "success"
-                        ? "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50 focus-visible:ring-emerald-500"
+                        ? "border-success/40 bg-white text-success hover:bg-success/10 focus-visible:ring-accent"
                         : noticeTone === "warning"
-                          ? "border-amber-300 bg-white text-amber-800 hover:bg-amber-50 focus-visible:ring-amber-500"
-                          : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50 focus-visible:ring-rose-500"
+                          ? "border-warning/40 bg-white text-warning hover:bg-warning/10 focus-visible:ring-accent"
+                          : "border-error/40 bg-white text-error hover:bg-error/10 focus-visible:ring-accent"
                     }`}
                   >
                     내 예약 보기

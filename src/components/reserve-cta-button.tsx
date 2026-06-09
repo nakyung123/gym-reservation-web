@@ -37,7 +37,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
       <button
         type="button"
         onClick={handleClick}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
         예약하기
       </button>
@@ -49,7 +49,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
           aria-modal="true"
           aria-labelledby="reserve-gate-title"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2
               id="reserve-gate-title"
               className="text-lg font-bold text-slate-950"
@@ -63,7 +63,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
               >
                 취소
               </button>
@@ -74,7 +74,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
                     `/login?from=${encodeURIComponent(reservePath)}`,
                   );
                 }}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
               >
                 로그인
               </button>

@@ -33,7 +33,7 @@ export function WithdrawView() {
 
   if (!session.ok) {
     return (
-      <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
         <p className="text-sm text-slate-600">로그인 상태를 확인하는 중입니다...</p>
       </section>
     );
@@ -109,10 +109,10 @@ export function WithdrawView() {
 
   return (
     <>
-      <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
         <h1 className="text-xl font-bold text-slate-950">회원 탈퇴</h1>
 
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+        <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-warning">
           <p className="font-semibold">탈퇴 전 꼭 확인해 주세요</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>탈퇴 시 계정과 모든 예약/즐겨찾기 정보가 즉시 삭제됩니다.</li>
@@ -130,13 +130,13 @@ export function WithdrawView() {
         >
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm font-semibold text-slate-800">
-              탈퇴 사유 <span className="text-rose-600">(필수)</span>
+              탈퇴 사유 <span className="text-error">(필수)</span>
             </legend>
             <div className="flex flex-col gap-2">
               {WITHDRAWAL_CATEGORIES.map((c) => (
                 <label
                   key={c}
-                  className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-800 transition hover:border-sky-300"
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-line px-3 py-2 text-sm text-slate-800 transition hover:border-accent"
                 >
                   <input
                     type="radio"
@@ -145,7 +145,7 @@ export function WithdrawView() {
                     checked={category === c}
                     onChange={() => setCategory(c)}
                     disabled={isWorking}
-                    className="size-4 cursor-pointer accent-slate-950"
+                    className="size-4 cursor-pointer accent-accent"
                   />
                   {c}
                 </label>
@@ -172,12 +172,12 @@ export function WithdrawView() {
               rows={4}
               disabled={isWorking}
               placeholder="개선이 필요한 부분을 알려주시면 큰 도움이 됩니다."
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:bg-slate-100"
+              className="rounded-md border border-line-strong px-3 py-2 text-sm text-slate-950 placeholder:text-slate-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:bg-slate-100"
             />
             <p
               className={`self-end text-xs ${
                 detailCharCount > MAX_DETAIL_LENGTH
-                  ? "font-semibold text-rose-700"
+                  ? "font-semibold text-error"
                   : "text-slate-500"
               }`}
             >
@@ -188,7 +188,7 @@ export function WithdrawView() {
           <div className="mt-1 flex gap-2">
             <Link
               href="/mypage"
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               취소
             </Link>
@@ -197,7 +197,7 @@ export function WithdrawView() {
               disabled={
                 !isFormValid || isWorking || detailCharCount > MAX_DETAIL_LENGTH
               }
-              className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40"
             >
               탈퇴하기
             </button>
@@ -206,7 +206,7 @@ export function WithdrawView() {
 
         {submitState.kind === "error" ? (
           <p
-            className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+            className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
             role="alert"
           >
             {submitState.message}
@@ -221,7 +221,7 @@ export function WithdrawView() {
           aria-modal="true"
           aria-labelledby="withdraw-confirm-title"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2
               id="withdraw-confirm-title"
               className="text-lg font-bold text-slate-950"
@@ -235,14 +235,14 @@ export function WithdrawView() {
               <button
                 type="button"
                 onClick={closeConfirm}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
               >
                 취소
               </button>
               <button
                 type="button"
                 onClick={confirmWithdraw}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white transition hover:bg-rose-800"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90"
               >
                 탈퇴 확인
               </button>
@@ -257,7 +257,7 @@ export function WithdrawView() {
           role="status"
           aria-live="polite"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <p className="text-sm text-slate-700">탈퇴 처리 중입니다...</p>
           </div>
         </div>
@@ -270,7 +270,7 @@ export function WithdrawView() {
           aria-modal="true"
           aria-labelledby="withdraw-success-title"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2
               id="withdraw-success-title"
               className="text-lg font-bold text-slate-950"
@@ -284,7 +284,7 @@ export function WithdrawView() {
               <button
                 type="button"
                 onClick={handleSuccessConfirm}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover"
               >
                 확인
               </button>
@@ -300,7 +300,7 @@ export function WithdrawView() {
           aria-modal="true"
           aria-labelledby="withdraw-auth-fail-title"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2
               id="withdraw-auth-fail-title"
               className="text-lg font-bold text-slate-950"
@@ -314,14 +314,14 @@ export function WithdrawView() {
               <button
                 type="button"
                 onClick={() => setSubmitState({ kind: "idle" })}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
               >
                 닫기
               </button>
               <button
                 type="button"
                 onClick={retryWithdraw}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white transition hover:bg-rose-800"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90"
               >
                 다시 시도
               </button>
@@ -337,7 +337,7 @@ export function WithdrawView() {
           aria-modal="true"
           aria-labelledby="withdraw-active-title"
         >
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 shadow-xl">
             <h2
               id="withdraw-active-title"
               className="text-lg font-bold text-slate-950"
@@ -351,13 +351,13 @@ export function WithdrawView() {
               <button
                 type="button"
                 onClick={() => setSubmitState({ kind: "idle" })}
-                className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+                className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
               >
                 닫기
               </button>
               <Link
                 href="/reservations"
-                className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
               >
                 내 예약 보기
               </Link>
