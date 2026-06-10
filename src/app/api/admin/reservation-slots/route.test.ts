@@ -120,6 +120,30 @@ describe("PATCH /api/admin/reservation-slots", () => {
     expect(row.isClosed).toBe(true);
   });
 
+  it("슬롯 변경 시 audit 로그를 남긴다", async () => {
+    const date = futureDate();
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "10:00",
+        capacity: 8,
+      }),
+    );
+    expect(response.status).toBe(200);
+
+    const rows = await prisma.auditLog.findMany({
+      where: {
+        targetType: "slot",
+        targetId: `${TEST_GYM.id}:배드민턴:${date}:10:00`,
+      },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.action).toBe("slot.update");
+    expect(rows[0]?.adminUid).toBe("admin-test-uid");
+  });
+
   it("Authorization 헤더가 없으면 변경하지 않는다", async () => {
     setAdminAuthError(401, "관리자 인증이 필요합니다.");
 

@@ -35,7 +35,10 @@ export const TEST_GYM: Gym = {
 
 beforeEach(async () => {
   // userProfile은 FK가 없고, 나머지는 FK 의존 순서: lock → reservation → favorite → gym_sports → gyms.
-  // oauth_attempts, auth_handover_tickets, rate_limit_buckets는 다른 테이블과 FK 관계가 없는 독립 store.
+  // oauth_attempts, auth_handover_tickets, rate_limit_buckets, audit_logs, user_notes는
+  // 다른 테이블과 FK 관계가 없는 독립 store.
+  await prisma.auditLog.deleteMany({});
+  await prisma.userNote.deleteMany({});
   await prisma.rateLimitBucket.deleteMany({});
   await prisma.oAuthAttempt.deleteMany({});
   await prisma.authHandoverTicket.deleteMany({});

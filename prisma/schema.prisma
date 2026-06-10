@@ -200,3 +200,36 @@ model AuthHandoverTicket {
   @@index([expiresAt], map: "idx_auth_ticket_expires")
   @@map("auth_handover_tickets")
 }
+
+// 관리자 운영 이력(audit). 누가(adminUid) 어떤 액션(action)을 어떤 대상(targetType/targetId)에
+// 수행했는지 기록한다. summary/metadata에는 PII 원문(email/이름 등)을 담지 않고
+// 식별자(uid)·상태값·건수 수준만 남긴다. id는 Prisma cuid로 생성한다.
+// best-effort 기록이며, audit insert 실패가 본 mutation을 깨지 않도록 호출 측에서 격리한다.
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminUid   String   @map("admin_uid") @db.VarChar(64)
+  action     String   @db.VarChar(64)
+  targetType String   @map("target_type") @db.VarChar(32)
+  targetId   String   @map("target_id") @db.VarChar(128)
+  summary    String   @db.VarChar(500)
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+
+  @@index([createdAt(sort: Desc)], map: "idx_audit_created")
+  @@index([targetType, targetId], map: "idx_audit_target")
+  @@map("audit_logs")
+}
+
+// 관리자가 특정 고객(userId = Firebase uid)에 남기는 운영 메모.
+// adminUid는 작성한 관리자 uid. body는 자유 텍스트(컬럼 최대 1000자).
+model UserNote {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id") @db.VarChar(64)
+  adminUid  String   @map("admin_uid") @db.VarChar(64)
+  body      String   @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_user_notes_user_created")
+  @@map("user_notes")
+}

@@ -88,6 +88,21 @@ describe("PATCH /api/admin/gyms/[gymId]", () => {
     expect(row.basePrice).toBe(13000);
   });
 
+  it("시설 수정 시 audit 로그를 남긴다", async () => {
+    const response = await PATCH(
+      patchRequest(updateBody),
+      contextFor(TEST_GYM.id),
+    );
+    expect(response.status).toBe(200);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { targetType: "gym", targetId: TEST_GYM.id },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.action).toBe("gym.update");
+    expect(rows[0]?.adminUid).toBe("admin-test-uid");
+  });
+
   it("Authorization 헤더가 없으면 401을 반환하고 수정하지 않는다", async () => {
     setAdminAuthError(401, "관리자 인증이 필요합니다.");
 

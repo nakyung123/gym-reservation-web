@@ -551,6 +551,46 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
     ).resolves.toBe(1);
   });
 
+  it("이용 완료/취소 처리 시 audit를 남기고 unchanged면 추가로 남기지 않는다", async () => {
+    const created = await createReservationInDb({
+      userId: "admin-audit-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(16),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const first = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+    expect(first.status).toBe(200);
+
+    const afterFirst = await prisma.auditLog.findMany({
+      where: { targetType: "reservation", targetId: created.reservation.id },
+    });
+    expect(afterFirst).toHaveLength(1);
+    expect(afterFirst[0]?.action).toBe("reservation.use");
+    expect(afterFirst[0]?.adminUid).toBe("admin-test-uid");
+
+    // 같은 상태 재요청(unchanged)은 audit를 추가로 남기지 않는다(중복 기록 방지).
+    const second = await PATCH(
+      patchRequestFor(created.reservation.id, "used"),
+      contextFor(created.reservation.id),
+    );
+    expect(second.status).toBe(200);
+    await expect(
+      prisma.auditLog.count({
+        where: { targetType: "reservation", targetId: created.reservation.id },
+      }),
+    ).resolves.toBe(1);
+  });
+
   it("관리자 예약 상태 변경 중 서버 오류가 발생하면 500을 반환한다", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(prisma.reservation, "findUnique").mockRejectedValueOnce(

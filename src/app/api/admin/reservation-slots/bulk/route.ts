@@ -1,9 +1,11 @@
 import type { NextRequest } from "next/server";
+import { AUDIT_ACTIONS } from "@/lib/admin/audit-log";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
+import { safeRecordAuditLog } from "@/lib/server/db-audit-repository";
 import {
   RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT,
   updateReservationSlotPolicies,
@@ -181,6 +183,23 @@ export async function PATCH(request: NextRequest) {
       { status: result.status === "conflict" ? 409 : 422 },
     );
   }
+
+  await safeRecordAuditLog({
+    adminUid: auth.uid,
+    action: AUDIT_ACTIONS.slotBulkUpdate,
+    targetType: "slot",
+    targetId: `${body.gymId}:${body.sport}`,
+    summary: `슬롯 일괄 변경: ${gym.name} ${body.sport} (${result.updatedCount}건)`,
+    metadata: {
+      gymId: body.gymId,
+      sport: body.sport,
+      dateCount: dates.length,
+      timeCount: times.length,
+      updatedCount: result.updatedCount,
+      ...(capacity !== undefined ? { capacity } : {}),
+      ...(body.isClosed !== undefined ? { isClosed: body.isClosed } : {}),
+    },
+  });
 
   return Response.json({
     slots: result.slots,

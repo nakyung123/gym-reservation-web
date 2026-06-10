@@ -124,6 +124,32 @@ describe("PATCH /api/admin/reservation-slots/bulk", () => {
     expect(rows.every((row) => row.isClosed)).toBe(true);
   });
 
+  it("슬롯 일괄 변경 시 audit 로그를 남긴다", async () => {
+    const firstDate = futureDate();
+    const secondDate = futureDate(8);
+
+    const response = await PATCH(
+      requestFor({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        dates: [firstDate, secondDate],
+        times: ["10:00", "11:00"],
+        capacity: 7,
+      }),
+    );
+    expect(response.status).toBe(200);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { targetType: "slot", targetId: `${TEST_GYM.id}:배드민턴` },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.action).toBe("slot.bulk_update");
+    expect(rows[0]?.adminUid).toBe("admin-test-uid");
+    expect(
+      (rows[0]?.metadata as { updatedCount?: unknown } | null)?.updatedCount,
+    ).toBe(4);
+  });
+
   it("중복 날짜와 시간은 한 번만 변경한다", async () => {
     const date = futureDate();
 

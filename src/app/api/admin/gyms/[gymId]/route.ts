@@ -1,7 +1,9 @@
 import type { NextRequest } from "next/server";
+import { AUDIT_ACTIONS } from "@/lib/admin/audit-log";
 import { validateAdminGymPayload } from "@/lib/admin/admin-gym-schema";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
+import { safeRecordAuditLog } from "@/lib/server/db-audit-repository";
 import { updateAdminGym } from "@/lib/server/db-gym-admin-repository";
 import {
   checkRateLimit,
@@ -66,6 +68,15 @@ export async function PATCH(
       { status: mutationStatusCode(result.status) },
     );
   }
+
+  await safeRecordAuditLog({
+    adminUid: auth.uid,
+    action: AUDIT_ACTIONS.gymUpdate,
+    targetType: "gym",
+    targetId: result.gym.id,
+    summary: `시설 수정: ${result.gym.name}`,
+    metadata: { region: result.gym.region, isActive: result.gym.isActive },
+  });
 
   return Response.json({ gym: result.gym, message: result.message });
 }

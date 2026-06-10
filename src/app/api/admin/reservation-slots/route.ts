@@ -1,9 +1,11 @@
 import type { NextRequest } from "next/server";
+import { AUDIT_ACTIONS } from "@/lib/admin/audit-log";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isSport } from "@/lib/domain-constants";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
+import { safeRecordAuditLog } from "@/lib/server/db-audit-repository";
 import { updateReservationSlotPolicy } from "@/lib/server/db-reservation-repository";
 import {
   checkRateLimit,
@@ -145,6 +147,22 @@ export async function PATCH(request: NextRequest) {
       { status: result.status === "conflict" ? 409 : 422 },
     );
   }
+
+  await safeRecordAuditLog({
+    adminUid: auth.uid,
+    action: AUDIT_ACTIONS.slotUpdate,
+    targetType: "slot",
+    targetId: `${body.gymId}:${body.sport}:${body.date}:${body.time}`,
+    summary: `슬롯 변경: ${gym.name} ${body.sport} ${body.date} ${body.time}`,
+    metadata: {
+      gymId: body.gymId,
+      sport: body.sport,
+      date: body.date,
+      time: body.time,
+      capacity: result.slot.capacity,
+      isClosed: result.slot.isClosed,
+    },
+  });
 
   return Response.json({ slot: result.slot });
 }

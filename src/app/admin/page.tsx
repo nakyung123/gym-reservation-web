@@ -20,6 +20,18 @@ const adminLinks = [
     description: "날짜와 시간대별 정원, 마감 여부를 조정합니다.",
     meta: "정원 및 마감 관리",
   },
+  {
+    href: "/admin/customers",
+    title: "고객 관리",
+    description: "고객의 예약·즐겨찾기 지표를 확인하고 메모를 남깁니다.",
+    meta: "고객 조회 및 메모",
+  },
+  {
+    href: "/admin/audit-logs",
+    title: "운영 이력",
+    description: "관리자 액션 기록을 조회해 운영 변경 내역을 추적합니다.",
+    meta: "감사 로그",
+  },
 ];
 
 export default function AdminPage() {

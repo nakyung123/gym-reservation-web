@@ -158,6 +158,18 @@ describe("POST /api/admin/gyms", () => {
     );
   });
 
+  it("시설 생성 시 audit 로그를 남긴다", async () => {
+    const response = await POST(postRequest(newAdminGym));
+    expect(response.status).toBe(200);
+
+    const rows = await prisma.auditLog.findMany({
+      where: { targetType: "gym", targetId: newAdminGym.id },
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.action).toBe("gym.create");
+    expect(rows[0]?.adminUid).toBe("admin-test-uid");
+  });
+
   it("Authorization 헤더가 없으면 401을 반환하고 추가하지 않는다", async () => {
     setAdminAuthError(401, "관리자 인증이 필요합니다.");
 
