@@ -32,6 +32,12 @@ const adminLinks = [
     description: "관리자 액션 기록을 조회해 운영 변경 내역을 추적합니다.",
     meta: "감사 로그",
   },
+  {
+    href: "/admin/revenue",
+    title: "매출/정산",
+    description: "월별 매출과 시설별 정산 기초를 확인합니다. 장부상 예약가치 기준입니다.",
+    meta: "매출 집계",
+  },
 ];
 
 export default function AdminPage() {

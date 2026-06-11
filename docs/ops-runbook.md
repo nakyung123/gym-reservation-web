@@ -361,6 +361,29 @@ $env:PGSSLMODE = $null
 
 ---
 
+## 9. 데모 데이터 (시연용 seed)
+
+매출/정산 화면을 채우기 위한 **포트폴리오 시연용** 더미 예약 스크립트다(`prisma/seed-demo-reservations.mjs`).
+실제 운영 데이터가 아니므로 운영 DB에서는 **시연 후 반드시 정리**한다.
+
+- 모든 데모 행은 `demo-rev-` prefix로 격리되어 `--clean`이 정확히 그 행만 지운다(실예약은 건드리지 않음).
+- **운영 오염 가드**: 대상 DB가 로컬(localhost)이 아니면 `--confirm-prod` 없이는 실행을 거부한다.
+
+```powershell
+# 개발 DB
+npm run db:seed:demo               # 생성(재실행 시 기존 데모 정리 후 재생성)
+npm run db:seed:demo -- --clean    # 정리
+
+# 운영 DB (시연용) — 셸에 운영 DATABASE_URL 주입 후, 의도 명시 플래그 필수
+npm run db:seed:demo:prod -- --confirm-prod            # 생성
+npm run db:seed:demo:prod -- --clean --confirm-prod    # 정리(시연 종료 후)
+$env:DATABASE_URL = $null
+```
+
+- 운영에 데모를 넣었다면 **시연 종료 직후 `--clean --confirm-prod`로 정리**한다. 정리 전에 실예약이 생기면 매출이 데모와 섞이므로, 가능하면 실서비스 오픈 전 시점에만 시연한다.
+
+---
+
 ## 부록: 빠른 참조
 
 | 작업 | 명령 / 위치 |
@@ -368,6 +391,7 @@ $env:PGSSLMODE = $null
 | admin 부여 | `npm run admin:grant-claim -- <uid>` |
 | admin 회수 | `node scripts/grant-admin-claim.mjs <uid> --revoke` |
 | 운영 마이그레이션 | `$env` 주입 후 `npm run db:migrate:prod` |
+| 데모 데이터 정리 | `npm run db:seed:demo -- --clean` (운영은 `:prod -- --clean --confirm-prod`) |
 | 앱 롤백 | Vercel → Deployments → 직전 정상본 Promote |
 | RLS 점검 | §3 SQL (2)·(3) 결과 0행 확인 |
 | env 빌드 가드 | `scripts/check-admin-env.mjs` (build prebuild) |
