@@ -49,7 +49,7 @@ describe("buildKakaoAuthorizeUrl", () => {
 });
 
 describe("normalizeKakaoUserInfo", () => {
-  it("number id를 string으로 정규화하고 profile/kakao_account 필드를 평탄화한다", () => {
+  it("number id를 string으로 정규화하고 kakao_account 필드를 평탄화한다", () => {
     const profile = normalizeKakaoUserInfo({
       id: 123456789,
       kakao_account: {
@@ -57,10 +57,6 @@ describe("normalizeKakaoUserInfo", () => {
         is_email_valid: true,
         is_email_verified: true,
         email_needs_agreement: false,
-        profile: {
-          nickname: "닉",
-          profile_image_url: "https://k.example/pic.jpg",
-        },
       },
     });
     expect(profile.providerUserId).toBe("123456789");
@@ -68,8 +64,6 @@ describe("normalizeKakaoUserInfo", () => {
     expect(profile.isEmailValid).toBe(true);
     expect(profile.isEmailVerified).toBe(true);
     expect(profile.emailNeedsAgreement).toBe(false);
-    expect(profile.nickname).toBe("닉");
-    expect(profile.profileImageUrl).toBe("https://k.example/pic.jpg");
   });
 
   it("id가 string으로 와도 그대로 정규화한다", () => {
@@ -83,18 +77,6 @@ describe("normalizeKakaoUserInfo", () => {
     expect(profile.isEmailValid).toBe(false);
     expect(profile.isEmailVerified).toBe(false);
     expect(profile.emailNeedsAgreement).toBe(false);
-    expect(profile.nickname).toBeNull();
-    expect(profile.profileImageUrl).toBeNull();
-  });
-
-  it("deprecated properties.* 경로는 무시되고 kakao_account.profile.*만 사용된다", () => {
-    const profile = normalizeKakaoUserInfo({
-      id: 1,
-      properties: { nickname: "구버전닉", profile_image: "https://old/img" },
-      kakao_account: { profile: { nickname: "신버전닉" } },
-    });
-    expect(profile.nickname).toBe("신버전닉");
-    expect(profile.profileImageUrl).toBeNull();
   });
 
   it("id 누락은 오류", () => {
@@ -175,13 +157,12 @@ describe("fetchKakaoUserInfo", () => {
       text: async () =>
         JSON.stringify({
           id: 42,
-          kakao_account: { email: "a@b.com", profile: { nickname: "n" } },
+          kakao_account: { email: "a@b.com" },
         }),
     }) as unknown as typeof fetch;
     const profile = await fetchKakaoUserInfo("AT");
     expect(profile.providerUserId).toBe("42");
     expect(profile.email).toBe("a@b.com");
-    expect(profile.nickname).toBe("n");
   });
 
   it("ok=false 응답은 오류로 던진다", async () => {

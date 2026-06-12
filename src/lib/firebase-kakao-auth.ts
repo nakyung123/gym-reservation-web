@@ -161,7 +161,7 @@ async function callFinalize(ticketId: string): Promise<FinalizeKakaoResult> {
     | { ok?: boolean; profileSynced?: boolean }
     | null;
 
-  // server에서 admin.updateUser로 displayName/email/photoURL을 갱신했지만
+  // server에서 admin.updateUser로 email을 갱신했을 수 있지만
   // currentUser는 signInWithCustomToken 시점 캐시. forced refresh로 token 받은 뒤 reload.
   try {
     await user.getIdToken(true);

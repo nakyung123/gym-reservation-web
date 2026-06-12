@@ -8,7 +8,7 @@
 
 - ✅ 사용: Firebase Auth (이메일·Google·카카오·네이버 custom token), Firebase Admin SDK (서버 ID 토큰 검증, 회원 탈퇴 시 user delete)
 - ❌ 폐기: Firestore. 운영 분기 + repository 어댑터 모두 제거됨 (2026-05-19)
-- ❌ 폐기: Firebase Storage. 프로필 사진은 base64로 Postgres `user_profiles.photo_base64` 컬럼에 저장
+- ❌ 폐기: Firebase Storage. 프로필 사진 기능 자체를 제거함(2026-06-12). 프로필은 기본 아바타만 표시한다
 
 ## 사용자 식별 SSOT
 

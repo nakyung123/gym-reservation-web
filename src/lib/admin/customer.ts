@@ -31,14 +31,13 @@ export type CustomerSummary = {
   activeFavoriteCount: number; // 활성 체육관 즐겨찾기 수
 };
 
-// 상세의 DB 프로필 부분. photoBase64 원문 대신 hasPhoto만 노출한다.
+// 상세의 DB 프로필 부분.
 export type CustomerProfileInfo = {
   nickname: string | null;
   provider: CustomerProvider;
   preferredRegion: string | null;
   preferredSports: string[];
   reservationNotificationsEnabled: boolean;
-  hasPhoto: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -125,7 +124,7 @@ export function isCustomerDetail(value: unknown): value is CustomerDetail {
     value.profile === null ||
     (isPlainObject(value.profile) &&
       isProvider(value.profile.provider) &&
-      typeof value.profile.hasPhoto === "boolean");
+      typeof value.profile.reservationNotificationsEnabled === "boolean");
   const firebaseOk =
     value.firebase === null ||
     (isPlainObject(value.firebase) &&

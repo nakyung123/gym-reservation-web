@@ -49,12 +49,10 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
     });
 
-    // account_email은 카카오 검수 통과 후에만 사용 가능한 동의 항목이라 제외한다.
+    // 닉네임/프로필 사진은 사용하지 않으므로 동의 scope를 요청하지 않는다.
+    // account_email도 카카오 검수 전이라 요청하지 않는다.
     // 식별은 카카오 회원번호(id)만으로 충분하다 (buildExternalAuthUid 참고).
-    const authorizeUrl = buildKakaoAuthorizeUrl({
-      state,
-      scope: "profile_nickname profile_image",
-    });
+    const authorizeUrl = buildKakaoAuthorizeUrl({ state });
 
     return Response.json({ authorizeUrl });
   } catch {

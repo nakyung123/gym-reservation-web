@@ -53,7 +53,6 @@
 | `POST /api/me/profile` | 내 프로필 생성/초기화 |
 | `PUT /api/me/profile` | 내 프로필 저장 |
 | `GET /api/me/nickname-availability` | 닉네임 사용 가능 여부 확인 |
-| `PUT /api/me/profile-photo` | 프로필 사진 저장/삭제 |
 | `POST /api/me/withdraw` | 회원 탈퇴 |
 
 ## 예약과 즐겨찾기 API

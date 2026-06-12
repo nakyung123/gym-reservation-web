@@ -79,7 +79,7 @@ async function makeIssuedTicket(overrides?: {
     targetUid: overrides?.targetUid ?? "naver:42",
     provider: overrides?.provider ?? "naver",
     handoverNonce: overrides?.nonce ?? "valid-nonce",
-    profilePayload: overrides?.profilePayload ?? { nickname: "테스트" },
+    profilePayload: overrides?.profilePayload ?? {},
   });
   await markTokenIssued(ticket.ticketId);
   return ticket;

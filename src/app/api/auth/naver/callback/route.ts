@@ -157,13 +157,9 @@ export async function GET(request: NextRequest) {
 }
 
 function toProfilePayload(profile: NaverProfile): HandoverProfilePayload | null {
-  const payload: HandoverProfilePayload = {};
-  if (profile.email) payload.email = profile.email;
-  // 네이버는 nickname과 name이 따로 있다. UI 표시명은 nickname 우선, 없으면 name.
-  const displayName = profile.nickname ?? profile.name;
-  if (displayName) payload.nickname = displayName;
-  if (profile.profileImageUrl) payload.photoUrl = profile.profileImageUrl;
-  return Object.keys(payload).length === 0 ? null : payload;
+  // email만 finalize에서 admin.updateUser에 쓰인다. provider의 nickname/name/사진은 동기화하지 않는다.
+  if (!profile.email) return null;
+  return { email: profile.email };
 }
 
 function buildHandoverRedirect(

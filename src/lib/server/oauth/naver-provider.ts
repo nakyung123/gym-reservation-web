@@ -19,9 +19,6 @@ export type NaverTokenSet = {
 export type NaverProfile = {
   providerUserId: string;
   email: string | null;
-  nickname: string | null;
-  name: string | null;
-  profileImageUrl: string | null;
 };
 
 function requireEnv(): {
@@ -140,7 +137,7 @@ export async function fetchNaverUserInfo(
 }
 
 // 응답 normalization은 테스트가 쉽도록 export. 네이버 응답 구조는
-// { resultcode, message, response: { id, email, nickname, name, profile_image, ... } }.
+// { resultcode, message, response: { id, email, ... } }. email만 사용한다.
 export function normalizeNaverUserInfo(raw: unknown): NaverProfile {
   if (!raw || typeof raw !== "object") {
     throw new Error("네이버 사용자 정보 응답이 올바르지 않습니다.");
@@ -168,9 +165,6 @@ export function normalizeNaverUserInfo(raw: unknown): NaverProfile {
   const data = response as {
     id?: unknown;
     email?: unknown;
-    nickname?: unknown;
-    name?: unknown;
-    profile_image?: unknown;
   };
 
   if (data.id === undefined || data.id === null) {
@@ -187,16 +181,6 @@ export function normalizeNaverUserInfo(raw: unknown): NaverProfile {
     email:
       typeof data.email === "string" && data.email.length > 0
         ? data.email
-        : null,
-    nickname:
-      typeof data.nickname === "string" && data.nickname.length > 0
-        ? data.nickname
-        : null,
-    name:
-      typeof data.name === "string" && data.name.length > 0 ? data.name : null,
-    profileImageUrl:
-      typeof data.profile_image === "string" && data.profile_image.length > 0
-        ? data.profile_image
         : null,
   };
 }

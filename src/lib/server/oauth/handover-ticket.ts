@@ -10,8 +10,9 @@ import { generateOpaqueToken } from "@/lib/server/oauth/oauth-state";
 //   finalized    : /finalize 처리 완료(profile sync 등)
 // handoverNonce는 HttpOnly cookie와 1:1 매칭되는 bearer 보강 값이다.
 // 익명 흐름 제거 후 anonUid/migration이 사라져 finalize는 단순화됨.
-// profilePayload는 provider profile snapshot으로, finalize에서 admin.updateUser에
-// 사용된다. access/refresh token류는 저장하지 않는다.
+// profilePayload는 provider email snapshot으로, finalize에서 admin.updateUser(email)에만
+// 사용된다. provider의 nickname/사진은 동기화하지 않으므로 저장하지 않는다.
+// access/refresh token류도 저장하지 않는다.
 
 export const HANDOVER_TICKET_TTL_MS = 5 * 60 * 1000;
 export const MAX_FINALIZE_ATTEMPTS = 5;
@@ -24,8 +25,6 @@ export type TicketStatus =
 
 export type HandoverProfilePayload = {
   email?: string | null;
-  nickname?: string | null;
-  photoUrl?: string | null;
 };
 
 export type HandoverTicketRecord = {
@@ -216,7 +215,5 @@ function normalizeProfilePayload(
   const obj = value as Record<string, unknown>;
   const result: HandoverProfilePayload = {};
   if (typeof obj.email === "string") result.email = obj.email;
-  if (typeof obj.nickname === "string") result.nickname = obj.nickname;
-  if (typeof obj.photoUrl === "string") result.photoUrl = obj.photoUrl;
   return result;
 }

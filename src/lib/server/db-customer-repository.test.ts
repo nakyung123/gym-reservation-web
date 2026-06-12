@@ -114,7 +114,6 @@ describe("getCustomerCoreDetail", () => {
     expect(detail.profile).toMatchObject({
       nickname: "상세고객",
       provider: "naver",
-      hasPhoto: false,
     });
     expect(detail.reservations).toEqual({
       total: 2,

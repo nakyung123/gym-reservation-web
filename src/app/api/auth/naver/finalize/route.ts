@@ -167,8 +167,8 @@ async function recordFailureSafely(
   }
 }
 
-// 네이버에서 받은 displayName/photoURL은 동기화하지 않는다 (nickname은 서버 자동 생성,
-// 프로필 사진은 별도 업로드 기능을 사용한다). email만 일치 시 user record에 반영한다.
+// provider가 준 nickname/사진은 동기화하지 않는다 (nickname은 서버 자동 생성, 프로필 사진 기능 없음).
+// email만 일치 시 user record에 반영한다.
 async function syncProfile(
   targetUid: string,
   payload: HandoverProfilePayload | null,

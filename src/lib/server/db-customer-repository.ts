@@ -42,7 +42,6 @@ function toProfileInfo(row: UserProfileRow): CustomerProfileInfo {
     preferredRegion: row.preferredRegion,
     preferredSports: parseStringArray(row.preferredSports),
     reservationNotificationsEnabled: row.reservationNotificationsEnabled,
-    hasPhoto: typeof row.photoBase64 === "string" && row.photoBase64.length > 0,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

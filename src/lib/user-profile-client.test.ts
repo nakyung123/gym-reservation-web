@@ -17,7 +17,6 @@ const profile: UserProfile = {
   userId: "profile-client-user",
   nickname: "나경",
   provider: "local",
-  photoBase64: null,
   preferredRegion: "서울 강서구",
   preferredSports: ["배드민턴"],
   reservationNotificationsEnabled: true,

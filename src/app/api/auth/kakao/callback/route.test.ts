@@ -245,8 +245,6 @@ describe("/api/auth/kakao/callback", () => {
     fetchUserMock.mockResolvedValue({
       providerUserId: "db-error-user",
       email: "user@example.com",
-      nickname: "테스트",
-      profileImageUrl: "https://e/p.jpg",
       isEmailValid: true,
       isEmailVerified: true,
       emailNeedsAgreement: false,
@@ -292,8 +290,6 @@ describe("/api/auth/kakao/callback", () => {
     fetchUserMock.mockResolvedValue({
       providerUserId: "999",
       email: "user@example.com",
-      nickname: "테스트",
-      profileImageUrl: "https://e/p.jpg",
       isEmailValid: true,
       isEmailVerified: true,
       emailNeedsAgreement: false,

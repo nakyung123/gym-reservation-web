@@ -83,7 +83,7 @@ async function makeIssuedTicket(overrides?: {
     targetUid: overrides?.targetUid ?? "kakao:42",
     provider: overrides?.provider ?? "kakao",
     handoverNonce: overrides?.nonce ?? "valid-nonce",
-    profilePayload: overrides?.profilePayload ?? { nickname: "테스트" },
+    profilePayload: overrides?.profilePayload ?? {},
   });
   await markTokenIssued(ticket.ticketId);
   return ticket;

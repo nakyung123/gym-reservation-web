@@ -8,7 +8,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type FormEvent,
 } from "react";
 import {
@@ -26,10 +25,6 @@ import {
   type FetchUserProfileResult,
   type SaveUserProfileResult,
 } from "@/lib/user-profile-client";
-import {
-  fileToResizedDataUrl,
-  updateProfilePhoto,
-} from "@/lib/profile-photo-client";
 import type { UserProfile } from "@/lib/user-profile";
 import {
   fetchUserSummary,
@@ -71,9 +66,6 @@ type ProfileState =
       // 마지막으로 서버에 저장된 닉네임. 헤더/요약 영역 표시는 이 값을 기준으로 하고,
       // 입력 중인 form.nickname은 저장 전까지 헤더에 반영되지 않는다.
       persistedNickname: string | null;
-      // 마지막으로 서버에 저장된 프로필 사진(data URL). 사진은 업로드/삭제 즉시 반영되며
-      // 폼 저장 흐름과 분리된다.
-      persistedPhotoBase64: string | null;
     }
   | {
       status: "error";
@@ -81,11 +73,6 @@ type ProfileState =
       message: string;
       responseStatus?: number;
     };
-
-type PhotoSaveState =
-  | { status: "idle" }
-  | { status: "uploading" }
-  | { status: "error"; message: string };
 
 type SaveState =
   | { status: "idle" }
@@ -207,18 +194,6 @@ function UserSilhouetteIcon() {
       />
     </svg>
   );
-}
-
-function getProfileImageStyle(
-  photoURL: string | null,
-): CSSProperties | undefined {
-  if (!photoURL) {
-    return undefined;
-  }
-
-  return {
-    backgroundImage: `url(${JSON.stringify(photoURL)})`,
-  };
 }
 
 function formatUserId(uid: string): string {
@@ -450,10 +425,6 @@ export function MypageView() {
     status: "idle",
   });
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
-  const [photoSaveState, setPhotoSaveState] = useState<PhotoSaveState>({
-    status: "idle",
-  });
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [notice, setNotice] = useState<NoticeState | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
@@ -583,7 +554,6 @@ export function MypageView() {
             status: "ready",
             form: profileToForm(result.profile),
             persistedNickname: result.profile?.nickname ?? null,
-            persistedPhotoBase64: result.profile?.photoBase64 ?? null,
           });
           return;
         }
@@ -628,12 +598,6 @@ export function MypageView() {
     const isPasswordProvider = user.providerData.some(
       (p) => p.providerId === "password",
     );
-    // 프로필 사진은 사용자가 직접 업로드한 photoBase64만 사용한다.
-    // Firebase user.photoURL(소셜 자동 동기화)는 무시한다 — 일관성 + 동기화 제거 정책.
-    const photoUrl =
-      profileState.status === "ready"
-        ? profileState.persistedPhotoBase64
-        : null;
     return {
       displayName,
       email: user.email ?? "등록된 이메일 없음",
@@ -643,7 +607,6 @@ export function MypageView() {
         Boolean(user.email) &&
         user.emailVerified === false &&
         isPasswordProvider,
-      photoURL: photoUrl,
       uid: user.uid,
       isPasswordProvider,
     };
@@ -658,7 +621,6 @@ export function MypageView() {
         status: "ready",
         form: updater(prev.form),
         persistedNickname: prev.persistedNickname,
-        persistedPhotoBase64: prev.persistedPhotoBase64,
       };
     });
     setSaveState((prev) =>
@@ -735,7 +697,6 @@ export function MypageView() {
           status: "ready",
           form: profileToForm(result.profile),
           persistedNickname: result.profile?.nickname ?? null,
-          persistedPhotoBase64: result.profile?.photoBase64 ?? null,
         });
         setSaveState({ status: "success", message: result.message });
         return;
@@ -770,63 +731,6 @@ export function MypageView() {
         saveAbortControllerRef.current = null;
       }
     }
-  };
-
-  const handlePhotoButtonClick = () => {
-    if (photoSaveState.status === "uploading") return;
-    fileInputRef.current?.click();
-  };
-
-  const handlePhotoFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    // 같은 파일을 다시 선택해도 onChange가 발생하도록 즉시 input value 초기화.
-    event.target.value = "";
-    if (!file) return;
-
-    setPhotoSaveState({ status: "uploading" });
-    const converted = await fileToResizedDataUrl(file);
-    if (!converted.ok) {
-      setPhotoSaveState({ status: "error", message: converted.message });
-      return;
-    }
-
-    const result = await updateProfilePhoto(converted.dataUrl);
-    if (!result.ok) {
-      setPhotoSaveState({ status: "error", message: result.message });
-      return;
-    }
-    setProfileState((prev) => {
-      if (prev.status !== "ready") return prev;
-      return {
-        status: "ready",
-        form: prev.form,
-        persistedNickname: prev.persistedNickname,
-        persistedPhotoBase64: result.profile.photoBase64,
-      };
-    });
-    setPhotoSaveState({ status: "idle" });
-  };
-
-  const handleResetPhoto = async () => {
-    if (photoSaveState.status === "uploading") return;
-    setPhotoSaveState({ status: "uploading" });
-    const result = await updateProfilePhoto(null);
-    if (!result.ok) {
-      setPhotoSaveState({ status: "error", message: result.message });
-      return;
-    }
-    setProfileState((prev) => {
-      if (prev.status !== "ready") return prev;
-      return {
-        status: "ready",
-        form: prev.form,
-        persistedNickname: prev.persistedNickname,
-        persistedPhotoBase64: result.profile.photoBase64,
-      };
-    });
-    setPhotoSaveState({ status: "idle" });
   };
 
   const handleResendVerification = async () => {
@@ -882,54 +786,19 @@ export function MypageView() {
     return <SignedOutPanel />;
   }
 
-  const profileImageStyle = getProfileImageStyle(account.photoURL);
-
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
         <p className="text-sm font-semibold text-accent-strong">내 정보</p>
         <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="flex flex-col items-center gap-2">
-              <span
-                className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-slate-100 bg-cover bg-center"
-                style={profileImageStyle}
-                role="img"
-                aria-label={`${account.displayName} 프로필 이미지`}
-              >
-                {account.photoURL ? null : <UserSilhouetteIcon />}
-              </span>
-              <div className="flex flex-col items-center gap-1">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  onChange={handlePhotoFileChange}
-                  className="hidden"
-                  aria-hidden="true"
-                />
-                <button
-                  type="button"
-                  onClick={handlePhotoButtonClick}
-                  disabled={photoSaveState.status === "uploading"}
-                  className="text-xs text-accent-strong underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
-                >
-                  {photoSaveState.status === "uploading"
-                    ? "변경 중..."
-                    : "사진 변경"}
-                </button>
-                {account.photoURL ? (
-                  <button
-                    type="button"
-                    onClick={handleResetPhoto}
-                    disabled={photoSaveState.status === "uploading"}
-                    className="text-xs text-slate-500 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-300"
-                  >
-                    기본 이미지로
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            <span
+              className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-slate-100"
+              role="img"
+              aria-label={`${account.displayName} 프로필 이미지`}
+            >
+              <UserSilhouetteIcon />
+            </span>
             <div className="min-w-0">
               <h1 className="break-words text-3xl font-bold text-slate-950">
                 {account.displayName}
@@ -942,14 +811,6 @@ export function MypageView() {
                   UID {formatUserId(account.uid)}
                 </span>
               </div>
-              {photoSaveState.status === "error" ? (
-                <p
-                  className="mt-2 text-xs font-semibold text-error"
-                  role="alert"
-                >
-                  {photoSaveState.message}
-                </p>
-              ) : null}
             </div>
           </div>
 

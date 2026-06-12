@@ -40,23 +40,17 @@ describe("buildNaverAuthorizeUrl", () => {
 });
 
 describe("normalizeNaverUserInfo", () => {
-  it("response.id를 string으로 정규화하고 알려진 필드를 평탄화한다", () => {
+  it("response.id를 string으로 정규화하고 email을 평탄화한다", () => {
     const profile = normalizeNaverUserInfo({
       resultcode: "00",
       message: "success",
       response: {
         id: "abc-9999",
         email: "user@example.com",
-        nickname: "닉네임",
-        name: "홍길동",
-        profile_image: "https://naver.example/pic.jpg",
       },
     });
     expect(profile.providerUserId).toBe("abc-9999");
     expect(profile.email).toBe("user@example.com");
-    expect(profile.nickname).toBe("닉네임");
-    expect(profile.name).toBe("홍길동");
-    expect(profile.profileImageUrl).toBe("https://naver.example/pic.jpg");
   });
 
   it("id 양옆 공백을 제거한다", () => {
@@ -67,15 +61,12 @@ describe("normalizeNaverUserInfo", () => {
     expect(profile.providerUserId).toBe("trim-me");
   });
 
-  it("선택 필드가 비어 있으면 null로 반환한다", () => {
+  it("email이 비어 있으면 null로 반환한다", () => {
     const profile = normalizeNaverUserInfo({
       resultcode: "00",
       response: { id: "1" },
     });
     expect(profile.email).toBeNull();
-    expect(profile.nickname).toBeNull();
-    expect(profile.name).toBeNull();
-    expect(profile.profileImageUrl).toBeNull();
   });
 
   it("resultcode가 00이 아니면 오류로 던진다", () => {
@@ -198,14 +189,12 @@ describe("fetchNaverUserInfo", () => {
           response: {
             id: "user-1",
             email: "a@b.com",
-            nickname: "n",
           },
         }),
     }) as unknown as typeof fetch;
     const profile = await fetchNaverUserInfo("AT");
     expect(profile.providerUserId).toBe("user-1");
     expect(profile.email).toBe("a@b.com");
-    expect(profile.nickname).toBe("n");
   });
 
   it("ok=false 응답은 오류", async () => {

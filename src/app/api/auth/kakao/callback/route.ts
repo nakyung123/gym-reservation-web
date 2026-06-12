@@ -164,11 +164,9 @@ export async function GET(request: NextRequest) {
 }
 
 function toProfilePayload(profile: KakaoProfile): HandoverProfilePayload | null {
-  const payload: HandoverProfilePayload = {};
-  if (profile.email) payload.email = profile.email;
-  if (profile.nickname) payload.nickname = profile.nickname;
-  if (profile.profileImageUrl) payload.photoUrl = profile.profileImageUrl;
-  return Object.keys(payload).length === 0 ? null : payload;
+  // email만 finalize에서 admin.updateUser에 쓰인다. provider의 nickname/사진은 동기화하지 않는다.
+  if (!profile.email) return null;
+  return { email: profile.email };
 }
 
 function buildHandoverRedirect(

@@ -12,9 +12,7 @@ import { prisma } from "@/lib/server/prisma-client";
 
 async function makeTicket(overrides?: {
   handoverNonce?: string;
-  profilePayload?:
-    | { email?: string | null; nickname?: string | null; photoUrl?: string | null }
-    | null;
+  profilePayload?: { email?: string | null } | null;
 }) {
   return createTicket({
     targetUid: "kakao:1",
@@ -39,8 +37,8 @@ describe("handover ticket store", () => {
     );
   });
 
-  it("createTicket이 profilePayload를 저장하고 findActiveTicket으로 다시 읽는다", async () => {
-    const payload = { email: "a@b", nickname: "닉", photoUrl: "https://x/y" };
+  it("createTicket이 profilePayload(email)를 저장하고 findActiveTicket으로 다시 읽는다", async () => {
+    const payload = { email: "a@b" };
     const ticket = await makeTicket({ profilePayload: payload });
     const found = await findActiveTicket(ticket.ticketId);
     expect(found?.profilePayload).toEqual(payload);

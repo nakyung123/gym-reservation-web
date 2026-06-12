@@ -45,7 +45,6 @@ function toUserProfile(row: UserProfileRow): UserProfile {
     userId: row.userId,
     nickname: row.nickname,
     provider: normalizeProvider(row.provider),
-    photoBase64: row.photoBase64,
     preferredRegion: row.preferredRegion,
     preferredSports: parsePreferredSports(row.preferredSports),
     reservationNotificationsEnabled: row.reservationNotificationsEnabled,
@@ -147,29 +146,4 @@ export async function ensureUserProfile(
   throw new Error(
     `자동 닉네임 생성에 ${MAX_NICKNAME_RETRY}회 실패했습니다. 잠시 후 다시 시도해 주세요.`,
   );
-}
-
-// 프로필 사진만 갱신한다. 사진은 닉네임/지역 등과 분리된 흐름이라 별도 endpoint를 둔다.
-// row가 없으면 자동 닉네임으로 새로 만들고 사진을 채운다(에지 케이스).
-export async function updateUserProfilePhoto(
-  userId: string,
-  photoBase64: string | null,
-  provider: ProviderId | null,
-): Promise<UserProfile> {
-  const existing = await prisma.userProfile.findUnique({ where: { userId } });
-  if (existing) {
-    const updated = await prisma.userProfile.update({
-      where: { userId },
-      data: { photoBase64, provider },
-    });
-    return toUserProfile(updated);
-  }
-  // 매우 드문 케이스: 사진 업로드가 ensureUserProfile 보다 먼저 도달.
-  // ensureUserProfile 로직과 일관되게 자동 닉네임으로 row를 만든 뒤 사진을 같이 넣는다.
-  const ensured = await ensureUserProfile(userId, provider);
-  const updated = await prisma.userProfile.update({
-    where: { userId: ensured.userId },
-    data: { photoBase64 },
-  });
-  return toUserProfile(updated);
 }

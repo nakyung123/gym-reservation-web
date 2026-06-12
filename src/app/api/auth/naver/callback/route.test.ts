@@ -241,9 +241,6 @@ describe("/api/auth/naver/callback", () => {
     fetchUserMock.mockResolvedValue({
       providerUserId: "db-error-user",
       email: "u@e",
-      nickname: "별명",
-      name: "이름",
-      profileImageUrl: "https://e/p.jpg",
     });
     const createSpy = vi
       .spyOn(prisma.authHandoverTicket, "create")
@@ -286,9 +283,6 @@ describe("/api/auth/naver/callback", () => {
     fetchUserMock.mockResolvedValue({
       providerUserId: "user-abc",
       email: "u@e",
-      nickname: "닉",
-      name: "이름",
-      profileImageUrl: "https://e/p.jpg",
     });
 
     const res = await GET(

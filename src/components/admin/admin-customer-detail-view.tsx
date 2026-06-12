@@ -247,10 +247,6 @@ function DetailBody({
                 label="예약 알림"
                 value={profile.reservationNotificationsEnabled ? "켜짐" : "꺼짐"}
               />
-              <InfoRow
-                label="프로필 사진"
-                value={profile.hasPhoto ? "있음" : "없음"}
-              />
             </dl>
           ) : (
             <p className="mt-3 text-sm text-slate-500">

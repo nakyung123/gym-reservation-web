@@ -21,8 +21,6 @@ export type KakaoProfile = {
   isEmailValid: boolean;
   isEmailVerified: boolean;
   emailNeedsAgreement: boolean;
-  nickname: string | null;
-  profileImageUrl: string | null;
 };
 
 function requireEnv(): { restApiKey: string; redirectUri: string } {
@@ -140,10 +138,6 @@ export function normalizeKakaoUserInfo(raw: unknown): KakaoProfile {
       is_email_valid?: unknown;
       is_email_verified?: unknown;
       email_needs_agreement?: unknown;
-      profile?: {
-        nickname?: unknown;
-        profile_image_url?: unknown;
-      };
     };
   };
 
@@ -157,7 +151,6 @@ export function normalizeKakaoUserInfo(raw: unknown): KakaoProfile {
   }
 
   const account = data.kakao_account ?? {};
-  const profile = account.profile ?? {};
 
   return {
     providerUserId,
@@ -177,14 +170,5 @@ export function normalizeKakaoUserInfo(raw: unknown): KakaoProfile {
       typeof account.email_needs_agreement === "boolean"
         ? account.email_needs_agreement
         : false,
-    nickname:
-      typeof profile.nickname === "string" && profile.nickname.length > 0
-        ? profile.nickname
-        : null,
-    profileImageUrl:
-      typeof profile.profile_image_url === "string" &&
-      profile.profile_image_url.length > 0
-        ? profile.profile_image_url
-        : null,
   };
 }
