@@ -93,6 +93,8 @@ describe("PATCH /api/admin/banners/[bannerId]", () => {
     // 이미지 미교체 → 기존 경로 유지
     expect(body.banner?.imageUrl).toBe("https://test/orig.jpg");
     expect(uploadBannerImage).not.toHaveBeenCalled();
+    // 이미지 미교체 → 기존 Storage 객체 정리도 없어야 한다.
+    expect(deleteBannerImage).not.toHaveBeenCalled();
   });
 
   it("이미지가 함께 오면 교체한다", async () => {
@@ -108,6 +110,8 @@ describe("PATCH /api/admin/banners/[bannerId]", () => {
     expect(response.status).toBe(200);
     expect(uploadBannerImage).toHaveBeenCalledOnce();
     expect(body.banner?.imageUrl).toBe("https://test/replaced.jpg");
+    // 밀려난 기존 객체(orig.jpg)는 Storage에서 정리되어야 한다.
+    expect(deleteBannerImage).toHaveBeenCalledWith("orig.jpg");
   });
 
   it("대상이 없으면 404를 반환한다", async () => {

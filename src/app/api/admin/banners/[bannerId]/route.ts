@@ -4,7 +4,11 @@ import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { parseBannerMeta, readImageBytes } from "@/lib/server/banner-request";
 import { safeRecordAuditLog } from "@/lib/server/db-audit-repository";
-import { deleteBanner, updateBanner } from "@/lib/server/db-banner-repository";
+import {
+  deleteBanner,
+  getBannerImagePath,
+  updateBanner,
+} from "@/lib/server/db-banner-repository";
 import {
   deleteBannerImage,
   uploadBannerImage,
@@ -58,7 +62,11 @@ export async function PATCH(
   // 이미지가 함께 오면 교체한다. 없으면 메타만 수정.
   const bytes = await readImageBytes(form);
   let newImagePath: string | undefined;
+  let oldImagePath: string | null = null;
   if (bytes) {
+    // 교체 전 기존 객체 경로를 확보한다(업데이트 성공 후 밀려난 객체 정리에 사용).
+    // 읽기 실패는 정리를 건너뛸 뿐 교체 자체를 막지 않는다(best-effort).
+    oldImagePath = await getBannerImagePath(bannerId).catch(() => null);
     const uploaded = await uploadBannerImage(bytes);
     if (!uploaded.ok) {
       return Response.json({ message: uploaded.message }, { status: 400 });
@@ -93,6 +101,12 @@ export async function PATCH(
       { message: "배너를 찾을 수 없습니다." },
       { status: 404 },
     );
+  }
+
+  // 이미지를 교체했으면 밀려난 기존 Storage 객체를 정리한다(orphan 방지, best-effort).
+  // 정리 실패는 본 수정을 깨지 않는다(DELETE의 Storage 정리와 동일 정책).
+  if (newImagePath && oldImagePath && oldImagePath !== newImagePath) {
+    await deleteBannerImage(oldImagePath).catch(() => {});
   }
 
   await safeRecordAuditLog({
