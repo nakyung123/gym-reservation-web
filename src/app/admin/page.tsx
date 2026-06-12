@@ -38,6 +38,12 @@ const adminLinks = [
     description: "월별 매출과 시설별 정산 기초를 확인합니다. 장부상 예약가치 기준입니다.",
     meta: "매출 집계",
   },
+  {
+    href: "/admin/banners",
+    title: "배너 관리",
+    description: "홈에 노출되는 운영 배너를 등록·교체하고 노출 조건을 관리합니다.",
+    meta: "배너 CRUD",
+  },
 ];
 
 export default function AdminPage() {

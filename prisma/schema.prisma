@@ -233,3 +233,23 @@ model UserNote {
   @@index([userId, createdAt(sort: Desc)], map: "idx_user_notes_user_created")
   @@map("user_notes")
 }
+
+// 운영 배너. 관리자가 admin 화면에서 업로드/교체하며 홈에 노출한다.
+// 이미지는 Supabase Storage(banners 버킷)에 두고 DB엔 imagePath(uuid.ext)만 저장한다.
+// public URL은 imagePath에서 결정적으로 파생한다(SSOT=imagePath).
+// 노출 조건: isActive && (startsAt..endsAt 범위, null이면 상시). sortOrder 오름차순.
+model Banner {
+  id        String    @id @default(cuid())
+  imagePath String    @map("image_path") @db.VarChar(256)
+  linkUrl   String?   @map("link_url") @db.VarChar(2000)
+  title     String?   @db.VarChar(200)
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  startsAt  DateTime? @map("starts_at") @db.Timestamp(3)
+  endsAt    DateTime? @map("ends_at") @db.Timestamp(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(3)
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  @@index([isActive, sortOrder], map: "idx_banner_active_sort")
+  @@map("banners")
+}

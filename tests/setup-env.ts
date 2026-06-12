@@ -11,3 +11,9 @@ dotenv.config({ path: ".env.test.local", override: true });
 if (!process.env.RATE_LIMIT_HMAC_SECRET) {
   process.env.RATE_LIMIT_HMAC_SECRET = "vitest-rate-limit-default-secret";
 }
+
+// 배너 public URL 파생(bannerPublicUrl)에 쓰이는 Supabase URL 테스트 fallback.
+// 실제 Storage 접근은 테스트에서 mock하므로 도메인 형식만 맞으면 된다.
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test-project.supabase.co";
+}

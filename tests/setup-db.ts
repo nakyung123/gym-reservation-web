@@ -39,6 +39,7 @@ beforeEach(async () => {
   // 다른 테이블과 FK 관계가 없는 독립 store.
   await prisma.auditLog.deleteMany({});
   await prisma.userNote.deleteMany({});
+  await prisma.banner.deleteMany({});
   await prisma.rateLimitBucket.deleteMany({});
   await prisma.oAuthAttempt.deleteMany({});
   await prisma.authHandoverTicket.deleteMany({});

@@ -12,6 +12,9 @@ export const AUDIT_ACTIONS = {
   slotBulkUpdate: "slot.bulk_update",
   customerNoteCreate: "customer_note.create",
   customerNoteDelete: "customer_note.delete",
+  bannerCreate: "banner.create",
+  bannerUpdate: "banner.update",
+  bannerDelete: "banner.delete",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -26,6 +29,9 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   [AUDIT_ACTIONS.slotBulkUpdate]: "슬롯 일괄 변경",
   [AUDIT_ACTIONS.customerNoteCreate]: "고객 메모 추가",
   [AUDIT_ACTIONS.customerNoteDelete]: "고객 메모 삭제",
+  [AUDIT_ACTIONS.bannerCreate]: "배너 생성",
+  [AUDIT_ACTIONS.bannerUpdate]: "배너 수정",
+  [AUDIT_ACTIONS.bannerDelete]: "배너 삭제",
 };
 
 export function auditActionLabel(action: string): string {
@@ -38,6 +44,7 @@ export const AUDIT_TARGET_TYPE_LABEL: Record<string, string> = {
   gym: "시설",
   slot: "슬롯",
   user: "고객",
+  banner: "배너",
 };
 
 export function auditTargetTypeLabel(targetType: string): string {
