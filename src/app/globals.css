@@ -77,6 +77,11 @@ body {
   color: var(--foreground);
   /* Arial 제거 → 한국어 본문 폰트. 어절 단위 줄바꿈 + 숫자 폭 정렬 */
   font-family: var(--font-noto-sans-kr), -apple-system, system-ui, sans-serif;
+  /* 시안 v6 본문 기본값(SSOT). arbitrary 크기(text-[18.5px] 등)는 line-height를
+     직접 지정하지 않으므로 이 값을 상속한다. 이게 빠져 있으면 줄간격 1.5로 들어가
+     화면 전체가 세로로 짧아진다(시안 대비 축소). */
+  font-size: 16.5px;
+  line-height: 1.6;
   word-break: keep-all;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: "tnum" 1;

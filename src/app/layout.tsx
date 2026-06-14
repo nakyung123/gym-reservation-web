@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist_Mono, Noto_Sans_KR } from "next/font/google";
 import { AppHeaderNav } from "@/components/app-header-nav";
+import { SiteFooter } from "@/components/site-footer";
 import { UserLocationProvider } from "@/hooks/use-user-location";
 import { LocationPermissionModal } from "@/components/location-permission-modal";
 import "./globals.css";
@@ -35,17 +36,17 @@ export default function RootLayout({
     <html lang="ko" className={`${notoSansKr.variable} ${geistMono.variable}`}>
       <body>
         <UserLocationProvider>
-          <header className="sticky top-0 z-10 border-b border-line bg-white">
+          <header className="sticky top-0 z-50 border-b border-line bg-surface">
             <nav
-              className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-8 lg:px-10"
+              className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center gap-11 px-5 sm:px-8"
               aria-label="주요 메뉴"
             >
               <Link
                 href="/"
-                className="flex shrink-0 items-center gap-2 rounded-md text-base font-extrabold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                className="flex shrink-0 items-center gap-2.5 rounded-md text-xl font-extrabold tracking-[-0.02em] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 <span
-                  className="grid size-7 place-items-center rounded-md bg-accent text-accent-ink"
+                  className="grid size-8 place-items-center rounded-[9px] bg-accent text-accent-ink"
                   aria-hidden="true"
                 >
                   <svg
@@ -55,7 +56,7 @@ export default function RootLayout({
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="size-4"
+                    className="size-[19px]"
                   >
                     <path d="M6 4v16M18 4v16M6 12h12M3 8v8M21 8v8" />
                   </svg>
@@ -65,12 +66,8 @@ export default function RootLayout({
               <AppHeaderNav />
             </nav>
           </header>
-          <div className="border-b border-amber-200 bg-amber-50">
-            <p className="mx-auto max-w-6xl px-4 py-2 text-xs font-semibold leading-5 text-amber-900 sm:px-8 lg:px-10">
-              화면에서 생성한 예약은 실제 시설 예약으로 접수되지 않습니다.
-            </p>
-          </div>
           {children}
+          <SiteFooter />
           <LocationPermissionModal />
         </UserLocationProvider>
       </body>
