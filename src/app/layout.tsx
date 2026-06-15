@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Geist_Mono, Noto_Sans_KR } from "next/font/google";
+import { Noto_Sans_KR } from "next/font/google";
 import { AppHeaderNav } from "@/components/app-header-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { UserLocationProvider } from "@/hooks/use-user-location";
@@ -16,11 +16,6 @@ const notoSansKr = Noto_Sans_KR({
   preload: false,
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: "공공체육관 예약",
   description:
@@ -33,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${notoSansKr.variable} ${geistMono.variable}`}>
+    <html lang="ko" className={notoSansKr.variable}>
       <body>
         <UserLocationProvider>
           <header className="sticky top-0 z-50 border-b border-line bg-surface">

@@ -1,8 +1,8 @@
 import { FacilityCard } from "@/components/facility-card";
 import { HomeHero } from "@/components/home-hero";
-import { HomeLocationPrompt } from "@/components/home-location-prompt";
 import { HomeQuickActions } from "@/components/home-quick-actions";
 import { HomeReservationPreview } from "@/components/home-reservation-preview";
+import { HomeSearch } from "@/components/home-search";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
 // 홈은 섹션 컴포넌트를 순서대로 조립한다. 섹션 추가/삭제/순서 변경은 이 본문에서,
@@ -10,12 +10,18 @@ import { gymRepository } from "@/lib/gym-repository-provider";
 export default async function Home() {
   const gyms = await gymRepository.list();
   const recommendedGyms = gyms.slice(0, 3);
+  // 홈 빠른 검색에 필요한 필드만 client로 내려준다(경량 projection).
+  const searchGyms = gyms.map(({ id, name, region, sports }) => ({
+    id,
+    name,
+    region,
+    sports,
+  }));
 
   return (
     <main className="bg-background text-foreground">
-      <HomeLocationPrompt />
-
       <HomeHero />
+      <HomeSearch gyms={searchGyms} />
       <HomeQuickActions />
 
       {/* 가까운 체육시설 */}

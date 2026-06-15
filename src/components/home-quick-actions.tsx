@@ -2,7 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
- * 홈 퀵액션 카드. 히어로 하단에 겹쳐 올라온다(-mt).
+ * 홈 퀵액션 카드. 수정 시안대로 검색바 아래에 위치한다(히어로 겹침은 검색바가 가져감).
+ * 카드 크기/스타일(px-6 py-7·size-52 아이콘·그림자)은 시안 그대로 유지한다.
  * 항목은 아래 QUICK_ACTIONS 배열에서만 관리한다(추가/삭제/순서/링크 변경).
  *
  * 라우팅: 예약하기는 단독 진입점이 없어 시설 선택(/gyms)으로 보낸다.
@@ -61,7 +62,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 export function HomeQuickActions() {
   return (
-    <div className="relative z-10 mx-auto -mt-[88px] w-full max-w-[1440px] px-5 sm:px-8">
+    <div className="mx-auto mt-[22px] w-full max-w-[1440px] px-5 sm:px-8">
       <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {QUICK_ACTIONS.map((action) => (
           <li key={action.title}>

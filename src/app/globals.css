@@ -43,7 +43,9 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-noto-sans-kr);
-  --font-mono: var(--font-geist-mono);
+  /* 예약번호/코드도 단일 폰트(Noto Sans KR) 사용 — DESIGN.md 단일 폰트 원칙.
+     숫자 정렬은 사용처에서 tabular-nums로 처리한다(시안 .code와 동일). */
+  --font-mono: var(--font-noto-sans-kr);
 
   /* 디자인 토큰 → Tailwind 유틸 노출 (bg-accent, text-accent-strong, border-app 등).
      slate/sky 기본 팔레트는 덮어쓰지 않으므로 기존 화면은 그대로 유지된다. */

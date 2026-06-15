@@ -38,11 +38,12 @@ const FOOTER_COLUMNS: FooterColumn[] = [
 ];
 
 function FooterLinkItem({ link }: { link: FooterLink }) {
+  // 모바일은 터치 타깃 44px(min-h-[44px]), 데스크톱은 시안 높이로 복귀(sm:min-h-0).
   if (link.href) {
     return (
       <Link
         href={link.href}
-        className="text-slate-400 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+        className="inline-flex min-h-[44px] items-center text-slate-400 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 sm:min-h-0"
       >
         {link.label}
       </Link>
@@ -50,7 +51,10 @@ function FooterLinkItem({ link }: { link: FooterLink }) {
   }
 
   return (
-    <span className="cursor-default text-slate-400" title="준비 중">
+    <span
+      className="inline-flex min-h-[44px] cursor-default items-center text-slate-400 sm:min-h-0"
+      title="준비 중"
+    >
       {link.label}
     </span>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { Fragment, useState, useSyncExternalStore } from "react";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -53,8 +53,33 @@ const UTIL_LINK_CLASS =
 const UTIL_DISABLED_CLASS =
   "cursor-default text-[14.5px] font-semibold text-muted";
 
+// 모바일 드로어: 터치 타깃 44px 이상(min-h-[44px]) 확보.
+const MOBILE_LINK_CLASS =
+  "flex min-h-[44px] items-center justify-between rounded-lg px-3 py-2.5 text-base font-bold text-foreground transition hover:bg-surface-2 focus-visible:outline-none focus-visible:bg-surface-2";
+const MOBILE_NOOP_CLASS =
+  "flex min-h-[44px] cursor-default items-center justify-between rounded-lg px-3 py-2.5 text-base font-bold text-muted";
+const MOBILE_UTIL_CLASS =
+  "flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-line-strong text-[14.5px] font-bold text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
 function UtilSeparator() {
   return <span className="h-[13px] w-px bg-line-strong" aria-hidden="true" />;
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-[18px] text-subtle"
+    >
+      <path d="M9 5l7 7-7 7" />
+    </svg>
+  );
 }
 
 function FacilityMega() {
@@ -101,9 +126,23 @@ export function AppHeaderNav() {
   );
   const session = parseFirebaseAuthSessionSnapshot(snapshot);
   const signedIn = session.ok;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
+
+  // 로그인 상태에 따른 우측 유틸 링크(데스크톱 바·모바일 드로어에서 공유).
+  const utilLinks = signedIn
+    ? [
+        { label: "마이페이지", href: "/mypage" },
+        { label: "내 예약", href: "/reservations" },
+      ]
+    : [
+        { label: "로그인", href: "/login" },
+        { label: "회원가입", href: "/signup" },
+      ];
 
   return (
     <>
+      {/* 데스크톱 GNB */}
       <ul className="hidden h-full flex-1 items-stretch gap-1 lg:flex">
         {GNB_ITEMS.map((item) => (
           <li
@@ -126,33 +165,103 @@ export function AppHeaderNav() {
         ))}
       </ul>
 
-      <div className="ml-auto flex items-center gap-3.5">
-        {signedIn ? (
-          <>
-            <Link href="/mypage" className={UTIL_LINK_CLASS}>
-              마이페이지
+      {/* 데스크톱 우측 유틸 */}
+      <div className="ml-auto hidden items-center gap-3.5 lg:flex">
+        {utilLinks.map((link, index) => (
+          <Fragment key={link.href}>
+            {index > 0 ? <UtilSeparator /> : null}
+            <Link href={link.href} className={UTIL_LINK_CLASS}>
+              {link.label}
             </Link>
-            <UtilSeparator />
-            <Link href="/reservations" className={UTIL_LINK_CLASS}>
-              내 예약
-            </Link>
-          </>
-        ) : (
-          <>
-            <Link href="/login" className={UTIL_LINK_CLASS}>
-              로그인
-            </Link>
-            <UtilSeparator />
-            <Link href="/signup" className={UTIL_LINK_CLASS}>
-              회원가입
-            </Link>
-          </>
-        )}
+          </Fragment>
+        ))}
         <UtilSeparator />
         <span className={UTIL_DISABLED_CLASS} title="준비 중">
           KR
         </span>
       </div>
+
+      {/* 모바일 햄버거 */}
+      <button
+        type="button"
+        onClick={() => setMenuOpen((open) => !open)}
+        aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
+        aria-expanded={menuOpen}
+        aria-controls="mobile-menu"
+        className="ml-auto grid size-11 place-items-center rounded-lg border border-line-strong text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="size-[22px]"
+        >
+          {menuOpen ? (
+            <path d="M6 6l12 12M18 6L6 18" />
+          ) : (
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          )}
+        </svg>
+      </button>
+
+      {/* 모바일 드로어 */}
+      {menuOpen ? (
+        <>
+          <button
+            type="button"
+            aria-hidden="true"
+            tabIndex={-1}
+            onClick={closeMenu}
+            className="fixed bottom-0 left-0 right-0 top-[76px] z-40 bg-slate-900/30 lg:hidden"
+          />
+          <nav
+            id="mobile-menu"
+            aria-label="모바일 메뉴"
+            className="fixed inset-x-0 top-[76px] z-40 max-h-[calc(100vh-76px)] overflow-y-auto border-b border-line bg-white shadow-[0_12px_24px_rgba(15,23,42,0.12)] lg:hidden"
+          >
+            <div className="mx-auto w-full max-w-[1440px] px-5 py-2 sm:px-8">
+              <ul>
+                {GNB_ITEMS.map((item) => (
+                  <li key={item.label}>
+                    {item.href ? (
+                      <Link
+                        href={item.href}
+                        onClick={closeMenu}
+                        className={MOBILE_LINK_CLASS}
+                      >
+                        {item.label}
+                        <ChevronRight />
+                      </Link>
+                    ) : (
+                      <span className={MOBILE_NOOP_CLASS} title="준비 중">
+                        {item.label}
+                        <ChevronRight />
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="my-2 h-px bg-line" aria-hidden="true" />
+              <div className="flex gap-2 pb-2">
+                {utilLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={closeMenu}
+                    className={MOBILE_UTIL_CLASS}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </nav>
+        </>
+      ) : null}
     </>
   );
 }
