@@ -29,6 +29,10 @@ export default defineConfig({
       "src/lib/firebase-email-auth.test.ts",
       "src/lib/firebase-password-update.test.ts",
       "src/lib/password-policy.test.ts",
+      // 일일 리포트: 순수 타임존/메시지 로직 + cron 가드(모킹). DB 의존 집계 테스트는
+      // daily-report.test.ts에 있고 그건 full suite(npm run test) 전용이라 여기 넣지 않는다.
+      "src/lib/server/daily-report-format.test.ts",
+      "src/app/api/cron/daily-report/route.test.ts",
     ],
   },
   resolve: {
