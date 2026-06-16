@@ -140,9 +140,9 @@ describe("syncReservationLedger", () => {
       12000,
       12000,
     ]);
-    // update-then-clear: 잔여행 clear 호출
+    // clear는 전체 열(A:G)로 호출한다(그리드 초과 방지 — A{n+1}:G 금지).
     expect(valuesClear).toHaveBeenCalledTimes(1);
-    expect(valuesClear.mock.calls[0][0].range).toContain("'예약원장(데모)'");
+    expect(valuesClear.mock.calls[0][0].range).toBe("'예약원장(데모)'!A:G");
     expect(result.reservations).toBe(1);
   });
 

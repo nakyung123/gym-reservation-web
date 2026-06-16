@@ -153,17 +153,20 @@ export async function syncReservationLedger(): Promise<LedgerSyncResult> {
   await ensureLedgerTab(sheets, spreadsheetId);
 
   const tab = quoteTab(LEDGER_TAB);
-  // update-then-clear: 먼저 현재 행(공지+헤더+데이터)을 A1부터 덮어쓰고, 그 아래 이전 잔여행을
-  // 지운다. (clear→update 순서는 쓰기 실패 시 빈 탭이 노출되므로 update를 먼저 한다.)
+  // mirror: 기존 값을 먼저 비우고(A:G 전체 열) 새 행을 A1부터 쓴다. 열 전체 범위 clear는 그리드
+  // 크기와 무관하게 항상 유효하다.
+  // (반대로 update-then-clear는 데이터가 그리드를 꽉 채우면 trailing clear 범위 A{n+1}:G가
+  //  그리드를 벗어나 400 "exceeds grid limits"가 난다 — 새 탭이 정확히 행 수만큼만 커지기 때문.)
+  // clear→update 사이에 update가 실패하면 짧게 빈 탭이 될 수 있으나, 멱등이라 재실행으로 복원된다.
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId,
+    range: `${tab}!A:G`,
+  });
   await sheets.spreadsheets.values.update({
     spreadsheetId,
     range: `${tab}!A1`,
     valueInputOption: "RAW",
     requestBody: { values: rows },
-  });
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${tab}!A${rows.length + 1}:G`,
   });
 
   return { reservations: ledgerReservations.length, rowsWritten: rows.length };
