@@ -92,3 +92,44 @@ describe("buildDailyReportText", () => {
     expect(text).toContain("어제는 신규 활동이 없었습니다.");
   });
 });
+
+describe("buildDailyReportText (AI 브리핑 레이어2)", () => {
+  it("aiBrief가 있으면 브리핑·이상치·탈퇴 테마 섹션을 붙인다", () => {
+    const text = buildDailyReportText(SAMPLE, {
+      briefing: "어제 예약은 평소보다 높았습니다.",
+      anomalies: ["탈퇴 급증"],
+      withdrawalThemes: ["가격 부담"],
+    });
+    expect(text).toContain("📌 AI 브리핑");
+    expect(text).toContain("어제 예약은 평소보다 높았습니다.");
+    expect(text).toContain("⚠️ 이상치");
+    expect(text).toContain("• 탈퇴 급증");
+    expect(text).toContain("🗣 탈퇴 사유 테마");
+    expect(text).toContain("• 가격 부담");
+  });
+
+  it("이상치·테마가 비면 해당 섹션은 생략한다", () => {
+    const text = buildDailyReportText(SAMPLE, {
+      briefing: "특이사항 없음.",
+      anomalies: [],
+      withdrawalThemes: [],
+    });
+    expect(text).toContain("📌 AI 브리핑");
+    expect(text).not.toContain("⚠️ 이상치");
+    expect(text).not.toContain("🗣 탈퇴 사유 테마");
+  });
+
+  it("aiBrief가 null이면 생성 실패를 숨기지 않고 명시한다(말없는 폴백 금지)", () => {
+    const text = buildDailyReportText(SAMPLE, null);
+    expect(text).toContain("AI 브리핑은 이번 회차에 생성하지 못했습니다");
+  });
+
+  it("AI 브리핑 섹션에서도 '매출' 라벨을 쓰지 않는다", () => {
+    const text = buildDailyReportText(SAMPLE, {
+      briefing: "예약가치가 증가했습니다.",
+      anomalies: [],
+      withdrawalThemes: [],
+    });
+    expect(text).not.toContain("매출");
+  });
+});

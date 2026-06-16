@@ -1,11 +1,14 @@
 // 일일 운영 리포트의 순수 로직(타임존 계산 + Slack 메시지 빌더)만 모은 모듈.
 // prisma/외부 IO를 import하지 않아 DB 없이도 단위 테스트할 수 있다(vitest.unit.config 포함 대상).
+// (AiBrief는 타입만 import하므로 런타임 의존이 없다 — 순수성 유지.)
 //
 // 핵심 원칙:
 // - 운영 기준 시각은 KST(UTC+9). Vercel cron은 UTC로 돌므로 "어제(KST)"를 명시 변환한다.
 // - "어제 생성된" 이벤트 지표는 생성 시점(createdAt) UTC 범위 [start, end)로만 집계한다.
 //   현재 status로 거르지 않으므로 cron이 두 번 실행돼도 숫자가 흔들리지 않는다(멱등).
 // - 금액은 "매출/정산"이 아니라 "예약가치(booked value)"다. 결제 연동 전이라 실제 수금액이 아니다.
+
+import type { AiBrief } from "@/lib/server/ai-brief";
 
 export const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,6 +53,31 @@ export function kstTodayDateString(now: Date): string {
   return kstDateString(now);
 }
 
+// AI 브리핑 baseline(이상치 판단 기준)으로 쓰는 "어제 직전 N일" 일평균 집계 구간의 기본 길이.
+export const BASELINE_DAYS = 7;
+
+export type KstBaselineRange = {
+  // baseline 일평균을 집계할 createdAt UTC 반열린 구간 [startUtc, endUtc).
+  startUtc: Date;
+  endUtc: Date;
+  // 평균을 낼 때 나눌 일수(=구간 길이).
+  days: number;
+};
+
+// now 기준 "어제" 직전 N일(기본 7일) 구간 [start, end). end = 어제 시작이라 어제 자신은 제외된다.
+// 어제 지표를 이 일평균과 비교해 이상치를 판단한다.
+export function kstBaselineUtcRange(
+  now: Date,
+  days: number = BASELINE_DAYS,
+): KstBaselineRange {
+  const { startUtc: yesterdayStartUtc } = kstYesterdayUtcRange(now);
+  return {
+    startUtc: new Date(yesterdayStartUtc.getTime() - days * DAY_MS),
+    endUtc: yesterdayStartUtc,
+    days,
+  };
+}
+
 export type DailyReportData = {
   // 리포트 대상일(어제, KST). 예: "2026-06-15"
   yesterdayKstDate: string;
@@ -72,7 +100,12 @@ function formatWon(won: number): string {
 
 // DailyReportData를 Slack 메시지 텍스트로 변환한다(순수 함수).
 // 활동이 0이어도 깨지지 않고 "활동 없음"을 명시한다.
-export function buildDailyReportText(data: DailyReportData): string {
+// aiBrief(레이어2)는 선택: 있으면 브리핑/이상치/탈퇴 테마 섹션을 덧붙이고,
+// null/undefined(생성 실패)면 말없이 숨기지 않고 "생성 실패"를 명시한다.
+export function buildDailyReportText(
+  data: DailyReportData,
+  aiBrief?: AiBrief | null,
+): string {
   const hadActivity =
     data.newReservations > 0 ||
     data.newSignups > 0 ||
@@ -94,6 +127,28 @@ export function buildDailyReportText(data: DailyReportData): string {
 
   if (!hadActivity) {
     lines.push("", "ℹ️ 어제는 신규 활동이 없었습니다.");
+  }
+
+  // 레이어2: AI 브리핑. best-effort라 생성 실패면 숫자 리포트만 나가되 그 사실을 명시한다.
+  lines.push("", "──────────");
+  if (aiBrief) {
+    lines.push("📌 AI 브리핑", aiBrief.briefing);
+    if (aiBrief.anomalies.length > 0) {
+      lines.push(
+        "",
+        "⚠️ 이상치",
+        ...aiBrief.anomalies.map((item) => `• ${item}`),
+      );
+    }
+    if (aiBrief.withdrawalThemes.length > 0) {
+      lines.push(
+        "",
+        "🗣 탈퇴 사유 테마",
+        ...aiBrief.withdrawalThemes.map((item) => `• ${item}`),
+      );
+    }
+  } else {
+    lines.push("ℹ️ AI 브리핑은 이번 회차에 생성하지 못했습니다(숫자 리포트만 표시).");
   }
 
   lines.push(

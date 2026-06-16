@@ -3,10 +3,17 @@ import { getAdminReservationOverview } from "@/lib/server/db-reservation-reposit
 import { prisma } from "@/lib/server/prisma-client";
 import {
   buildDailyReportText,
+  kstBaselineUtcRange,
   kstTodayDateString,
   kstYesterdayUtcRange,
   type DailyReportData,
 } from "@/lib/server/daily-report-format";
+import {
+  generateDailyBrief,
+  MAX_WITHDRAWAL_REASONS,
+  type AiBrief,
+  type AiBriefInput,
+} from "@/lib/server/ai-brief";
 
 // 일일 운영 리포트의 데이터 수집(집계) 계층. 순수 포맷/타임존 로직은 daily-report-format.ts에 있다.
 // 집계 SSOT는 DB(prisma)이며 별도 캐시를 두지 않는다.
@@ -51,10 +58,81 @@ export async function collectDailyReport(
   };
 }
 
-// 수집 → 메시지 텍스트까지의 조합. route에서 호출한다.
+// AI 브리핑(레이어2) 입력 수집: baseline 일평균 + 어제 탈퇴 사유(자유텍스트).
+// 숫자 지표는 collectDailyReport가 이미 모은 DailyReportData를 재사용한다(중복 집계 안 함).
+//
+// 멱등성: baseline/탈퇴 사유 모두 createdAt 구간 집계라 status 변경엔 안정하다. 단 어제 활동한
+// 사용자가 오늘 탈퇴하면 hard delete로 baseline의 Reservation/Favorite/UserProfile(=가입) 카운트가
+// 줄 수 있다(collectDailyReport 주석과 동일한 저위험 한계). WithdrawalReason은 append-only라 안정.
+export async function collectAiBriefInput(
+  data: DailyReportData,
+  { now = new Date() }: { now?: Date } = {},
+): Promise<AiBriefInput> {
+  const baseline = kstBaselineUtcRange(now);
+  const yesterday = kstYesterdayUtcRange(now);
+  const createdInBaseline = { gte: baseline.startUtc, lt: baseline.endUtc };
+  const createdYesterday = { gte: yesterday.startUtc, lt: yesterday.endUtc };
+
+  const [
+    baseReservations,
+    baseSignups,
+    baseFavorites,
+    baseWithdrawals,
+    reasons,
+  ] = await Promise.all([
+    prisma.reservation.count({ where: { createdAt: createdInBaseline } }),
+    prisma.userProfile.count({ where: { createdAt: createdInBaseline } }),
+    prisma.favorite.count({ where: { createdAt: createdInBaseline } }),
+    prisma.withdrawalReason.count({ where: { createdAt: createdInBaseline } }),
+    prisma.withdrawalReason.findMany({
+      where: { createdAt: createdYesterday },
+      select: { category: true, detail: true },
+      orderBy: { createdAt: "asc" },
+      take: MAX_WITHDRAWAL_REASONS,
+    }),
+  ]);
+
+  // 소수 첫째자리까지 반올림한 일평균(메시지 가독성).
+  const perDay = (total: number): number =>
+    Math.round((total / baseline.days) * 10) / 10;
+
+  return {
+    yesterdayKstDate: data.yesterdayKstDate,
+    metrics: {
+      newReservations: data.newReservations,
+      bookedValueWon: data.bookedValueWon,
+      newSignups: data.newSignups,
+      newFavorites: data.newFavorites,
+      withdrawals: data.withdrawals,
+    },
+    baseline: {
+      reservationsPerDay: perDay(baseReservations),
+      signupsPerDay: perDay(baseSignups),
+      favoritesPerDay: perDay(baseFavorites),
+      withdrawalsPerDay: perDay(baseWithdrawals),
+    },
+    withdrawalReasons: reasons,
+  };
+}
+
+// 수집 → (레이어2 AI 브리핑 합성) → 메시지 텍스트까지의 조합. route에서 호출한다.
+// AI 브리핑은 best-effort다: 입력 수집/생성 어느 단계가 실패해도 숫자 리포트는 그대로 나간다.
 export async function buildDailyReport(
   { now = new Date() }: { now?: Date } = {},
 ): Promise<{ data: DailyReportData; text: string }> {
   const data = await collectDailyReport({ now });
-  return { data, text: buildDailyReportText(data) };
+
+  let aiBrief: AiBrief | null = null;
+  try {
+    const briefInput = await collectAiBriefInput(data, { now });
+    aiBrief = await generateDailyBrief(briefInput);
+  } catch (error) {
+    console.error(
+      "[daily-report] AI 브리핑 단계 실패 — 숫자 리포트로 폴백한다.",
+      error,
+    );
+    aiBrief = null;
+  }
+
+  return { data, text: buildDailyReportText(data, aiBrief) };
 }

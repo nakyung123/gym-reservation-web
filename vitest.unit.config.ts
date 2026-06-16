@@ -35,6 +35,8 @@ export default defineConfig({
       "src/app/api/cron/daily-report/route.test.ts",
       // 예약 이벤트 알림: 메시지 빌더 + best-effort 격리(notify-slack 모킹).
       "src/lib/server/reservation-notify.test.ts",
+      // AI 브리핑(레이어2): PII 스크럽 + SDK 모킹으로 프롬프트/파싱/폴백 검증.
+      "src/lib/server/ai-brief.test.ts",
     ],
   },
   resolve: {

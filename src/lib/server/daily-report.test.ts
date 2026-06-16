@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { collectDailyReport } from "@/lib/server/daily-report";
+import {
+  collectAiBriefInput,
+  collectDailyReport,
+} from "@/lib/server/daily-report";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM } from "@tests/setup-db";
 
@@ -9,6 +12,8 @@ const NOW = new Date("2026-06-16T03:00:00.000Z");
 const IN_WINDOW = new Date("2026-06-15T02:00:00.000Z"); // KST 6/15 11:00 → 포함
 const BEFORE_WINDOW = new Date("2026-06-14T10:00:00.000Z"); // KST 6/14 19:00 → 제외
 const TODAY_CREATED = new Date("2026-06-15T16:00:00.000Z"); // KST 6/16 01:00 → 어제 아님
+// baseline(어제 직전 7일) 구간 [2026-06-07T15:00Z, 2026-06-14T15:00Z) 내부.
+const BASELINE_IN = new Date("2026-06-10T02:00:00.000Z");
 
 async function seedReservation(input: {
   id: string;
@@ -111,5 +116,45 @@ describe("collectDailyReport", () => {
       withdrawals: 0,
       todayReservedCount: 0,
     });
+  });
+});
+
+describe("collectAiBriefInput", () => {
+  it("baseline 일평균과 어제 탈퇴 사유(자유텍스트)를 모은다", async () => {
+    // baseline 구간 예약 7건 → 1.0/일. 날짜를 달리해 슬롯 충돌을 피한다.
+    for (let i = 0; i < 7; i++) {
+      await seedReservation({
+        id: `base-${i}`,
+        date: `2026-07-0${i + 1}`,
+        time: "10:00",
+        price: 10000,
+        status: "reserved",
+        createdAt: BASELINE_IN,
+      });
+    }
+    // 어제 탈퇴 사유 2건(detail 포함/누락) — baseline 밖, 어제 안.
+    await prisma.withdrawalReason.create({
+      data: { category: "가격", detail: "너무 비쌈", createdAt: IN_WINDOW },
+    });
+    await prisma.withdrawalReason.create({
+      data: { category: "시설", detail: null, createdAt: IN_WINDOW },
+    });
+    // baseline 구간 탈퇴 1건 → withdrawalsPerDay = 1/7 ≈ 0.1.
+    await prisma.withdrawalReason.create({
+      data: { category: "기타", createdAt: BASELINE_IN },
+    });
+
+    const data = await collectDailyReport({ now: NOW });
+    const brief = await collectAiBriefInput(data, { now: NOW });
+
+    expect(brief.yesterdayKstDate).toBe("2026-06-15");
+    expect(brief.baseline.reservationsPerDay).toBe(1);
+    expect(brief.baseline.withdrawalsPerDay).toBe(0.1);
+    // 어제 지표(탈퇴 사유)는 baseline과 분리된다.
+    expect(brief.metrics.withdrawals).toBe(2);
+    expect(brief.withdrawalReasons).toHaveLength(2);
+    expect(brief.withdrawalReasons.map((reason) => reason.category).sort()).toEqual(
+      ["가격", "시설"],
+    );
   });
 });
