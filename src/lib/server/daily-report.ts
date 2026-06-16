@@ -1,6 +1,7 @@
 import "server-only";
 import { getAdminReservationOverview } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
+import { DEMO_RESERVATION_ID_PREFIX } from "@/lib/domain-constants";
 import {
   buildDailyReportText,
   kstBaselineUtcRange,
@@ -25,6 +26,15 @@ import {
 // 탈퇴/해제하면 재실행 시 해당 카운트가 줄 수 있다(저위험: 운영은 1일 1회, 게시 메시지는 그
 // 시점 스냅샷). WithdrawalReason만 append-only(userId 미보관)라 완전 안정.
 // "오늘 일정"은 시점 이벤트가 아니라 현재 활성 스냅샷이라 status=reserved 필터가 의도된 정의다.
+//
+// 데모/운영 격리: 운영 리포트(이 모듈)는 데모 시드 예약(id prefix demo-rev-)을 제외한다 →
+// "운영 리포트=실데이터만". 반대로 admin 매출/정산 화면은 데모를 포함한다(데모 시드의 본래 목적).
+// 따라서 운영자가 보는 "오늘 reserved"가 Slack 리포트와 admin 화면에서 다를 수 있다(버그 아닌
+// 의도된 분기). 운영 prod엔 데모 행이 없으므로(시드 prod 가드) 이 제외는 prod에서 no-op다.
+// 데모 시드는 reservation만 만들므로 signups/favorites/withdrawals 쿼리엔 필터가 불필요하다.
+const EXCLUDE_DEMO = {
+  id: { not: { startsWith: DEMO_RESERVATION_ID_PREFIX } },
+} as const;
 
 export async function collectDailyReport(
   { now = new Date() }: { now?: Date } = {},
@@ -36,14 +46,14 @@ export async function collectDailyReport(
   const [reservationAgg, newSignups, newFavorites, withdrawals, todayOverview] =
     await Promise.all([
       prisma.reservation.aggregate({
-        where: { createdAt: createdYesterday },
+        where: { createdAt: createdYesterday, ...EXCLUDE_DEMO },
         _count: { _all: true },
         _sum: { price: true },
       }),
       prisma.userProfile.count({ where: { createdAt: createdYesterday } }),
       prisma.favorite.count({ where: { createdAt: createdYesterday } }),
       prisma.withdrawalReason.count({ where: { createdAt: createdYesterday } }),
-      getAdminReservationOverview(todayKstDate),
+      getAdminReservationOverview(todayKstDate, { excludeDemo: true }),
     ]);
 
   return {
@@ -80,7 +90,9 @@ export async function collectAiBriefInput(
     baseWithdrawals,
     reasons,
   ] = await Promise.all([
-    prisma.reservation.count({ where: { createdAt: createdInBaseline } }),
+    prisma.reservation.count({
+      where: { createdAt: createdInBaseline, ...EXCLUDE_DEMO },
+    }),
     prisma.userProfile.count({ where: { createdAt: createdInBaseline } }),
     prisma.favorite.count({ where: { createdAt: createdInBaseline } }),
     prisma.withdrawalReason.count({ where: { createdAt: createdInBaseline } }),

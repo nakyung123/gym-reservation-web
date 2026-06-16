@@ -37,6 +37,9 @@ export default defineConfig({
       "src/lib/server/reservation-notify.test.ts",
       // AI 브리핑(레이어2): PII 스크럽 + SDK 모킹으로 프롬프트/파싱/폴백 검증.
       "src/lib/server/ai-brief.test.ts",
+      // 예약/정산 원장(Phase 4): googleapis/prisma 모킹으로 행 매핑·full-replace·가드 검증.
+      "src/lib/server/sheets-ledger.test.ts",
+      "src/app/api/cron/ledger-sync/route.test.ts",
     ],
   },
   resolve: {

@@ -70,6 +70,9 @@ export async function listCustomers(
 
   const userIds = profiles.map((profile) => profile.userId);
   const [reservationCounts, favoriteCounts] = await Promise.all([
+    // 데모 가드: 예약 count를 조회된 UserProfile의 userId로만 집계한다. 데모 예약은 userId가
+    // demo-user-N(프로필 없음)이라 여기엔 자연히 빠진다. 단 향후 user 스코프 없이(날짜/전역)
+    // 집계하도록 바꾸면 데모 예약(id prefix demo-rev-)이 섞이므로 그땐 demo 제외가 필요하다.
     prisma.reservation.groupBy({
       by: ["userId"],
       where: { userId: { in: userIds } },

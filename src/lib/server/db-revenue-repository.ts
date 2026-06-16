@@ -13,6 +13,10 @@ import { prisma } from "@/lib/server/prisma-client";
 // expected = status in [reserved, used] 의 합, used = status = used 의 합.
 // 취소(cancelled)는 매출에 포함하지 않는다. 단일 날짜 운영 요약(getAdminReservationOverview)과
 // 동일한 정의를 기간/시설 축으로 확장한 것이다.
+//
+// ⚠️ 데모 가드: 이 집계는 화면 전용(admin /revenue)이라 데모 예약(id prefix demo-rev-)을 그대로
+//    포함한다(데모 시드의 본래 목적). 이 집계를 운영/자동 출력(예: Slack 매출 리포트)에 재사용하려면
+//    반드시 데모를 제외해야 한다 — daily-report.ts의 EXCLUDE_DEMO(id NOT startsWith demo-rev-) 패턴 참고.
 
 function emptyCounts(): RevenueReservationCounts {
   return { total: 0, reserved: 0, cancelled: 0, used: 0 };

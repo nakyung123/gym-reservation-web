@@ -1,7 +1,11 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/prisma-client";
-import { isReservationStatus, isSport } from "@/lib/domain-constants";
+import {
+  DEMO_RESERVATION_ID_PREFIX,
+  isReservationStatus,
+  isSport,
+} from "@/lib/domain-constants";
 import { getReservationActiveKey } from "@/lib/reservation-repository";
 import {
   isValidReservationDateValue,
@@ -599,18 +603,28 @@ export type AdminReservationOverview = {
 
 export async function getAdminReservationOverview(
   date: string,
+  { excludeDemo = false }: { excludeDemo?: boolean } = {},
 ): Promise<AdminReservationOverview> {
+  // excludeDemo는 "reservation 3쿼리"에만 건다(데모 예약 id prefix 제외). 운영 일일 리포트가
+  // 데모 시드로 부풀지 않도록 daily-report.ts에서 true로 호출한다. admin 매출/정산 화면은 기본
+  // false라 데모를 그대로 보여준다(데모 시드의 본래 목적). reservationSlot는 시드가 슬롯·락을
+  // 우회해 demo 개념이 없으므로 필터를 걸지 않는다(이미 demo-free).
+  const demoFilter = excludeDemo
+    ? { id: { not: { startsWith: DEMO_RESERVATION_ID_PREFIX } } }
+    : {};
+
   const [reservationRows, expectedRevenue, usedRevenue, slotRows] =
     await Promise.all([
       prisma.reservation.groupBy({
         by: ["status"],
-        where: { date },
+        where: { date, ...demoFilter },
         _count: { _all: true },
       }),
       prisma.reservation.aggregate({
         where: {
           date,
           status: { in: ["reserved", "used"] },
+          ...demoFilter,
         },
         _sum: { price: true },
       }),
@@ -618,6 +632,7 @@ export async function getAdminReservationOverview(
         where: {
           date,
           status: "used",
+          ...demoFilter,
         },
         _sum: { price: true },
       }),

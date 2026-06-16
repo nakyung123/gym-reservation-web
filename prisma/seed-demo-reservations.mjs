@@ -22,6 +22,8 @@ import { randomUUID } from "node:crypto";
 
 const prisma = new PrismaClient();
 
+// SSOT는 src/lib/domain-constants.ts의 DEMO_RESERVATION_ID_PREFIX.
+// .mjs라 TS를 import할 수 없어 같은 리터럴을 자체 보유한다 — 값 변경 시 양쪽을 함께 고칠 것.
 const DEMO_PREFIX = "demo-rev-";
 const DEMO_USER_COUNT = 12;
 const START_OFFSET_DAYS = -75; // 과거 75일부터

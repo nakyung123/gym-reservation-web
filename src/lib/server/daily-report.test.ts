@@ -3,6 +3,7 @@ import {
   collectAiBriefInput,
   collectDailyReport,
 } from "@/lib/server/daily-report";
+import { getAdminReservationOverview } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM } from "@tests/setup-db";
 
@@ -143,6 +144,15 @@ describe("collectAiBriefInput", () => {
     await prisma.withdrawalReason.create({
       data: { category: "기타", createdAt: BASELINE_IN },
     });
+    // 데모 예약은 baseline에서도 제외돼야 한다(추가해도 reservationsPerDay는 1.0 유지).
+    await seedReservation({
+      id: "demo-rev-base",
+      date: "2026-08-20",
+      time: "09:00",
+      price: 99999,
+      status: "reserved",
+      createdAt: BASELINE_IN,
+    });
 
     const data = await collectDailyReport({ now: NOW });
     const brief = await collectAiBriefInput(data, { now: NOW });
@@ -156,5 +166,55 @@ describe("collectAiBriefInput", () => {
     expect(brief.withdrawalReasons.map((reason) => reason.category).sort()).toEqual(
       ["가격", "시설"],
     );
+  });
+});
+
+describe("데모/운영 격리", () => {
+  it("collectDailyReport는 데모 예약(demo-rev-)을 제외하고, admin overview 기본은 포함한다", async () => {
+    // 어제 생성: 실예약 1 + 데모 1
+    await seedReservation({
+      id: "real-y",
+      date: "2026-08-01",
+      time: "10:00",
+      price: 10000,
+      status: "reserved",
+      createdAt: IN_WINDOW,
+    });
+    await seedReservation({
+      id: "demo-rev-y",
+      date: "2026-08-01",
+      time: "11:00",
+      price: 99999,
+      status: "reserved",
+      createdAt: IN_WINDOW,
+    });
+    // 오늘(2026-06-16) 일정 reserved: 실 1 + 데모 1
+    await seedReservation({
+      id: "real-today",
+      date: "2026-06-16",
+      time: "12:00",
+      price: 10000,
+      status: "reserved",
+      createdAt: TODAY_CREATED,
+    });
+    await seedReservation({
+      id: "demo-rev-today",
+      date: "2026-06-16",
+      time: "13:00",
+      price: 10000,
+      status: "reserved",
+      createdAt: TODAY_CREATED,
+    });
+
+    const data = await collectDailyReport({ now: NOW });
+    // 운영 리포트 = 실데이터만(데모 제외)
+    expect(data.newReservations).toBe(1);
+    expect(data.bookedValueWon).toBe(10000); // 데모 99999 미포함
+    expect(data.todayReservedCount).toBe(1); // excludeDemo:true
+
+    // 같은 오늘 날짜를 admin overview 기본(excludeDemo 미지정=false)로 보면 데모 포함 → 2.
+    // (의도된 "두 truth": 운영 리포트≠admin 화면. slots는 demo 미포함이라 영향 없음.)
+    const adminView = await getAdminReservationOverview("2026-06-16");
+    expect(adminView.reservations.reserved).toBe(2);
   });
 });
