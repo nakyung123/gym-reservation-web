@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { createUserReservationDetail } from "@/lib/reservation-detail";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
@@ -6,6 +6,8 @@ import {
   cancelReservationInDb,
   getUserReservationDetailById,
 } from "@/lib/server/db-reservation-repository";
+import { gymRepository } from "@/lib/gym-repository-provider";
+import { notifyReservationEvent } from "@/lib/server/reservation-notify";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +63,29 @@ export async function DELETE(request: NextRequest, ctx: Context) {
   }
 
   if (result.ok) {
+    if (result.status === "cancelled") {
+      // 실제 취소(상태 변경)일 때만 알림. unchanged(이미 취소된 건 재취소)엔 안 보낸다(멱등).
+      // 시설명은 best-effort 조회 — 못 구하면 gymId로 폴백한다(알림이 예약 흐름을 못 깬다).
+      // (시설명 조회는 빠른 PK 조회라 응답 전에 끝내고, 느린 외부 Slack POST만 after로 분리.)
+      const reservation = result.reservation;
+      let gymName = reservation.gymId;
+      try {
+        const gym = await gymRepository.findById(reservation.gymId);
+        if (gym) gymName = gym.name;
+      } catch (error) {
+        console.error("[reservation cancel] 시설명 조회 실패(알림 라벨 폴백)", error);
+      }
+      // 알림은 사이드이펙트라 응답 후(after)에 실행 → 사용자 응답 지연 0.
+      after(() =>
+        notifyReservationEvent({
+          kind: "cancelled",
+          gymName,
+          sport: reservation.sport,
+          date: reservation.date,
+          time: reservation.time,
+        }),
+      );
+    }
     return Response.json({
       status: result.status,
       reservation: result.reservation,

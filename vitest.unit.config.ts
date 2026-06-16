@@ -33,6 +33,8 @@ export default defineConfig({
       // daily-report.test.ts에 있고 그건 full suite(npm run test) 전용이라 여기 넣지 않는다.
       "src/lib/server/daily-report-format.test.ts",
       "src/app/api/cron/daily-report/route.test.ts",
+      // 예약 이벤트 알림: 메시지 빌더 + best-effort 격리(notify-slack 모킹).
+      "src/lib/server/reservation-notify.test.ts",
     ],
   },
   resolve: {

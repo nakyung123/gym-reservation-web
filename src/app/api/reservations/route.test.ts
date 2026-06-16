@@ -6,13 +6,27 @@ import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-const { verifyIdToken } = vi.hoisted(() => ({
+const { verifyIdToken, notifyReservationEvent } = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
+  notifyReservationEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/server/firebase-admin", () => ({
   getAdminAuth: () => ({ verifyIdToken }),
 }));
+
+vi.mock("@/lib/server/reservation-notify", () => ({ notifyReservationEvent }));
+
+// after()를 즉시 실행으로 대체 → 응답 후 콜백(알림)을 테스트에서 동기로 관찰한다.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (fn: () => unknown) => {
+      void fn();
+    },
+  };
+});
 
 function authHeaders(idToken = "test-id-token") {
   return { Authorization: `Bearer ${idToken}` };
@@ -124,6 +138,7 @@ describe("GET /api/reservations", () => {
 describe("POST /api/reservations", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+    notifyReservationEvent.mockReset();
   });
 
   afterEach(() => {
@@ -153,6 +168,14 @@ describe("POST /api/reservations", () => {
       userId: "create-route-user",
       gymId: TEST_GYM.id,
       price: 12000,
+    });
+    // 생성 성공 시 즉시 알림이 슬롯 정보로 호출된다(PII 없이).
+    expect(notifyReservationEvent).toHaveBeenCalledWith({
+      kind: "created",
+      gymName: TEST_GYM.name,
+      sport: "배드민턴",
+      date,
+      time: "10:00",
     });
 
     const slot = await prisma.reservationSlot.findUniqueOrThrow({
@@ -217,6 +240,8 @@ describe("POST /api/reservations", () => {
     expect(secondBody.reservation).toMatchObject({
       userId: "duplicate-route-user",
     });
+    // 첫 생성만 알림. duplicate(409)는 새 예약이 아니므로 알림이 추가로 가지 않는다.
+    expect(notifyReservationEvent).toHaveBeenCalledTimes(1);
 
     const slot = await prisma.reservationSlot.findUniqueOrThrow({
       where: {

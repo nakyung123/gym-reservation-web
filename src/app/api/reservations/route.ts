@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   createReservationInDb,
@@ -7,6 +7,7 @@ import {
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { isReservationStatus, isSport } from "@/lib/domain-constants";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
+import { notifyReservationEvent } from "@/lib/server/reservation-notify";
 
 export const dynamic = "force-dynamic";
 
@@ -112,8 +113,20 @@ export async function POST(request: NextRequest) {
   }
 
   if (result.ok) {
+    const reservation = result.reservation;
+    // 알림은 사이드이펙트라 응답 후(after)에 실행한다 → 사용자 응답 지연 0,
+    // Vercel이 함수를 유지해 실행을 보장. 알림 실패는 best-effort로 삼켜진다.
+    after(() =>
+      notifyReservationEvent({
+        kind: "created",
+        gymName: gym.name,
+        sport: reservation.sport,
+        date: reservation.date,
+        time: reservation.time,
+      }),
+    );
     return Response.json(
-      { status: "created", reservation: result.reservation },
+      { status: "created", reservation: reservation },
       { status: 201 },
     );
   }

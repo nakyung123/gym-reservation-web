@@ -5,13 +5,27 @@ import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-const { verifyIdToken } = vi.hoisted(() => ({
+const { verifyIdToken, notifyReservationEvent } = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
+  notifyReservationEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/server/firebase-admin", () => ({
   getAdminAuth: () => ({ verifyIdToken }),
 }));
+
+vi.mock("@/lib/server/reservation-notify", () => ({ notifyReservationEvent }));
+
+// after()를 즉시 실행으로 대체 → 응답 후 콜백(알림)을 테스트에서 동기로 관찰한다.
+vi.mock("next/server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/server")>();
+  return {
+    ...actual,
+    after: (fn: () => unknown) => {
+      void fn();
+    },
+  };
+});
 
 function requestFor(
   reservationId: string,
@@ -204,6 +218,7 @@ describe("GET /api/reservations/[reservationId]", () => {
 describe("DELETE /api/reservations/[reservationId]", () => {
   beforeEach(() => {
     verifyIdToken.mockReset();
+    notifyReservationEvent.mockReset();
   });
 
   afterEach(() => {
@@ -274,6 +289,15 @@ describe("DELETE /api/reservations/[reservationId]", () => {
         reason: "not-reserved",
       },
     });
+    // 실제 취소(cancelled)에서만 한 번 알림. 재취소(unchanged)엔 알림이 가지 않는다(멱등).
+    expect(notifyReservationEvent).toHaveBeenCalledTimes(1);
+    expect(notifyReservationEvent).toHaveBeenCalledWith({
+      kind: "cancelled",
+      gymName: TEST_GYM.name,
+      sport: "배드민턴",
+      date,
+      time: "10:00",
+    });
 
     const slot = await prisma.reservationSlot.findUniqueOrThrow({
       where: {
@@ -312,6 +336,8 @@ describe("DELETE /api/reservations/[reservationId]", () => {
 
     expect(response.status).toBe(403);
     expect(body.message).toBe("다른 사용자의 예약은 취소할 수 없습니다.");
+    // 거부된 취소는 상태 변경이 아니므로 알림이 가지 않는다.
+    expect(notifyReservationEvent).not.toHaveBeenCalled();
 
     const row = await prisma.reservation.findUniqueOrThrow({
       where: { id: created.reservation.id },
