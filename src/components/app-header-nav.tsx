@@ -12,8 +12,7 @@ import {
 // 메인 GNB + 우측 유틸. layout.tsx의 헤더 nav 안에서 로고 다음에 렌더된다.
 // 시안 v6 비주얼(76px 높이, 17px 메뉴, 시설 찾기 hover 메가메뉴, 우측 유틸+구분선)을
 // 그대로 옮기되, 동작은 실제 라우트와 로그인 상태를 따른다.
-// - GNB(시설 찾기/예약하기/예약 조회)는 라우트로 연결한다.
-// - 이용 안내/공지사항은 아직 페이지가 없어 이동하지 않는다(시안과 동일한 활성 비주얼).
+// - GNB(시설 찾기/예약하기/예약 조회/이용 안내/공지사항)는 라우트로 연결한다.
 // - 시설 찾기는 hover 시 메가메뉴(종목별/지역별)를 연다. CSS hover/focus-within 기반.
 // 항목 추가/삭제/순서는 배열에서만 관리한다. (구조 유연성 우선)
 type GnbItem = {
@@ -26,8 +25,8 @@ const GNB_ITEMS: GnbItem[] = [
   { label: "시설 찾기", href: "/gyms", mega: true },
   { label: "예약하기", href: "/gyms" },
   { label: "예약 조회", href: "/reservations" },
-  { label: "이용 안내" },
-  { label: "공지사항" },
+  { label: "이용 안내", href: "/guide" },
+  { label: "공지사항", href: "/notice" },
 ];
 
 // 메가메뉴 내용. 모든 항목은 현재 시설 찾기(/gyms)로 보낸다.

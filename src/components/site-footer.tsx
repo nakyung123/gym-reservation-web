@@ -23,16 +23,17 @@ const FOOTER_COLUMNS: FooterColumn[] = [
     links: [
       { label: "시설 찾기", href: "/gyms" },
       { label: "예약 조회", href: "/reservations" },
-      { label: "이용 안내" },
-      { label: "자주 묻는 질문" },
+      { label: "이용 안내", href: "/guide" },
+      { label: "자주 묻는 질문", href: "/guide" },
     ],
   },
   {
     title: "안내",
     links: [
+      // 이용약관·개인정보처리방침은 법적 문서라 데모로 채우지 않고 placeholder로 둔다.
       { label: "이용약관" },
       { label: "개인정보처리방침" },
-      { label: "공지사항" },
+      { label: "공지사항", href: "/notice" },
     ],
   },
 ];

@@ -45,6 +45,8 @@ export default defineConfig({
       "src/lib/server/faq-bot.test.ts",
       "src/app/api/faq-chat/route.test.ts",
       "src/components/faq-chat-widget.test.tsx",
+      // 공지사항 SSOT(정적 데이터) 정렬/조회.
+      "src/lib/notices.test.ts",
     ],
   },
   resolve: {
