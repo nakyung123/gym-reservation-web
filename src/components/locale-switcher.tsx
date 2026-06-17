@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { setLocale } from "@/app/actions/set-locale";
-import { LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config";
+import { LOCALES, LOCALE_LABELS, LOCALE_SHORT, type Locale } from "@/i18n/config";
 
 // 언어 전환 드롭다운. 쿠키 기반이라 선택 시 setLocale(쿠키 저장) 후 router.refresh로
 // 서버 컴포넌트를 새 언어로 다시 렌더한다. a11y: aria-expanded/haspopup, ESC·외부클릭 닫기.
@@ -60,10 +60,19 @@ export function LocaleSwitcher() {
         aria-label={t("language")}
         className="inline-flex items-center gap-1 rounded text-[14.5px] font-semibold text-muted transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-60"
       >
-        {current.toUpperCase()}
-        <span aria-hidden="true" className="text-[11px]">
-          ▾
-        </span>
+        {LOCALE_SHORT[current]}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
       {open ? (
         <ul
@@ -84,11 +93,6 @@ export function LocaleSwitcher() {
                 }`}
               >
                 {LOCALE_LABELS[locale]}
-                {locale === current ? (
-                  <span aria-hidden="true" className="text-accent-strong">
-                    ✓
-                  </span>
-                ) : null}
               </button>
             </li>
           ))}

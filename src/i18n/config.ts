@@ -9,12 +9,20 @@ export const DEFAULT_LOCALE: Locale = "ko";
 // 선택 언어를 저장하는 쿠키 이름(URL 라우팅 없이 쿠키로만 locale을 유지).
 export const LOCALE_COOKIE = "locale";
 
-// 언어 전환 버튼에 표시할 라벨(각 언어 자기 이름).
+// 드롭다운 목록에 표시할 라벨(각 언어 자기 이름).
 export const LOCALE_LABELS: Record<Locale, string> = {
   ko: "한국어",
   en: "English",
   ja: "日本語",
   zh: "中文",
+};
+
+// 전환 버튼에 표시할 짧은 약자(locale 코드와 별개의 표시용 표기).
+export const LOCALE_SHORT: Record<Locale, string> = {
+  ko: "KR",
+  en: "EN",
+  ja: "JP",
+  zh: "CH",
 };
 
 export function isLocale(value: string | undefined | null): value is Locale {
