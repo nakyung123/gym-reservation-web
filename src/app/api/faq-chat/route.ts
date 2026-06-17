@@ -15,12 +15,13 @@ export const dynamic = "force-dynamic";
 // rate limit 3단(전부 통과해야 LLM 호출). 공개 데모라 캡을 낮게 잡아 비용을 하드 바운드한다:
 // 1) per-IP 분당 — 단발 버스트 차단
 // 2) per-IP 일당 — 한 IP가 분당 한도를 지속해 전역 예산을 혼자 소진하는 드레인 차단
-// 3) 전역 일당 — IP 수와 무관한 총지출 하드캡(전역 단일 row. 현 규모(100/일, 평균 <1/분)엔
-//    무해하나 고볼륨 시 "all:${shard}" 샤딩 여지). haiku 답변 ≈ $0.006 × 100 ≈ 일 최대 ~$0.6.
+// 3) 전역 일당 — IP 수와 무관한 총지출 하드캡(전역 단일 row. 현 규모(50/일, 평균 <1/분)엔
+//    무해하나 고볼륨 시 "all:${shard}" 샤딩 여지). haiku 답변 ≈ $0.006 × 50 ≈ 일 최대 ~$0.3.
+//    (코드 밖 절대 천장은 Anthropic 콘솔 지출 한도 + 선불 크레딧이 별도로 담당.)
 const RATE_LIMITS: RateLimitInput[] = [
   { scope: "faq-chat:ip", identifier: "", limit: 10, windowMs: 60_000 },
-  { scope: "faq-chat:ip-daily", identifier: "", limit: 30, windowMs: 86_400_000 },
-  { scope: "faq-chat:global", identifier: "all", limit: 100, windowMs: 86_400_000 },
+  { scope: "faq-chat:ip-daily", identifier: "", limit: 15, windowMs: 86_400_000 },
+  { scope: "faq-chat:global", identifier: "all", limit: 50, windowMs: 86_400_000 },
 ];
 
 // 어느 한 단계라도 초과하면 429 응답을 돌려준다. 통과하면 null.
