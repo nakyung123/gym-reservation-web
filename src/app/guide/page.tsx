@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { FAQ_KNOWLEDGE } from "@/lib/server/faq-knowledge";
 
 // 이용 안내 = FAQ 지식 SSOT(faq-knowledge.ts)를 그대로 카테고리별로 보여준다.
@@ -10,14 +11,12 @@ export const metadata: Metadata = {
   description: "가입·예약·취소·이용 방법 등 자주 묻는 질문을 안내합니다.",
 };
 
-export default function GuidePage() {
+export default async function GuidePage() {
+  const t = await getTranslations("Guide");
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
-      <h1 className="text-2xl font-bold text-foreground">이용 안내</h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-muted">
-        가입·예약·취소·이용 방법 등 자주 묻는 질문을 모았습니다. 궁금한 항목을
-        눌러 확인하세요.
-      </p>
+      <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
+      <p className="mt-2 text-[15px] leading-relaxed text-muted">{t("intro")}</p>
 
       <div className="mt-8 space-y-8">
         {FAQ_KNOWLEDGE.map((category) => (
@@ -50,8 +49,7 @@ export default function GuidePage() {
       </div>
 
       <p className="mt-10 rounded-xl border border-line bg-surface-2 px-4 py-3 text-[14px] text-muted">
-        더 궁금한 점은 화면 우측 하단의 문의 도우미를 이용하시거나, 고객센터
-        1599-0000(평일 09:00~18:00)으로 연락해 주세요.
+        {t("contact")}
       </p>
     </main>
   );

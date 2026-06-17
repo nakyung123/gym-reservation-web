@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import { signInWithEmail } from "@/lib/firebase-email-auth";
 import { signInWithGoogle } from "@/lib/firebase-google-auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
@@ -22,16 +23,16 @@ type SubmitState =
   | { kind: "loading" }
   | { kind: "error"; message: string };
 
-function validateEmail(value: string): string | null {
-  if (value.length === 0) return null;
+// 단순 이메일 형식 체크: '@'와 도메인 부분이 있는지만 인라인 안내용.
+// 실제 검증은 Firebase가 한다 (auth/invalid-email). 안내 문구는 호출측에서 i18n한다.
+function isEmailInvalid(value: string): boolean {
+  if (value.length === 0) return false;
   const at = value.indexOf("@");
-  if (at <= 0 || at === value.length - 1) {
-    return "이메일 형식이 올바르지 않습니다.";
-  }
-  return null;
+  return at <= 0 || at === value.length - 1;
 }
 
 export function LoginView() {
+  const t = useTranslations("Auth");
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromPath = sanitizeFromPath(searchParams.get("from")) ?? "/mypage";
@@ -54,7 +55,7 @@ export function LoginView() {
     }
   }, [session, fromPath, router]);
 
-  const emailError = validateEmail(email);
+  const emailError = isEmailInvalid(email) ? t("emailInvalid") : null;
   const isFormValid = email.length > 0 && password.length > 0 && !emailError;
 
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -125,14 +126,12 @@ export function LoginView() {
 
   return (
     <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-bold text-slate-950">로그인</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        이메일/비밀번호 또는 소셜 계정으로 로그인하세요.
-      </p>
+      <h1 className="text-xl font-bold text-slate-950">{t("loginTitle")}</h1>
+      <p className="mt-1 text-sm text-slate-600">{t("loginSubtitle")}</p>
 
       <form className="mt-5 flex flex-col gap-3" onSubmit={handleEmailSubmit} noValidate>
         <TextField
-          label="이메일"
+          label={t("email")}
           type="email"
           autoComplete="email"
           value={email}
@@ -140,7 +139,7 @@ export function LoginView() {
           error={emailError}
         />
         <PasswordField
-          label="비밀번호"
+          label={t("password")}
           autoComplete="current-password"
           value={password}
           onChange={setPassword}
@@ -150,7 +149,7 @@ export function LoginView() {
           disabled={isLoading || !isFormValid}
           className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {isLoading ? "로그인 중" : "이메일로 로그인"}
+          {isLoading ? t("loginSubmitting") : t("loginSubmit")}
         </button>
       </form>
 
@@ -165,7 +164,7 @@ export function LoginView() {
 
       <div className="my-5 flex items-center gap-2 text-xs text-slate-400">
         <span className="h-px flex-1 bg-line" />
-        <span>또는</span>
+        <span>{t("or")}</span>
         <span className="h-px flex-1 bg-line" />
       </div>
 
@@ -176,7 +175,7 @@ export function LoginView() {
           disabled={isLoading}
           className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent disabled:cursor-not-allowed disabled:border-line"
         >
-          Google로 로그인
+          {t("google")}
         </button>
         <button
           type="button"
@@ -184,7 +183,7 @@ export function LoginView() {
           disabled={isLoading}
           className="inline-flex h-10 items-center justify-center rounded-md border border-yellow-400 bg-yellow-300 px-4 text-sm font-semibold text-slate-900 transition hover:bg-yellow-400 disabled:cursor-not-allowed"
         >
-          카카오로 로그인
+          {t("kakao")}
         </button>
         <button
           type="button"
@@ -192,24 +191,24 @@ export function LoginView() {
           disabled={isLoading}
           className="inline-flex h-10 items-center justify-center rounded-md border border-emerald-600 bg-emerald-500 px-4 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed"
         >
-          네이버로 로그인
+          {t("naver")}
         </button>
       </div>
 
       <p className="mt-5 text-center text-sm text-slate-600">
-        계정이 없으신가요?{" "}
+        {t("noAccount")}{" "}
         <Link
           href={`/signup${fromPath !== "/mypage" ? `?from=${encodeURIComponent(fromPath)}` : ""}`}
           className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
-          회원가입
+          {t("signupLink")}
         </Link>
         {"  ·  "}
         <Link
           href="/reset-password"
           className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
-          비밀번호 재설정
+          {t("resetLink")}
         </Link>
       </p>
     </section>

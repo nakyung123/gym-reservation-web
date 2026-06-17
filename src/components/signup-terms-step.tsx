@@ -1,17 +1,18 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 // 회원가입 약관 동의 단계. 사용자가 필수 항목 2개에 동의해야 form 단계로 넘어간다.
-// 약관 본문은 placeholder이며 실제 운영 시 운영자가 갱신한다.
-
+// 라벨/UI는 i18n(Auth 네임스페이스), 약관 본문(body)은 법적 placeholder라 한국어 유지(데이터성).
+//
 // 선택 동의 항목(마케팅/광고)은 동의 본문/저장 모델이 운영화 단계로 미루어져 있어
 // 지금은 노출하지 않는다. 필수 2개만 유지해 "동의 받는 척"을 줄인다.
 type TermKey = "age" | "service";
 
 type TermItem = {
   key: TermKey;
-  label: string;
+  labelKey: string;
   required: boolean;
   body: string;
 };
@@ -19,13 +20,13 @@ type TermItem = {
 const TERMS: TermItem[] = [
   {
     key: "age",
-    label: "만 14세 이상입니다.",
+    labelKey: "termsAge",
     required: true,
     body: "본 서비스는 만 14세 이상부터 이용할 수 있습니다. 만 14세 미만은 보호자 동의가 필요합니다.",
   },
   {
     key: "service",
-    label: "서비스 이용 약관 동의",
+    labelKey: "termsService",
     required: true,
     body:
       "본 약관은 공공체육관 예약 서비스(이하 '서비스') 이용에 관한 회원과 운영자 간의 권리, 의무 및 책임 사항을 규정합니다. " +
@@ -41,6 +42,7 @@ const INITIAL_CHECKED: Checked = {
 };
 
 export function SignupTermsStep({ onAgree }: { onAgree: () => void }) {
+  const t = useTranslations("Auth");
   const [checked, setChecked] = useState<Checked>(INITIAL_CHECKED);
   const [expanded, setExpanded] = useState<Set<TermKey>>(new Set());
 
@@ -77,22 +79,20 @@ export function SignupTermsStep({ onAgree }: { onAgree: () => void }) {
 
   return (
     <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-bold text-slate-950">서비스 이용 동의</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        가입을 진행하기 위해 아래 약관에 동의해 주세요. 필수 항목 동의 후 다음으로 넘어갈 수 있습니다.
-      </p>
+      <h1 className="text-xl font-bold text-slate-950">{t("termsTitle")}</h1>
+      <p className="mt-1 text-sm text-slate-600">{t("termsIntro")}</p>
 
       <div className="mt-5 rounded-md border border-line">
         <AgreeAllRow checked={allChecked} onChange={toggleAll} />
         <ul className="divide-y divide-line">
-          {TERMS.map((t) => (
+          {TERMS.map((term) => (
             <TermRow
-              key={t.key}
-              term={t}
-              checked={checked[t.key]}
-              expanded={expanded.has(t.key)}
-              onCheck={() => toggle(t.key)}
-              onToggleBody={() => toggleExpanded(t.key)}
+              key={term.key}
+              term={term}
+              checked={checked[term.key]}
+              expanded={expanded.has(term.key)}
+              onCheck={() => toggle(term.key)}
+              onToggleBody={() => toggleExpanded(term.key)}
             />
           ))}
         </ul>
@@ -104,7 +104,7 @@ export function SignupTermsStep({ onAgree }: { onAgree: () => void }) {
         disabled={!requiredOk}
         className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
       >
-        동의하고 계속하기
+        {t("termsContinue")}
       </button>
     </section>
   );
@@ -117,6 +117,7 @@ function AgreeAllRow({
   checked: boolean;
   onChange: () => void;
 }) {
+  const t = useTranslations("Auth");
   const id = useId();
   return (
     <label
@@ -131,7 +132,7 @@ function AgreeAllRow({
         className="size-4 cursor-pointer accent-accent"
       />
       <span className="text-sm font-semibold text-slate-900">
-        약관 전체 동의하기
+        {t("termsAgreeAll")}
       </span>
     </label>
   );
@@ -150,6 +151,7 @@ function TermRow({
   onCheck: () => void;
   onToggleBody: () => void;
 }) {
+  const t = useTranslations("Auth");
   const id = useId();
   return (
     <li className="px-4 py-3">
@@ -162,13 +164,13 @@ function TermRow({
           className="size-4 cursor-pointer accent-accent"
         />
         <label htmlFor={id} className="flex-1 cursor-pointer text-sm text-slate-800">
-          {term.label}{" "}
+          {t(term.labelKey)}{" "}
           <span
             className={
               term.required ? "text-error" : "text-slate-500"
             }
           >
-            ({term.required ? "필수" : "선택"})
+            ({term.required ? t("termsRequired") : t("termsOptional")})
           </span>
         </label>
         <button
@@ -177,7 +179,7 @@ function TermRow({
           className="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
           aria-expanded={expanded}
         >
-          {expanded ? "접기" : "자세히"}
+          {expanded ? t("termsCollapse") : t("termsMore")}
         </button>
       </div>
       {expanded ? (

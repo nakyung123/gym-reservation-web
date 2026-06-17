@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { ButtonLink } from "@/components/app-button";
 import { getGymLowestPrice } from "@/lib/gym-utils";
 import type { Gym } from "@/types/domain";
@@ -11,7 +12,8 @@ import type { Gym } from "@/types/domain";
  * /gyms 목록 카드(gym-card.tsx)는 즐겨찾기·거리 등 기능이 달라 당장은 분리해
  * 두고, 추후 /gyms 리디자인 시 이 카드로 통일한다.
  */
-export function FacilityCard({ gym }: { gym: Gym }) {
+export async function FacilityCard({ gym }: { gym: Gym }) {
+  const t = await getTranslations("Home");
   const lowestPrice = getGymLowestPrice(gym);
   const detailHref = `/gyms/${gym.id}`;
 
@@ -20,7 +22,7 @@ export function FacilityCard({ gym }: { gym: Gym }) {
       {/* 썸네일(추후 실사진 교체 지점) */}
       <Link
         href={detailHref}
-        aria-label={`${gym.name} 상세 보기`}
+        aria-label={t("cardDetailAria", { name: gym.name })}
         className="relative block h-44 overflow-hidden bg-[linear-gradient(135deg,var(--accent-tint),var(--surface-2))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
       >
         <span
@@ -41,7 +43,7 @@ export function FacilityCard({ gym }: { gym: Gym }) {
         </span>
         <span className="absolute left-[13px] top-[13px] inline-flex items-center gap-1.5 rounded-full bg-white/95 px-[11px] py-[5px] text-[12.5px] font-bold text-success shadow-sm">
           <span className="size-1.5 rounded-full bg-success" aria-hidden="true" />
-          예약 가능
+          {t("cardAvailable")}
         </span>
       </Link>
 
@@ -72,7 +74,7 @@ export function FacilityCard({ gym }: { gym: Gym }) {
           {gym.address}
         </p>
 
-        <div className="mt-[15px] flex flex-wrap gap-[7px]" aria-label="예약 가능 종목">
+        <div className="mt-[15px] flex flex-wrap gap-[7px]" aria-label={t("cardSportsLabel")}>
           {gym.sports.map((sport) => (
             <span
               key={sport}
@@ -88,19 +90,21 @@ export function FacilityCard({ gym }: { gym: Gym }) {
             <span className="text-[21px] font-extrabold text-slate-950 tabular-nums">
               {lowestPrice.toLocaleString()}
             </span>
-            <span className="ml-1 text-[15px] font-bold text-slate-950">원</span>
+            <span className="ml-1 text-[15px] font-bold text-slate-950">
+              {t("cardWon")}
+            </span>
             <span className="ml-[7px] text-[13.5px] font-medium text-subtle">
-              / 2시간
+              {t("cardPerHours")}
             </span>
           </p>
           {/* 시안 .fac .foot .btn = 좌우 32px 확대. size의 px와 충돌하지 않도록
               inline style로 확정한다(tailwind-merge 미사용 환경). */}
           <ButtonLink
             href={`/reserve/${gym.id}`}
-            aria-label={`${gym.name} 예약하기`}
+            aria-label={t("cardBookAria", { name: gym.name })}
             style={{ paddingLeft: 32, paddingRight: 32 }}
           >
-            예약하기
+            {t("cardBook")}
           </ButtonLink>
         </div>
       </div>

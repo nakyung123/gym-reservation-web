@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { listNotices, type NoticeCategory } from "@/lib/notices";
 
 export const metadata: Metadata = {
@@ -14,15 +15,14 @@ const CATEGORY_BADGE: Record<NoticeCategory, string> = {
   안내: "bg-surface-2 text-subtle",
 };
 
-export default function NoticePage() {
+export default async function NoticePage() {
+  const t = await getTranslations("Notice");
   const notices = listNotices();
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
-      <h1 className="text-2xl font-bold text-foreground">공지사항</h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-muted">
-        운영시간 변경, 시스템 점검, 신규 시설 등 서비스 소식을 안내합니다.
-      </p>
+      <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
+      <p className="mt-2 text-[15px] leading-relaxed text-muted">{t("intro")}</p>
 
       <ul className="mt-6 divide-y divide-line border-y border-line">
         {notices.map((notice) => (

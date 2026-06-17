@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 
 /**
  * 홈 퀵액션 카드. 수정 시안대로 검색바 아래에 위치한다(히어로 겹침은 검색바가 가져감).
@@ -10,24 +11,24 @@ import type { ReactNode } from "react";
  * 예약 조회·마이페이지는 인증 게이트가 있는 라우트라 비로그인 시 로그인으로 유도된다.
  */
 type QuickAction = {
-  title: string;
-  description: string;
+  titleKey: string;
+  descKey: string;
   href: string;
   icon: ReactNode;
 };
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
-    title: "시설 찾기",
-    description: "종목·지역으로 가까운 체육관을 검색",
+    titleKey: "quickFindTitle",
+    descKey: "quickFindDesc",
     href: "/gyms",
     icon: (
       <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 11h.01M15 11h.01" />
     ),
   },
   {
-    title: "예약하기",
-    description: "빈 시간대를 골라 바로 신청",
+    titleKey: "quickBookTitle",
+    descKey: "quickBookDesc",
     href: "/gyms",
     icon: (
       <>
@@ -37,8 +38,8 @@ const QUICK_ACTIONS: QuickAction[] = [
     ),
   },
   {
-    title: "예약 조회",
-    description: "지난 이용 내역과 예정 예약 확인",
+    titleKey: "quickLookupTitle",
+    descKey: "quickLookupDesc",
     href: "/reservations",
     icon: (
       <>
@@ -48,8 +49,8 @@ const QUICK_ACTIONS: QuickAction[] = [
     ),
   },
   {
-    title: "마이페이지",
-    description: "내 정보와 알림 설정 관리",
+    titleKey: "quickMypageTitle",
+    descKey: "quickMypageDesc",
     href: "/mypage",
     icon: (
       <>
@@ -60,12 +61,13 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
 ];
 
-export function HomeQuickActions() {
+export async function HomeQuickActions() {
+  const t = await getTranslations("Home");
   return (
     <div className="mx-auto mt-[22px] w-full max-w-[1440px] px-5 sm:px-8">
       <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {QUICK_ACTIONS.map((action) => (
-          <li key={action.title}>
+          <li key={action.titleKey}>
             <Link
               href={action.href}
               className="group flex h-full flex-col rounded-xl border border-line bg-white px-6 py-7 shadow-[0_4px_16px_rgba(15,23,42,0.09)] transition hover:-translate-y-[3px] hover:border-accent hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
@@ -85,7 +87,7 @@ export function HomeQuickActions() {
                 </svg>
               </span>
               <h3 className="flex items-center justify-between text-[18.5px] font-bold text-slate-950 transition group-hover:text-white">
-                {action.title}
+                {t(action.titleKey)}
                 <span
                   aria-hidden="true"
                   className="text-subtle transition group-hover:translate-x-0.5 group-hover:text-white"
@@ -94,7 +96,7 @@ export function HomeQuickActions() {
                 </span>
               </h3>
               <p className="mt-2 text-[15px] leading-6 text-muted transition group-hover:text-white/80">
-                {action.description}
+                {t(action.descKey)}
               </p>
             </Link>
           </li>

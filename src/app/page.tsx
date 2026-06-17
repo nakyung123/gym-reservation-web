@@ -4,10 +4,12 @@ import { HomeQuickActions } from "@/components/home-quick-actions";
 import { HomeReservationPreview } from "@/components/home-reservation-preview";
 import { HomeSearch } from "@/components/home-search";
 import { gymRepository } from "@/lib/gym-repository-provider";
+import { getTranslations } from "next-intl/server";
 
 // 홈은 섹션 컴포넌트를 순서대로 조립한다. 섹션 추가/삭제/순서 변경은 이 본문에서,
 // 각 섹션의 스타일/문구는 해당 컴포넌트에서 수정한다. (구조 유연성 우선)
 export default async function Home() {
+  const t = await getTranslations("Home");
   const gyms = await gymRepository.list();
   const recommendedGyms = gyms.slice(0, 3);
   // 홈 빠른 검색에 필요한 필드만 client로 내려준다(경량 projection).
@@ -32,10 +34,10 @@ export default async function Home() {
               FACILITIES
             </p>
             <h2 className="mt-1.5 text-[31px] font-extrabold tracking-[-0.02em] text-slate-950">
-              가까운 체육시설
+              {t("facilitiesTitle")}
             </h2>
             <p className="mt-[9px] text-[16.5px] text-muted">
-              현재 예약 가능한 공공 체육시설입니다.
+              {t("facilitiesSubtitle")}
             </p>
           </div>
 
@@ -47,7 +49,7 @@ export default async function Home() {
             </div>
           ) : (
             <p className="rounded-xl border border-line bg-white px-5 py-8 text-center text-sm text-muted">
-              현재 표시할 체육시설이 없습니다. 잠시 후 다시 확인해 주세요.
+              {t("facilitiesEmpty")}
             </p>
           )}
         </div>

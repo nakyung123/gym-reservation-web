@@ -6,7 +6,10 @@
  *
  * 하단 여백(pb-[60px])은 퀵액션 카드(home-quick-actions)가 -88px로 겹쳐 올라올 공간이다.
  */
-export function HomeHero() {
+import { getTranslations } from "next-intl/server";
+
+export async function HomeHero() {
+  const t = await getTranslations("Home");
   return (
     <section className="relative h-[420px] overflow-hidden bg-slate-900">
       {/* 배경(추후 실사진으로 교체 지점) */}
@@ -23,12 +26,12 @@ export function HomeHero() {
 
       <div className="relative mx-auto flex h-full w-full max-w-[1440px] flex-col justify-center px-5 pb-[60px] sm:px-8">
         <h1 className="max-w-[680px] text-[34px] font-extrabold leading-[1.26] tracking-[-0.025em] text-white sm:text-[46px]">
-          동네에서 가까운 운동의 시작,
+          {t("heroTitleLine1")}
           <br />
-          믿고 예약하는 생활체육
+          {t("heroTitleLine2")}
         </h1>
         <p className="mt-[18px] max-w-[640px] text-base text-[#e2e8f0] sm:text-[19px]">
-          집 근처 공공 체육시설을 한눈에 보고, 빈 시간대를 골라 바로 예약하세요.
+          {t("heroSubtitle")}
         </p>
       </div>
     </section>

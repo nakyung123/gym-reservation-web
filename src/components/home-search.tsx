@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/app-button";
 import { SPORTS } from "@/lib/domain-constants";
 import { getTodayDateValue } from "@/lib/reservation-range";
@@ -35,6 +36,7 @@ const FIELD_CONTROL_CLASS =
   "h-12 w-full rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] text-slate-950 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-subtle";
 
 export function HomeSearch({ gyms }: HomeSearchProps) {
+  const t = useTranslations("Home");
   const router = useRouter();
   const [sport, setSport] = useState<Sport | "">("");
   const [region, setRegion] = useState("");
@@ -113,13 +115,13 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
         className="grid gap-3 rounded-2xl border border-line bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.16)] sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto] lg:items-end"
       >
         <label className="flex flex-col gap-1.5">
-          <span className={FIELD_LABEL_CLASS}>종목</span>
+          <span className={FIELD_LABEL_CLASS}>{t("searchSport")}</span>
           <select
             className={FIELD_CONTROL_CLASS}
             value={sport}
             onChange={(event) => handleSportChange(event.target.value)}
           >
-            <option value="">종목 선택</option>
+            <option value="">{t("searchSportPlaceholder")}</option>
             {sportOptions.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -129,14 +131,16 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className={FIELD_LABEL_CLASS}>지역</span>
+          <span className={FIELD_LABEL_CLASS}>{t("searchRegion")}</span>
           <select
             className={FIELD_CONTROL_CLASS}
             value={region}
             onChange={(event) => handleRegionChange(event.target.value)}
             disabled={!sport}
           >
-            <option value="">{sport ? "지역 선택" : "종목 먼저"}</option>
+            <option value="">
+              {sport ? t("searchRegionPlaceholder") : t("searchRegionFirst")}
+            </option>
             {regionOptions.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -146,14 +150,16 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className={FIELD_LABEL_CLASS}>체육관</span>
+          <span className={FIELD_LABEL_CLASS}>{t("searchGym")}</span>
           <select
             className={FIELD_CONTROL_CLASS}
             value={gymId}
             onChange={(event) => setGymId(event.target.value)}
             disabled={!region}
           >
-            <option value="">{region ? "체육관 선택" : "지역 먼저"}</option>
+            <option value="">
+              {region ? t("searchGymPlaceholder") : t("searchGymFirst")}
+            </option>
             {gymOptions.map((gym) => (
               <option key={gym.id} value={gym.id}>
                 {gym.name}
@@ -163,7 +169,7 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className={FIELD_LABEL_CLASS}>날짜</span>
+          <span className={FIELD_LABEL_CLASS}>{t("searchDate")}</span>
           <input
             type="date"
             className={FIELD_CONTROL_CLASS}
@@ -194,7 +200,7 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
             <circle cx="11" cy="11" r="7" />
             <path d="M21 21l-4.3-4.3" />
           </svg>
-          시설 검색
+          {t("searchSubmit")}
         </Button>
       </form>
     </section>

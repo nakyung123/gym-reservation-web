@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState, type InputHTMLAttributes } from "react";
+import { useTranslations } from "next-intl";
 
 // 아이콘은 heroicons outline 스타일을 인라인으로 사용 (외부 의존 없음).
 function EyeIcon() {
@@ -95,6 +96,7 @@ export function TextField({
   hintTone,
   ...rest
 }: CommonProps & { type?: "text" | "email" }) {
+  const t = useTranslations("Auth");
   const id = useId();
   const errorId = `${id}-error`;
   const showError = Boolean(error);
@@ -127,7 +129,7 @@ export function TextField({
               e.preventDefault();
               onChange("");
             }}
-            aria-label={`${label} 지우기`}
+            aria-label={t("fieldClear", { label })}
             className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full bg-slate-200 text-xs text-slate-700 transition hover:bg-slate-300"
           >
             <ClearIcon />
@@ -153,6 +155,7 @@ export function PasswordField({
   hint,
   ...rest
 }: CommonProps) {
+  const t = useTranslations("Auth");
   const id = useId();
   const errorId = `${id}-error`;
   const [visible, setVisible] = useState(false);
@@ -187,7 +190,7 @@ export function PasswordField({
                 e.preventDefault();
                 onChange("");
               }}
-              aria-label={`${label} 지우기`}
+              aria-label={t("fieldClear", { label })}
               className="inline-flex size-6 items-center justify-center rounded-full bg-slate-200 text-xs text-slate-700 transition hover:bg-slate-300"
             >
               <ClearIcon />
@@ -196,7 +199,7 @@ export function PasswordField({
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
-            aria-label={visible ? "비밀번호 가리기" : "비밀번호 보기"}
+            aria-label={visible ? t("passwordHide") : t("passwordShow")}
             aria-pressed={visible}
             className="inline-flex size-6 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
           >

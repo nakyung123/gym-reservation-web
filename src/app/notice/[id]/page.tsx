@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getNotice, listNotices, type NoticeCategory } from "@/lib/notices";
 
 type Params = { params: Promise<{ id: string }> };
@@ -33,6 +34,7 @@ export default async function NoticeDetailPage({ params }: Params) {
   if (!notice) {
     notFound();
   }
+  const t = await getTranslations("Notice");
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8">
@@ -40,7 +42,7 @@ export default async function NoticeDetailPage({ params }: Params) {
         href="/notice"
         className="inline-flex items-center gap-1 text-[14px] font-semibold text-muted transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
-        <span aria-hidden="true">←</span> 목록으로
+        <span aria-hidden="true">←</span> {t("backToList")}
       </Link>
 
       <article className="mt-5 border-t border-line pt-6">

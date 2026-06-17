@@ -1,4 +1,5 @@
 import { Button, ButtonLink } from "@/components/app-button";
+import { getTranslations } from "next-intl/server";
 
 /**
  * 홈의 "예약 흐름" 섹션(시안 RESERVATION). 실제 슬롯/티켓은 /reserve·/reservations에서
@@ -49,7 +50,8 @@ const slotLeftClass: Record<
   full: "text-subtle",
 };
 
-export function HomeReservationPreview() {
+export async function HomeReservationPreview() {
+  const t = await getTranslations("Home");
   return (
     <section className="py-[72px]">
       <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
@@ -58,7 +60,7 @@ export function HomeReservationPreview() {
             RESERVATION
           </p>
           <h2 className="mt-1.5 text-[31px] font-extrabold tracking-[-0.02em] text-slate-950">
-            시간대 선택 &amp; 예약 확인
+            {t("reservationTitle")}
           </h2>
         </div>
 
@@ -94,13 +96,12 @@ export function HomeReservationPreview() {
             </ul>
 
             <p className="mt-5 max-w-[560px] rounded-lg border border-line border-l-4 border-l-accent bg-white px-[17px] py-[15px] text-[15px] text-muted">
-              선택한 시간대는 <b className="font-bold text-foreground">10분간</b>{" "}
-              임시 보관됩니다. 시간 내 결제를 완료해 주세요.
+              {t("reservationHold")}
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2.5">
-              <Button variant="outline">이전</Button>
-              <ButtonLink href="/gyms">11:00 예약 진행</ButtonLink>
+              <Button variant="outline">{t("reservationPrev")}</Button>
+              <ButtonLink href="/gyms">{t("reservationProceed")}</ButtonLink>
             </div>
           </div>
 

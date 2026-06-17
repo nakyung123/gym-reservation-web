@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { signupWithEmail } from "@/lib/firebase-email-auth";
 import {
   PASSWORD_POLICY_HINT,
@@ -19,19 +20,17 @@ type SubmitState =
   | { kind: "error"; message: string };
 
 // 단순 이메일 형식 체크: '@'와 도메인 부분이 있는지만 인라인 안내용.
-// 실제 검증은 Firebase가 한다 (auth/invalid-email).
-function validateEmail(value: string): string | null {
-  if (value.length === 0) return null;
+// 실제 검증은 Firebase가 한다 (auth/invalid-email). 안내 문구는 호출측에서 i18n한다.
+function isEmailInvalid(value: string): boolean {
+  if (value.length === 0) return false;
   const at = value.indexOf("@");
-  if (at <= 0 || at === value.length - 1) {
-    return "이메일 형식이 올바르지 않습니다.";
-  }
-  return null;
+  return at <= 0 || at === value.length - 1;
 }
 
 type SignupStep = "terms" | "form";
 
 export function SignupView() {
+  const t = useTranslations("Auth");
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromPath = sanitizeFromPath(searchParams.get("from")) ?? "/mypage";
@@ -43,11 +42,12 @@ export function SignupView() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
 
-  const emailError = validateEmail(email);
+  const emailError = isEmailInvalid(email) ? t("emailInvalid") : null;
+  // 비밀번호 정책 메시지는 password-policy.ts(별도 레이어)에서 온다. 1차 i18n 범위 밖.
   const passwordError = validatePasswordPolicy(password);
   const passwordConfirmError =
     passwordConfirm.length > 0 && passwordConfirm !== password
-      ? "비밀번호 확인이 일치하지 않습니다."
+      ? t("passwordMismatch")
       : null;
 
   const isLoading = submitState.kind === "loading";
@@ -81,14 +81,12 @@ export function SignupView() {
 
   return (
     <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
-      <h1 className="text-xl font-bold text-slate-950">회원가입</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        이메일과 비밀번호로 가입하세요. 닉네임은 자동으로 만들어지며 가입 후 내 정보에서 변경할 수 있습니다.
-      </p>
+      <h1 className="text-xl font-bold text-slate-950">{t("signupTitle")}</h1>
+      <p className="mt-1 text-sm text-slate-600">{t("signupSubtitle")}</p>
 
       <form className="mt-5 flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
         <TextField
-          label="이메일"
+          label={t("email")}
           type="email"
           autoComplete="email"
           value={email}
@@ -96,7 +94,7 @@ export function SignupView() {
           error={emailError}
         />
         <PasswordField
-          label="비밀번호"
+          label={t("password")}
           autoComplete="new-password"
           value={password}
           onChange={setPassword}
@@ -104,7 +102,7 @@ export function SignupView() {
           hint={PASSWORD_POLICY_HINT}
         />
         <PasswordField
-          label="비밀번호 확인"
+          label={t("passwordConfirm")}
           autoComplete="new-password"
           value={passwordConfirm}
           onChange={setPasswordConfirm}
@@ -115,7 +113,7 @@ export function SignupView() {
           disabled={isLoading || !isFormValid}
           className="mt-1 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {isLoading ? "가입 중" : "가입하기"}
+          {isLoading ? t("signupSubmitting") : t("signupSubmit")}
         </button>
       </form>
 
@@ -129,12 +127,12 @@ export function SignupView() {
       ) : null}
 
       <p className="mt-5 text-center text-sm text-slate-600">
-        이미 계정이 있으신가요?{" "}
+        {t("hasAccount")}{" "}
         <Link
           href="/login"
           className="font-semibold text-accent-strong underline-offset-2 hover:underline"
         >
-          로그인
+          {t("loginLink")}
         </Link>
       </p>
     </section>
