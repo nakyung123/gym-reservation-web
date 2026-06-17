@@ -22,7 +22,8 @@ describe("GET /api/cron/ledger-sync", () => {
   beforeEach(() => {
     vi.mocked(syncReservationLedger).mockResolvedValue({
       reservations: 3,
-      rowsWritten: 5,
+      detailRows: 4,
+      summaryRows: 20,
     });
     process.env.CRON_SECRET = SECRET;
   });
@@ -59,7 +60,8 @@ describe("GET /api/cron/ledger-sync", () => {
     expect(await response.json()).toEqual({
       ok: true,
       reservations: 3,
-      rowsWritten: 5,
+      detailRows: 4,
+      summaryRows: 20,
     });
   });
 
