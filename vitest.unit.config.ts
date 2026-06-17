@@ -40,6 +40,11 @@ export default defineConfig({
       // 예약/정산 원장(Phase 4): googleapis/prisma 모킹으로 행 매핑·full-replace·가드 검증.
       "src/lib/server/sheets-ledger.test.ts",
       "src/app/api/cron/ledger-sync/route.test.ts",
+      // FAQ 안내봇(Phase 5): 입력 캡/system 구성/키 가드(faq-bot), 3단 rate limit·fail-closed(route),
+      // 위젯 상태 전이(jsdom). SDK·rate-limit·fetch 모킹으로 DB/네트워크 없이 검증.
+      "src/lib/server/faq-bot.test.ts",
+      "src/app/api/faq-chat/route.test.ts",
+      "src/components/faq-chat-widget.test.tsx",
     ],
   },
   resolve: {

@@ -4,9 +4,10 @@ export function serverErrorResponse(
   userMessage: string,
   logContext: string,
   error: unknown,
+  status = 500,
 ): Response {
   console.error(logContext, toSafeErrorLogDetail(error));
-  return Response.json({ message: userMessage }, { status: 500 });
+  return Response.json({ message: userMessage }, { status });
 }
 
 type SafeErrorLogDetail = {

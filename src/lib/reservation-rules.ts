@@ -60,7 +60,10 @@ const reservationRuleMessages: Record<ReservationRuleFailure, string> = {
     "이미 같은 조건의 예약이 있습니다. 내 예약 화면에서 확인해주세요.",
 };
 
-const USER_CANCEL_CUTOFF_MINUTES = 120;
+// 사용자 예약 취소 마감 = 이용 시작 기준 이 분(分) 이전까지.
+// SSOT: 취소 정책의 단일 기준점. FAQ 안내봇(faq-knowledge.ts)도 이 값을 import해
+// "n시간 전까지" 안내 문구를 생성하므로, 정책 변경 시 여기만 고치면 양쪽이 함께 바뀐다.
+export const USER_CANCEL_CUTOFF_MINUTES = 120;
 
 const reservationCancellationRuleMessages: Record<
   ReservationCancellationRuleFailure,

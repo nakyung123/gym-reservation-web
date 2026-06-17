@@ -5,6 +5,7 @@ import { AppHeaderNav } from "@/components/app-header-nav";
 import { SiteFooter } from "@/components/site-footer";
 import { UserLocationProvider } from "@/hooks/use-user-location";
 import { LocationPermissionModal } from "@/components/location-permission-modal";
+import { FaqChatWidget } from "@/components/faq-chat-widget";
 import "./globals.css";
 
 // 한국어 본문 폰트(공공·신뢰형). 한글 글리프가 커 preload는 끄고 swap 사용.
@@ -64,6 +65,7 @@ export default function RootLayout({
           {children}
           <SiteFooter />
           <LocationPermissionModal />
+          <FaqChatWidget />
         </UserLocationProvider>
       </body>
     </html>
