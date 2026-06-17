@@ -1,0 +1,35 @@
+{
+  "Nav": {
+    "facilities": "查找设施",
+    "reserve": "立即预约",
+    "myReservations": "预约查询",
+    "guide": "使用指南",
+    "notice": "公告",
+    "login": "登录",
+    "signup": "注册",
+    "mypage": "我的页面",
+    "myBookings": "我的预约",
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单",
+    "bySport": "按项目",
+    "byRegion": "按地区",
+    "language": "语言",
+    "brand": "公共体育馆"
+  },
+  "Footer": {
+    "customerCenter": "客服中心",
+    "hours": "工作日 09:00–18:00 · 周末及节假日休息",
+    "quickLinks": "快捷链接",
+    "facilities": "查找设施",
+    "myReservations": "预约查询",
+    "guide": "使用指南",
+    "faq": "常见问题",
+    "info": "信息",
+    "terms": "服务条款",
+    "privacy": "隐私政策",
+    "notice": "公告",
+    "brand": "公共体育馆",
+    "brandDesc": "为您轻松可靠地预约附近公共体育设施的全民体育平台。",
+    "copyright": "ⓒ 2026 公共体育馆。本页面为设计预览，并非实际信息。"
+  }
+}

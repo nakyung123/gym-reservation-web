@@ -2,45 +2,45 @@
 
 import Link from "next/link";
 import { Fragment, useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
   parseFirebaseAuthSessionSnapshot,
   subscribeFirebaseAuthSession,
 } from "@/lib/firebase-auth-session";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 
 // 메인 GNB + 우측 유틸. layout.tsx의 헤더 nav 안에서 로고 다음에 렌더된다.
-// 시안 v6 비주얼(76px 높이, 17px 메뉴, 시설 찾기 hover 메가메뉴, 우측 유틸+구분선)을
-// 그대로 옮기되, 동작은 실제 라우트와 로그인 상태를 따른다.
+// 라벨은 i18n 메시지 키(Nav 네임스페이스)로 관리하고 useTranslations로 렌더한다.
 // - GNB(시설 찾기/예약하기/예약 조회/이용 안내/공지사항)는 라우트로 연결한다.
 // - 시설 찾기는 hover 시 메가메뉴(종목별/지역별)를 연다. CSS hover/focus-within 기반.
+//   메가메뉴 항목(종목·지역명)은 데이터성이라 1차 i18n 범위에서 제외(한국어 유지).
 // 항목 추가/삭제/순서는 배열에서만 관리한다. (구조 유연성 우선)
 type GnbItem = {
-  label: string;
+  key: string;
   href?: string;
   mega?: boolean;
 };
 
 const GNB_ITEMS: GnbItem[] = [
-  { label: "시설 찾기", href: "/gyms", mega: true },
-  { label: "예약하기", href: "/gyms" },
-  { label: "예약 조회", href: "/reservations" },
-  { label: "이용 안내", href: "/guide" },
-  { label: "공지사항", href: "/notice" },
+  { key: "facilities", href: "/gyms", mega: true },
+  { key: "reserve", href: "/gyms" },
+  { key: "myReservations", href: "/reservations" },
+  { key: "guide", href: "/guide" },
+  { key: "notice", href: "/notice" },
 ];
 
-// 메가메뉴 내용. 모든 항목은 현재 시설 찾기(/gyms)로 보낸다.
+// 메가메뉴 내용. 제목은 메시지 키, 항목(종목·지역명)은 데이터성이라 한국어 유지.
 // (종목·지역 필터 쿼리는 /gyms 필터 계약이 정해지면 이 배열의 href만 채우면 된다.)
-const FACILITY_MEGA: { title: string; items: string[] }[] = [
-  { title: "종목별", items: ["배드민턴", "탁구", "풋살", "농구", "배구", "헬스장"] },
-  { title: "지역별", items: ["금천구", "노원구", "마포구", "전체 보기"] },
+const FACILITY_MEGA: { titleKey: string; items: string[] }[] = [
+  { titleKey: "bySport", items: ["배드민턴", "탁구", "풋살", "농구", "배구", "헬스장"] },
+  { titleKey: "byRegion", items: ["금천구", "노원구", "마포구", "전체 보기"] },
 ];
 
 const GNB_BASE =
   "relative flex h-full items-center px-5 text-[17px] font-bold transition after:absolute after:inset-x-5 after:bottom-0 after:h-[3px] after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:content-['']";
 const GNB_LINK_CLASS = `${GNB_BASE} text-foreground hover:text-accent-strong hover:after:scale-x-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset`;
-// 페이지가 없는 항목: 시안과 동일한 활성 비주얼이되 이동하지 않는다.
-const GNB_NOOP_CLASS = `${GNB_BASE} cursor-default text-foreground hover:text-accent-strong hover:after:scale-x-100`;
 
 const MEGA_TITLE_CLASS =
   "col-span-2 text-[13px] font-bold tracking-[0.04em] text-subtle";
@@ -49,14 +49,10 @@ const MEGA_LINK_CLASS =
 
 const UTIL_LINK_CLASS =
   "rounded text-[14.5px] font-semibold text-muted transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
-const UTIL_DISABLED_CLASS =
-  "cursor-default text-[14.5px] font-semibold text-muted";
 
 // 모바일 드로어: 터치 타깃 44px 이상(min-h-[44px]) 확보.
 const MOBILE_LINK_CLASS =
   "flex min-h-[44px] items-center justify-between rounded-lg px-3 py-2.5 text-base font-bold text-foreground transition hover:bg-surface-2 focus-visible:outline-none focus-visible:bg-surface-2";
-const MOBILE_NOOP_CLASS =
-  "flex min-h-[44px] cursor-default items-center justify-between rounded-lg px-3 py-2.5 text-base font-bold text-muted";
 const MOBILE_UTIL_CLASS =
   "flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-line-strong text-[14.5px] font-bold text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
@@ -82,6 +78,7 @@ function ChevronRight() {
 }
 
 function FacilityMega() {
+  const t = useTranslations("Nav");
   return (
     <div
       className="invisible absolute left-0 top-full z-10 grid w-[600px] -translate-y-1.5 grid-cols-2 gap-x-[30px] gap-y-1.5 rounded-b-xl border border-line bg-white px-[26px] py-6 opacity-0 shadow-[0_4px_16px_rgba(15,23,42,0.09)] transition group-hover/facility:visible group-hover/facility:translate-y-0 group-hover/facility:opacity-100 group-focus-within/facility:visible group-focus-within/facility:translate-y-0 group-focus-within/facility:opacity-100"
@@ -89,13 +86,13 @@ function FacilityMega() {
     >
       {FACILITY_MEGA.map((group, groupIndex) => (
         <div
-          key={group.title}
+          key={group.titleKey}
           className="col-span-2 grid grid-cols-2 gap-x-[30px] gap-y-1.5"
         >
           <span
             className={`${MEGA_TITLE_CLASS} ${groupIndex > 0 ? "mt-3.5" : ""} mb-1.5`}
           >
-            {group.title}
+            {t(group.titleKey)}
           </span>
           {group.items.map((item) => (
             <Link
@@ -118,6 +115,7 @@ function FacilityMega() {
 }
 
 export function AppHeaderNav() {
+  const t = useTranslations("Nav");
   const snapshot = useSyncExternalStore(
     subscribeFirebaseAuthSession,
     getFirebaseAuthSessionSnapshot,
@@ -131,12 +129,12 @@ export function AppHeaderNav() {
   // 로그인 상태에 따른 우측 유틸 링크(데스크톱 바·모바일 드로어에서 공유).
   const utilLinks = signedIn
     ? [
-        { label: "마이페이지", href: "/mypage" },
-        { label: "내 예약", href: "/reservations" },
+        { key: "mypage", href: "/mypage" },
+        { key: "myBookings", href: "/reservations" },
       ]
     : [
-        { label: "로그인", href: "/login" },
-        { label: "회원가입", href: "/signup" },
+        { key: "login", href: "/login" },
+        { key: "signup", href: "/signup" },
       ];
 
   return (
@@ -145,20 +143,16 @@ export function AppHeaderNav() {
       <ul className="hidden h-full flex-1 items-stretch gap-1 lg:flex">
         {GNB_ITEMS.map((item) => (
           <li
-            key={item.label}
+            key={item.key}
             className={`relative flex items-center ${
               item.mega ? "group/facility" : ""
             }`}
           >
             {item.href ? (
               <Link href={item.href} className={GNB_LINK_CLASS}>
-                {item.label}
+                {t(item.key)}
               </Link>
-            ) : (
-              <span className={GNB_NOOP_CLASS} title="준비 중">
-                {item.label}
-              </span>
-            )}
+            ) : null}
             {item.mega ? <FacilityMega /> : null}
           </li>
         ))}
@@ -170,21 +164,19 @@ export function AppHeaderNav() {
           <Fragment key={link.href}>
             {index > 0 ? <UtilSeparator /> : null}
             <Link href={link.href} className={UTIL_LINK_CLASS}>
-              {link.label}
+              {t(link.key)}
             </Link>
           </Fragment>
         ))}
         <UtilSeparator />
-        <span className={UTIL_DISABLED_CLASS} title="준비 중">
-          KR
-        </span>
+        <LocaleSwitcher />
       </div>
 
       {/* 모바일 햄버거 */}
       <button
         type="button"
         onClick={() => setMenuOpen((open) => !open)}
-        aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
+        aria-label={menuOpen ? t("closeMenu") : t("openMenu")}
         aria-expanded={menuOpen}
         aria-controls="mobile-menu"
         className="ml-auto grid size-11 place-items-center rounded-lg border border-line-strong text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
@@ -219,33 +211,28 @@ export function AppHeaderNav() {
           />
           <nav
             id="mobile-menu"
-            aria-label="모바일 메뉴"
+            aria-label={t("openMenu")}
             className="fixed inset-x-0 top-[76px] z-40 max-h-[calc(100vh-76px)] overflow-y-auto border-b border-line bg-white shadow-[0_12px_24px_rgba(15,23,42,0.12)] lg:hidden"
           >
             <div className="mx-auto w-full max-w-[1440px] px-5 py-2 sm:px-8">
               <ul>
-                {GNB_ITEMS.map((item) => (
-                  <li key={item.label}>
-                    {item.href ? (
+                {GNB_ITEMS.map((item) =>
+                  item.href ? (
+                    <li key={item.key}>
                       <Link
                         href={item.href}
                         onClick={closeMenu}
                         className={MOBILE_LINK_CLASS}
                       >
-                        {item.label}
+                        {t(item.key)}
                         <ChevronRight />
                       </Link>
-                    ) : (
-                      <span className={MOBILE_NOOP_CLASS} title="준비 중">
-                        {item.label}
-                        <ChevronRight />
-                      </span>
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  ) : null,
+                )}
               </ul>
               <div className="my-2 h-px bg-line" aria-hidden="true" />
-              <div className="flex gap-2 pb-2">
+              <div className="flex items-center gap-2 pb-2">
                 {utilLinks.map((link) => (
                   <Link
                     key={link.href}
@@ -253,9 +240,12 @@ export function AppHeaderNav() {
                     onClick={closeMenu}
                     className={MOBILE_UTIL_CLASS}
                   >
-                    {link.label}
+                    {t(link.key)}
                   </Link>
                 ))}
+              </div>
+              <div className="flex justify-end pb-3">
+                <LocaleSwitcher />
               </div>
             </div>
           </nav>

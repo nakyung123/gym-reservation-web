@@ -1,0 +1,35 @@
+{
+  "Nav": {
+    "facilities": "시설 찾기",
+    "reserve": "예약하기",
+    "myReservations": "예약 조회",
+    "guide": "이용 안내",
+    "notice": "공지사항",
+    "login": "로그인",
+    "signup": "회원가입",
+    "mypage": "마이페이지",
+    "myBookings": "내 예약",
+    "openMenu": "메뉴 열기",
+    "closeMenu": "메뉴 닫기",
+    "bySport": "종목별",
+    "byRegion": "지역별",
+    "language": "언어",
+    "brand": "공공체육관"
+  },
+  "Footer": {
+    "customerCenter": "고객센터",
+    "hours": "평일 09:00–18:00 · 주말·공휴일 휴무",
+    "quickLinks": "바로가기",
+    "facilities": "시설 찾기",
+    "myReservations": "예약 조회",
+    "guide": "이용 안내",
+    "faq": "자주 묻는 질문",
+    "info": "안내",
+    "terms": "이용약관",
+    "privacy": "개인정보처리방침",
+    "notice": "공지사항",
+    "brand": "공공체육관",
+    "brandDesc": "집 근처 공공 체육시설을 쉽고 믿을 수 있게 예약하는 생활체육 플랫폼입니다.",
+    "copyright": "ⓒ 2026 공공체육관. 본 화면은 디자인 프리뷰이며 실제 정보가 아닙니다."
+  }
+}

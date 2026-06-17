@@ -1,0 +1,35 @@
+{
+  "Nav": {
+    "facilities": "Find Facilities",
+    "reserve": "Book Now",
+    "myReservations": "My Reservations",
+    "guide": "Guide",
+    "notice": "Notices",
+    "login": "Log In",
+    "signup": "Sign Up",
+    "mypage": "My Page",
+    "myBookings": "My Bookings",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "bySport": "By Sport",
+    "byRegion": "By Region",
+    "language": "Language",
+    "brand": "Public Sports Center"
+  },
+  "Footer": {
+    "customerCenter": "Customer Center",
+    "hours": "Weekdays 09:00–18:00 · Closed weekends & holidays",
+    "quickLinks": "Quick Links",
+    "facilities": "Find Facilities",
+    "myReservations": "My Reservations",
+    "guide": "Guide",
+    "faq": "FAQ",
+    "info": "Information",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "notice": "Notices",
+    "brand": "Public Sports Center",
+    "brandDesc": "An everyday-sports platform for booking nearby public sports facilities easily and reliably.",
+    "copyright": "ⓒ 2026 Public Sports Center. This screen is a design preview and not actual information."
+  }
+}

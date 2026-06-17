@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 // 보안 헤더용 CSP는 Report-Only로 도입한다.
 // Content-Security-Policy-Report-Only는 브라우저가 위반을 콘솔에 "보고만" 하고
@@ -75,4 +76,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// 쿠키 기반 i18n(URL 라우팅 없음). 기본 요청 설정은 src/i18n/request.ts.
+const withNextIntl = createNextIntlPlugin();
+
+export default withNextIntl(nextConfig);

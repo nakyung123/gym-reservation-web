@@ -1,0 +1,35 @@
+{
+  "Nav": {
+    "facilities": "施設を探す",
+    "reserve": "予約する",
+    "myReservations": "予約照会",
+    "guide": "ご利用案内",
+    "notice": "お知らせ",
+    "login": "ログイン",
+    "signup": "会員登録",
+    "mypage": "マイページ",
+    "myBookings": "マイ予約",
+    "openMenu": "メニューを開く",
+    "closeMenu": "メニューを閉じる",
+    "bySport": "種目別",
+    "byRegion": "地域別",
+    "language": "言語",
+    "brand": "公共体育館"
+  },
+  "Footer": {
+    "customerCenter": "カスタマーセンター",
+    "hours": "平日 09:00–18:00 · 土日・祝日休み",
+    "quickLinks": "クイックリンク",
+    "facilities": "施設を探す",
+    "myReservations": "予約照会",
+    "guide": "ご利用案内",
+    "faq": "よくある質問",
+    "info": "ご案内",
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー",
+    "notice": "お知らせ",
+    "brand": "公共体育館",
+    "brandDesc": "近所の公共スポーツ施設を簡単・安心に予約できる生活スポーツプラットフォームです。",
+    "copyright": "ⓒ 2026 公共体育館。本画面はデザインプレビューであり、実際の情報ではありません。"
+  }
+}
