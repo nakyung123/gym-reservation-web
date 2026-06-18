@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { PasswordChangeView } from "@/components/password-change-view";
 
-export const metadata: Metadata = {
-  title: "비밀번호 변경 | 공공체육관 예약",
-  description: "현재 비밀번호를 입력하고 새 비밀번호로 변경합니다.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Password");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDesc"),
+  };
+}
 
 export default function PasswordChangePage() {
   return (

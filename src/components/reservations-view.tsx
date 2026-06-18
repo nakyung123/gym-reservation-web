@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import { formatGymPrice } from "@/lib/gym-utils";
@@ -12,7 +13,6 @@ import {
   getTodayDateValue,
   isReservationDateInRange,
   parseReservationRange,
-  reservationRangeLabels,
   type ReservationRange,
 } from "@/lib/reservation-range";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
@@ -24,7 +24,6 @@ import {
   ReservationAdmissionTicket,
   ReservationInactiveTicket,
   reservationStatusBadgeStyles,
-  reservationStatusLabel,
   ReservationUnavailableTicket,
 } from "@/components/reservation-ticket";
 import type { Gym, Reservation } from "@/types/domain";
@@ -37,19 +36,20 @@ const noticeStyles = {
 type ReservationFilter = "all" | "reserved" | "used" | "cancelled";
 type ReservationSort = "upcoming" | "recent";
 
-// 상태 레이블은 reservation-ticket의 SSOT(reservationStatusLabel)를 그대로 따른다.
-// "전체"만 필터 전용으로 별도 정의.
-const reservationFilterLabels: Record<ReservationFilter, string> = {
-  all: "전체",
-  reserved: reservationStatusLabel.reserved,
-  used: reservationStatusLabel.used,
-  cancelled: reservationStatusLabel.cancelled,
-};
-
-const reservationSortLabels: Record<ReservationSort, string> = {
-  upcoming: "가까운 예약순",
-  recent: "최근 생성순",
-};
+// 필터/정렬/기간 버튼 순서(라벨 텍스트는 messages에서 가져온다).
+const RESERVATION_FILTERS: ReservationFilter[] = [
+  "all",
+  "reserved",
+  "used",
+  "cancelled",
+];
+const RESERVATION_SORTS: ReservationSort[] = ["upcoming", "recent"];
+const RESERVATION_RANGES: ReservationRange[] = [
+  "all",
+  "week",
+  "month",
+  "quarter",
+];
 
 // URL ?status=... 쿼리는 /api/reservations 의 status 필터와 동일한 어휘를 사용한다.
 // 값이 없거나 지원하지 않으면 "all"로 해석한다.
@@ -104,6 +104,14 @@ type ReservationsViewProps = {
 };
 
 export function ReservationsView({ gyms }: ReservationsViewProps) {
+  const t = useTranslations("Reservations");
+  const tReservation = useTranslations("Reservation");
+  // 필터/기간 라벨 헬퍼. 상태/기간 텍스트는 공유 Reservation namespace를 따른다.
+  const filterLabel = (filter: ReservationFilter) =>
+    filter === "all" ? t("filterAll") : tReservation(`status.${filter}`);
+  const rangeText = (range: ReservationRange) => tReservation(`range.${range}`);
+  const sortLabel = (sort: ReservationSort) =>
+    t(sort === "upcoming" ? "sortUpcoming" : "sortRecent");
   // 필터 상태는 URL ?status= 쿼리를 SSOT로 본다. router.replace로 갱신하면
   // useSearchParams가 새 값을 내려주고, 그 결과로 displayReservations가 재계산된다.
   const router = useRouter();
@@ -286,7 +294,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
     } catch {
       setActionNotice({
         tone: "error",
-        message: "예약 취소 중 예상하지 못한 오류가 발생했습니다.",
+        message: t("cancelUnexpectedError"),
       });
     } finally {
       setCancellingReservationId(null);
@@ -301,12 +309,14 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
           aria-live="polite"
           aria-busy="true"
         >
-          <p className="text-sm font-semibold text-accent-strong">내 예약</p>
+          <p className="text-sm font-semibold text-accent-strong">
+            {t("eyebrow")}
+          </p>
           <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
-            예약 정보를 불러오고 있습니다
+            {t("loadingTitle")}
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            저장된 예약 목록을 확인하는 중입니다.
+            {t("loadingDesc")}
           </p>
           <div className="mt-6 flex justify-center" aria-hidden="true">
             <span className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
@@ -320,9 +330,9 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
         className="mx-auto w-full max-w-4xl rounded-lg border border-error/30 bg-error/10 p-8 text-center text-error shadow-sm"
         role="alert"
       >
-        <p className="text-sm font-semibold">내 예약</p>
+        <p className="text-sm font-semibold">{t("eyebrow")}</p>
         <h1 className="mt-2 break-keep text-2xl font-bold sm:text-3xl">
-          예약 정보를 불러오지 못했습니다
+          {t("loadErrorTitle")}
         </h1>
         <p className="mt-3 text-sm leading-6">{reservationReadResult.message}</p>
       </section>
@@ -332,19 +342,20 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   if (reservations.length === 0) {
     return (
       <section className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">내 예약</p>
+        <p className="text-sm font-semibold text-accent-strong">
+          {t("eyebrow")}
+        </p>
         <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
-          아직 예약이 없습니다
+          {t("emptyTitle")}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          체육관 상세 화면에서 종목, 날짜, 시간을 선택하면 여기에 예약과
-          모바일 입장권이 표시됩니다.
+          {t("emptyDesc")}
         </p>
         <Link
           href="/gyms"
           className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          체육관 찾기
+          {t("findGym")}
         </Link>
       </section>
     );
@@ -353,22 +364,23 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">내 예약</p>
+        <p className="text-sm font-semibold text-accent-strong">
+          {t("eyebrow")}
+        </p>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-950">
-              예약 {activeReservations.length}건
+              {t("countTitle", { count: activeReservations.length })}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              현재 세션에 연결된 예약만 표시합니다. 취소한 예약은 기록으로
-              남기고 모바일 입장권은 비활성화합니다.
+              {t("headerDesc")}
             </p>
           </div>
           <Link
             href="/gyms"
             className="inline-flex h-10 w-fit shrink-0 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold whitespace-nowrap text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            추가 예약
+            {t("addReservation")}
           </Link>
         </div>
 
@@ -387,12 +399,10 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             role="status"
           >
             <p className="font-semibold">
-              현재 시설 목록에서 제외된 예약 {missingGymReservationCount}건이
-              있습니다.
+              {t("missingGymCount", { count: missingGymReservationCount })}
             </p>
             <p className="mt-1 leading-6">
-              현재 운영 중인 시설 목록에 없는 예약입니다. 예약 기록은 유지되며
-              필요하면 취소할 수 있습니다.
+              {t("missingGymDesc")}
             </p>
           </div>
         ) : null}
@@ -400,9 +410,9 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
         <div
           className="mt-5 flex flex-wrap gap-2"
           role="group"
-          aria-label="예약 상태 필터"
+          aria-label={t("statusFilterAria")}
         >
-          {(Object.keys(reservationFilterLabels) as ReservationFilter[]).map(
+          {RESERVATION_FILTERS.map(
             (filter) => {
               const isSelected = reservationFilter === filter;
 
@@ -421,7 +431,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                       : "border-line-strong bg-white text-slate-700 hover:border-accent hover:text-accent-strong"
                   }`}
                 >
-                  {reservationFilterLabels[filter]}{" "}
+                  {filterLabel(filter)}{" "}
                   <span
                     className={`ml-1 rounded px-1.5 py-0.5 text-xs font-bold ${
                       isSelected
@@ -438,13 +448,15 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500">정렬</span>
+          <span className="text-xs font-semibold text-slate-500">
+            {t("sortLabel")}
+          </span>
           <div
             className="flex flex-wrap gap-2"
             role="group"
-            aria-label="예약 정렬"
+            aria-label={t("sortAria")}
           >
-            {(Object.keys(reservationSortLabels) as ReservationSort[]).map(
+            {RESERVATION_SORTS.map(
               (sort) => {
                 const isSelected = reservationSort === sort;
 
@@ -463,7 +475,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                         : "border-line-strong bg-white text-slate-700 hover:border-accent hover:text-accent-strong"
                     }`}
                   >
-                    {reservationSortLabels[sort]}
+                    {sortLabel(sort)}
                   </button>
                 );
               },
@@ -472,13 +484,15 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-slate-500">기간</span>
+          <span className="text-xs font-semibold text-slate-500">
+            {t("rangeLabel")}
+          </span>
           <div
             className="flex flex-wrap gap-2"
             role="group"
-            aria-label="예약 기간 필터"
+            aria-label={t("rangeAria")}
           >
-            {(Object.keys(reservationRangeLabels) as ReservationRange[]).map(
+            {RESERVATION_RANGES.map(
               (range) => {
                 const isSelected = reservationRange === range;
 
@@ -497,7 +511,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                         : "border-line-strong bg-white text-slate-700 hover:border-accent hover:text-accent-strong"
                     }`}
                   >
-                    {reservationRangeLabels[range]}
+                    {rangeText(range)}
                   </button>
                 );
               },
@@ -514,16 +528,21 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
           className="rounded-md border border-line bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-600"
           role="status"
         >
-          최근 {reservationRangeLabels[reservationRange]} 내{" "}
-          {reservationFilterLabels[reservationFilter]} {displayReservations.length}건 표시
+          {t("rangeSummary", {
+            range: rangeText(reservationRange),
+            filter: filterLabel(reservationFilter),
+            count: displayReservations.length,
+          })}
         </p>
       ) : null}
 
       {recentGymEntries.length > 0 ? (
         <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <p className="text-sm font-semibold text-accent-strong">최근 예약한 시설</p>
+          <p className="text-sm font-semibold text-accent-strong">
+            {t("recentGymsTitle")}
+          </p>
           <p className="mt-1 text-xs text-slate-500">
-            최근 예약한 종목으로 다시 예약을 시작할 수 있습니다.
+            {t("recentGymsDesc")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {recentGymEntries.map((entry) => {
@@ -533,7 +552,10 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                 <Link
                   key={entry.gymId}
                   href={`/reserve/${encodeURIComponent(entry.gymId)}?sport=${encodeURIComponent(entry.sport)}`}
-                  aria-label={`${gym.name} ${entry.sport} 종목으로 다시 예약`}
+                  aria-label={t("recentGymAria", {
+                    name: gym.name,
+                    sport: entry.sport,
+                  })}
                   className="inline-flex h-9 items-center rounded-md border border-accent/30 bg-accent-tint px-3 text-xs font-semibold text-accent-strong transition hover:border-accent hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   {gym.name} · {entry.sport}
@@ -548,15 +570,18 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
         <div className="rounded-lg border border-line bg-white p-8 text-center shadow-sm">
           <p className="text-base font-bold text-slate-950">
             {reservationRange !== "all"
-              ? `최근 ${reservationRangeLabels[reservationRange]} 내 ${reservationFilterLabels[reservationFilter]} 내역이 없습니다`
-              : `${reservationFilterLabels[reservationFilter]} 내역이 없습니다`}
+              ? t("emptyFilterRange", {
+                  range: rangeText(reservationRange),
+                  filter: filterLabel(reservationFilter),
+                })
+              : t("emptyFilter", { filter: filterLabel(reservationFilter) })}
           </p>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             {reservationRange !== "all"
-              ? "기간을 전체로 바꾸거나 다른 상태를 선택해 보세요."
+              ? t("emptyFilterRangeDesc")
               : reservationFilter === "all"
-                ? "체육관 상세 화면에서 새 예약을 진행할 수 있습니다."
-                : "다른 상태를 선택하거나 체육관 상세 화면에서 새 예약을 진행할 수 있습니다."}
+                ? t("emptyFilterAllDesc")
+                : t("emptyFilterOtherDesc")}
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {reservationRange !== "all" ? (
@@ -566,10 +591,10 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                   setPendingCancelReservationId(null);
                   updateReservationRange("all");
                 }}
-                aria-label="예약 기간 필터를 전체로 보기"
+                aria-label={t("rangeToAllAria")}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                기간 전체로
+                {t("rangeToAll")}
               </button>
             ) : null}
             {reservationFilter !== "all" ? (
@@ -579,17 +604,17 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                   setPendingCancelReservationId(null);
                   updateReservationFilter("all");
                 }}
-                aria-label="예약 상태 필터를 전체로 보기"
+                aria-label={t("filterToAllAria")}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                전체 보기
+                {t("filterToAll")}
               </button>
             ) : null}
             <Link
               href="/gyms"
               className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              체육관 찾기
+              {t("findGym")}
             </Link>
           </div>
         </div>
@@ -599,7 +624,11 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
             const isInactive = reservation.status !== "reserved";
             const isPendingCancel =
               pendingCancelReservationId === reservation.id;
-            const gymSummary = getReservationGymSummary(gymsById, reservation);
+            const gymSummary = getReservationGymSummary(
+              gymsById,
+              reservation,
+              tReservation("missingGymName"),
+            );
             const gymName = gymSummary.name;
             const now = currentMinuteValue
               ? new Date(currentMinuteValue)
@@ -624,21 +653,25 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                 className={`grid gap-5 rounded-lg border bg-white p-4 shadow-sm sm:p-5 lg:grid-cols-[1fr_auto] ${
                   isInactive ? "border-line opacity-70" : "border-line"
                 }`}
-                aria-label={`${gymName} ${reservation.sport} 예약 - ${reservationStatusLabel[reservation.status]}`}
+                aria-label={t("cardAria", {
+                  name: gymName,
+                  sport: reservation.sport,
+                  status: tReservation(`status.${reservation.status}`),
+                })}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       className={`rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
                     >
-                      {reservationStatusLabel[reservation.status]}
+                      {tReservation(`status.${reservation.status}`)}
                     </span>
                     <span className="text-xs font-semibold text-slate-400">
-                      예약번호 {reservation.id.slice(0, 8)}
+                      {t("reservationNo")} {reservation.id.slice(0, 8)}
                     </span>
                     {gymSummary.isMissingFromCurrentData ? (
                       <span className="rounded-md bg-warning/10 px-2.5 py-1 text-xs font-bold text-warning">
-                        시설 정보 제외됨
+                        {t("missingGymBadge")}
                       </span>
                     ) : null}
                   </div>
@@ -649,33 +682,31 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
 
                   {gymSummary.isMissingFromCurrentData ? (
                     <p className="mt-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs leading-5 text-warning">
-                      이 예약의 체육관 ID({reservation.gymId})는 현재 운영 중인
-                      시설 목록에 없습니다. 예약 기록은 유지되며 취소할 수
-                      있습니다.
+                      {t("missingGymInline", { gymId: reservation.gymId })}
                     </p>
                   ) : null}
 
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                     <div>
-                      <dt className="text-slate-500">종목</dt>
+                      <dt className="text-slate-500">{t("sportLabel")}</dt>
                       <dd className="mt-1 font-semibold text-slate-950">
                         {reservation.sport}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-slate-500">이용 일시</dt>
+                      <dt className="text-slate-500">{t("dateTimeLabel")}</dt>
                       <dd className="mt-1 font-semibold text-slate-950">
                         {reservation.date} {reservation.time}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-slate-500">금액</dt>
+                      <dt className="text-slate-500">{t("priceLabel")}</dt>
                       <dd className="mt-1 font-semibold text-slate-950">
                         {formatGymPrice(reservation.price)}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-slate-500">예약일</dt>
+                      <dt className="text-slate-500">{t("createdAtLabel")}</dt>
                       <dd className="mt-1 font-semibold text-slate-950">
                         {formatReservationCreatedAt(reservation.createdAt)}
                       </dd>
@@ -687,17 +718,22 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                       href={`/reservations/${encodeURIComponent(reservation.id)}`}
                       className="inline-flex h-10 w-full items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 sm:w-auto"
                     >
-                      상세 보기
+                      {t("viewDetail")}
                     </Link>
                     {/* 시설이 현재 데이터에서 사라진 예약(isMissingFromCurrentData)은
                         실제 진입해도 예약 폼이 없으므로 "다시 예약" 버튼을 숨긴다. */}
                     {!gymSummary.isMissingFromCurrentData ? (
                       <Link
                         href={`/reserve/${encodeURIComponent(reservation.gymId)}?sport=${encodeURIComponent(reservation.sport)}&date=${encodeURIComponent(reservation.date)}&time=${encodeURIComponent(reservation.time)}`}
-                        aria-label={`${gymName} ${reservation.sport} ${reservation.date} ${reservation.time} 조건으로 다시 예약`}
+                        aria-label={t("rebookAria", {
+                          name: gymName,
+                          sport: reservation.sport,
+                          date: reservation.date,
+                          time: reservation.time,
+                        })}
                         className="inline-flex h-10 w-full items-center justify-center rounded-md border border-accent/30 bg-accent-tint px-4 text-sm font-semibold text-accent-strong transition hover:border-accent hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 sm:w-auto"
                       >
-                        다시 예약
+                        {t("rebook")}
                       </Link>
                     ) : null}
                   </div>
@@ -716,7 +752,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                         role="alert"
                       >
                         <p className="font-semibold">
-                          {gymName} 예약을 취소할까요?
+                          {t("cancelConfirmTitle", { name: gymName })}
                         </p>
                         <p className="mt-1 text-xs text-error">
                           {reservation.date} {reservation.time} ·{" "}
@@ -727,12 +763,12 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                             type="button"
                             onClick={() => handleCancel(reservation.id)}
                             disabled={Boolean(cancellingReservationId)}
-                            aria-label={`${gymName} 예약 취소 확정`}
+                            aria-label={t("cancelConfirmAria", { name: gymName })}
                             className="h-10 rounded-md bg-error px-3 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                           >
                             {cancellingReservationId === reservation.id
-                              ? "취소 중"
-                              : "취소 확정"}
+                              ? t("cancelling")
+                              : t("cancelConfirm")}
                           </button>
                           <button
                             type="button"
@@ -740,7 +776,7 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                             disabled={Boolean(cancellingReservationId)}
                             className="h-10 rounded-md border border-error/30 bg-white px-3 text-sm font-semibold text-error transition hover:bg-error/15 disabled:cursor-not-allowed disabled:text-error/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                           >
-                            유지
+                            {t("keep")}
                           </button>
                         </div>
                       </div>
@@ -748,8 +784,10 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                       <div className="mt-5 flex flex-col items-start gap-2">
                         {cancellationDeadline ? (
                           <p className="text-xs font-semibold text-slate-500">
-                            {formatCancellationDeadline(cancellationDeadline)}
-                            까지 취소 가능
+                            {t("cancelDeadline", {
+                              deadline:
+                                formatCancellationDeadline(cancellationDeadline),
+                            })}
                           </p>
                         ) : null}
                         <button
@@ -759,12 +797,16 @@ export function ReservationsView({ gyms }: ReservationsViewProps) {
                             Boolean(cancellingReservationId) ||
                             !canCancelReservation
                           }
-                          aria-label={`${gymName} ${reservation.date} ${reservation.time} 예약 취소`}
+                          aria-label={t("cancelReservationAria", {
+                            name: gymName,
+                            date: reservation.date,
+                            time: reservation.time,
+                          })}
                           className="h-10 rounded-md border border-error/30 px-4 text-sm font-semibold text-error transition hover:bg-error/10 disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                         >
                           {cancellingReservationId === reservation.id
-                            ? "취소 중"
-                            : "예약 취소"}
+                            ? t("cancelling")
+                            : t("cancelReservation")}
                         </button>
                       </div>
                     )

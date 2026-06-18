@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useUserLocation } from "@/hooks/use-user-location";
 
 // 위치 권한 안내/요청 모달. 다음 케이스를 구분해 메시지를 분기한다:
@@ -10,31 +11,35 @@ import { useUserLocation } from "@/hooks/use-user-location";
 
 type ModalError = "unavailable" | "timeout" | "unsupported" | null;
 
-function getTitle(isDenied: boolean, lastError: ModalError): string {
-  if (isDenied) return "위치 권한이 차단되어 있습니다";
-  if (lastError === "unsupported") return "이 브라우저는 위치 정보를 지원하지 않습니다";
-  if (lastError === "unavailable") return "위치 정보를 가져올 수 없습니다";
-  if (lastError === "timeout") return "위치 응답이 늦어졌습니다";
-  return "위치 정보 사용 동의";
+// 헬퍼에 넘기는 번역 함수는 key→string 호출 시그니처로만 사용한다.
+type ModalTranslate = (key: string) => string;
+
+function getTitle(
+  t: ModalTranslate,
+  isDenied: boolean,
+  lastError: ModalError,
+): string {
+  if (isDenied) return t("titleDenied");
+  if (lastError === "unsupported") return t("titleUnsupported");
+  if (lastError === "unavailable") return t("titleUnavailable");
+  if (lastError === "timeout") return t("titleTimeout");
+  return t("titleDefault");
 }
 
-function getBody(isDenied: boolean, lastError: ModalError): string {
-  if (isDenied) {
-    return "거리순 정렬과 거리 표시를 위해 위치 정보가 필요합니다. 주소창 좌측 자물쇠 아이콘에서 위치 권한을 허용한 뒤 다시 시도해 주세요.";
-  }
-  if (lastError === "unsupported") {
-    return "현재 사용 중인 브라우저에서 위치 정보 API(geolocation)를 지원하지 않습니다. 위치 기반 기능 없이 서비스를 계속 이용하실 수 있습니다.";
-  }
-  if (lastError === "unavailable") {
-    return "기기의 위치 서비스가 꺼져 있거나 좌표를 가져올 수 없습니다. 위치 서비스를 켠 뒤 다시 시도해 주세요.";
-  }
-  if (lastError === "timeout") {
-    return "위치 응답이 너무 늦었습니다. 잠시 후 다시 시도해 주세요.";
-  }
-  return "현재 위치를 기준으로 가까운 체육관을 찾고 거리를 표시하기 위해 위치 정보가 필요합니다. 위치 정보는 기기 안에서만 사용되며 저장하지 않습니다.";
+function getBody(
+  t: ModalTranslate,
+  isDenied: boolean,
+  lastError: ModalError,
+): string {
+  if (isDenied) return t("bodyDenied");
+  if (lastError === "unsupported") return t("bodyUnsupported");
+  if (lastError === "unavailable") return t("bodyUnavailable");
+  if (lastError === "timeout") return t("bodyTimeout");
+  return t("bodyDefault");
 }
 
 export function LocationPermissionModal() {
+  const t = useTranslations("LocationModal");
   const { permission, lastError, isPromptModalOpen, requestLocation, closePromptModal } =
     useUserLocation();
 
@@ -56,10 +61,10 @@ export function LocationPermissionModal() {
           id="location-permission-title"
           className="text-lg font-bold text-slate-950"
         >
-          {getTitle(isDenied, lastError)}
+          {getTitle(t, isDenied, lastError)}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-700">
-          {getBody(isDenied, lastError)}
+          {getBody(t, isDenied, lastError)}
         </p>
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button
@@ -67,7 +72,7 @@ export function LocationPermissionModal() {
             onClick={closePromptModal}
             className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
           >
-            {isDenied ? "확인" : "나중에"}
+            {isDenied ? t("confirm") : t("later")}
           </button>
           {showRetry ? (
             <button
@@ -77,7 +82,7 @@ export function LocationPermissionModal() {
               }}
               className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
             >
-              {lastError ? "다시 시도" : "허용하기"}
+              {lastError ? t("retry") : t("allow")}
             </button>
           ) : null}
         </div>

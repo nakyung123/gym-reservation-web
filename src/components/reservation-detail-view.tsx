@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useTranslations } from "next-intl";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import {
   getFirebaseAuthSessionServerSnapshot,
@@ -33,7 +34,6 @@ import {
   ReservationAdmissionTicket,
   ReservationInactiveTicket,
   reservationStatusBadgeStyles,
-  reservationStatusLabel,
   ReservationUnavailableTicket,
 } from "@/components/reservation-ticket";
 import type { Gym, Reservation } from "@/types/domain";
@@ -85,7 +85,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function DetailState({
-  eyebrow = "예약 상세",
+  eyebrow,
   title,
   message,
   tone = "default",
@@ -97,7 +97,9 @@ function DetailState({
   tone?: "default" | "error";
   busy?: boolean;
 }) {
+  const t = useTranslations("ReservationDetail");
   const isError = tone === "error";
+  const eyebrowText = eyebrow ?? t("stateEyebrow");
 
   return (
     <section
@@ -113,7 +115,7 @@ function DetailState({
       <p
         className={`text-sm font-semibold ${isError ? "" : "text-accent-strong"}`}
       >
-        {eyebrow}
+        {eyebrowText}
       </p>
       <h1 className="mt-2 break-keep text-2xl font-bold sm:text-3xl">
         {title}
@@ -128,7 +130,7 @@ function DetailState({
           href="/reservations"
           className="mt-6 inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          내 예약으로
+          {t("backToList")}
         </Link>
       )}
     </section>
@@ -164,6 +166,8 @@ export function ReservationDetailView({
   gyms,
   reservationId,
 }: ReservationDetailViewProps) {
+  const t = useTranslations("ReservationDetail");
+  const tReservation = useTranslations("Reservation");
   const [actionNotice, setActionNotice] = useState<{
     tone: keyof typeof noticeStyles;
     message: string;
@@ -224,7 +228,7 @@ export function ReservationDetailView({
             message:
               error instanceof Error
                 ? error.message
-                : "예약 상세를 불러오지 못했습니다.",
+                : t("loadErrorDefault"),
           });
         }
         return;
@@ -261,7 +265,7 @@ export function ReservationDetailView({
         detailAbortRef.current = null;
       }
     };
-  }, [authSession, reservationId]);
+  }, [authSession, reservationId, t]);
   const currentMinuteValue = useCurrentMinuteValue();
   const reservationReadResult = useMemo(
     () => parseReservationSnapshot(reservationSnapshot),
@@ -328,7 +332,7 @@ export function ReservationDetailView({
       ) {
         return (
           <DetailState
-            title="예약을 찾을 수 없습니다"
+            title={t("notFoundTitle")}
             message={currentDetailFetch.message}
           />
         );
@@ -339,7 +343,7 @@ export function ReservationDetailView({
       ) {
         return (
           <DetailState
-            title="예약 정보를 불러오지 못했습니다"
+            title={t("loadErrorTitle")}
             message={currentDetailFetch.message}
             tone="error"
           />
@@ -347,8 +351,8 @@ export function ReservationDetailView({
       }
       return (
         <DetailState
-          title="예약 정보를 불러오고 있습니다"
-          message="현재 세션에 연결된 예약을 확인하는 중입니다."
+          title={t("loadingTitle")}
+          message={t("loadingDesc")}
           busy
         />
       );
@@ -356,7 +360,7 @@ export function ReservationDetailView({
 
     return (
       <DetailState
-        title="예약 정보를 불러오지 못했습니다"
+        title={t("loadErrorTitle")}
         message={reservationReadResult.message}
         tone="error"
       />
@@ -371,7 +375,7 @@ export function ReservationDetailView({
     ) {
       return (
         <DetailState
-          title="예약을 찾을 수 없습니다"
+          title={t("notFoundTitle")}
           message={currentDetailFetch.message}
         />
       );
@@ -383,7 +387,7 @@ export function ReservationDetailView({
     ) {
       return (
         <DetailState
-          title="예약 정보를 불러오지 못했습니다"
+          title={t("loadErrorTitle")}
           message={currentDetailFetch.message}
           tone="error"
         />
@@ -394,8 +398,8 @@ export function ReservationDetailView({
       // 아직 현재 id에 대한 단건 응답이 도착하지 않음 → loading.
       return (
         <DetailState
-          title="예약 정보를 불러오고 있습니다"
-          message="현재 세션에 연결된 예약을 확인하는 중입니다."
+          title={t("loadingTitle")}
+          message={t("loadingDesc")}
           busy
         />
       );
@@ -403,13 +407,17 @@ export function ReservationDetailView({
 
     return (
       <DetailState
-        title="예약을 찾을 수 없습니다"
-        message="현재 세션에 연결된 예약 중 요청한 예약번호가 없습니다."
+        title={t("notFoundTitle")}
+        message={t("notFoundDesc")}
       />
     );
   }
 
-  const gymSummary = getReservationGymSummary(gymsById, reservation);
+  const gymSummary = getReservationGymSummary(
+    gymsById,
+    reservation,
+    tReservation("missingGymName"),
+  );
   const now = currentMinuteValue ? new Date(currentMinuteValue) : new Date();
   // 시간 의존(canCancel/deadline 통과)은 매 분 클라이언트에서 재평가해야 하므로,
   // 동일 SSOT 함수(createUserReservationDetail)로 화면용 detail을 재구성한다.
@@ -441,8 +449,7 @@ export function ReservationDetailView({
     ) {
       setActionNotice({
         tone: "error",
-        message:
-          "이 브라우저에서는 주소 복사를 지원하지 않습니다. 주소를 길게 눌러 직접 복사해 주세요.",
+        message: t("copyUnsupported"),
       });
       return;
     }
@@ -451,13 +458,12 @@ export function ReservationDetailView({
       await navigator.clipboard.writeText(address);
       setActionNotice({
         tone: "success",
-        message: "시설 주소를 복사했습니다.",
+        message: t("copySuccess"),
       });
     } catch {
       setActionNotice({
         tone: "error",
-        message:
-          "주소 복사에 실패했습니다. 주소를 길게 눌러 직접 복사해 주세요.",
+        message: t("copyFailed"),
       });
     }
   };
@@ -500,7 +506,7 @@ export function ReservationDetailView({
     } catch {
       setActionNotice({
         tone: "error",
-        message: "예약 취소 중 예상하지 못한 오류가 발생했습니다.",
+        message: t("cancelUnexpectedError"),
       });
     } finally {
       setIsCancelling(false);
@@ -514,24 +520,24 @@ export function ReservationDetailView({
           href="/reservations"
           className="rounded text-sm font-semibold text-accent-strong hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          내 예약으로
+          {t("backToList")}
         </Link>
 
         <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-accent-strong">
-          예약 확인서
+          {t("confirmationEyebrow")}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <span
             className={`rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
           >
-            {reservationStatusLabel[reservation.status]}
+            {tReservation(`status.${reservation.status}`)}
           </span>
           <span className="text-xs font-semibold text-slate-400">
-            예약번호 {reservation.id.slice(0, 8)}
+            {t("reservationNo")} {reservation.id.slice(0, 8)}
           </span>
           {gymSummary.isMissingFromCurrentData ? (
             <span className="rounded-md bg-warning/10 px-2.5 py-1 text-xs font-bold text-warning">
-              시설 정보 제외됨
+              {t("missingGymBadge")}
             </span>
           ) : null}
         </div>
@@ -540,15 +546,16 @@ export function ReservationDetailView({
           {gymSummary.name}
         </h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">
-          {reservation.date} {reservation.time} · {reservation.sport} 예약
-          확인서입니다.
+          {t("confirmationDesc", {
+            date: reservation.date,
+            time: reservation.time,
+            sport: reservation.sport,
+          })}
         </p>
 
         {gymSummary.isMissingFromCurrentData ? (
           <p className="mt-5 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm leading-6 text-warning">
-            이 예약의 체육관 ID({reservation.gymId})는 현재 운영 중인 시설
-            목록에 없습니다. 예약 기록은 유지되며 취소 가능 조건을 만족하면
-            취소할 수 있습니다.
+            {t("missingGymInline", { gymId: reservation.gymId })}
           </p>
         ) : null}
 
@@ -562,12 +569,12 @@ export function ReservationDetailView({
         ) : null}
 
         <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          확인서 핵심
+          {t("summaryHeading")}
         </p>
         <dl className="mt-2 grid gap-4 rounded-md border border-line bg-slate-50 px-4 py-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
-              체육관
+              {t("gymLabel")}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-slate-950">
               {gymSummary.name}
@@ -575,7 +582,7 @@ export function ReservationDetailView({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
-              종목
+              {t("sportLabel")}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-slate-950">
               {reservation.sport}
@@ -583,7 +590,7 @@ export function ReservationDetailView({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
-              이용 일시
+              {t("dateTimeLabel")}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-slate-950">
               {reservation.date} {reservation.time}
@@ -591,7 +598,7 @@ export function ReservationDetailView({
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase text-slate-500">
-              결제 금액
+              {t("priceLabel")}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-slate-950">
               {formatGymPrice(reservation.price)}
@@ -599,13 +606,16 @@ export function ReservationDetailView({
           </div>
           <div className="sm:col-span-2">
             <dt className="text-xs font-semibold uppercase text-slate-500">
-              취소 가능 기한
+              {t("cancelDeadlineLabel")}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-slate-950">
               {reservation.status === "reserved" &&
               canCancelReservation &&
               cancellationDeadline
-                ? `${formatCancellationDeadline(cancellationDeadline)}까지`
+                ? t("cancelDeadlineUntil", {
+                    deadline:
+                      formatCancellationDeadline(cancellationDeadline),
+                  })
                 : reservation.status === "reserved"
                   ? cancellationMessage
                   : "—"}
@@ -614,13 +624,13 @@ export function ReservationDetailView({
         </dl>
 
         <div className="mt-3 rounded-md border border-line bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
-          <p className="font-semibold text-slate-700">참고 정보</p>
+          <p className="font-semibold text-slate-700">{t("referenceTitle")}</p>
           <dl className="mt-2 grid gap-2 sm:grid-cols-[120px_1fr]">
-            <dt className="text-slate-500">예약일</dt>
+            <dt className="text-slate-500">{t("createdAtLabel")}</dt>
             <dd className="text-slate-800">
               {formatReservationCreatedAt(reservation.createdAt)}
             </dd>
-            <dt className="text-slate-500">예약 ID</dt>
+            <dt className="text-slate-500">{t("reservationIdLabel")}</dt>
             <dd className="break-all font-mono text-slate-800">
               {reservation.id}
             </dd>
@@ -629,22 +639,24 @@ export function ReservationDetailView({
 
         {gymSummary.gym ? (
           <div className="mt-6 rounded-md border border-line bg-slate-50 px-4 py-3">
-            <h2 className="text-sm font-bold text-slate-950">시설 정보</h2>
+            <h2 className="text-sm font-bold text-slate-950">
+              {t("facilityInfoTitle")}
+            </h2>
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-slate-500">주소</dt>
+                <dt className="text-slate-500">{t("addressLabel")}</dt>
                 <dd className="mt-1 text-slate-800">
                   {gymSummary.gym.address}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">운영시간</dt>
+                <dt className="text-slate-500">{t("openHoursLabel")}</dt>
                 <dd className="mt-1 text-slate-800">
                   {gymSummary.gym.openHours}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">휴관일</dt>
+                <dt className="text-slate-500">{t("closedDaysLabel")}</dt>
                 <dd className="mt-1 text-slate-800">
                   {gymSummary.gym.closedDays.join(", ")}
                 </dd>
@@ -655,7 +667,7 @@ export function ReservationDetailView({
                 href={`/gyms/${gymSummary.gym.id}`}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                체육관 상세
+                {t("gymDetailLink")}
               </Link>
               {/* 이용 당일 시설로 가는 동선을 줄인다. clipboard와 외부 지도 링크는
                   추가 권한이나 외부 의존을 만들지 않는다. .ics 캘린더 다운로드는
@@ -665,26 +677,29 @@ export function ReservationDetailView({
                 onClick={() => handleCopyAddress(gymSummary.gym!.address)}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                주소 복사
+                {t("copyAddress")}
               </button>
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(gymSummary.gym.address)}`}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`${gymSummary.name} 길찾기 (외부 지도 새 탭)`}
+                aria-label={t("directionsAria", { name: gymSummary.name })}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                길찾기
+                {t("directions")}
               </a>
               {reservation.status === "reserved" ? (
                 // 같은 시설·같은 종목으로 다른 시간을 추가 예약하는 흐름을 가속하기 위해
                 // sport만 prefill한다. date/time은 새 예약이므로 비워둔다.
                 <Link
                   href={`/reserve/${encodeURIComponent(gymSummary.gym.id)}?sport=${encodeURIComponent(reservation.sport)}`}
-                  aria-label={`${gymSummary.name} ${reservation.sport} 추가 예약`}
+                  aria-label={t("addReservationAria", {
+                    name: gymSummary.name,
+                    sport: reservation.sport,
+                  })}
                   className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
-                  추가 예약
+                  {t("addReservation")}
                 </Link>
               ) : (
                 // 이용 완료/취소된 예약 상세에서도 같은 시설로 다시 예약 진입을 제공.
@@ -692,10 +707,13 @@ export function ReservationDetailView({
                 // 라벨은 reservations-view의 예약 카드와 동일하게 "다시 예약"으로 통일한다.
                 <Link
                   href={`/reserve/${encodeURIComponent(gymSummary.gym.id)}?sport=${encodeURIComponent(reservation.sport)}&date=${encodeURIComponent(reservation.date)}&time=${encodeURIComponent(reservation.time)}`}
-                  aria-label={`${gymSummary.name} ${reservation.sport} 같은 조건으로 다시 예약`}
+                  aria-label={t("rebookAria", {
+                    name: gymSummary.name,
+                    sport: reservation.sport,
+                  })}
                   className="inline-flex h-10 items-center justify-center rounded-md border border-accent/30 bg-accent-tint px-4 text-sm font-semibold text-accent-strong transition hover:border-accent hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
-                  다시 예약
+                  {t("rebook")}
                 </Link>
               )}
             </div>
@@ -704,7 +722,9 @@ export function ReservationDetailView({
 
         {reservation.status === "reserved" ? (
           <div className="mt-6 rounded-md border border-line bg-white px-4 py-3">
-            <h2 className="text-sm font-bold text-slate-950">예약 취소</h2>
+            <h2 className="text-sm font-bold text-slate-950">
+              {t("cancelSectionTitle")}
+            </h2>
             {canCancelReservation ? (
               <>
                 {confirmingCancel ? (
@@ -712,7 +732,7 @@ export function ReservationDetailView({
                     className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm text-error"
                     role="alert"
                   >
-                    <p className="font-semibold">이 예약을 취소할까요?</p>
+                    <p className="font-semibold">{t("cancelConfirmTitle")}</p>
                     <p className="mt-1 text-xs text-error">
                       {reservation.date} {reservation.time} ·{" "}
                       {reservation.sport}
@@ -724,7 +744,7 @@ export function ReservationDetailView({
                         disabled={isCancelling}
                         className="h-10 rounded-md bg-error px-3 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
-                        {isCancelling ? "취소 중" : "취소 확정"}
+                        {isCancelling ? t("cancelling") : t("cancelConfirm")}
                       </button>
                       <button
                         type="button"
@@ -732,7 +752,7 @@ export function ReservationDetailView({
                         disabled={isCancelling}
                         className="h-10 rounded-md border border-error/30 bg-white px-3 text-sm font-semibold text-error transition hover:bg-error/15 disabled:cursor-not-allowed disabled:text-error/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
-                        유지
+                        {t("keep")}
                       </button>
                     </div>
                   </div>
@@ -745,7 +765,7 @@ export function ReservationDetailView({
                     }}
                     className="mt-4 h-10 rounded-md border border-error/30 px-4 text-sm font-semibold text-error transition hover:bg-error/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                   >
-                    예약 취소
+                    {t("cancelReservation")}
                   </button>
                 )}
               </>
@@ -762,12 +782,14 @@ export function ReservationDetailView({
       </div>
 
       <aside className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">입장권</p>
+        <p className="text-sm font-semibold text-accent-strong">
+          {t("ticketEyebrow")}
+        </p>
         <h2 className="mt-2 text-xl font-bold text-slate-950">
-          모바일 입장권
+          {t("ticketTitle")}
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          예약 완료 상태의 예약만 현장 확인 코드가 활성화됩니다.
+          {t("ticketDesc")}
         </p>
         <div className="mt-5">
           <TicketPanel

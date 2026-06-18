@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import { useRequireAuth } from "@/lib/use-require-auth";
@@ -32,6 +33,7 @@ type SubmitState =
     };
 
 export function PasswordChangeView() {
+  const t = useTranslations("Password");
   const router = useRouter();
   // signed-out 감지 + redirect는 useRequireAuth가 처리. 본 컴포넌트는 user 객체 자체가
   // 필요해서 onAuthStateChanged로 직접 구독한다 (providerData 확인용).
@@ -56,7 +58,7 @@ export function PasswordChangeView() {
   if (authState.status === "loading" || authState.status === "signed-out") {
     return (
       <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm text-slate-600">로그인 상태를 확인하는 중입니다...</p>
+        <p className="text-sm text-slate-600">{t("loadingAuth")}</p>
       </section>
     );
   }
@@ -69,15 +71,15 @@ export function PasswordChangeView() {
   if (!isPasswordProvider) {
     return (
       <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-slate-950">비밀번호 변경</h1>
+        <h1 className="text-xl font-bold text-slate-950">{t("title")}</h1>
         <p className="mt-3 text-sm text-slate-600">
-          이 계정은 소셜 로그인으로 가입되어 비밀번호를 사용하지 않습니다.
+          {t("socialNotice")}
         </p>
         <Link
           href="/mypage"
           className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
         >
-          내 정보로 돌아가기
+          {t("backToMypage")}
         </Link>
       </section>
     );
@@ -99,13 +101,13 @@ export function PasswordChangeView() {
   const newPasswordError = validatePasswordPolicy(newPassword);
   const newPasswordConfirmError =
     newPasswordConfirm.length > 0 && newPasswordConfirm !== newPassword
-      ? "새 비밀번호 확인이 일치하지 않습니다."
+      ? t("confirmMismatch")
       : null;
   const sameAsCurrentError =
     newPassword.length > 0 &&
     currentPassword.length > 0 &&
     newPassword === currentPassword
-      ? "현재 비밀번호와 다른 값을 사용해 주세요."
+      ? t("sameAsCurrent")
       : null;
 
   const isLoading = submitState.kind === "loading";
@@ -152,14 +154,14 @@ export function PasswordChangeView() {
   return (
     <>
       <section className="w-full rounded-lg border border-line bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-bold text-slate-950">비밀번호 변경</h1>
+        <h1 className="text-xl font-bold text-slate-950">{t("title")}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          보안을 위해 현재 비밀번호를 입력한 뒤 새 비밀번호를 설정해 주세요.
+          {t("desc")}
         </p>
 
         <form className="mt-5 flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
           <PasswordField
-            label="현재 비밀번호"
+            label={t("currentPassword")}
             autoComplete="current-password"
             value={currentPassword}
             onChange={handleCurrentPasswordChange}
@@ -167,7 +169,7 @@ export function PasswordChangeView() {
             disabled={isLoading || isSuccess}
           />
           <PasswordField
-            label="새 비밀번호"
+            label={t("newPassword")}
             autoComplete="new-password"
             value={newPassword}
             onChange={setNewPassword}
@@ -176,7 +178,7 @@ export function PasswordChangeView() {
             disabled={isLoading || isSuccess}
           />
           <PasswordField
-            label="새 비밀번호 확인"
+            label={t("newPasswordConfirm")}
             autoComplete="new-password"
             value={newPasswordConfirm}
             onChange={setNewPasswordConfirm}
@@ -189,14 +191,14 @@ export function PasswordChangeView() {
               href="/mypage"
               className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
-              취소
+              {t("cancel")}
             </Link>
             <button
               type="submit"
               disabled={!isFormValid || isLoading || isSuccess}
               className="inline-flex h-10 flex-1 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {isLoading ? "변경 중" : "변경하기"}
+              {isLoading ? t("submitting") : t("submit")}
             </button>
           </div>
         </form>
@@ -223,10 +225,10 @@ export function PasswordChangeView() {
               id="password-success-title"
               className="text-lg font-bold text-slate-950"
             >
-              비밀번호가 변경되었습니다
+              {t("successTitle")}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              새 비밀번호로 다시 로그인이 필요할 수 있습니다.
+              {t("successDesc")}
             </p>
             <div className="mt-5 flex justify-end">
               <button
@@ -234,7 +236,7 @@ export function PasswordChangeView() {
                 onClick={() => router.replace("/mypage")}
                 className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover"
               >
-                확인
+                {t("confirm")}
               </button>
             </div>
           </div>

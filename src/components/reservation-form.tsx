@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useCallback,
   useEffect,
@@ -61,16 +62,16 @@ type SlotsState =
     }
   | { status: "error"; key: string; message: string };
 
-const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
-const unavailableTimeLabels = {
-  "gym-mismatch": "선택 불가",
-  "sport-unavailable": "종목 불가",
-  "time-unavailable": "시간 불가",
-  "invalid-date-time": "형식 오류",
-  "past-time": "지난 시간",
-  "closed-day": "휴관일",
-  "duplicate-active-reservation": "이미 예약함",
-};
+// 예약 불가 사유 → 번역 키 매핑. 라벨 텍스트는 messages의 Reserve.* 를 따른다.
+const unavailableTimeLabelKeys = {
+  "gym-mismatch": "unavailGymMismatch",
+  "sport-unavailable": "unavailSportUnavailable",
+  "time-unavailable": "unavailTimeUnavailable",
+  "invalid-date-time": "unavailInvalidDateTime",
+  "past-time": "unavailPastTime",
+  "closed-day": "unavailClosedDay",
+  "duplicate-active-reservation": "unavailDuplicate",
+} as const;
 
 const noticeStyles: Record<NoticeTone, string> = {
   success: "border-success/30 bg-success/10 text-success",
@@ -93,9 +94,15 @@ const reservationNoticeButtonStyles: Record<NoticeTone, string> = {
     "mt-6 h-11 w-full rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
 };
 
-function createDateOptions(todayValue: string): DateOption[] {
+function createDateOptions(
+  todayValue: string,
+  locale: string,
+  todayLabel: string,
+  tomorrowLabel: string,
+): DateOption[] {
   const [year, month, day] = todayValue.split("-").map(Number);
   const today = new Date(year, month - 1, day);
+  const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: "long" });
 
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date(today);
@@ -103,10 +110,10 @@ function createDateOptions(todayValue: string): DateOption[] {
 
     const label =
       index === 0
-        ? "오늘"
+        ? todayLabel
         : index === 1
-          ? "내일"
-          : `${weekdays[date.getDay()]}요일`;
+          ? tomorrowLabel
+          : weekdayFormatter.format(date);
 
     return {
       label,
@@ -139,6 +146,8 @@ function getTimeButtonClass(
 }
 
 export function ReservationForm({ gym }: ReservationFormProps) {
+  const t = useTranslations("Reserve");
+  const locale = useLocale();
   // /reserve/[gymId]?sport=&date=&time= 쿼리를 폼 초기 상태에 반영한다.
   // 형식 검증과 sport/time 허용 여부는 resolveReservationFormInitial이 SSOT.
   // 7일 윈도우 검사는 dateOptions가 준비되는 시점에 isInitialDateInWindow로 한다.
@@ -205,9 +214,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const dateOptions = useMemo(
     () =>
       currentMinuteValue
-        ? createDateOptions(currentMinuteValue.slice(0, 10))
+        ? createDateOptions(
+            currentMinuteValue.slice(0, 10),
+            locale,
+            t("dateToday"),
+            t("dateTomorrow"),
+          )
         : [],
-    [currentMinuteValue],
+    [currentMinuteValue, locale, t],
   );
   const effectiveSelectedDate =
     dateOptions.find((date) => date.value === selectedDate)?.value ??
@@ -233,12 +247,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     );
     if (!inWindow) {
       setSelectedDate(null);
-      setNotice(
-        "선택한 날짜는 예약 가능 범위(7일) 밖이라 무시되었습니다. 다른 날짜를 선택해 주세요.",
-      );
+      setNotice(t("dateWindowWarning"));
       setNoticeTone("warning");
     }
-  }, [dateOptions, initialSelectedDate]);
+  }, [dateOptions, initialSelectedDate, t]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const price = useMemo(
@@ -328,7 +340,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         setSlotsState({
           status: "error",
           key: slotsRequestKey,
-          message: `예약 가능 인원을 확인할 수 없습니다. ${detail}`.trim(),
+          message: t("slotsFetchError", { detail }).trim(),
         });
       });
 
@@ -340,6 +352,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     gym.id,
     selectedSport,
     slotsRequestKey,
+    t,
   ]);
 
   const slotsLookup =
@@ -417,14 +430,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     message: string;
     tone: "pending" | "blocked";
   } | null = isSubmitting
-    ? { message: "예약을 처리하고 있습니다.", tone: "pending" }
+    ? { message: t("submitProcessing"), tone: "pending" }
     : !authSession.ok
       ? {
           message: authSession.message,
           tone: authSession.reason === "not-ready" ? "pending" : "blocked",
         }
       : !isDateReady
-        ? { message: "예약 날짜를 준비하고 있습니다.", tone: "pending" }
+        ? { message: t("datePreparing"), tone: "pending" }
         : !reservationReadResult.ok
           ? {
               message: reservationReadResult.message,
@@ -439,19 +452,19 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               ? { message: slotsFetchError, tone: "blocked" }
               : slotsFetchPending || !slotsLookup
                 ? {
-                    message: "예약 가능 인원을 확인하고 있습니다.",
+                    message: t("slotsChecking"),
                     tone: "pending",
                   }
                 : selectedSlot && selectedSlot.status !== "available"
                   ? {
-                      message: "선택한 시간대는 마감되었습니다.",
+                      message: t("slotClosedSelected"),
                       tone: "blocked",
                     }
                   : null;
   const submitDisabledReason = submitDisabled?.message ?? null;
   const timeSelectionDisabledLabel = isReservationDataLoading
-    ? "확인 중"
-    : "확인 불가";
+    ? t("timeLabelChecking")
+    : t("timeLabelUnavailable");
   const shouldShowSubmitDisabledReason =
     Boolean(submitDisabledReason) && !hasReservationNotice;
   const availableTimeCount = useMemo(() => {
@@ -471,12 +484,12 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     timeStates,
   ]);
   const reserveButtonLabel = isSubmitting
-    ? "예약 처리 중"
+    ? t("reserveProcessing")
     : hasReservationNotice
       ? noticeTone === "success"
-        ? "예약 완료"
-        : "이미 예약됨"
-      : "예약하기";
+        ? t("reserveDone")
+        : t("reserveDuplicate")
+      : t("reserveButton");
   const reserveButtonClass = hasReservationNotice
     ? reservationNoticeButtonStyles[noticeTone]
     : "mt-6 h-11 w-full rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
@@ -538,7 +551,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       setNoticeTone("error");
       setNoticeReservation(null);
     } catch {
-      setNotice("예약 처리 중 예상하지 못한 오류가 발생했습니다.");
+      setNotice(t("unexpectedError"));
       setNoticeTone("error");
       setNoticeReservation(null);
     } finally {
@@ -555,16 +568,16 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         ? 2
         : 1;
   const reservationSteps: { id: 1 | 2 | 3; label: string }[] = [
-    { id: 1, label: "예약 정보" },
-    { id: 2, label: "확인" },
-    { id: 3, label: "완료" },
+    { id: 1, label: t("stepInfo") },
+    { id: 2, label: t("stepConfirm") },
+    { id: 3, label: t("stepDone") },
   ];
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-5">
       <ol
         className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-white p-3 shadow-sm"
-        aria-label="예약 진행 단계"
+        aria-label={t("stepsAria")}
       >
         {reservationSteps.map((step, index) => {
           const isCurrent = reservationStep === step.id;
@@ -625,14 +638,22 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
       <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[1fr_360px]">
       <section className="min-w-0 rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">예약 선택</p>
+        <p className="text-sm font-semibold text-accent-strong">
+          {t("selectEyebrow")}
+        </p>
         <h1 className="mt-2 text-3xl font-bold text-slate-950">{gym.name}</h1>
         <p className="mt-2 text-sm text-slate-600">{gym.address}</p>
 
         <div className="mt-7 grid min-w-0 gap-6">
           <fieldset>
-            <legend className="text-sm font-bold text-slate-950">종목</legend>
-            <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="종목 선택">
+            <legend className="text-sm font-bold text-slate-950">
+              {t("sportLegend")}
+            </legend>
+            <div
+              className="mt-3 flex flex-wrap gap-2"
+              role="group"
+              aria-label={t("sportSelectAria")}
+            >
               {gym.sports.map((sport) => (
                 <button
                   key={sport}
@@ -655,7 +676,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           </fieldset>
 
           <fieldset>
-            <legend className="text-sm font-bold text-slate-950">날짜</legend>
+            <legend className="text-sm font-bold text-slate-950">
+              {t("dateLegend")}
+            </legend>
             <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
               {isDateReady ? (
                 dateOptions.map((date) => (
@@ -681,14 +704,16 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 ))
               ) : (
                 <div className="col-span-2 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500 sm:col-span-4">
-                  날짜를 준비하고 있습니다.
+                  {t("dateLoading")}
                 </div>
               )}
             </div>
           </fieldset>
 
           <fieldset>
-            <legend className="text-sm font-bold text-slate-950">시간</legend>
+            <legend className="text-sm font-bold text-slate-950">
+              {t("timeLegend")}
+            </legend>
             {isDateReady ? (
               <>
                 <div className="mt-3 grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-5">
@@ -724,27 +749,30 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                         return timeSelectionDisabledLabel;
                       }
                       if (!isStaticallyAvailable) {
-                        return unavailableTimeLabels[timeState.reason];
+                        return t(unavailableTimeLabelKeys[timeState.reason]);
                       }
-                      if (slotsFetchPending) return "확인 중";
-                      if (slotsFetchError) return "확인 불가";
-                      if (isClosed) return "운영 마감";
-                      if (isFull) return "정원 마감";
-                      if (slot) return `잔여 ${slot.remaining}명`;
+                      if (slotsFetchPending) return t("timeLabelChecking");
+                      if (slotsFetchError) return t("timeLabelUnavailable");
+                      if (isClosed) return t("timeClosed");
+                      if (isFull) return t("timeFull");
+                      if (slot)
+                        return t("timeRemaining", { count: slot.remaining });
                       return null;
                     })();
                     const titleMessage = (() => {
                       if (timeSelectionDisabledReason)
                         return timeSelectionDisabledReason;
                       if (!isStaticallyAvailable) return timeState.message;
-                      if (slotsFetchPending)
-                        return "예약 가능 인원을 확인하고 있습니다.";
+                      if (slotsFetchPending) return t("slotsChecking");
                       if (slotsFetchError) return slotsFetchError;
-                      if (isClosed) return "운영자가 마감한 시간대입니다.";
-                      if (isFull) return "이 시간대는 정원이 다 찼습니다.";
+                      if (isClosed) return t("titleClosed");
+                      if (isFull) return t("titleFull");
                       if (slot)
-                        return `정원 ${slot.capacity}명 중 ${slot.remaining}명 예약 가능`;
-                      return "예약 가능";
+                        return t("titleSlot", {
+                          capacity: slot.capacity,
+                          remaining: slot.remaining,
+                        });
+                      return t("titleAvailable");
                     })();
 
                     return (
@@ -753,7 +781,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                         type="button"
                         disabled={isDisabled}
                         aria-pressed={!isDisabled && isSelected}
-                        aria-label={`${time}${timeLabel ? ` - ${timeLabel}` : " - 예약 가능"}`}
+                        aria-label={`${time}${timeLabel ? ` - ${timeLabel}` : ` - ${t("timeAriaAvailable")}`}`}
                         onClick={() => {
                           setUserTouchedTime(true);
                           setSelectedTime(time);
@@ -788,19 +816,19 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   </p>
                 ) : slotsFetchPending ? (
                   <p className="mt-3 text-xs leading-5 text-slate-500">
-                    예약 가능 인원을 확인하고 있습니다.
+                    {t("slotsChecking")}
                   </p>
                 ) : availableTimeCount === 0 ? (
                   <p className="mt-3 text-sm font-semibold text-warning" role="alert">
-                    선택한 날짜에는 예약 가능한 시간이 없습니다. 다른 날짜를
-                    선택해주세요.
+                    {t("noAvailableTimes")}
                   </p>
                 ) : (
                   <div className="mt-3 space-y-1">
                     <p className="text-xs leading-5 text-slate-500">
-                      예약 가능 {availableTimeCount}/{gym.availableTimes.length}개
-                      시간대 · 마감/지난 시간/이미 예약한 시간은 선택할 수
-                      없습니다.
+                      {t("availableCount", {
+                        available: availableTimeCount,
+                        total: gym.availableTimes.length,
+                      })}
                     </p>
                     {userTouchedTime &&
                     !hasReservationNotice &&
@@ -809,9 +837,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                         className="text-xs font-semibold leading-5 text-warning"
                         role="status"
                       >
-                        원래 선택한 {selectedTime}은 예약할 수 없어
-                        {" "}
-                        {effectiveSelectedTime}으로 변경되었습니다.
+                        {t("timeAutoChanged", {
+                          original: selectedTime,
+                          effective: effectiveSelectedTime,
+                        })}
                       </p>
                     ) : null}
                   </div>
@@ -819,7 +848,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               </>
             ) : (
               <div className="mt-3 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500">
-                날짜를 준비하고 있습니다.
+                {t("dateLoading")}
               </div>
             )}
           </fieldset>
@@ -827,33 +856,35 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       </section>
 
       <aside className="min-w-0 rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">예약 요약</p>
+        <p className="text-sm font-semibold text-accent-strong">
+          {t("summaryEyebrow")}
+        </p>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          아래 정보를 확인하고 예약하기 버튼을 눌러주세요.
+          {t("summaryDesc")}
         </p>
         <dl className="mt-4 grid gap-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">체육관</dt>
+            <dt className="text-slate-500">{t("summaryGym")}</dt>
             <dd className="font-semibold text-slate-950">{gym.name}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">종목</dt>
+            <dt className="text-slate-500">{t("summarySport")}</dt>
             <dd className="font-semibold text-slate-950">{selectedSport}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">날짜</dt>
+            <dt className="text-slate-500">{t("summaryDate")}</dt>
             <dd className="font-semibold text-slate-950">
-              {effectiveSelectedDate || "준비 중"}
+              {effectiveSelectedDate || t("summaryDatePreparing")}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">시간</dt>
+            <dt className="text-slate-500">{t("summaryTime")}</dt>
             <dd className="font-semibold text-slate-950">
               {effectiveSelectedTime}
             </dd>
           </div>
           <div className="flex justify-between gap-4 border-t border-line pt-3">
-            <dt className="font-bold text-slate-950">금액</dt>
+            <dt className="font-bold text-slate-950">{t("summaryPrice")}</dt>
             <dd className="font-bold text-slate-950">
               {formatGymPrice(price)}
             </dd>
@@ -890,21 +921,21 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <>
                 <dl className="mt-3 grid gap-2 border-t border-current/20 pt-3 text-xs sm:grid-cols-2">
                   <div>
-                    <dt className="opacity-75">예약번호</dt>
+                    <dt className="opacity-75">{t("noticeReservationNo")}</dt>
                     <dd className="mt-1 text-sm">
                       {noticeReservation.id.slice(0, 8)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="opacity-75">체육관</dt>
+                    <dt className="opacity-75">{t("noticeGym")}</dt>
                     <dd className="mt-1 text-sm">{gym.name}</dd>
                   </div>
                   <div>
-                    <dt className="opacity-75">종목</dt>
+                    <dt className="opacity-75">{t("noticeSport")}</dt>
                     <dd className="mt-1 text-sm">{noticeReservation.sport}</dd>
                   </div>
                   <div>
-                    <dt className="opacity-75">이용 일시</dt>
+                    <dt className="opacity-75">{t("noticeDateTime")}</dt>
                     <dd className="mt-1 text-sm">
                       {noticeReservation.date} {noticeReservation.time}
                     </dd>
@@ -914,15 +945,15 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   {noticeTone === "success" ? (
                     <Link
                       href={`/reservations/${noticeReservation.id}`}
-                      aria-label="방금 만든 예약 상세 보기"
+                      aria-label={t("viewReservationDetailAria")}
                       className={`inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${noticeLinkStyles[noticeTone]}`}
                     >
-                      예약 상세 보기
+                      {t("viewReservationDetail")}
                     </Link>
                   ) : null}
                   <Link
                     href="/reservations"
-                    aria-label="내 예약 목록 보기"
+                    aria-label={t("viewMyReservationsAria")}
                     className={`inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
                       noticeTone === "success"
                         ? "border-success/40 bg-white text-success hover:bg-success/10 focus-visible:ring-accent"
@@ -931,7 +962,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                           : "border-error/40 bg-white text-error hover:bg-error/10 focus-visible:ring-accent"
                     }`}
                   >
-                    내 예약 보기
+                    {t("viewMyReservations")}
                   </Link>
                 </div>
               </>

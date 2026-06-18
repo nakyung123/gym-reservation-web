@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -13,6 +14,7 @@ import {
 // 로그인 상태면 /reserve/<gymId>로 바로 이동, 미로그인이면 모달로 안내 후 /login으로.
 
 export function ReserveCtaButton({ gymId }: { gymId: string }) {
+  const t = useTranslations("GymDetail");
   const router = useRouter();
   const snapshot = useSyncExternalStore(
     subscribeFirebaseAuthSession,
@@ -39,7 +41,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
         onClick={handleClick}
         className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
-        예약하기
+        {t("reserveCta")}
       </button>
 
       {showModal ? (
@@ -54,10 +56,10 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
               id="reserve-gate-title"
               className="text-lg font-bold text-slate-950"
             >
-              로그인이 필요합니다
+              {t("loginRequiredTitle")}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-700">
-              예약은 로그인 후 이용할 수 있습니다.
+              {t("loginRequiredBody")}
             </p>
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               <button
@@ -65,7 +67,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
                 onClick={() => setShowModal(false)}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
               >
-                취소
+                {t("cancel")}
               </button>
               <button
                 type="button"
@@ -76,7 +78,7 @@ export function ReserveCtaButton({ gymId }: { gymId: string }) {
                 }}
                 className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
               >
-                로그인
+                {t("login")}
               </button>
             </div>
           </div>

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { MypageView } from "@/components/mypage-view";
 
-export const metadata: Metadata = {
-  title: "내 정보 | 공공체육관 예약",
-  description: "계정 정보, 예약 요약, 즐겨찾기 요약을 확인합니다.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Mypage");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDesc"),
+  };
+}
 
 export default function MypagePage() {
   return (

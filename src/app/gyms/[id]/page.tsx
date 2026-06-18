@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   formatGymPrice,
   getGymLowestPrice,
@@ -30,6 +31,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
     notFound();
   }
 
+  const t = await getTranslations("GymDetail");
   const lowestPrice = getGymLowestPrice(gym);
 
   return (
@@ -40,7 +42,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             href="/gyms"
             className="rounded text-sm font-semibold text-accent-strong hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            체육관 목록으로
+            {t("backToList")}
           </Link>
           <h1 className="mt-4 text-3xl font-bold text-slate-950">
             {gym.name}
@@ -55,7 +57,7 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
               rel="noreferrer"
               className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong px-3 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              공식 시설 안내
+              {t("officialInfo")}
             </a>
             <FavoriteButton gymId={gym.id} />
           </div>
@@ -63,17 +65,19 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-md border border-accent/20 bg-accent-tint px-4 py-3">
               <p className="text-xs font-semibold text-accent-strong">
-                최저 이용료
+                {t("lowestFee")}
               </p>
               <p className="mt-1 text-lg font-bold text-accent-strong">
-                {formatGymPrice(lowestPrice)}부터
+                {t("priceFrom", { price: formatGymPrice(lowestPrice) })}
               </p>
             </div>
             <GymDistanceBadge latitude={gym.latitude} longitude={gym.longitude} />
             <div className="rounded-md border border-line bg-slate-50 px-4 py-3">
-              <p className="text-xs font-semibold text-slate-500">종목</p>
+              <p className="text-xs font-semibold text-slate-500">
+                {t("sportsLabel")}
+              </p>
               <p className="mt-1 text-lg font-bold text-slate-950">
-                {gym.sports.length}개
+                {t("sportsCount", { count: gym.sports.length })}
               </p>
             </div>
           </div>
@@ -81,19 +85,19 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           <dl className="mt-6 grid gap-4 sm:grid-cols-2">
             <div>
               <dt className="text-xs font-semibold uppercase text-slate-500">
-                주소
+                {t("addressLabel")}
               </dt>
               <dd className="mt-1 text-sm text-slate-800">{gym.address}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-slate-500">
-                운영시간
+                {t("openHoursLabel")}
               </dt>
               <dd className="mt-1 text-sm text-slate-800">{gym.openHours}</dd>
             </div>
             <div>
               <dt className="text-xs font-semibold uppercase text-slate-500">
-                휴관일
+                {t("closedDaysLabel")}
               </dt>
               <dd className="mt-1 text-sm text-slate-800">
                 {gym.closedDays.join(", ")}
@@ -102,17 +106,17 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
           </dl>
 
           <h2 className="mt-6 text-lg font-bold text-slate-950">
-            종목별 이용료
+            {t("feeBySportTitle")}
           </h2>
           <p className="mt-1 text-xs text-slate-500">
-            카드를 누르면 해당 종목으로 예약 흐름이 시작됩니다.
+            {t("feeBySportDesc")}
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {gym.sports.map((sport) => (
               <Link
                 key={sport}
                 href={`/reserve/${encodeURIComponent(gym.id)}?sport=${encodeURIComponent(sport)}`}
-                aria-label={`${gym.name} ${sport} 예약 시작`}
+                aria-label={t("reserveStartAria", { name: gym.name, sport })}
                 className="group flex items-center justify-between gap-4 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm text-slate-700 transition hover:border-accent hover:bg-accent-tint hover:text-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 <span className="font-semibold text-slate-950 group-hover:text-accent-hover">
@@ -139,7 +143,9 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
             ))}
           </div>
 
-          <h2 className="mt-6 text-lg font-bold text-slate-950">편의시설</h2>
+          <h2 className="mt-6 text-lg font-bold text-slate-950">
+            {t("facilitiesTitle")}
+          </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {gym.facilities.map((facility) => (
               <span
@@ -153,27 +159,30 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
 
           <section
             className="mt-6 rounded-md border border-line bg-slate-50 p-5"
-            aria-label="예약 안내"
+            aria-label={t("reserveGuideAria")}
           >
-            <h2 className="text-lg font-bold text-slate-950">예약 안내</h2>
+            <h2 className="text-lg font-bold text-slate-950">
+              {t("reserveGuideTitle")}
+            </h2>
             <p className="mt-1 text-xs text-slate-500">
-              예약하기 전에 아래 내용을 확인해 주세요.
+              {t("reserveGuideDesc")}
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <h3 className="text-sm font-bold text-slate-950">이용 안내</h3>
+                <h3 className="text-sm font-bold text-slate-950">
+                  {t("useGuideTitle")}
+                </h3>
                 <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
-                  <li>결제는 시설 안내를 따라주세요.</li>
+                  <li>{t("useGuideItem")}</li>
                 </ul>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-950">취소 안내</h3>
+                <h3 className="text-sm font-bold text-slate-950">
+                  {t("cancelGuideTitle")}
+                </h3>
                 <ul className="mt-2 grid gap-1.5 text-sm leading-6 text-slate-700">
-                  <li>
-                    내 예약 → 예약 상세에서 취소 가능 기한 안에 취소할 수
-                    있습니다.
-                  </li>
-                  <li>이용 일시가 지나면 자동으로 이용 완료로 표시됩니다.</li>
+                  <li>{t("cancelGuideItem1")}</li>
+                  <li>{t("cancelGuideItem2")}</li>
                 </ul>
               </div>
             </div>
@@ -181,18 +190,19 @@ export default async function GymDetailPage({ params }: GymDetailPageProps) {
         </div>
 
         <aside className="rounded-lg border border-line bg-white p-6 shadow-sm">
-          <p className="text-sm font-semibold text-accent-strong">예약 가능</p>
+          <p className="text-sm font-semibold text-accent-strong">
+            {t("availableEyebrow")}
+          </p>
           <h2 className="mt-2 text-xl font-bold text-slate-950">
-            운영 시간대
+            {t("operatingHoursTitle")}
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            실제 예약 가능 여부는 날짜와 종목을 선택한 뒤 예약 내역과 함께
-            확인합니다.
+            {t("operatingHoursDesc")}
           </p>
           <div
             className="mt-4 grid grid-cols-3 gap-2"
             role="list"
-            aria-label="운영 시간대 목록"
+            aria-label={t("operatingHoursListAria")}
           >
             {gym.availableTimes.map((time) => (
               <span

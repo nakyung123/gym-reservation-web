@@ -10,10 +10,8 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import {
-  reservationStatusBadgeStyles,
-  reservationStatusLabel,
-} from "@/components/reservation-ticket";
+import { useTranslations } from "next-intl";
+import { reservationStatusBadgeStyles } from "@/components/reservation-ticket";
 import { SPORTS } from "@/lib/domain-constants";
 import { resendEmailVerification } from "@/lib/firebase-email-auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
@@ -164,7 +162,7 @@ function logErrorStatus(
   }
 }
 
-function getAccountName(user: User): string {
+function getAccountName(user: User, fallbackName: string): string {
   const displayName = user.displayName?.trim();
   if (displayName) {
     return displayName;
@@ -175,7 +173,7 @@ function getAccountName(user: User): string {
   }
 
   // 익명 로그인 흐름은 폐기됐다(e7c9454). 도달 시 일반 fallback만 노출.
-  return "이름 없음";
+  return fallbackName;
 }
 
 function UserSilhouetteIcon() {
@@ -205,18 +203,19 @@ function formatUserId(uid: string): string {
 }
 
 function LoadingPanel() {
+  const t = useTranslations("Mypage");
   return (
     <section
       className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm"
       aria-live="polite"
       aria-busy="true"
     >
-      <p className="text-sm font-semibold text-accent-strong">내 정보</p>
+      <p className="text-sm font-semibold text-accent-strong">{t("eyebrow")}</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
-        로그인 정보를 확인하고 있습니다
+        {t("loadingTitle")}
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        현재 브라우저에 연결된 계정을 확인하는 중입니다.
+        {t("loadingDesc")}
       </p>
       <div className="mt-6 flex justify-center" aria-hidden="true">
         <span className="size-8 animate-spin rounded-full border-2 border-line border-t-accent" />
@@ -226,12 +225,13 @@ function LoadingPanel() {
 }
 
 function ErrorPanel({ title, message }: { title: string; message: string }) {
+  const t = useTranslations("Mypage");
   return (
     <section
       className="mx-auto w-full max-w-4xl rounded-lg border border-error/30 bg-error/10 p-8 text-center text-error shadow-sm"
       role="alert"
     >
-      <p className="text-sm font-semibold">내 정보</p>
+      <p className="text-sm font-semibold">{t("eyebrow")}</p>
       <h1 className="mt-2 break-keep text-2xl font-bold sm:text-3xl">
         {title}
       </h1>
@@ -241,14 +241,15 @@ function ErrorPanel({ title, message }: { title: string; message: string }) {
 }
 
 function SignedOutPanel() {
+  const t = useTranslations("Mypage");
   return (
     <section className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm">
-      <p className="text-sm font-semibold text-accent-strong">내 정보</p>
+      <p className="text-sm font-semibold text-accent-strong">{t("eyebrow")}</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
-        로그인이 필요합니다
+        {t("signedOutTitle")}
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
-        로그인 페이지로 이동하고 있습니다...
+        {t("signedOutDesc")}
       </p>
     </section>
   );
@@ -277,6 +278,7 @@ function MetricCard({
 }
 
 function LoadingMetricCard({ label }: { label: string }) {
+  const t = useTranslations("Mypage");
   return (
     <div
       className="rounded-lg border border-line bg-white p-4 shadow-sm"
@@ -284,23 +286,27 @@ function LoadingMetricCard({ label }: { label: string }) {
     >
       <p className="text-sm font-semibold text-slate-500">{label}</p>
       <div className="mt-3 h-8 w-16 rounded bg-slate-100" aria-hidden="true" />
-      <p className="mt-3 text-xs font-semibold text-slate-400">조회 중</p>
+      <p className="mt-3 text-xs font-semibold text-slate-400">
+        {t("loadingMetricCaption")}
+      </p>
     </div>
   );
 }
 
 function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
+  const t = useTranslations("Mypage");
+  const tReservation = useTranslations("Reservation");
   if (summaryState.status === "loading" || summaryState.status === "idle") {
     return (
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <LoadingMetricCard label="전체 예약" />
+        <LoadingMetricCard label={t("metricTotal")} />
         {summaryStatusOrder.map((status) => (
           <LoadingMetricCard
             key={status}
-            label={reservationStatusLabel[status]}
+            label={tReservation(`status.${status}`)}
           />
         ))}
-        <LoadingMetricCard label="즐겨찾기" />
+        <LoadingMetricCard label={t("metricFavorites")} />
       </section>
     );
   }
@@ -311,7 +317,7 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
         className="rounded-lg border border-error/30 bg-error/10 p-5 text-error shadow-sm"
         role="alert"
       >
-        <p className="text-sm font-bold">요약 정보를 불러오지 못했습니다</p>
+        <p className="text-sm font-bold">{t("summaryErrorTitle")}</p>
         <p className="mt-2 text-sm leading-6">{summaryState.message}</p>
       </section>
     );
@@ -325,62 +331,62 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
     <section className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard
-          label="전체 예약"
+          label={t("metricTotal")}
           value={summary.reservations.total}
-          caption="누적"
+          caption={t("metricTotalCaption")}
         />
         <MetricCard
-          label={reservationStatusLabel.reserved}
+          label={tReservation("status.reserved")}
           value={summary.reservations.reserved}
           tone="reserved"
         />
         <MetricCard
-          label={reservationStatusLabel.cancelled}
+          label={tReservation("status.cancelled")}
           value={summary.reservations.cancelled}
           tone="cancelled"
         />
         <MetricCard
-          label={reservationStatusLabel.used}
+          label={tReservation("status.used")}
           value={summary.reservations.used}
           tone="used"
         />
         <MetricCard
-          label="즐겨찾기"
+          label={t("metricFavorites")}
           value={summary.favorites.activeGymCount}
-          caption="운영 중인 체육관"
+          caption={t("metricFavoritesCaption")}
         />
       </div>
 
       <div className="flex flex-wrap gap-2">
         <Link
           href="/reservations"
-          aria-label="내 예약 목록으로 이동"
+          aria-label={t("viewMyReservationsAria")}
           className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          내 예약 보기
+          {t("viewMyReservations")}
         </Link>
         <Link
           href="/gyms"
-          aria-label="체육관 목록으로 이동"
+          aria-label={t("findGymAria")}
           className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          체육관 찾기
+          {t("findGym")}
         </Link>
       </div>
 
       {hasNoData ? (
         <div className="rounded-lg border border-dashed border-line-strong bg-white p-6 text-center shadow-sm">
           <p className="text-base font-bold text-slate-950">
-            아직 예약과 즐겨찾기가 없습니다
+            {t("noDataTitle")}
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            이용할 체육관을 찾으면 예약 내역과 즐겨찾기 요약이 이곳에 쌓입니다.
+            {t("noDataDesc")}
           </p>
           <Link
             href="/gyms"
             className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            체육관 찾기
+            {t("findGym")}
           </Link>
         </div>
       ) : null}
@@ -389,6 +395,8 @@ function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
 }
 
 function StatusBreakdown({ summaryState }: { summaryState: SummaryState }) {
+  const t = useTranslations("Mypage");
+  const tReservation = useTranslations("Reservation");
   if (summaryState.status !== "ready") {
     return null;
   }
@@ -402,7 +410,10 @@ function StatusBreakdown({ summaryState }: { summaryState: SummaryState }) {
           key={status}
           className={`rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[status]}`}
         >
-          {reservationStatusLabel[status]} {reservations[status]}건
+          {t("statusCount", {
+            label: tReservation(`status.${status}`),
+            count: reservations[status],
+          })}
         </span>
       ))}
     </div>
@@ -410,6 +421,7 @@ function StatusBreakdown({ summaryState }: { summaryState: SummaryState }) {
 }
 
 export function MypageView() {
+  const t = useTranslations("Mypage");
   const router = useRouter();
   // signed-out 감지 + /login?from=/mypage redirect는 useRequireAuth가 처리.
   // 본 컴포넌트는 user 객체 자체가 필요해서 onAuthStateChanged로 직접 구독한다
@@ -594,13 +606,13 @@ export function MypageView() {
       profileState.status === "ready"
         ? (profileState.persistedNickname?.trim() || null)
         : null;
-    const displayName = profileNickname ?? getAccountName(user);
+    const displayName = profileNickname ?? getAccountName(user, t("noName"));
     const isPasswordProvider = user.providerData.some(
       (p) => p.providerId === "password",
     );
     return {
       displayName,
-      email: user.email ?? "등록된 이메일 없음",
+      email: user.email ?? t("noEmail"),
       // password 가입자만 emailVerified를 의미있게 가진다. 소셜 가입자는 provider 측에서
       // 이미 검증되었다고 가정해 배너를 보이지 않는다.
       showVerificationBanner:
@@ -610,7 +622,7 @@ export function MypageView() {
       uid: user.uid,
       isPasswordProvider,
     };
-  }, [authState, profileState]);
+  }, [authState, profileState, t]);
 
   const updateProfileForm = (updater: (form: ProfileFormState) => ProfileFormState) => {
     setProfileState((prev) => {
@@ -741,7 +753,7 @@ export function MypageView() {
       if (result.ok) {
         setVerificationNotice({
           tone: "success",
-          message: "이메일 인증 메일을 다시 보냈습니다. 메일함을 확인해 주세요.",
+          message: t("resendSuccess"),
         });
       } else {
         setVerificationNotice({ tone: "error", message: result.message });
@@ -776,7 +788,7 @@ export function MypageView() {
   if (authState.status === "error") {
     return (
       <ErrorPanel
-        title="로그인 정보를 확인하지 못했습니다"
+        title={t("authErrorTitle")}
         message={authState.message}
       />
     );
@@ -789,13 +801,13 @@ export function MypageView() {
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">내 정보</p>
+        <p className="text-sm font-semibold text-accent-strong">{t("eyebrow")}</p>
         <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-4">
             <span
               className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-slate-100"
               role="img"
-              aria-label={`${account.displayName} 프로필 이미지`}
+              aria-label={t("profileImageAria", { name: account.displayName })}
             >
               <UserSilhouetteIcon />
             </span>
@@ -820,7 +832,7 @@ export function MypageView() {
                 href="/mypage/password"
                 className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                비밀번호 변경
+                {t("changePassword")}
               </Link>
             ) : null}
             <button
@@ -829,7 +841,7 @@ export function MypageView() {
               disabled={isSigningOut}
               className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-error/40 hover:text-error disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              {isSigningOut ? "로그아웃 중" : "로그아웃"}
+              {isSigningOut ? t("signingOut") : t("signOut")}
             </button>
           </div>
         </div>
@@ -849,7 +861,7 @@ export function MypageView() {
             role="status"
           >
             <p className="font-semibold">
-              이메일 인증이 완료되지 않았습니다. 메일함을 확인해 주세요.
+              {t("verificationBanner")}
             </p>
             <button
               type="button"
@@ -857,7 +869,9 @@ export function MypageView() {
               disabled={isResendingVerification}
               className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-warning/50 bg-white px-3 text-xs font-semibold text-warning transition hover:border-warning hover:bg-warning/15 disabled:cursor-not-allowed disabled:border-warning/20 disabled:text-warning/50"
             >
-              {isResendingVerification ? "전송 중" : "인증 메일 다시 보내기"}
+              {isResendingVerification
+                ? t("resending")
+                : t("resendVerification")}
             </button>
           </div>
         ) : null}
@@ -876,9 +890,11 @@ export function MypageView() {
       <section className="flex flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-accent-strong">활동 요약</p>
+            <p className="text-sm font-semibold text-accent-strong">
+              {t("activitySummary")}
+            </p>
             <h2 className="mt-2 text-2xl font-bold text-slate-950">
-              예약과 즐겨찾기 현황
+              {t("activityTitle")}
             </h2>
           </div>
           <StatusBreakdown summaryState={summaryState} />
@@ -917,15 +933,18 @@ function ProfileSettingsSection({
   onNotificationsToggle: (checked: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const t = useTranslations("Mypage");
   return (
     <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-accent-strong">프로필 설정</p>
+        <p className="text-sm font-semibold text-accent-strong">
+          {t("profileEyebrow")}
+        </p>
         <h2 className="text-2xl font-bold text-slate-950">
-          닉네임과 선호 정보
+          {t("profileTitle")}
         </h2>
         <p className="text-sm leading-6 text-slate-600">
-          입력한 정보는 예약 추천과 알림에 사용됩니다.
+          {t("profileDesc")}
         </p>
       </div>
 
@@ -935,7 +954,7 @@ function ProfileSettingsSection({
           aria-live="polite"
           aria-busy="true"
         >
-          프로필 설정을 불러오고 있습니다.
+          {t("profileLoading")}
         </div>
       ) : null}
 
@@ -944,7 +963,7 @@ function ProfileSettingsSection({
           className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-4 text-sm leading-6 text-error"
           role="alert"
         >
-          <p className="font-bold">프로필 설정을 불러오지 못했습니다</p>
+          <p className="font-bold">{t("profileErrorTitle")}</p>
           <p className="mt-1">{profileState.message}</p>
         </div>
       ) : null}
@@ -966,7 +985,7 @@ function ProfileSettingsSection({
           href="/mypage/withdraw"
           className="text-xs text-slate-400 underline-offset-2 hover:text-error hover:underline"
         >
-          회원 탈퇴
+          {t("withdrawLink")}
         </Link>
       </div>
     </section>
@@ -990,6 +1009,7 @@ function ProfileSettingsForm({
   onNotificationsToggle: (checked: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const t = useTranslations("Mypage");
   const isSaving = saveState.status === "saving";
   const [nicknameStatus, setNicknameStatus] = useState<
     "idle" | "checking" | "available" | "taken" | "invalid" | "error"
@@ -1045,7 +1065,7 @@ function ProfileSettingsForm({
           htmlFor="profile-nickname"
           className="text-sm font-bold text-slate-800"
         >
-          닉네임
+          {t("nicknameLabel")}
         </label>
         <input
           id="profile-nickname"
@@ -1053,7 +1073,7 @@ function ProfileSettingsForm({
           value={form.nickname}
           onChange={(event) => onNicknameChange(event.target.value)}
           maxLength={8}
-          placeholder="예: 농구왕"
+          placeholder={t("nicknamePlaceholder")}
           disabled={isSaving}
           aria-invalid={nicknameHasError || undefined}
           className={`h-11 rounded-md border bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
@@ -1064,24 +1084,24 @@ function ProfileSettingsForm({
         />
         {nicknameIsTaken ? (
           <p className="text-xs font-semibold text-error" role="alert">
-            이미 사용 중인 닉네임입니다.
+            {t("nicknameTaken")}
           </p>
         ) : nicknameIsInvalid ? (
           <p className="text-xs font-semibold text-error" role="alert">
-            사용할 수 없는 닉네임입니다. 다른 닉네임을 입력해 주세요.
+            {t("nicknameInvalid")}
           </p>
         ) : nicknameCheckFailed ? (
           <p className="text-xs font-semibold text-warning" role="alert">
-            닉네임 사용 여부를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.
+            {t("nicknameCheckFailed")}
           </p>
         ) : nicknameStatus === "available" && form.nickname.trim().length > 0 ? (
           <p className="text-xs font-semibold text-success">
-            사용 가능한 닉네임입니다.
+            {t("nicknameAvailable")}
           </p>
         ) : nicknameStatus === "checking" ? (
-          <p className="text-xs text-slate-500">확인 중...</p>
+          <p className="text-xs text-slate-500">{t("nicknameChecking")}</p>
         ) : (
-          <p className="text-xs text-slate-500">최대 8자까지 입력할 수 있습니다.</p>
+          <p className="text-xs text-slate-500">{t("nicknameHint")}</p>
         )}
       </div>
 
@@ -1090,7 +1110,7 @@ function ProfileSettingsForm({
           htmlFor="profile-region"
           className="text-sm font-bold text-slate-800"
         >
-          선호 지역
+          {t("regionLabel")}
         </label>
         <input
           id="profile-region"
@@ -1098,18 +1118,18 @@ function ProfileSettingsForm({
           value={form.preferredRegion}
           onChange={(event) => onPreferredRegionChange(event.target.value)}
           maxLength={100}
-          placeholder="예: 서울 관악구"
+          placeholder={t("regionPlaceholder")}
           disabled={isSaving}
           className="h-11 rounded-md border border-line-strong bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
         />
-        <p className="text-xs text-slate-500">자주 이용하는 지역을 입력하세요.</p>
+        <p className="text-xs text-slate-500">{t("regionHint")}</p>
       </div>
 
       <fieldset className="flex flex-col gap-2" disabled={isSaving}>
-        <legend className="text-sm font-bold text-slate-800">선호 종목</legend>
-        <p className="text-xs text-slate-500">
-          관심 있는 종목을 모두 선택할 수 있습니다.
-        </p>
+        <legend className="text-sm font-bold text-slate-800">
+          {t("sportsLegend")}
+        </legend>
+        <p className="text-xs text-slate-500">{t("sportsHint")}</p>
         <div className="mt-1 flex flex-wrap gap-2">
           {SPORTS.map((sport) => {
             const checked = form.preferredSports.includes(sport);
@@ -1147,12 +1167,12 @@ function ProfileSettingsForm({
             onChange={(event) => onNotificationsToggle(event.target.checked)}
             disabled={isSaving}
           />
-          예약 알림 받기
-          <span className="text-xs font-normal text-slate-400">(준비 중)</span>
+          {t("notificationsLabel")}
+          <span className="text-xs font-normal text-slate-400">
+            {t("notificationsBadge")}
+          </span>
         </label>
-        <p className="text-xs text-slate-500">
-          예약 변경사항 알림 기능을 준비 중입니다. 설정을 저장해 두면 기능이 켜질 때 자동으로 적용됩니다.
-        </p>
+        <p className="text-xs text-slate-500">{t("notificationsHint")}</p>
       </div>
 
       {saveState.status === "success" ? (
@@ -1169,7 +1189,7 @@ function ProfileSettingsForm({
           className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm leading-6 text-error"
           role="alert"
         >
-          <p className="font-bold">프로필 설정을 저장하지 못했습니다</p>
+          <p className="font-bold">{t("profileSaveErrorTitle")}</p>
           <p className="mt-1">{saveState.message}</p>
         </div>
       ) : null}
@@ -1180,14 +1200,14 @@ function ProfileSettingsForm({
           disabled={isSaveDisabled}
           className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          {isSaving ? "저장 중" : "저장"}
+          {isSaving ? t("saving") : t("save")}
         </button>
         {isSaving ? (
           <span
             className="text-xs font-semibold text-slate-500"
             aria-live="polite"
           >
-            서버에 저장하고 있습니다.
+            {t("savingHint")}
           </span>
         ) : null}
       </div>

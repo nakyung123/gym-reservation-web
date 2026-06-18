@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { GymCard } from "@/components/gym-card";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useUserLocation } from "@/hooks/use-user-location";
@@ -23,10 +24,11 @@ type SportFilter = Sport | "전체";
 type RegionFilter = string | "전체";
 type GymSort = "distance" | "lowest-price" | "name";
 
-const gymSortLabels: Record<GymSort, string> = {
-  distance: "가까운 순",
-  "lowest-price": "낮은 가격순",
-  name: "이름순",
+// 정렬 키 → 번역 키 매핑. 라벨 텍스트는 messages의 Gyms.* 를 따른다.
+const gymSortLabelKeys: Record<GymSort, string> = {
+  distance: "sortDistance",
+  "lowest-price": "sortLowestPrice",
+  name: "sortName",
 };
 
 function distanceForSort(gym: Gym, location: GeoPoint | null): number {
@@ -59,6 +61,7 @@ function sortGyms(gyms: Gym[], sort: GymSort, location: GeoPoint | null) {
 }
 
 export function GymDiscovery({ gyms }: GymDiscoveryProps) {
+  const t = useTranslations("Gyms");
   const [query, setQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
   const [selectedSport, setSelectedSport] = useState<SportFilter>("전체");
@@ -152,24 +155,26 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-end">
           <label className="flex min-w-0 flex-col gap-2">
             <span className="text-sm font-semibold text-slate-700">
-              체육관 검색
+              {t("searchLabel")}
             </span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="체육관명, 지역, 주소"
+              placeholder={t("searchPlaceholder")}
               className="h-11 rounded-md border border-line-strong px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/20"
             />
           </label>
 
           <label className="flex min-w-0 flex-col gap-2">
-            <span className="text-sm font-semibold text-slate-700">지역</span>
+            <span className="text-sm font-semibold text-slate-700">
+              {t("regionLabel")}
+            </span>
             <select
               value={selectedRegion}
               onChange={(event) => setSelectedRegion(event.target.value)}
               className="h-11 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
             >
-              <option value="전체">전체 구</option>
+              <option value="전체">{t("regionAll")}</option>
               {availableRegions.map((region) => (
                 <option key={region} value={region}>
                   {region}
@@ -182,7 +187,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
         <div
           className="mt-4 flex flex-wrap gap-2"
           role="group"
-          aria-label="종목 필터"
+          aria-label={t("sportFilterAria")}
         >
           {(["전체", ...availableSports] as SportFilter[]).map((sport) => {
             const isActive = selectedSport === sport;
@@ -199,7 +204,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                     : "border-line-strong bg-white text-muted hover:border-accent hover:text-accent-strong"
                 }`}
               >
-                {sport}
+                {sport === "전체" ? t("filterAllSports") : sport}
               </button>
             );
           })}
@@ -228,19 +233,31 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
               />
             </svg>
-            즐겨찾기
+            {t("favoritesToggle")}
           </button>
         </div>
 
         <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-600">
-            {favoritesOnly ? "즐겨찾기 " : "총 "}
-            <strong className="text-slate-950">{filteredGyms.length}</strong>개
-            체육관
+            {(favoritesOnly ? t.rich("countFavorites", {
+              count: filteredGyms.length,
+              b: (chunks) => (
+                <strong className="text-slate-950">{chunks}</strong>
+              ),
+            }) : t.rich("countTotal", {
+              count: filteredGyms.length,
+              b: (chunks) => (
+                <strong className="text-slate-950">{chunks}</strong>
+              ),
+            }))}
           </p>
 
-          <div className="flex flex-wrap gap-2" role="group" aria-label="정렬 기준">
-            {(Object.keys(gymSortLabels) as GymSort[]).map((sort) => {
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label={t("sortAria")}
+          >
+            {(Object.keys(gymSortLabelKeys) as GymSort[]).map((sort) => {
               const isActive = selectedSort === sort;
 
               return (
@@ -268,7 +285,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                       : "border-line-strong bg-white text-muted hover:border-accent hover:text-accent-strong"
                   }`}
                 >
-                  {gymSortLabels[sort]}
+                  {t(gymSortLabelKeys[sort])}
                 </button>
               );
             })}
@@ -279,7 +296,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 onClick={clearFilters}
                 className="h-10 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                조건 초기화
+                {t("clearFilters")}
               </button>
             ) : null}
           </div>
@@ -292,8 +309,8 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             role="status"
           >
             {permission === "denied"
-              ? "위치 권한이 차단되어 거리순을 사용할 수 없습니다. 브라우저 설정에서 위치 권한을 허용한 뒤 새로고침해 주세요."
-              : "위치 정보가 없어 이름순으로 표시됩니다. ‘가까운 순’을 다시 눌러 권한을 허용해 주세요."}
+              ? t("locationDenied")
+              : t("locationMissing")}
           </p>
         ) : null}
       </div>
@@ -301,21 +318,20 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       {recommendation ? (
         <aside
           className="rounded-lg border border-line bg-accent-tint/40 p-4"
-          aria-label="즐겨찾기 기반 추천"
+          aria-label={t("recommendAria")}
         >
           <p className="text-sm font-semibold text-accent-strong">
-            즐겨찾기한 지역의 다른 체육관
+            {t("recommendTitle")}
           </p>
           <p className="mt-1 text-xs text-slate-600">
-            즐겨찾기한 {recommendation.region}을(를) 기준으로 최대 3곳을
-            보여줍니다.
+            {t("recommendDesc", { region: recommendation.region })}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             {recommendation.gyms.map((gym) => (
               <Link
                 key={gym.id}
                 href={`/gyms/${gym.id}`}
-                aria-label={`${gym.name} 상세 보기`}
+                aria-label={t("viewDetailAria", { name: gym.name })}
                 className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-accent-strong transition hover:border-accent hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 {gym.name}
@@ -352,20 +368,20 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
           <p className="text-base font-bold text-slate-950">
             {favoritesOnly
               ? loadError
-                ? "즐겨찾기 목록을 불러오지 못했습니다"
+                ? t("emptyFavLoadError")
                 : hasNonFavoritesFilter
-                  ? "조건에 맞는 즐겨찾기 체육관이 없습니다"
-                  : "아직 즐겨찾기한 체육관이 없어요"
-              : "조건에 맞는 체육관이 없습니다"}
+                  ? t("emptyFavFiltered")
+                  : t("emptyFavNone")
+              : t("emptyFiltered")}
           </p>
           <p className="mt-2 text-sm text-slate-600">
             {favoritesOnly
               ? loadError
-                ? "잠시 후 다시 시도해 주세요."
+                ? t("emptyFavLoadErrorDesc")
                 : hasNonFavoritesFilter
-                  ? "검색/지역/종목 조건을 풀거나 즐겨찾기 모드를 해제해 보세요."
-                  : "자주 이용하는 체육관을 저장하면 예약할 때 빠르게 찾을 수 있어요."
-              : "검색어를 줄이거나 지역, 종목 조건을 바꿔보세요."}
+                  ? t("emptyFavFilteredDesc")
+                  : t("emptyFavNoneDesc")
+              : t("emptyFilteredDesc")}
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             {favoritesOnly ? (
@@ -375,8 +391,8 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 {!loadError && !hasNonFavoritesFilter
-                  ? "체육관 둘러보기"
-                  : "즐겨찾기 해제하고 전체 보기"}
+                  ? t("emptyBrowse")
+                  : t("emptyClearFavorites")}
               </button>
             ) : null}
             {hasNonFavoritesFilter ? (
@@ -385,7 +401,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
                 onClick={clearFilters}
                 className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong px-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
-                조건 초기화
+                {t("clearFilters")}
               </button>
             ) : null}
           </div>

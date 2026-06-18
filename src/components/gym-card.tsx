@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { formatGymPrice, getGymLowestPrice } from "@/lib/gym-utils";
 import { calculateGymDistanceKm, formatDistanceKm } from "@/lib/distance";
 import { useUserLocation } from "@/hooks/use-user-location";
@@ -17,6 +18,8 @@ export function GymCard({
   isFavorite = false,
   onToggleFavorite,
 }: GymCardProps) {
+  const t = useTranslations("Gyms");
+  const tFavorite = useTranslations("Favorite");
   const lowestPrice = getGymLowestPrice(gym);
   const { location } = useUserLocation();
   const distanceKm = calculateGymDistanceKm(gym, location);
@@ -38,7 +41,7 @@ export function GymCard({
                   type="button"
                   onClick={onToggleFavorite}
                   aria-pressed={isFavorite}
-                  aria-label={isFavorite ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                  aria-label={isFavorite ? tFavorite("remove") : tFavorite("add")}
                   className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
                     isFavorite
                       ? "text-rose-500 hover:text-rose-700"
@@ -62,7 +65,7 @@ export function GymCard({
                 </button>
               )}
               <span className="rounded-md bg-accent-tint px-2.5 py-1 text-xs font-semibold text-accent-strong">
-                {formatGymPrice(lowestPrice)}부터
+                {t("priceFrom", { price: formatGymPrice(lowestPrice) })}
               </span>
             </div>
           </div>
@@ -76,20 +79,27 @@ export function GymCard({
           >
             {distanceKm !== null ? (
               <div>
-                <dt className="text-xs font-semibold text-slate-500">거리</dt>
+                <dt className="text-xs font-semibold text-slate-500">
+                  {t("distanceLabel")}
+                </dt>
                 <dd className="mt-1 font-semibold text-slate-800">
                   {formatDistanceKm(distanceKm)}
                 </dd>
               </div>
             ) : null}
             <div>
-              <dt className="text-xs font-semibold text-slate-500">운영시간</dt>
+              <dt className="text-xs font-semibold text-slate-500">
+                {t("openHoursLabel")}
+              </dt>
               <dd className="mt-1 font-semibold text-slate-800">
                 {gym.openHours}
               </dd>
             </div>
           </dl>
-          <div className="mt-4 flex flex-wrap gap-2" aria-label="예약 가능 종목">
+          <div
+            className="mt-4 flex flex-wrap gap-2"
+            aria-label={t("sportsAvailableAria")}
+          >
             {gym.sports.map((sport) => (
               <span
                 key={sport}
@@ -105,19 +115,19 @@ export function GymCard({
               않는다. 종목 chip이 길어진 카드에서도 줄바꿈으로 자연스럽게 흐른다. */}
           <div
             className="mt-3 flex flex-wrap gap-1.5"
-            aria-label="시설 정보 요약"
+            aria-label={t("facilitySummaryAria")}
           >
             <span className="inline-flex h-6 items-center rounded-full border border-line bg-white px-2 text-xs font-semibold text-muted">
-              종목 {gym.sports.length}개
+              {t("sportsCount", { count: gym.sports.length })}
             </span>
             {gym.openHours ? (
               <span className="inline-flex h-6 items-center rounded-full border border-line bg-surface-2 px-2 text-xs font-semibold text-muted">
-                운영시간 안내
+                {t("openHoursInfo")}
               </span>
             ) : null}
             {gym.closedDays.length > 0 ? (
               <span className="inline-flex h-6 items-center rounded-full border border-warning/30 bg-warning/10 px-2 text-xs font-semibold text-warning">
-                휴관일 있음
+                {t("hasClosedDays")}
               </span>
             ) : null}
           </div>
@@ -128,7 +138,7 @@ export function GymCard({
             href={`/gyms/${gym.id}`}
             className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong px-4 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            상세 보기
+            {t("viewDetail")}
           </Link>
           {/* 즐겨찾기한 체육관 카드에서는 상세를 거치지 않고 바로 예약 폼으로
               진입할 수 있는 단축 액션을 제공한다. /reserve/[gymId]에서 본인 인증
@@ -136,10 +146,10 @@ export function GymCard({
           {isFavorite ? (
             <Link
               href={`/reserve/${gym.id}`}
-              aria-label={`${gym.name} 예약하기`}
+              aria-label={t("bookAria", { name: gym.name })}
               className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
-              예약하기
+              {t("book")}
             </Link>
           ) : null}
         </div>
