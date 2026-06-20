@@ -6,55 +6,41 @@ import { getTranslations } from "next-intl/server";
  * 그림자·hover 전환 없이 평면 카드로, 흐름(시설 찾기 → 예약하기 → 예약 조회 → 마이페이지)만
  * 보여준다. 실제 진입은 상단 검색바·시설 찾기로 한다. 항목은 QUICK_ACTIONS 배열에서만 관리한다.
  *
- * 아이콘 = 확정 시안 "예약 흐름 아이콘 v3.3"의 네이비 듀오톤.
- * 한 색(accent-strong=currentColor)으로 듀오톤 구현: 베이스 실루엣은 currentColor 32% 불투명,
- * 우하단 배지는 solid currentColor 원 + 흰 글리프(돋보기/체크/시계). viewBox 0 0 40 40.
+ * 아이콘 = 확정 시안 "예약 흐름 아이콘 v3.3"(icons-preview.html)의 SVG를 그대로 옮긴 것.
+ * viewBox 0 0 40 40. 색: 베이스 #BCC8F2 / 배지 #1E3A8A / 딥(셔틀콕·달력헤더) #2745B3.
+ * 배경 사각형 없이 아이콘만 노출(시안과 동일).
  */
+const IC_BASE = "#BCC8F2";
+const IC_DEEP = "#2745B3";
+const IC_BADGE = "#1E3A8A";
+
 type QuickAction = {
   titleKey: string;
   descKey: string;
   icon: ReactNode;
 };
 
-// 우하단 공통 배지 원(글리프는 각 아이콘에서 흰색으로 얹는다).
-const Badge = ({ cx = 30.5 }: { cx?: number }) => (
-  <circle cx={cx} cy="30.5" r="7.5" fill="currentColor" />
-);
-
 const QUICK_ACTIONS: QuickAction[] = [
   {
     titleKey: "quickFindTitle",
     descKey: "quickFindDesc",
-    // 시설 찾기: 체육관 건물 실루엣 + 돋보기 배지
+    // 시설 찾기: 코트(체육관) + 셔틀콕 + 돋보기 배지
     icon: (
       <>
-        <path
-          d="M8 19 L20 10 L32 19 V30 a1 1 0 0 1-1 1 H9 a1 1 0 0 1-1-1 Z"
-          fill="currentColor"
-          fillOpacity={0.32}
-        />
-        <path
-          d="M14 23v7M20 23v7M26 23v7"
-          stroke="#fff"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          opacity={0.85}
-        />
-        <Badge />
-        <circle
-          cx="29.2"
-          cy="29.2"
-          r="2.4"
-          fill="none"
-          stroke="#fff"
-          strokeWidth={1.5}
-        />
-        <path
-          d="M31.1 31.1l2 2"
-          stroke="#fff"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-        />
+        <rect x="5" y="9.5" width="24" height="17" rx="2" fill={IC_BASE} />
+        <g stroke="#fff" strokeWidth={1.3} fill="none" strokeLinecap="round">
+          <rect x="7.3" y="11.8" width="19.4" height="12.4" rx="0.5" />
+          <line x1="17" y1="11.8" x2="17" y2="24.2" strokeWidth={1.9} />
+          <line x1="11.6" y1="11.8" x2="11.6" y2="24.2" />
+          <line x1="22.4" y1="11.8" x2="22.4" y2="24.2" />
+          <line x1="7.3" y1="18" x2="11.6" y2="18" />
+          <line x1="22.4" y1="18" x2="26.7" y2="18" />
+        </g>
+        <path d="M20.4 17.6 L17.2 11.2 A 5.2 5.2 0 0 1 23.6 11.2 Z" fill={IC_DEEP} />
+        <circle cx="20.4" cy="16.7" r="1.9" fill={IC_DEEP} />
+        <circle cx="30" cy="30" r="8" fill={IC_BADGE} />
+        <circle cx="28.7" cy="28.7" r="2.5" fill="none" stroke="#fff" strokeWidth={1.6} />
+        <line x1="30.6" y1="30.6" x2="32.7" y2="32.7" stroke="#fff" strokeWidth={1.7} strokeLinecap="round" />
       </>
     ),
   },
@@ -64,28 +50,19 @@ const QUICK_ACTIONS: QuickAction[] = [
     // 예약하기: 달력 + 체크 배지
     icon: (
       <>
-        <rect
-          x="8"
-          y="11"
-          width="22"
-          height="20"
-          rx="3"
-          fill="currentColor"
-          fillOpacity={0.32}
-        />
-        <path d="M8 17H30" stroke="#fff" strokeWidth={1.6} opacity={0.85} />
+        <rect x="5" y="8" width="24" height="23" rx="3" fill={IC_BASE} />
+        <path d="M5 11 a3 3 0 0 1 3-3 h18 a3 3 0 0 1 3 3 v3 H5 Z" fill={IC_DEEP} />
+        <rect x="9.6" y="5" width="2.4" height="6" rx="1.2" fill={IC_DEEP} />
+        <rect x="22" y="5" width="2.4" height="6" rx="1.2" fill={IC_DEEP} />
+        <rect x="9" y="18" width="3" height="3" rx="0.8" fill="#fff" />
+        <rect x="15.5" y="18" width="3" height="3" rx="0.8" fill="#fff" />
+        <rect x="9" y="23.5" width="3" height="3" rx="0.8" fill="#fff" />
+        <circle cx="30" cy="30" r="8" fill={IC_BADGE} />
         <path
-          d="M14 8.5V12.5M24 8.5V12.5"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-        />
-        <Badge />
-        <path
-          d="M27 30.6l2.2 2.2 4-4.4"
+          d="M26.4 30 l2.3 2.3 l4-4.4"
           fill="none"
           stroke="#fff"
-          strokeWidth={1.7}
+          strokeWidth={1.9}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -98,39 +75,17 @@ const QUICK_ACTIONS: QuickAction[] = [
     // 예약 조회: 문서 + 시계 배지
     icon: (
       <>
+        <rect x="7" y="5" width="20" height="28" rx="2.5" fill={IC_BASE} />
+        <rect x="10.5" y="10" width="13" height="2.4" rx="1.2" fill="#fff" />
+        <rect x="10.5" y="15" width="13" height="2.4" rx="1.2" fill="#fff" />
+        <rect x="10.5" y="20" width="8" height="2.4" rx="1.2" fill="#fff" />
+        <circle cx="30" cy="30" r="8" fill={IC_BADGE} />
+        <circle cx="30" cy="30" r="4.3" fill="none" stroke="#fff" strokeWidth={1.5} />
         <path
-          d="M11 7 h10 l7 7 v16 a1 1 0 0 1-1 1 H12 a1 1 0 0 1-1-1 Z"
-          fill="currentColor"
-          fillOpacity={0.32}
-        />
-        <path
-          d="M21 7 v7 h7"
+          d="M30 27.5 V30 l1.8 1.1"
           fill="none"
-          stroke="#fff"
-          strokeWidth={1.4}
-          opacity={0.85}
-        />
-        <path
-          d="M15 19 h8 M15 23 h6"
           stroke="#fff"
           strokeWidth={1.5}
-          strokeLinecap="round"
-          opacity={0.85}
-        />
-        <Badge />
-        <circle
-          cx="30.5"
-          cy="30.5"
-          r="3.4"
-          fill="none"
-          stroke="#fff"
-          strokeWidth={1.4}
-        />
-        <path
-          d="M30.5 28.6V30.6l1.5 1"
-          fill="none"
-          stroke="#fff"
-          strokeWidth={1.3}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -143,18 +98,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     // 마이페이지: 사람 + 체크 배지
     icon: (
       <>
-        <circle cx="19" cy="14" r="6" fill="currentColor" fillOpacity={0.32} />
+        <circle cx="17" cy="13.5" r="5.5" fill={IC_BASE} />
+        <path d="M6.5 30.5 a11 10 0 0 1 22 0 Z" fill={IC_BASE} />
+        <circle cx="30" cy="30" r="8" fill={IC_BADGE} />
         <path
-          d="M8 32c0-6 4.9-9.7 11-9.7s11 3.7 11 9.7z"
-          fill="currentColor"
-          fillOpacity={0.32}
-        />
-        <Badge cx={31} />
-        <path
-          d="M27.5 30.6l2.2 2.2 4-4.4"
+          d="M26.4 30 l2.3 2.3 l4-4.4"
           fill="none"
           stroke="#fff"
-          strokeWidth={1.7}
+          strokeWidth={1.9}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -171,15 +122,14 @@ export async function HomeQuickActions() {
         {QUICK_ACTIONS.map((action) => (
           <li key={action.titleKey}>
             <div className="flex h-full flex-col rounded-xl border border-line bg-white px-6 py-7">
-              <span className="mb-5 grid size-[52px] place-items-center rounded-[13px] bg-surface-2">
-                <svg
-                  viewBox="0 0 40 40"
-                  aria-hidden="true"
-                  className="size-[30px] text-accent-strong"
-                >
-                  {action.icon}
-                </svg>
-              </span>
+              <svg
+                viewBox="0 0 40 40"
+                fill="none"
+                aria-hidden="true"
+                className="mb-5 size-12"
+              >
+                {action.icon}
+              </svg>
               <h3 className="text-[18.5px] font-bold text-slate-950">
                 {t(action.titleKey)}
               </h3>
