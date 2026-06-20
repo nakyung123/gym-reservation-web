@@ -13,7 +13,9 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 
 // 메인 GNB + 우측 유틸. layout.tsx의 헤더 nav 안에서 로고 다음에 렌더된다.
 // 라벨은 i18n 메시지 키(Nav 네임스페이스)로 관리하고 useTranslations로 렌더한다.
-// - GNB(시설 찾기/예약하기/예약 조회/이용 안내/공지사항)는 라우트로 연결한다.
+// - GNB(시설 찾기/사업 소개/문의·FAQ/이용 안내/공지사항)는 라우트로 연결한다.
+//   예약하기·예약 조회는 GNB에서 제외한다(검색→시설 상세→예약 흐름). 로그인 사용자의
+//   "내 예약"은 우측 유틸(myBookings)로 접근한다.
 // - 시설 찾기는 hover 시 메가메뉴(종목별/지역별)를 연다. CSS hover/focus-within 기반.
 //   메가메뉴 항목(종목·지역명)은 데이터성이라 1차 i18n 범위에서 제외(한국어 유지).
 // 항목 추가/삭제/순서는 배열에서만 관리한다. (구조 유연성 우선)
@@ -25,8 +27,8 @@ type GnbItem = {
 
 const GNB_ITEMS: GnbItem[] = [
   { key: "facilities", href: "/gyms", mega: true },
-  { key: "reserve", href: "/gyms" },
-  { key: "myReservations", href: "/reservations" },
+  { key: "about", href: "/about" },
+  { key: "faq", href: "/faq" },
   { key: "guide", href: "/guide" },
   { key: "notice", href: "/notice" },
 ];
@@ -34,7 +36,7 @@ const GNB_ITEMS: GnbItem[] = [
 // 메가메뉴 내용. 제목은 메시지 키, 항목(종목·지역명)은 데이터성이라 한국어 유지.
 // (종목·지역 필터 쿼리는 /gyms 필터 계약이 정해지면 이 배열의 href만 채우면 된다.)
 const FACILITY_MEGA: { titleKey: string; items: string[] }[] = [
-  { titleKey: "bySport", items: ["배드민턴", "탁구", "풋살", "농구", "배구", "헬스장"] },
+  { titleKey: "bySport", items: ["배드민턴", "탁구", "풋살", "농구", "배구"] },
   { titleKey: "byRegion", items: ["금천구", "노원구", "마포구", "전체 보기"] },
 ];
 

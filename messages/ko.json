@@ -1,6 +1,8 @@
 {
   "Nav": {
     "facilities": "시설 찾기",
+    "about": "사업 소개",
+    "faq": "문의·FAQ",
     "reserve": "예약하기",
     "myReservations": "예약 조회",
     "guide": "이용 안내",
@@ -49,9 +51,9 @@
     "searchGym": "체육관",
     "searchDate": "날짜",
     "searchSportPlaceholder": "종목 선택",
-    "searchRegionFirst": "종목 먼저",
+    "searchSportFirst": "지역 먼저",
     "searchRegionPlaceholder": "지역 선택",
-    "searchGymFirst": "지역 먼저",
+    "searchGymFirst": "종목 먼저",
     "searchGymPlaceholder": "체육관 선택",
     "searchSubmit": "시설 검색",
     "facilitiesTitle": "가까운 체육시설",

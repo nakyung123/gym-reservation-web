@@ -1,6 +1,8 @@
 {
   "Nav": {
     "facilities": "查找设施",
+    "about": "业务介绍",
+    "faq": "咨询",
     "reserve": "立即预约",
     "myReservations": "预约查询",
     "guide": "使用指南",
@@ -49,9 +51,9 @@
     "searchGym": "体育馆",
     "searchDate": "日期",
     "searchSportPlaceholder": "选择项目",
-    "searchRegionFirst": "请先选项目",
+    "searchSportFirst": "请先选地区",
     "searchRegionPlaceholder": "选择地区",
-    "searchGymFirst": "请先选地区",
+    "searchGymFirst": "请先选项目",
     "searchGymPlaceholder": "选择体育馆",
     "searchSubmit": "搜索设施",
     "facilitiesTitle": "附近设施",

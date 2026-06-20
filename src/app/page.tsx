@@ -1,4 +1,5 @@
 import { FacilityCard } from "@/components/facility-card";
+import { HomeEvents } from "@/components/home-events";
 import { HomeHero } from "@/components/home-hero";
 import { HomeQuickActions } from "@/components/home-quick-actions";
 import { HomeReservationPreview } from "@/components/home-reservation-preview";
@@ -54,6 +55,8 @@ export default async function Home() {
           )}
         </div>
       </section>
+
+      <HomeEvents />
 
       <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
         <div className="h-px bg-line" />

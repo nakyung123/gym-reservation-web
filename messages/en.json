@@ -1,6 +1,8 @@
 {
   "Nav": {
     "facilities": "Find Facilities",
+    "about": "About",
+    "faq": "FAQ",
     "reserve": "Book Now",
     "myReservations": "My Reservations",
     "guide": "Guide",
@@ -49,9 +51,9 @@
     "searchGym": "Center",
     "searchDate": "Date",
     "searchSportPlaceholder": "Select sport",
-    "searchRegionFirst": "Select sport first",
+    "searchSportFirst": "Select region first",
     "searchRegionPlaceholder": "Select region",
-    "searchGymFirst": "Select region first",
+    "searchGymFirst": "Select sport first",
     "searchGymPlaceholder": "Select center",
     "searchSubmit": "Search",
     "facilitiesTitle": "Nearby Facilities",

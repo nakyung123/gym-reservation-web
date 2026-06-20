@@ -39,7 +39,10 @@ export default async function RootLayout({
       <body>
         <NextIntlClientProvider>
           <UserLocationProvider>
-            <header className="sticky top-0 z-50 border-b border-line bg-surface">
+            {/* sticky footer 골격: 콘텐츠가 짧아도 푸터가 화면 바닥에 붙도록
+                전체를 min-h-screen flex-col로 감싸고 children을 flex-1로 채운다. */}
+            <div className="flex min-h-screen flex-col">
+              <header className="sticky top-0 z-50 border-b border-line bg-surface">
               <nav
                 className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center gap-11 px-5 sm:px-8"
                 aria-label="주요 메뉴"
@@ -68,9 +71,10 @@ export default async function RootLayout({
                 </Link>
                 <AppHeaderNav />
               </nav>
-            </header>
-            {children}
-            <SiteFooter />
+              </header>
+              <div className="flex flex-1 flex-col">{children}</div>
+              <SiteFooter />
+            </div>
             <LocationPermissionModal />
             <FaqChatWidget />
           </UserLocationProvider>

@@ -1,6 +1,8 @@
 {
   "Nav": {
     "facilities": "施設を探す",
+    "about": "事業紹介",
+    "faq": "お問い合わせ",
     "reserve": "予約する",
     "myReservations": "予約照会",
     "guide": "ご利用案内",
@@ -49,9 +51,9 @@
     "searchGym": "体育館",
     "searchDate": "日付",
     "searchSportPlaceholder": "種目を選択",
-    "searchRegionFirst": "先に種目を選択",
+    "searchSportFirst": "先に地域を選択",
     "searchRegionPlaceholder": "地域を選択",
-    "searchGymFirst": "先に地域を選択",
+    "searchGymFirst": "先に種目を選択",
     "searchGymPlaceholder": "体育館を選択",
     "searchSubmit": "施設検索",
     "facilitiesTitle": "近くの施設",
