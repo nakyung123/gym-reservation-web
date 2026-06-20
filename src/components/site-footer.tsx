@@ -25,7 +25,7 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       { labelKey: "facilities", href: "/gyms" },
       { labelKey: "myReservations", href: "/reservations" },
       { labelKey: "guide", href: "/guide" },
-      { labelKey: "faq", href: "/guide" },
+      { labelKey: "faq", href: "/faq" },
     ],
   },
   {

@@ -71,10 +71,24 @@
     "cardDetailAria": "View {name} details",
     "cardBookAria": "Book {name}"
   },
-  "Guide": {
-    "title": "Guide",
+  "Faq": {
+    "title": "FAQ",
     "intro": "Answers to common questions about sign-up, booking, and cancellation. Tap an item to see details.",
     "contact": "For more questions, use the chat assistant at the bottom right, or contact our customer center at 1599-0000 (weekdays 09:00–18:00)."
+  },
+  "Guide": {
+    "title": "How It Works",
+    "intro": "New here? Here's how it works, from finding a facility to checking in on-site, in five steps.",
+    "step1Title": "Find a facility",
+    "step1Desc": "Search nearby public sports facilities by region and sport.",
+    "step2Title": "Book a time slot",
+    "step2Desc": "On the facility page, pick your sport, date, and time to book.",
+    "step3Title": "Check your booking",
+    "step3Desc": "See your booking status and on-site entry code under 'My bookings'.",
+    "step4Title": "Visit & check in",
+    "step4Desc": "On the day, enter using your on-site entry code.",
+    "step5Title": "All done",
+    "step5Desc": "Your booking is completed automatically after use. Book your next session the same way."
   },
   "Notice": {
     "title": "Notices",
