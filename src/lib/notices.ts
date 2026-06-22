@@ -1,31 +1,23 @@
 // 공지사항 SSOT(데모 정적 데이터). 운영 시 CMS/DB로 교체 가능하나 현재는 데모라 정적 배열로 둔다.
 // 항목 추가·삭제는 이 배열만 수정하면 목록/상세 페이지가 함께 따라온다(구조 유연성 우선).
-
-export type NoticeCategory = "공지" | "점검" | "안내";
+//
+// KMI 게시판 구조에 맞춰: 카테고리 대신 pinned(주요공지) 플래그만 둔다.
+//  - pinned=true 는 목록 상단에 '주요공지' 라벨로 고정 노출(번호 없음).
+//  - 일반 공지는 최신순으로 순번(번호)을 부여한다(번호 산출은 목록 페이지가 담당).
 
 export type Notice = {
   id: string;
-  category: NoticeCategory;
   title: string;
   date: string; // YYYY-MM-DD (발행일)
   body: string; // 단락은 빈 줄(\n\n)로 구분
+  pinned?: boolean; // 주요공지(상단 고정)
 };
 
 const NOTICES: Notice[] = [
-  {
-    id: "faq-bot-open",
-    category: "안내",
-    title: "AI 문의 도우미 오픈 안내",
-    date: "2026-06-17",
-    body: [
-      "자주 묻는 질문에 빠르게 답해 드리는 AI 문의 도우미가 오픈했습니다.",
-      "화면 우측 하단의 '문의하기' 버튼을 누르면 가입·예약·취소·이용 방법 등에 대해 대화형으로 안내받을 수 있습니다.",
-      "안내 도우미가 답하기 어려운 문의는 고객센터(1599-0000, 평일 09:00~18:00)로 연락해 주세요.",
-    ].join("\n\n"),
-  },
+  // ── 주요공지(상단 고정) ──
   {
     id: "summer-hours-2026",
-    category: "공지",
+    pinned: true,
     title: "하계(7~8월) 운영시간 안내",
     date: "2026-06-15",
     body: [
@@ -36,7 +28,7 @@ const NOTICES: Notice[] = [
   },
   {
     id: "system-maintenance-2026-06",
-    category: "점검",
+    pinned: true,
     title: "예약 시스템 정기 점검 안내",
     date: "2026-06-10",
     body: [
@@ -46,8 +38,84 @@ const NOTICES: Notice[] = [
     ].join("\n\n"),
   },
   {
+    id: "privacy-policy-update",
+    pinned: true,
+    title: "개인정보 처리방침 개정 안내",
+    date: "2026-05-20",
+    body: [
+      "개인정보 처리방침이 일부 개정되어 안내드립니다.",
+      "주요 변경 사항은 수집 항목 및 보관 기간의 명확화이며, 자세한 내용은 추후 공지되는 전문을 통해 확인하실 수 있습니다.",
+      "서비스 이용에는 영향이 없으며, 관련 문의는 고객센터로 연락해 주세요.",
+    ].join("\n\n"),
+  },
+
+  // ── 일반 공지 ──
+  {
+    id: "faq-bot-open",
+    title: "AI 문의 도우미 오픈 안내",
+    date: "2026-06-17",
+    body: [
+      "자주 묻는 질문에 빠르게 답해 드리는 AI 문의 도우미가 오픈했습니다.",
+      "화면 우측 하단의 '문의하기' 버튼을 누르면 가입·예약·취소·이용 방법 등에 대해 대화형으로 안내받을 수 있습니다.",
+      "안내 도우미가 답하기 어려운 문의는 고객센터(1599-0000, 평일 09:00~18:00)로 연락해 주세요.",
+    ].join("\n\n"),
+  },
+  {
+    id: "chuseok-closure-2026",
+    title: "추석 연휴 휴관 안내",
+    date: "2026-06-16",
+    body: [
+      "추석 연휴 기간 동안 전 시설이 휴관합니다.",
+      "휴관 기간에는 예약 신청과 현장 이용이 모두 중단되며, 연휴 직후 정상 운영됩니다. 연휴 전후 예약은 평소와 동일하게 가능합니다.",
+    ].join("\n\n"),
+  },
+  {
+    id: "pool-water-check",
+    title: "수영장 정기 수질 점검 안내",
+    date: "2026-06-14",
+    body: [
+      "수영장 수질 관리를 위한 정기 점검을 실시합니다.",
+      "점검 당일 오전 시간대 수영장 이용이 제한되며, 점검 완료 후 오후부터 정상 이용 가능합니다. 해당 시간대 예약은 자동으로 제한됩니다.",
+    ].join("\n\n"),
+  },
+  {
+    id: "parking-repaint",
+    title: "주차장 도장 공사 안내",
+    date: "2026-06-12",
+    body: [
+      "이용 편의를 위해 주차장 바닥 도장 공사를 진행합니다.",
+      "공사 기간 중 일부 주차 구역이 통제되오니 대중교통 이용을 권장드립니다. 시설 이용에는 지장이 없습니다.",
+    ].join("\n\n"),
+  },
+  {
+    id: "summer-class-recruit",
+    title: "여름 단기 강좌 수강생 모집",
+    date: "2026-06-09",
+    body: [
+      "여름 단기 강좌(수영·배드민턴·헬스 등) 수강생을 모집합니다.",
+      "신청은 시설 찾기에서 해당 센터를 선택해 진행할 수 있으며, 정원 마감 시 조기 종료될 수 있습니다.",
+    ].join("\n\n"),
+  },
+  {
+    id: "app-update-2026-06",
+    title: "모바일 앱 업데이트 안내",
+    date: "2026-06-05",
+    body: [
+      "모바일 앱이 업데이트되어 예약 화면과 알림 기능이 개선되었습니다.",
+      "원활한 이용을 위해 최신 버전으로 업데이트해 주세요.",
+    ].join("\n\n"),
+  },
+  {
+    id: "easy-pay-added",
+    title: "간편결제 수단 추가 안내",
+    date: "2026-06-03",
+    body: [
+      "결제 편의를 위해 간편결제 수단이 추가되었습니다.",
+      "기존 결제 수단도 그대로 이용 가능하며, 자세한 사항은 결제 화면에서 확인하실 수 있습니다.",
+    ].join("\n\n"),
+  },
+  {
     id: "new-center-geumcheon",
-    category: "안내",
     title: "금천구민체육센터 신규 오픈",
     date: "2026-06-01",
     body: [
@@ -57,23 +125,52 @@ const NOTICES: Notice[] = [
     ].join("\n\n"),
   },
   {
-    id: "privacy-policy-update",
-    category: "공지",
-    title: "개인정보 처리방침 개정 안내",
-    date: "2026-05-20",
+    id: "refund-delay-notice",
+    title: "환불 처리 지연 안내",
+    date: "2026-05-28",
     body: [
-      "개인정보 처리방침이 일부 개정되어 안내드립니다.",
-      "주요 변경 사항은 수집 항목 및 보관 기간의 명확화이며, 자세한 내용은 추후 공지되는 전문을 통해 확인하실 수 있습니다.",
-      "서비스 이용에는 영향이 없으며, 관련 문의는 고객센터로 연락해 주세요.",
+      "카드사 정기 점검으로 일부 환불 처리가 지연될 수 있습니다.",
+      "환불 신청은 정상 접수되며, 영업일 기준 순차 처리됩니다. 이용에 불편을 드려 죄송합니다.",
+    ].join("\n\n"),
+  },
+  {
+    id: "nowon-remodeling",
+    title: "노원구민체육센터 리모델링 휴관",
+    date: "2026-05-25",
+    body: [
+      "노원구민체육센터가 시설 리모델링으로 한시 휴관합니다.",
+      "휴관 기간 중에는 인근 센터 이용을 권장드리며, 재개관 일정은 추후 별도 공지합니다.",
+    ].join("\n\n"),
+  },
+  {
+    id: "member-grade-revamp",
+    title: "회원 등급 혜택 개편 안내",
+    date: "2026-05-22",
+    body: [
+      "회원 등급별 혜택이 개편되어 안내드립니다.",
+      "이용 실적에 따른 혜택이 확대되었으며, 자세한 내용은 마이페이지에서 확인하실 수 있습니다.",
     ].join("\n\n"),
   },
 ];
 
-// 최신 발행일 순으로 정렬해 반환.
+// 최신 발행일 순(desc) 정렬 유틸.
+function byDateDesc(list: Notice[]): Notice[] {
+  return [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+// 전체(주요공지 포함) — 상세 prev/next, 검색에 사용.
 export function listNotices(): Notice[] {
-  return [...NOTICES].sort((a, b) =>
-    a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
-  );
+  return byDateDesc(NOTICES);
+}
+
+// 주요공지(상단 고정)만, 최신순.
+export function listPinnedNotices(): Notice[] {
+  return byDateDesc(NOTICES.filter((notice) => notice.pinned));
+}
+
+// 일반 공지만, 최신순(번호 부여 대상).
+export function listNormalNotices(): Notice[] {
+  return byDateDesc(NOTICES.filter((notice) => !notice.pinned));
 }
 
 export function getNotice(id: string): Notice | null {

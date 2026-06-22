@@ -250,3 +250,15 @@ model Banner {
   @@index([isActive, sortOrder], map: "idx_banner_active_sort")
   @@map("banners")
 }
+
+// 공지사항 조회수 카운터. 공지 본문/메타는 코드(src/lib/notices.ts)가 SSOT이고,
+// 조회수만 동적이라 여기서 noticeId별 누적 카운트만 보관한다(상세 진입 시 +1).
+// 행이 없으면 0으로 간주하고 첫 조회 시 upsert로 생성한다.
+// 카운트 갱신 실패는 best-effort라 호출 측에서 격리해 페이지 렌더를 막지 않는다.
+model NoticeView {
+  noticeId  String   @id @map("notice_id") @db.VarChar(64)
+  count     Int      @default(0)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  @@map("notice_views")
+}
