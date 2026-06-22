@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { GymCard } from "@/components/gym-card";
+import { SelectMenu } from "@/components/select-menu";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { calculateGymDistanceKm } from "@/lib/distance";
@@ -22,34 +23,34 @@ type GymDiscoveryProps = {
 
 type SportFilter = Sport | "전체";
 type RegionFilter = string | "전체";
-type GymSort = "distance" | "lowest-price" | "name";
+// 정렬: 가까운 순(distance) | 가격순(price). 이름순은 제거. 가격순은 asc/desc 토글.
+type GymSort = "distance" | "price";
+type SortDir = "asc" | "desc";
 
-// 정렬 키 → 번역 키 매핑. 라벨 텍스트는 messages의 Gyms.* 를 따른다.
-const gymSortLabelKeys: Record<GymSort, string> = {
-  distance: "sortDistance",
-  "lowest-price": "sortLowestPrice",
-  name: "sortName",
-};
+// 검색바 입력/드롭다운 공통 컨트롤 룩(홈 검색바와 같은 높이·보더 톤).
+const CONTROL_CLASS =
+  "h-11 rounded-md border border-line-strong bg-white px-3 text-[15px] transition focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20";
+const FIELD_LABEL_CLASS = "text-[12.5px] font-bold text-subtle";
 
 function distanceForSort(gym: Gym, location: GeoPoint | null): number {
   const km = calculateGymDistanceKm(gym, location);
   return km ?? Number.POSITIVE_INFINITY;
 }
 
-function sortGyms(gyms: Gym[], sort: GymSort, location: GeoPoint | null) {
+function sortGyms(
+  gyms: Gym[],
+  sort: GymSort,
+  dir: SortDir,
+  location: GeoPoint | null,
+) {
   return [...gyms].sort((left, right) => {
-    if (sort === "lowest-price") {
-      return (
-        getGymLowestPrice(left) - getGymLowestPrice(right) ||
-        left.name.localeCompare(right.name)
-      );
+    if (sort === "price") {
+      const diff = getGymLowestPrice(left) - getGymLowestPrice(right);
+      // 오름차순(낮은→높은)이 기본, 다시 누르면 내림차순. 동가는 이름순 tiebreak.
+      return (dir === "desc" ? -diff : diff) || left.name.localeCompare(right.name);
     }
 
-    if (sort === "name") {
-      return left.name.localeCompare(right.name);
-    }
-
-    // 위치 없으면 거리 정렬이 의미 없으므로 이름순으로 폴백.
+    // 가까운 순. 위치 없으면 거리 비교가 불가능하므로 이름순으로 폴백.
     if (!location) {
       return left.name.localeCompare(right.name);
     }
@@ -60,12 +61,32 @@ function sortGyms(gyms: Gym[], sort: GymSort, location: GeoPoint | null) {
   });
 }
 
+// 가격순 방향 표시 화살표(오름=위, 내림=아래).
+function SortDirArrow({ dir }: { dir: SortDir }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-3.5"
+    >
+      <path d={dir === "asc" ? "M6 14l6-6 6 6" : "M6 10l6 6 6-6"} />
+    </svg>
+  );
+}
+
 export function GymDiscovery({ gyms }: GymDiscoveryProps) {
   const t = useTranslations("Gyms");
   const [query, setQuery] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
   const [selectedSport, setSelectedSport] = useState<SportFilter>("전체");
-  const [selectedSort, setSelectedSort] = useState<GymSort>("name");
+  // 기본 정렬: 가격 오름차순(위치 권한 없이도 항상 동작).
+  const [selectedSort, setSelectedSort] = useState<GymSort>("price");
+  const [priceDir, setPriceDir] = useState<SortDir>("asc");
   // 거리순 클릭 시 위치 권한이 없어 모달을 띄운 경우 의도를 보존했다가
   // location이 채워지면 자동으로 거리순으로 전환한다 (재클릭 불필요).
   const [pendingSort, setPendingSort] = useState<GymSort | null>(null);
@@ -75,8 +96,8 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!location || !pendingSort) return;
-    setSelectedSort(pendingSort);
+    if (!location || pendingSort !== "distance") return;
+    setSelectedSort("distance");
     setPendingSort(null);
   }, [location, pendingSort]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -103,8 +124,8 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       return matchesQuery && matchesRegion && matchesSport && matchesFavorites;
     });
 
-    return sortGyms(matches, selectedSort, location);
-  }, [gyms, query, selectedRegion, selectedSort, selectedSport, favoritesOnly, favorites, location]);
+    return sortGyms(matches, selectedSort, priceDir, location);
+  }, [gyms, query, selectedRegion, selectedSort, priceDir, selectedSport, favoritesOnly, favorites, location]);
 
   const hasNonFavoritesFilter =
     query.trim().length > 0 ||
@@ -149,41 +170,71 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
     setFavoritesOnly(false);
   };
 
+  // 가까운 순: 위치 없으면 권한 모달을 띄우고 의도를 보존한다.
+  const handleDistanceClick = () => {
+    if (!location) {
+      // denied는 권한 변경 이벤트가 안 올 수 있어 pendingSort 약속을 걸지 않는다.
+      if (permission !== "denied") setPendingSort("distance");
+      openPromptModal();
+      return;
+    }
+    setPendingSort(null);
+    setSelectedSort("distance");
+  };
+
+  // 가격순: 비활성 상태면 오름차순으로 켜고, 이미 가격순이면 방향만 토글.
+  const handlePriceClick = () => {
+    setPendingSort(null);
+    if (selectedSort === "price") {
+      setPriceDir((dir) => (dir === "asc" ? "desc" : "asc"));
+    } else {
+      setSelectedSort("price");
+      setPriceDir("asc");
+    }
+  };
+
+  const sortButtonClass = (active: boolean) =>
+    `inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+      active
+        ? "border-accent bg-accent-tint text-accent-strong"
+        : "border-line-strong bg-white text-muted hover:border-accent hover:text-accent-strong"
+    }`;
+
   return (
     <section className="flex flex-col gap-5">
-      <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem] lg:items-end">
-          <label className="flex min-w-0 flex-col gap-2">
-            <span className="text-sm font-semibold text-slate-700">
-              {t("searchLabel")}
-            </span>
+      <div className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-6">
+        {/* 검색 + 지역 (홈 검색바와 같은 컨트롤 톤) */}
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_13rem] sm:items-end">
+          <label className="flex min-w-0 flex-col gap-1.5">
+            <span className={FIELD_LABEL_CLASS}>{t("searchLabel")}</span>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchPlaceholder")}
-              className="h-11 rounded-md border border-line-strong px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-accent focus:ring-2 focus:ring-accent/20"
+              className={`${CONTROL_CLASS} text-slate-950 outline-none placeholder:text-subtle`}
             />
           </label>
 
-          <label className="flex min-w-0 flex-col gap-2">
-            <span className="text-sm font-semibold text-slate-700">
-              {t("regionLabel")}
-            </span>
-            <select
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className={FIELD_LABEL_CLASS}>{t("regionLabel")}</span>
+            <SelectMenu
               value={selectedRegion}
-              onChange={(event) => setSelectedRegion(event.target.value)}
-              className="h-11 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
-            >
-              <option value="전체">{t("regionAll")}</option>
-              {availableRegions.map((region) => (
-                <option key={region} value={region}>
-                  {region}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={[
+                { value: "전체", label: t("regionAll") },
+                ...availableRegions.map((region) => ({
+                  value: region,
+                  label: region,
+                })),
+              ]}
+              placeholder={t("regionAll")}
+              ariaLabel={t("regionLabel")}
+              onChange={(value) => setSelectedRegion(value)}
+              triggerClassName={CONTROL_CLASS}
+            />
+          </div>
         </div>
 
+        {/* 종목 필터 칩 */}
         <div
           className="mt-4 flex flex-wrap gap-2"
           role="group"
@@ -208,48 +259,24 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
               </button>
             );
           })}
-
-          <button
-            type="button"
-            onClick={() => setFavoritesOnly((prev) => !prev)}
-            aria-pressed={favoritesOnly}
-            className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-              favoritesOnly
-                ? "border-rose-400 bg-rose-50 text-rose-700"
-                : "border-slate-300 bg-white text-slate-700 hover:border-rose-300 hover:text-rose-600"
-            }`}
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill={favoritesOnly ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-              />
-            </svg>
-            {t("favoritesToggle")}
-          </button>
         </div>
 
+        {/* 결과 수 + 정렬(가까운 순·가격순) + 즐겨찾기 필터 + 초기화 */}
         <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-600">
-            {(favoritesOnly ? t.rich("countFavorites", {
-              count: filteredGyms.length,
-              b: (chunks) => (
-                <strong className="text-slate-950">{chunks}</strong>
-              ),
-            }) : t.rich("countTotal", {
-              count: filteredGyms.length,
-              b: (chunks) => (
-                <strong className="text-slate-950">{chunks}</strong>
-              ),
-            }))}
+            {(favoritesOnly
+              ? t.rich("countFavorites", {
+                  count: filteredGyms.length,
+                  b: (chunks) => (
+                    <strong className="text-slate-950">{chunks}</strong>
+                  ),
+                })
+              : t.rich("countTotal", {
+                  count: filteredGyms.length,
+                  b: (chunks) => (
+                    <strong className="text-slate-950">{chunks}</strong>
+                  ),
+                }))}
           </p>
 
           <div
@@ -257,38 +284,55 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
             role="group"
             aria-label={t("sortAria")}
           >
-            {(Object.keys(gymSortLabelKeys) as GymSort[]).map((sort) => {
-              const isActive = selectedSort === sort;
+            <button
+              type="button"
+              onClick={handleDistanceClick}
+              aria-pressed={selectedSort === "distance"}
+              className={sortButtonClass(selectedSort === "distance")}
+            >
+              {t("sortDistance")}
+            </button>
 
-              return (
-                <button
-                  key={sort}
-                  type="button"
-                  onClick={() => {
-                    if (sort === "distance" && !location) {
-                      // denied는 권한 변경 이벤트가 안 올 수 있어 pendingSort 약속을 걸지 않는다.
-                      if (permission !== "denied") {
-                        setPendingSort("distance");
-                      }
-                      openPromptModal();
-                      return;
-                    }
-                    // 다른 정렬을 명시 선택하면 보류된 거리순 의도도 해제 (의도와
-                    // 다른 자동 전환 방지).
-                    setPendingSort(null);
-                    setSelectedSort(sort);
-                  }}
-                  aria-pressed={isActive}
-                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                    isActive
-                      ? "border-accent bg-accent-tint text-accent-strong"
-                      : "border-line-strong bg-white text-muted hover:border-accent hover:text-accent-strong"
-                  }`}
-                >
-                  {t(gymSortLabelKeys[sort])}
-                </button>
-              );
-            })}
+            <button
+              type="button"
+              onClick={handlePriceClick}
+              aria-pressed={selectedSort === "price"}
+              aria-label={`${t("sortPrice")} ${
+                priceDir === "asc" ? t("ascending") : t("descending")
+              }`}
+              className={sortButtonClass(selectedSort === "price")}
+            >
+              {t("sortPrice")}
+              {selectedSort === "price" ? <SortDirArrow dir={priceDir} /> : null}
+            </button>
+
+            {/* 즐겨찾기 필터(종목 줄에서 이곳으로 이동). rose는 즐겨찾기 디자인 예외. */}
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((prev) => !prev)}
+              aria-pressed={favoritesOnly}
+              className={`inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
+                favoritesOnly
+                  ? "border-rose-400 bg-rose-50 text-rose-700"
+                  : "border-line-strong bg-white text-muted hover:border-rose-300 hover:text-rose-600"
+              }`}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill={favoritesOnly ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                />
+              </svg>
+              {t("favoritesToggle")}
+            </button>
 
             {hasActiveFilter ? (
               <button
@@ -304,10 +348,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
 
         {(selectedSort === "distance" || pendingSort === "distance") &&
         !location ? (
-          <p
-            className="mt-3 text-xs font-semibold text-warning"
-            role="status"
-          >
+          <p className="mt-3 text-xs font-semibold text-warning" role="status">
             {permission === "denied"
               ? t("locationDenied")
               : t("locationMissing")}
@@ -317,7 +358,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
 
       {recommendation ? (
         <aside
-          className="rounded-lg border border-line bg-accent-tint/40 p-4"
+          className="rounded-xl border border-line bg-accent-tint/40 p-4"
           aria-label={t("recommendAria")}
         >
           <p className="text-sm font-semibold text-accent-strong">
@@ -353,7 +394,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
       )}
 
       {filteredGyms.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filteredGyms.map((gym) => (
             <GymCard
               key={gym.id}
@@ -364,7 +405,7 @@ export function GymDiscovery({ gyms }: GymDiscoveryProps) {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-line-strong bg-white p-10 text-center">
+        <div className="rounded-xl border border-dashed border-line-strong bg-white p-10 text-center">
           <p className="text-base font-bold text-slate-950">
             {favoritesOnly
               ? loadError

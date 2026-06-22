@@ -20,12 +20,14 @@ type FooterColumn = {
 
 const FOOTER_COLUMNS: FooterColumn[] = [
   {
+    // 바로가기는 현재 GNB 5개 메뉴와 동일하게 맞춘다(라벨도 GNB와 통일).
     titleKey: "quickLinks",
     links: [
       { labelKey: "facilities", href: "/gyms" },
-      { labelKey: "myReservations", href: "/reservations" },
-      { labelKey: "guide", href: "/guide" },
+      { labelKey: "about", href: "/about" },
       { labelKey: "faq", href: "/faq" },
+      { labelKey: "guide", href: "/guide" },
+      { labelKey: "notice", href: "/notice" },
     ],
   },
   {
@@ -34,7 +36,6 @@ const FOOTER_COLUMNS: FooterColumn[] = [
       // 이용약관·개인정보처리방침은 법적 문서라 데모로 채우지 않고 placeholder로 둔다.
       { labelKey: "terms" },
       { labelKey: "privacy" },
-      { labelKey: "notice", href: "/notice" },
     ],
   },
 ];

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/app-button";
+import { SelectMenu } from "@/components/select-menu";
 import { SPORTS } from "@/lib/domain-constants";
 import type { Gym, Sport } from "@/types/domain";
 
@@ -22,8 +23,9 @@ type HomeSearchProps = {
 };
 
 const FIELD_LABEL_CLASS = "text-[12.5px] font-bold text-subtle";
-const FIELD_CONTROL_CLASS =
-  "h-12 w-full rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] text-slate-950 outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-subtle";
+// SelectMenu 트리거 룩(기존 select 컨트롤과 동일한 높이·radius·보더). 화살표/목록 톤은 SelectMenu 공통.
+const FIELD_TRIGGER_CLASS =
+  "h-12 rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] transition focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2";
 
 export function HomeSearch({ gyms }: HomeSearchProps) {
   const t = useTranslations("Home");
@@ -90,61 +92,45 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
         className="grid gap-3 rounded-2xl border border-line bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.16)] sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.3fr_auto] lg:items-end"
       >
         {/* 지역 */}
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className={FIELD_LABEL_CLASS}>{t("searchRegion")}</span>
-          <select
-            className={FIELD_CONTROL_CLASS}
+          <SelectMenu
             value={region}
-            onChange={(event) => handleRegionChange(event.target.value)}
-          >
-            <option value="">{t("searchRegionPlaceholder")}</option>
-            {regionOptions.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={regionOptions.map((item) => ({ value: item, label: item }))}
+            placeholder={t("searchRegionPlaceholder")}
+            ariaLabel={t("searchRegion")}
+            onChange={handleRegionChange}
+            triggerClassName={FIELD_TRIGGER_CLASS}
+          />
+        </div>
 
         {/* 종목 */}
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className={FIELD_LABEL_CLASS}>{t("searchSport")}</span>
-          <select
-            className={FIELD_CONTROL_CLASS}
+          <SelectMenu
             value={sport}
-            onChange={(event) => handleSportChange(event.target.value)}
+            options={sportOptions.map((item) => ({ value: item, label: item }))}
+            placeholder={region ? t("searchSportPlaceholder") : t("searchSportFirst")}
+            ariaLabel={t("searchSport")}
             disabled={!region}
-          >
-            <option value="">
-              {region ? t("searchSportPlaceholder") : t("searchSportFirst")}
-            </option>
-            {sportOptions.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={handleSportChange}
+            triggerClassName={FIELD_TRIGGER_CLASS}
+          />
+        </div>
 
         {/* 체육관 */}
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className={FIELD_LABEL_CLASS}>{t("searchGym")}</span>
-          <select
-            className={FIELD_CONTROL_CLASS}
+          <SelectMenu
             value={gymId}
-            onChange={(event) => setGymId(event.target.value)}
+            options={gymOptions.map((gym) => ({ value: gym.id, label: gym.name }))}
+            placeholder={sport ? t("searchGymPlaceholder") : t("searchGymFirst")}
+            ariaLabel={t("searchGym")}
             disabled={!sport}
-          >
-            <option value="">
-              {sport ? t("searchGymPlaceholder") : t("searchGymFirst")}
-            </option>
-            {gymOptions.map((gym) => (
-              <option key={gym.id} value={gym.id}>
-                {gym.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={setGymId}
+            triggerClassName={FIELD_TRIGGER_CLASS}
+          />
+        </div>
 
         <Button
           type="submit"
