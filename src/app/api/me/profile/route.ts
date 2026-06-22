@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import { Prisma } from "@prisma/client";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import { resolveAuthProvider } from "@/lib/server/auth-provider";
@@ -90,18 +89,10 @@ export async function PUT(request: NextRequest) {
 
   let profile: Awaited<ReturnType<typeof upsertUserProfile>>;
   try {
+    // 회원정보(name/phone/birthDate/address)만 갱신한다. 닉네임은 PUT에서
+    // 건드리지 않으므로 nickname unique 충돌 경로는 발생하지 않는다.
     profile = await upsertUserProfile(auth.uid, validation.input, provider);
   } catch (error) {
-    // nickname unique constraint 위반은 사용자에게 명확히 알린다.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return Response.json(
-        { message: "이미 사용 중인 닉네임입니다." },
-        { status: 409 },
-      );
-    }
     return serverErrorResponse(
       "프로필 설정을 저장하지 못했습니다.",
       "Failed to save user profile",

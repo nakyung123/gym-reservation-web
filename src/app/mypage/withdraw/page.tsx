@@ -1,21 +1,6 @@
-import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-import { WithdrawView } from "@/components/withdraw-view";
+import { redirect } from "next/navigation";
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("Withdraw");
-  return {
-    title: t("metaTitle"),
-    description: t("metaDesc"),
-  };
-}
-
+// 회원 탈퇴는 마이페이지 '회원정보변경' 탭 안으로 인라인됐다. 기존 진입은 그 탭으로 보낸다.
 export default function WithdrawPage() {
-  return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <div className="mx-auto w-full max-w-md">
-        <WithdrawView />
-      </div>
-    </main>
-  );
+  redirect("/mypage?tab=info");
 }

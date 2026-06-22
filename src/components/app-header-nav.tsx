@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Fragment, useState, useSyncExternalStore } from "react";
+import { signOut } from "firebase/auth";
 import { useTranslations } from "next-intl";
 import {
   getFirebaseAuthSessionServerSnapshot,
@@ -9,13 +11,15 @@ import {
   parseFirebaseAuthSessionSnapshot,
   subscribeFirebaseAuthSession,
 } from "@/lib/firebase-auth-session";
+import { getFirebaseClient } from "@/lib/firebase-client";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 
 // 메인 GNB + 우측 유틸. layout.tsx의 헤더 nav 안에서 로고 다음에 렌더된다.
 // 라벨은 i18n 메시지 키(Nav 네임스페이스)로 관리하고 useTranslations로 렌더한다.
 // - GNB(시설 찾기/사업 소개/문의·FAQ/이용 안내/공지사항)는 라우트로 연결한다.
-//   예약하기·예약 조회는 GNB에서 제외한다(검색→시설 상세→예약 흐름). 로그인 사용자의
-//   "내 예약"은 우측 유틸(myBookings)로 접근한다.
+//   예약하기·예약 조회는 GNB에서 제외한다(검색→시설 상세→예약 흐름). 예약 조회는
+//   마이페이지 '예약내역' 탭(기본 탭)으로 통합돼 로그인 사용자는 우측 유틸 "마이페이지"로 접근한다.
+//   로그인 사용자의 우측 유틸은 [마이페이지 · 로그아웃]이다(로그아웃은 Link가 아닌 버튼).
 // - 시설 찾기는 hover 시 메가메뉴(종목별/지역별)를 연다. CSS hover/focus-within 기반.
 //   메가메뉴 항목(종목·지역명)은 데이터성이라 1차 i18n 범위에서 제외(한국어 유지).
 // 항목 추가/삭제/순서는 배열에서만 관리한다. (구조 유연성 우선)
@@ -127,13 +131,26 @@ export function AppHeaderNav() {
   const signedIn = session.ok;
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // 로그아웃: 우측 유틸 버튼(예약 조회가 있던 자리). 성공 시 홈으로 보낸다.
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const { auth } = getFirebaseClient();
+      await signOut(auth);
+      router.replace("/");
+    } catch {
+      // 실패 시 버튼을 다시 활성화해 재시도할 수 있게 한다.
+      setLoggingOut(false);
+    }
+  };
 
   // 로그인 상태에 따른 우측 유틸 링크(데스크톱 바·모바일 드로어에서 공유).
   const utilLinks = signedIn
-    ? [
-        { key: "mypage", href: "/mypage" },
-        { key: "myBookings", href: "/reservations" },
-      ]
+    ? [{ key: "mypage", href: "/mypage" }]
     : [
         { key: "login", href: "/login" },
         { key: "signup", href: "/signup" },
@@ -170,6 +187,19 @@ export function AppHeaderNav() {
             </Link>
           </Fragment>
         ))}
+        {signedIn ? (
+          <>
+            <UtilSeparator />
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className={`${UTIL_LINK_CLASS} disabled:cursor-not-allowed disabled:text-line-strong`}
+            >
+              {loggingOut ? t("loggingOut") : t("logout")}
+            </button>
+          </>
+        ) : null}
         <UtilSeparator />
         <LocaleSwitcher />
       </div>
@@ -245,6 +275,19 @@ export function AppHeaderNav() {
                     {t(link.key)}
                   </Link>
                 ))}
+                {signedIn ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeMenu();
+                      handleLogout();
+                    }}
+                    disabled={loggingOut}
+                    className={MOBILE_UTIL_CLASS}
+                  >
+                    {loggingOut ? t("loggingOut") : t("logout")}
+                  </button>
+                ) : null}
               </div>
               <div className="flex justify-end pb-3">
                 <LocaleSwitcher />

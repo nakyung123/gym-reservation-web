@@ -32,9 +32,10 @@ function requestFor(method: "GET" | "POST" | "PUT", body?: unknown) {
 }
 
 const profileInput = {
-  nickname: "  나경  ",
-  preferredRegion: "  서울 강서구  ",
-  preferredSports: ["배드민턴", "탁구", "배드민턴"],
+  name: "  김나경  ",
+  phone: " 010-1234-5678 ",
+  birthDate: " 1990-01-01 ",
+  address: "  서울 강서구  ",
   reservationNotificationsEnabled: false,
 };
 
@@ -134,9 +135,10 @@ describe("PUT /api/me/profile", () => {
       message?: unknown;
       profile?: {
         userId?: unknown;
-        nickname?: unknown;
-        preferredRegion?: unknown;
-        preferredSports?: unknown;
+        name?: unknown;
+        phone?: unknown;
+        birthDate?: unknown;
+        address?: unknown;
         reservationNotificationsEnabled?: unknown;
       };
     };
@@ -145,9 +147,10 @@ describe("PUT /api/me/profile", () => {
     expect(body.message).toBe("프로필 설정이 저장되었습니다.");
     expect(body.profile).toMatchObject({
       userId: "profile-route-put-user",
-      nickname: "나경",
-      preferredRegion: "서울 강서구",
-      preferredSports: ["배드민턴", "탁구"],
+      name: "김나경",
+      phone: "010-1234-5678",
+      birthDate: "1990-01-01",
+      address: "서울 강서구",
       reservationNotificationsEnabled: false,
     });
     expect(await prisma.userProfile.count()).toBe(1);
@@ -160,7 +163,7 @@ describe("PUT /api/me/profile", () => {
     const secondResponse = await PUT(
       requestFor("PUT", {
         ...profileInput,
-        nickname: "나경2",
+        name: "이나경",
       }),
     );
 
@@ -171,7 +174,7 @@ describe("PUT /api/me/profile", () => {
       prisma.userProfile.findUniqueOrThrow({
         where: { userId: "profile-route-idempotent-user" },
       }),
-    ).resolves.toMatchObject({ nickname: "나경2" });
+    ).resolves.toMatchObject({ name: "이나경" });
   });
 
   it("요청 본문이 JSON 형식이 아니면 400을 반환한다", async () => {
@@ -194,35 +197,37 @@ describe("PUT /api/me/profile", () => {
     expect(await prisma.userProfile.count()).toBe(0);
   });
 
-  it("지원하지 않는 선호 종목이면 400을 반환하고 저장하지 않는다", async () => {
+  it("연락처 형식이 올바르지 않으면 400을 반환하고 저장하지 않는다", async () => {
     mockVerify("profile-route-invalid-user");
 
     const response = await PUT(
       requestFor("PUT", {
         ...profileInput,
-        preferredSports: ["축구"],
+        phone: "010-abcd-5678",
       }),
     );
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(400);
-    expect(body.message).toBe("지원하지 않는 선호 종목입니다: 축구");
+    expect(body.message).toBe(
+      "연락처는 숫자와 하이픈(-)만, 숫자 9자리 이상이어야 합니다.",
+    );
     expect(await prisma.userProfile.count()).toBe(0);
   });
 
-  it("닉네임 길이 제한을 넘으면 400을 반환하고 저장하지 않는다", async () => {
-    mockVerify("profile-route-long-nickname-user");
+  it("이름 길이 제한을 넘으면 400을 반환하고 저장하지 않는다", async () => {
+    mockVerify("profile-route-long-name-user");
 
     const response = await PUT(
       requestFor("PUT", {
         ...profileInput,
-        nickname: "가".repeat(9),
+        name: "가".repeat(31),
       }),
     );
     const body = (await response.json()) as { message?: unknown };
 
     expect(response.status).toBe(400);
-    expect(body.message).toBe("닉네임은 8자 이하로 입력해야 합니다.");
+    expect(body.message).toBe("이름은 30자 이하로 입력해야 합니다.");
     expect(await prisma.userProfile.count()).toBe(0);
   });
 
@@ -252,35 +257,6 @@ describe("PUT /api/me/profile", () => {
     expect(response.status).toBe(500);
     expect(body.message).toBe("프로필 설정을 저장하지 못했습니다.");
     errorSpy.mockRestore();
-  });
-
-  it("다른 사용자의 닉네임과 충돌하면 409를 반환하고 새 프로필을 만들지 않는다", async () => {
-    await prisma.userProfile.create({
-      data: {
-        userId: "profile-route-nickname-owner",
-        nickname: "중복닉",
-        preferredRegion: null,
-        preferredSports: [],
-        reservationNotificationsEnabled: true,
-      },
-    });
-    mockVerify("profile-route-nickname-conflict-user");
-
-    const response = await PUT(
-      requestFor("PUT", {
-        ...profileInput,
-        nickname: "중복닉",
-      }),
-    );
-    const body = (await response.json()) as { message?: unknown };
-
-    expect(response.status).toBe(409);
-    expect(body.message).toBe("이미 사용 중인 닉네임입니다.");
-    await expect(
-      prisma.userProfile.count({
-        where: { userId: "profile-route-nickname-conflict-user" },
-      }),
-    ).resolves.toBe(0);
   });
 
   it("PUT은 클라이언트 입력이 아닌 server 산출 provider로 저장한다", async () => {

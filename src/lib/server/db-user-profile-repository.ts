@@ -45,6 +45,10 @@ function toUserProfile(row: UserProfileRow): UserProfile {
     userId: row.userId,
     nickname: row.nickname,
     provider: normalizeProvider(row.provider),
+    name: row.name,
+    phone: row.phone,
+    birthDate: row.birthDate,
+    address: row.address,
     preferredRegion: row.preferredRegion,
     preferredSports: parsePreferredSports(row.preferredSports),
     reservationNotificationsEnabled: row.reservationNotificationsEnabled,
@@ -53,11 +57,14 @@ function toUserProfile(row: UserProfileRow): UserProfile {
   };
 }
 
+// 저장 대상은 회원정보변경에서 편집 가능한 필드만. nickname/preferredRegion/
+// preferredSports는 여기서 건드리지 않아 기존 값이 보존된다.
 function toUserProfileData(input: UserProfileInput) {
   return {
-    nickname: input.nickname,
-    preferredRegion: input.preferredRegion,
-    preferredSports: input.preferredSports,
+    name: input.name,
+    phone: input.phone,
+    birthDate: input.birthDate,
+    address: input.address,
     reservationNotificationsEnabled: input.reservationNotificationsEnabled,
   };
 }
@@ -84,7 +91,9 @@ export async function upsertUserProfile(
   const data = toUserProfileData(input);
   const row = await prisma.userProfile.upsert({
     where: { userId },
-    create: { userId, provider, ...data },
+    // PUT은 보통 ensureUserProfile로 생성된 row를 update하지만, 방어적으로 create
+    // 경로에서도 필수 컬럼(preferredSports)을 기본값으로 채운다. nickname은 nullable.
+    create: { userId, provider, preferredSports: [], ...data },
     update: { ...data, provider },
   });
 

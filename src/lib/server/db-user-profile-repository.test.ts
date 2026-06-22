@@ -17,9 +17,10 @@ describe("db-user-profile-repository", () => {
     const created = await upsertUserProfile(
       userId,
       {
-        nickname: "나경",
-        preferredRegion: "서울 강서구",
-        preferredSports: ["배드민턴", "탁구"],
+        name: "김나경",
+        phone: "010-1234-5678",
+        birthDate: "1990-01-01",
+        address: "서울 강서구",
         reservationNotificationsEnabled: true,
       },
       "local",
@@ -27,9 +28,10 @@ describe("db-user-profile-repository", () => {
     const updated = await upsertUserProfile(
       userId,
       {
-        nickname: null,
-        preferredRegion: "서울 마포구",
-        preferredSports: ["농구"],
+        name: "이나경",
+        phone: "02-123-4567",
+        birthDate: null,
+        address: "서울 마포구",
         reservationNotificationsEnabled: false,
       },
       "local",
@@ -37,18 +39,24 @@ describe("db-user-profile-repository", () => {
 
     expect(created).toMatchObject({
       userId,
-      nickname: "나경",
       provider: "local",
-      preferredRegion: "서울 강서구",
-      preferredSports: ["배드민턴", "탁구"],
+      name: "김나경",
+      phone: "010-1234-5678",
+      birthDate: "1990-01-01",
+      address: "서울 강서구",
       reservationNotificationsEnabled: true,
+      // 닉네임/선호는 upsert가 쓰지 않으므로 생성 시 기본값(null/[])로 남는다.
+      nickname: null,
+      preferredRegion: null,
+      preferredSports: [],
     });
     expect(updated).toMatchObject({
       userId,
-      nickname: null,
       provider: "local",
-      preferredRegion: "서울 마포구",
-      preferredSports: ["농구"],
+      name: "이나경",
+      phone: "02-123-4567",
+      birthDate: null,
+      address: "서울 마포구",
       reservationNotificationsEnabled: false,
     });
     expect(await prisma.userProfile.count({ where: { userId } })).toBe(1);

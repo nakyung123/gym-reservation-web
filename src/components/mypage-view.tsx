@@ -1,35 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type FormEvent,
 } from "react";
 import { useTranslations } from "next-intl";
+import {
+  MypageBoard,
+  type BoardColumn,
+  type BoardRow,
+} from "@/components/mypage-board";
+import { BoardPagination } from "@/components/board-pagination";
 import { reservationStatusBadgeStyles } from "@/components/reservation-ticket";
-import { SPORTS } from "@/lib/domain-constants";
 import { resendEmailVerification } from "@/lib/firebase-email-auth";
+import {
+  reauthenticateMyPassword,
+  updateMyPasswordDirect,
+} from "@/lib/firebase-password-update";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import { useRequireAuth } from "@/lib/use-require-auth";
-import { checkNicknameAvailability } from "@/lib/nickname-availability-client";
+import { useFavorites } from "@/hooks/use-favorites";
+import { parseReservationSnapshot } from "@/lib/reservation-repository";
+import { reservationRepository } from "@/lib/reservation-repository-provider";
 import {
-  fetchUserProfile,
-  saveUserProfile,
-  type FetchUserProfileResult,
-  type SaveUserProfileResult,
-} from "@/lib/user-profile-client";
+  PASSWORD_POLICY_HINT,
+  validatePasswordPolicy,
+} from "@/lib/password-policy";
+import { withdrawAccount } from "@/lib/withdrawal-client";
+import { fetchUserProfile, saveUserProfile } from "@/lib/user-profile-client";
 import type { UserProfile } from "@/lib/user-profile";
-import {
-  fetchUserSummary,
-  type FetchUserSummaryResult,
-} from "@/lib/user-summary-client";
-import type { UserSummary } from "@/lib/user-summary";
-import type { ReservationStatus, Sport } from "@/types/domain";
+import type { Gym, Reservation } from "@/types/domain";
+
+type Tab = "reservations" | "favorites" | "inquiries" | "info";
+
+function parseTab(value: string | null): Tab {
+  if (value === "favorites" || value === "inquiries" || value === "info") {
+    return value;
+  }
+  return "reservations";
+}
+
+const TABS: { key: Tab; href: string; labelKey: string }[] = [
+  { key: "reservations", href: "/mypage", labelKey: "tabReservations" },
+  { key: "favorites", href: "/mypage?tab=favorites", labelKey: "tabFavorites" },
+  { key: "inquiries", href: "/mypage?tab=inquiries", labelKey: "tabInquiries" },
+  { key: "info", href: "/mypage?tab=info", labelKey: "tabAccount" },
+];
+
+const PER_PAGE = 10;
+// 탈퇴 모달은 사유 카테고리를 노출하지 않으므로(=KMI 모달) 기본값으로 저장한다.
+const DEFAULT_WITHDRAW_CATEGORY = "기타" as const;
 
 type AuthState =
   | { status: "loading" }
@@ -37,102 +64,62 @@ type AuthState =
   | { status: "signed-out" }
   | { status: "error"; message: string };
 
-type SummaryState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ready"; summary: UserSummary }
-  | {
-      status: "error";
-      kind: Exclude<FetchUserSummaryResult, { ok: true }>["kind"];
-      message: string;
-      responseStatus?: number;
-    };
-
+// 회원정보변경에서 자체 입력받는 회원 정보(휴대폰 본인인증 없이 직접 입력).
 type ProfileFormState = {
-  nickname: string;
-  preferredRegion: string;
-  preferredSports: Sport[];
+  name: string;
+  phone: string;
+  birthDate: string;
+  address: string;
   reservationNotificationsEnabled: boolean;
 };
 
 type ProfileState =
   | { status: "idle" }
   | { status: "loading" }
-  | {
-      status: "ready";
-      form: ProfileFormState;
-      // 마지막으로 서버에 저장된 닉네임. 헤더/요약 영역 표시는 이 값을 기준으로 하고,
-      // 입력 중인 form.nickname은 저장 전까지 헤더에 반영되지 않는다.
-      persistedNickname: string | null;
-    }
-  | {
-      status: "error";
-      kind: Exclude<FetchUserProfileResult, { ok: true }>["kind"];
-      message: string;
-      responseStatus?: number;
-    };
+  | { status: "ready"; form: ProfileFormState }
+  | { status: "error"; message: string; responseStatus?: number };
 
 type SaveState =
   | { status: "idle" }
   | { status: "saving" }
   | { status: "success"; message: string }
-  | {
-      status: "error";
-      kind: Exclude<SaveUserProfileResult, { ok: true }>["kind"];
-      message: string;
-      responseStatus?: number;
-    };
+  | { status: "error"; message: string; responseStatus?: number };
 
-type NoticeState = {
-  tone: "success" | "error";
-  message: string;
-};
+type NoticeState = { tone: "success" | "error"; message: string };
 
 const emptyProfileForm: ProfileFormState = {
-  nickname: "",
-  preferredRegion: "",
-  preferredSports: [],
+  name: "",
+  phone: "",
+  birthDate: "",
+  address: "",
   reservationNotificationsEnabled: true,
 };
 
 function profileToForm(profile: UserProfile | null): ProfileFormState {
-  if (!profile) {
-    return { ...emptyProfileForm, preferredSports: [] };
-  }
-
+  if (!profile) return { ...emptyProfileForm };
   return {
-    nickname: profile.nickname ?? "",
-    preferredRegion: profile.preferredRegion ?? "",
-    preferredSports: [...profile.preferredSports],
+    name: profile.name ?? "",
+    phone: profile.phone ?? "",
+    birthDate: profile.birthDate ?? "",
+    address: profile.address ?? "",
     reservationNotificationsEnabled: profile.reservationNotificationsEnabled,
   };
 }
 
+function nullifyText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
 function formToInput(form: ProfileFormState) {
-  const trimmedNickname = form.nickname.trim();
-  const trimmedRegion = form.preferredRegion.trim();
   return {
-    nickname: trimmedNickname.length === 0 ? null : trimmedNickname,
-    preferredRegion: trimmedRegion.length === 0 ? null : trimmedRegion,
-    preferredSports: form.preferredSports,
+    name: nullifyText(form.name),
+    phone: nullifyText(form.phone),
+    birthDate: nullifyText(form.birthDate),
+    address: nullifyText(form.address),
     reservationNotificationsEnabled: form.reservationNotificationsEnabled,
   };
 }
-
-const summaryStatusOrder: ReservationStatus[] = [
-  "reserved",
-  "cancelled",
-  "used",
-];
-
-// 예약 상태 지표 카드 색상은 예약 배지 SSOT(reservation-ticket.tsx)와 정렬한다.
-// 예약중=accent 틴트, 취소=error, 사용완료=중립 회색, 그 외(전체/즐겨찾기)=중립.
-const metricToneStyles = {
-  neutral: "border-line bg-white text-slate-950",
-  reserved: "border-accent/20 bg-accent-tint text-accent-strong",
-  cancelled: "border-error/30 bg-error/10 text-error",
-  used: "border-line bg-surface-2 text-muted",
-};
 
 const noticeStyles: Record<NoticeState["tone"], string> = {
   success: "border-success/30 bg-success/10 text-success",
@@ -152,61 +139,22 @@ function getErrorMessage(error: unknown): string {
     : "알 수 없는 오류가 발생했습니다.";
 }
 
-function logErrorStatus(
-  context: string,
-  message: string,
-  responseStatus?: number,
-) {
-  if (responseStatus !== undefined) {
-    console.error(`[mypage:${context}] status=${responseStatus} ${message}`);
+function logErrorStatus(context: string, message: string, status?: number) {
+  if (status !== undefined) {
+    console.error(`[mypage:${context}] status=${status} ${message}`);
   }
 }
 
-function getAccountName(user: User, fallbackName: string): string {
-  const displayName = user.displayName?.trim();
-  if (displayName) {
-    return displayName;
-  }
-
-  if (user.email) {
-    return user.email.split("@")[0] || user.email;
-  }
-
-  // 익명 로그인 흐름은 폐기됐다(e7c9454). 도달 시 일반 fallback만 노출.
-  return fallbackName;
-}
-
-function UserSilhouetteIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-      className="size-10 text-slate-400"
-    >
-      <path
-        fillRule="evenodd"
-        d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function formatUserId(uid: string): string {
-  if (uid.length <= 16) {
-    return uid;
-  }
-
-  return `${uid.slice(0, 8)}...${uid.slice(-4)}`;
+function parsePage(value: string | null): number {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
 }
 
 function LoadingPanel() {
   const t = useTranslations("Mypage");
   return (
     <section
-      className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm"
+      className="mx-auto w-full max-w-4xl rounded-2xl border border-line bg-white p-8 text-center shadow-sm"
       aria-live="polite"
       aria-busy="true"
     >
@@ -214,9 +162,7 @@ function LoadingPanel() {
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
         {t("loadingTitle")}
       </h1>
-      <p className="mt-3 text-sm leading-6 text-slate-600">
-        {t("loadingDesc")}
-      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-600">{t("loadingDesc")}</p>
       <div className="mt-6 flex justify-center" aria-hidden="true">
         <span className="size-8 animate-spin rounded-full border-2 border-line border-t-accent" />
       </div>
@@ -228,13 +174,11 @@ function ErrorPanel({ title, message }: { title: string; message: string }) {
   const t = useTranslations("Mypage");
   return (
     <section
-      className="mx-auto w-full max-w-4xl rounded-lg border border-error/30 bg-error/10 p-8 text-center text-error shadow-sm"
+      className="mx-auto w-full max-w-4xl rounded-2xl border border-error/30 bg-error/10 p-8 text-center text-error shadow-sm"
       role="alert"
     >
       <p className="text-sm font-semibold">{t("eyebrow")}</p>
-      <h1 className="mt-2 break-keep text-2xl font-bold sm:text-3xl">
-        {title}
-      </h1>
+      <h1 className="mt-2 break-keep text-2xl font-bold sm:text-3xl">{title}</h1>
       <p className="mt-3 text-sm leading-6">{message}</p>
     </section>
   );
@@ -243,7 +187,7 @@ function ErrorPanel({ title, message }: { title: string; message: string }) {
 function SignedOutPanel() {
   const t = useTranslations("Mypage");
   return (
-    <section className="mx-auto w-full max-w-4xl rounded-lg border border-line bg-white p-8 text-center shadow-sm">
+    <section className="mx-auto w-full max-w-4xl rounded-2xl border border-line bg-white p-8 text-center shadow-sm">
       <p className="text-sm font-semibold text-accent-strong">{t("eyebrow")}</p>
       <h1 className="mt-2 break-keep text-2xl font-bold text-slate-950 sm:text-3xl">
         {t("signedOutTitle")}
@@ -255,210 +199,101 @@ function SignedOutPanel() {
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  caption,
-  tone = "neutral",
-}: {
-  label: string;
-  value: number | string;
-  caption?: string;
-  tone?: keyof typeof metricToneStyles;
-}) {
-  return (
-    <div className={`rounded-lg border p-4 shadow-sm ${metricToneStyles[tone]}`}>
-      <p className="text-sm font-semibold opacity-75">{label}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-      {caption ? (
-        <p className="mt-2 text-xs font-semibold opacity-70">{caption}</p>
-      ) : null}
-    </div>
-  );
-}
-
-function LoadingMetricCard({ label }: { label: string }) {
+// 회원정보변경 진입 게이트 (KMI: 본인 확인). 비밀번호 회원만 노출.
+function AccountGate({ onUnlock }: { onUnlock: () => void }) {
   const t = useTranslations("Mypage");
-  return (
-    <div
-      className="rounded-lg border border-line bg-white p-4 shadow-sm"
-      aria-busy="true"
-    >
-      <p className="text-sm font-semibold text-slate-500">{label}</p>
-      <div className="mt-3 h-8 w-16 rounded bg-slate-100" aria-hidden="true" />
-      <p className="mt-3 text-xs font-semibold text-slate-400">
-        {t("loadingMetricCaption")}
-      </p>
-    </div>
-  );
-}
+  const [password, setPassword] = useState("");
+  const [state, setState] = useState<
+    { kind: "idle" } | { kind: "checking" } | { kind: "error"; message: string }
+  >({ kind: "idle" });
 
-function SummaryPanel({ summaryState }: { summaryState: SummaryState }) {
-  const t = useTranslations("Mypage");
-  const tReservation = useTranslations("Reservation");
-  if (summaryState.status === "loading" || summaryState.status === "idle") {
-    return (
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <LoadingMetricCard label={t("metricTotal")} />
-        {summaryStatusOrder.map((status) => (
-          <LoadingMetricCard
-            key={status}
-            label={tReservation(`status.${status}`)}
-          />
-        ))}
-        <LoadingMetricCard label={t("metricFavorites")} />
-      </section>
-    );
-  }
-
-  if (summaryState.status === "error") {
-    return (
-      <section
-        className="rounded-lg border border-error/30 bg-error/10 p-5 text-error shadow-sm"
-        role="alert"
-      >
-        <p className="text-sm font-bold">{t("summaryErrorTitle")}</p>
-        <p className="mt-2 text-sm leading-6">{summaryState.message}</p>
-      </section>
-    );
-  }
-
-  const { summary } = summaryState;
-  const hasNoData =
-    summary.reservations.total === 0 && summary.favorites.activeGymCount === 0;
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (password.length === 0 || state.kind === "checking") return;
+    setState({ kind: "checking" });
+    const result = await reauthenticateMyPassword(password);
+    if (result.ok) {
+      onUnlock();
+      return;
+    }
+    setState({ kind: "error", message: result.message });
+  };
 
   return (
-    <section className="flex flex-col gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard
-          label={t("metricTotal")}
-          value={summary.reservations.total}
-          caption={t("metricTotalCaption")}
+    <section className="mx-auto w-full max-w-xl rounded-2xl border border-line bg-surface-2/40 px-6 py-12 sm:px-12 sm:py-14">
+      <h2 className="text-[20px] font-bold text-slate-950">{t("gateTitle")}</h2>
+      <form className="mt-6 flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            if (state.kind === "error") setState({ kind: "idle" });
+          }}
+          placeholder={t("gatePlaceholder")}
+          disabled={state.kind === "checking"}
+          aria-invalid={state.kind === "error" || undefined}
+          className={`h-12 w-full rounded-xl border bg-white px-4 text-[15px] text-slate-950 placeholder:text-subtle focus-visible:outline-none focus-visible:ring-2 disabled:bg-slate-100 ${
+            state.kind === "error"
+              ? "border-error focus-visible:ring-error/30"
+              : "border-line-strong focus-visible:ring-accent"
+          }`}
         />
-        <MetricCard
-          label={tReservation("status.reserved")}
-          value={summary.reservations.reserved}
-          tone="reserved"
-        />
-        <MetricCard
-          label={tReservation("status.cancelled")}
-          value={summary.reservations.cancelled}
-          tone="cancelled"
-        />
-        <MetricCard
-          label={tReservation("status.used")}
-          value={summary.reservations.used}
-          tone="used"
-        />
-        <MetricCard
-          label={t("metricFavorites")}
-          value={summary.favorites.activeGymCount}
-          caption={t("metricFavoritesCaption")}
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href="/reservations"
-          aria-label={t("viewMyReservationsAria")}
-          className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-        >
-          {t("viewMyReservations")}
-        </Link>
-        <Link
-          href="/gyms"
-          aria-label={t("findGymAria")}
-          className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-        >
-          {t("findGym")}
-        </Link>
-      </div>
-
-      {hasNoData ? (
-        <div className="rounded-lg border border-dashed border-line-strong bg-white p-6 text-center shadow-sm">
-          <p className="text-base font-bold text-slate-950">
-            {t("noDataTitle")}
+        {state.kind === "error" ? (
+          <p className="text-sm font-semibold text-error" role="alert">
+            {state.message}
           </p>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            {t("noDataDesc")}
-          </p>
-          <Link
-            href="/gyms"
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+        ) : null}
+        <div className="mt-2 flex justify-center">
+          <button
+            type="submit"
+            disabled={password.length === 0 || state.kind === "checking"}
+            className="inline-flex h-12 min-w-40 items-center justify-center rounded-full bg-accent px-8 text-[16px] font-bold text-accent-ink transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            {t("findGym")}
-          </Link>
+            {state.kind === "checking" ? t("gateChecking") : t("gateConfirm")}
+          </button>
         </div>
-      ) : null}
+      </form>
     </section>
   );
 }
 
-function StatusBreakdown({ summaryState }: { summaryState: SummaryState }) {
+export function MypageView({ gyms }: { gyms: Gym[] }) {
   const t = useTranslations("Mypage");
-  const tReservation = useTranslations("Reservation");
-  if (summaryState.status !== "ready") {
-    return null;
-  }
+  const searchParams = useSearchParams();
+  const tab = parseTab(searchParams.get("tab"));
 
-  const { reservations } = summaryState.summary;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {summaryStatusOrder.map((status) => (
-        <span
-          key={status}
-          className={`rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[status]}`}
-        >
-          {t("statusCount", {
-            label: tReservation(`status.${status}`),
-            count: reservations[status],
-          })}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-export function MypageView() {
-  const t = useTranslations("Mypage");
-  const router = useRouter();
-  // signed-out 감지 + /login?from=/mypage redirect는 useRequireAuth가 처리.
-  // 본 컴포넌트는 user 객체 자체가 필요해서 onAuthStateChanged로 직접 구독한다
-  // (providerData / displayName / emailVerified 표시용).
   useRequireAuth({ from: "/mypage" });
   const activeUserIdRef = useRef<string | null>(null);
-  const saveAbortControllerRef = useRef<AbortController | null>(null);
   const [authState, setAuthState] = useState<AuthState>({ status: "loading" });
-  const [summaryState, setSummaryState] = useState<SummaryState>({
-    status: "idle",
-  });
   const [profileState, setProfileState] = useState<ProfileState>({
     status: "idle",
   });
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
-  const [notice, setNotice] = useState<NoticeState | null>(null);
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
-  const [verificationNotice, setVerificationNotice] = useState<NoticeState | null>(
-    null,
-  );
-  const readyUserId =
-    authState.status === "ready" ? authState.user.uid : null;
+  const [verificationNotice, setVerificationNotice] =
+    useState<NoticeState | null>(null);
+  // 회원정보변경 게이트 통과 여부. 계정이 바뀌면 다시 잠근다.
+  const [gateUnlocked, setGateUnlocked] = useState(false);
+  const saveAbortControllerRef = useRef<AbortController | null>(null);
+  const readyUserId = authState.status === "ready" ? authState.user.uid : null;
+
+  const { favorites, toggleFavorite, loadError: favoritesLoadError } =
+    useFavorites();
 
   useEffect(() => {
     try {
       const { auth } = getFirebaseClient();
-
       const unsubscribe = onAuthStateChanged(
         auth,
         (user) => {
           activeUserIdRef.current = user?.uid ?? null;
           saveAbortControllerRef.current?.abort();
           saveAbortControllerRef.current = null;
-          setSummaryState(user ? { status: "loading" } : { status: "idle" });
           setProfileState(user ? { status: "loading" } : { status: "idle" });
           setSaveState({ status: "idle" });
+          setGateUnlocked(false);
           setAuthState(
             user ? { status: "ready", user } : { status: "signed-out" },
           );
@@ -473,7 +308,6 @@ export function MypageView() {
           });
         },
       );
-
       return () => {
         activeUserIdRef.current = null;
         saveAbortControllerRef.current?.abort();
@@ -482,8 +316,6 @@ export function MypageView() {
       };
     } catch (error) {
       activeUserIdRef.current = null;
-      saveAbortControllerRef.current?.abort();
-      saveAbortControllerRef.current = null;
       queueMicrotask(() => {
         setAuthState({
           status: "error",
@@ -494,198 +326,78 @@ export function MypageView() {
   }, []);
 
   useEffect(() => {
-    if (!readyUserId) {
-      return;
-    }
-
+    if (!readyUserId) return;
     const controller = new AbortController();
-
-    fetchUserSummary(controller.signal)
-      .then((result) => {
-        if (result.ok) {
-          if (result.user.uid !== readyUserId) {
-            if (activeUserIdRef.current !== readyUserId) {
-              return;
-            }
-            setSummaryState({
-              status: "error",
-              kind: "error",
-              message: "내 정보 요약 응답의 사용자 정보가 현재 로그인 계정과 다릅니다.",
-            });
-            return;
-          }
-          setSummaryState({ status: "ready", summary: result.summary });
-          return;
-        }
-
-        logErrorStatus("summary", result.message, result.status);
-        setSummaryState({
-          status: "error",
-          kind: result.kind,
-          message: result.message,
-          responseStatus: result.status,
-        });
-      })
-      .catch((error) => {
-        if (isAbortError(error)) {
-          return;
-        }
-
-        setSummaryState({
-          status: "error",
-          kind: "error",
-          message: `내 정보 요약 처리 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
-        });
-      });
-
-    return () => controller.abort();
-  }, [readyUserId]);
-
-  useEffect(() => {
-    if (!readyUserId) {
-      return;
-    }
-
-    const controller = new AbortController();
-
     fetchUserProfile(controller.signal)
       .then((result) => {
         if (result.ok) {
           if (result.user.uid !== readyUserId) {
-            if (activeUserIdRef.current !== readyUserId) {
-              return;
-            }
+            if (activeUserIdRef.current !== readyUserId) return;
             setProfileState({
               status: "error",
-              kind: "error",
-              message: "프로필 설정 응답의 사용자 정보가 현재 로그인 계정과 다릅니다.",
+              message:
+                "회원정보 응답의 사용자 정보가 현재 로그인 계정과 다릅니다.",
             });
             return;
           }
           setProfileState({
             status: "ready",
             form: profileToForm(result.profile),
-            persistedNickname: result.profile?.nickname ?? null,
           });
           return;
         }
-
         logErrorStatus("profile-fetch", result.message, result.status);
         setProfileState({
           status: "error",
-          kind: result.kind,
           message: result.message,
           responseStatus: result.status,
         });
       })
       .catch((error) => {
-        if (isAbortError(error)) {
-          return;
-        }
-
+        if (isAbortError(error)) return;
         setProfileState({
           status: "error",
-          kind: "error",
-          message: `프로필 설정을 불러오는 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
+          message: `회원정보를 불러오는 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
         });
       });
-
     return () => controller.abort();
   }, [readyUserId]);
 
   const account = useMemo(() => {
-    if (authState.status !== "ready") {
-      return null;
-    }
-
+    if (authState.status !== "ready") return null;
     const { user } = authState;
-    // 헤더/요약은 마지막으로 저장된 닉네임(persistedNickname)만 본다. 입력 중인 form.nickname은
-    // 사용자가 저장을 누르기 전에는 반영되지 않는다. 저장이 끝나 persistedNickname이 갱신되면
-    // 그때 화면에 반영된다. 없으면 Firebase displayName으로 폴백.
-    const profileNickname =
-      profileState.status === "ready"
-        ? (profileState.persistedNickname?.trim() || null)
-        : null;
-    const displayName = profileNickname ?? getAccountName(user, t("noName"));
     const isPasswordProvider = user.providerData.some(
       (p) => p.providerId === "password",
     );
     return {
-      displayName,
       email: user.email ?? t("noEmail"),
-      // password 가입자만 emailVerified를 의미있게 가진다. 소셜 가입자는 provider 측에서
-      // 이미 검증되었다고 가정해 배너를 보이지 않는다.
+      isPasswordProvider,
       showVerificationBanner:
         Boolean(user.email) &&
         user.emailVerified === false &&
         isPasswordProvider,
-      uid: user.uid,
-      isPasswordProvider,
     };
-  }, [authState, profileState, t]);
+  }, [authState, t]);
 
-  const updateProfileForm = (updater: (form: ProfileFormState) => ProfileFormState) => {
+  const updateProfileForm = (
+    updater: (form: ProfileFormState) => ProfileFormState,
+  ) => {
     setProfileState((prev) => {
-      if (prev.status !== "ready") {
-        return prev;
-      }
-      return {
-        status: "ready",
-        form: updater(prev.form),
-        persistedNickname: prev.persistedNickname,
-      };
+      if (prev.status !== "ready") return prev;
+      return { status: "ready", form: updater(prev.form) };
     });
-    setSaveState((prev) =>
-      prev.status === "idle" ? prev : { status: "idle" },
-    );
-  };
-
-  const handleNicknameChange = (value: string) => {
-    updateProfileForm((form) => ({ ...form, nickname: value }));
-  };
-
-  const handlePreferredRegionChange = (value: string) => {
-    updateProfileForm((form) => ({ ...form, preferredRegion: value }));
-  };
-
-  const handleSportToggle = (sport: Sport, checked: boolean) => {
-    updateProfileForm((form) => {
-      if (checked) {
-        if (form.preferredSports.includes(sport)) {
-          return form;
-        }
-        return { ...form, preferredSports: [...form.preferredSports, sport] };
-      }
-      return {
-        ...form,
-        preferredSports: form.preferredSports.filter((item) => item !== sport),
-      };
-    });
-  };
-
-  const handleNotificationsToggle = (checked: boolean) => {
-    updateProfileForm((form) => ({
-      ...form,
-      reservationNotificationsEnabled: checked,
-    }));
+    setSaveState((prev) => (prev.status === "idle" ? prev : { status: "idle" }));
   };
 
   const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (profileState.status !== "ready") {
-      return;
-    }
-    if (!readyUserId) {
-      return;
-    }
-
+    if (profileState.status !== "ready" || !readyUserId) return;
     const submittingUserId = readyUserId;
     const input = formToInput(profileState.form);
     saveAbortControllerRef.current?.abort();
     const controller = new AbortController();
     saveAbortControllerRef.current = controller;
     setSaveState({ status: "saving" });
-
     try {
       const result = await saveUserProfile(input, controller.signal);
       if (
@@ -694,38 +406,32 @@ export function MypageView() {
       ) {
         return;
       }
-
       if (result.ok) {
         saveAbortControllerRef.current = null;
         if (result.user.uid !== submittingUserId) {
           setSaveState({
             status: "error",
-            kind: "error",
-            message: "프로필 설정 응답의 사용자 정보가 현재 로그인 계정과 다릅니다.",
+            message:
+              "회원정보 응답의 사용자 정보가 현재 로그인 계정과 다릅니다.",
           });
           return;
         }
         setProfileState({
           status: "ready",
           form: profileToForm(result.profile),
-          persistedNickname: result.profile?.nickname ?? null,
         });
         setSaveState({ status: "success", message: result.message });
         return;
       }
-
       saveAbortControllerRef.current = null;
       logErrorStatus("profile-save", result.message, result.status);
       setSaveState({
         status: "error",
-        kind: result.kind,
         message: result.message,
         responseStatus: result.status,
       });
     } catch (error) {
-      if (isAbortError(error)) {
-        return;
-      }
+      if (isAbortError(error)) return;
       if (
         saveAbortControllerRef.current !== controller ||
         activeUserIdRef.current !== submittingUserId
@@ -735,8 +441,7 @@ export function MypageView() {
       saveAbortControllerRef.current = null;
       setSaveState({
         status: "error",
-        kind: "error",
-        message: `프로필 설정 저장 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
+        message: `회원정보 저장 중 오류가 발생했습니다. ${getErrorMessage(error)}`,
       });
     } finally {
       if (saveAbortControllerRef.current === controller) {
@@ -750,467 +455,1033 @@ export function MypageView() {
     setIsResendingVerification(true);
     try {
       const result = await resendEmailVerification();
-      if (result.ok) {
-        setVerificationNotice({
-          tone: "success",
-          message: t("resendSuccess"),
-        });
-      } else {
-        setVerificationNotice({ tone: "error", message: result.message });
-      }
+      setVerificationNotice(
+        result.ok
+          ? { tone: "success", message: t("resendSuccess") }
+          : { tone: "error", message: result.message },
+      );
     } finally {
       setIsResendingVerification(false);
     }
   };
 
-  const handleSignOut = async () => {
-    setNotice(null);
-    setIsSigningOut(true);
-
-    try {
-      const { auth } = getFirebaseClient();
-      await signOut(auth);
-      router.replace("/login");
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        message: `로그아웃하지 못했습니다. ${getErrorMessage(error)}`,
-      });
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
   if (authState.status === "loading") {
-    return <LoadingPanel />;
+    return (
+      <Shell>
+        <LoadingPanel />
+      </Shell>
+    );
   }
-
   if (authState.status === "error") {
     return (
-      <ErrorPanel
-        title={t("authErrorTitle")}
-        message={authState.message}
-      />
+      <Shell>
+        <ErrorPanel title={t("authErrorTitle")} message={authState.message} />
+      </Shell>
+    );
+  }
+  if (authState.status === "signed-out" || !account) {
+    return (
+      <Shell>
+        <SignedOutPanel />
+      </Shell>
     );
   }
 
-  if (authState.status === "signed-out" || !account) {
-    return <SignedOutPanel />;
-  }
+  return (
+    <Shell>
+      {account.showVerificationBanner ? (
+        <div
+          className="mb-5 flex flex-col gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:flex-row sm:items-center sm:justify-between"
+          role="status"
+        >
+          <p className="font-semibold">{t("verificationBanner")}</p>
+          <button
+            type="button"
+            onClick={handleResendVerification}
+            disabled={isResendingVerification}
+            className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-warning/50 bg-white px-3 text-xs font-semibold text-warning transition hover:border-warning hover:bg-warning/15 disabled:cursor-not-allowed disabled:border-warning/20 disabled:text-warning/50"
+          >
+            {isResendingVerification ? t("resending") : t("resendVerification")}
+          </button>
+        </div>
+      ) : null}
+
+      {verificationNotice ? (
+        <div
+          className={`mb-5 rounded-md border px-4 py-2 text-sm font-semibold ${noticeStyles[verificationNotice.tone]}`}
+          role={verificationNotice.tone === "error" ? "alert" : "status"}
+        >
+          {verificationNotice.message}
+        </div>
+      ) : null}
+
+      {/* 탭: 문의·FAQ 탭과 동일(grid 4등분, 비활성 muted, 활성 네이비 볼드+밑줄, 하단 구분선) */}
+      <nav
+        aria-label={t("tabsAria")}
+        className="grid grid-cols-2 border-b border-line sm:grid-cols-4"
+      >
+        {TABS.map((tabItem) => {
+          const active = tab === tabItem.key;
+          return (
+            <Link
+              key={tabItem.key}
+              href={tabItem.href}
+              aria-current={active ? "page" : undefined}
+              className={`-mb-px border-b-2 py-4 text-center text-[16px] transition sm:text-[17px] ${
+                active
+                  ? "border-accent font-bold text-accent-strong"
+                  : "border-transparent font-medium text-muted hover:text-foreground"
+              }`}
+            >
+              {t(tabItem.labelKey)}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* 탭↔표 간격: 그림판 지시 #4(72px) */}
+      <div className="mt-[72px]">
+        {tab === "reservations" ? (
+          <ReservationsBoardPanel
+            gyms={gyms}
+            page={parsePage(searchParams.get("resvPage"))}
+          />
+        ) : tab === "favorites" ? (
+          <FavoritesPanel
+            gyms={gyms}
+            favorites={favorites}
+            loadError={favoritesLoadError}
+            onRemove={toggleFavorite}
+            page={parsePage(searchParams.get("favPage"))}
+          />
+        ) : tab === "inquiries" ? (
+          <InquiriesPanel />
+        ) : account.isPasswordProvider && !gateUnlocked ? (
+          <AccountGate onUnlock={() => setGateUnlocked(true)} />
+        ) : (
+          <AccountPanel
+            email={account.email}
+            isPasswordProvider={account.isPasswordProvider}
+            profileState={profileState}
+            saveState={saveState}
+            onFieldChange={(field, value) =>
+              updateProfileForm((form) => ({ ...form, [field]: value }))
+            }
+            onSubmit={handleProfileSubmit}
+            onRelock={() => setGateUnlocked(false)}
+          />
+        )}
+      </div>
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("Mypage");
+  return (
+    <div className="mx-auto w-full max-w-[1440px] px-5 py-9 sm:px-8 sm:py-10">
+      <nav aria-label="breadcrumb" className="text-[13px] text-muted">
+        <ol className="flex items-center gap-1.5">
+          <li>
+            <Link href="/" className="transition hover:text-accent-strong">
+              {t("breadcrumbHome")}
+            </Link>
+          </li>
+          <li aria-hidden="true" className="text-line-strong">
+            /
+          </li>
+          <li className="font-semibold text-foreground">{t("title")}</li>
+        </ol>
+      </nav>
+      <h1 className="mb-6 mt-3 text-[28px] font-bold text-foreground sm:text-[32px]">
+        {t("title")}
+      </h1>
+      {children}
+    </div>
+  );
+}
+
+// 보드 QR 열에 쓰는 QR 글리프(실제 QR 티켓은 예약 상세로 이동해 확인).
+function QrGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-5"
+    >
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <path d="M14 14h3v3M21 14v.01M14 21h.01M17 21h.01M21 17v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// 예약내역: KMI 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
+function ReservationsBoardPanel({
+  gyms,
+  page,
+}: {
+  gyms: Gym[];
+  page: number;
+}) {
+  const t = useTranslations("Mypage");
+  const tR = useTranslations("Reservation");
+  const snapshot = useSyncExternalStore(
+    reservationRepository.subscribe,
+    reservationRepository.getSnapshot,
+    reservationRepository.getServerSnapshot,
+  );
+  const readResult = useMemo(
+    () => parseReservationSnapshot(snapshot),
+    [snapshot],
+  );
+  const reservations = useMemo(
+    () => (readResult.ok ? readResult.reservations : []),
+    [readResult],
+  );
+  const gymsById = useMemo(() => new Map(gyms.map((g) => [g.id, g])), [gyms]);
+  const sorted = useMemo(
+    () =>
+      [...reservations].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [reservations],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = sorted.slice(
+    (currentPage - 1) * PER_PAGE,
+    currentPage * PER_PAGE,
+  );
+
+  const columns: BoardColumn[] = [
+    { label: t("rsvColNumber"), width: "w-[52px] sm:w-[72px]" },
+    { label: t("rsvColDate"), width: "w-[150px]", hideOnMobile: true },
+    { label: t("rsvColGym"), align: "left" },
+    { label: t("rsvColSport"), width: "w-[88px]", hideOnMobile: true },
+    { label: t("rsvColStatus"), width: "w-[84px] sm:w-[104px]" },
+    { label: t("rsvColDetail"), width: "w-[64px] sm:w-[84px]" },
+    { label: t("rsvColQr"), width: "w-[84px]", hideOnMobile: true },
+  ];
+
+  const rows: BoardRow[] = pageItems.map((reservation: Reservation, index) => {
+    const gym = gymsById.get(reservation.gymId);
+    const gymName = gym?.name ?? t("rsvMissingGym");
+    const detailHref = `/reservations/${encodeURIComponent(reservation.id)}`;
+    return {
+      key: reservation.id,
+      cells: [
+        <span key="no" className="tabular-nums text-muted">
+          {(currentPage - 1) * PER_PAGE + index + 1}
+        </span>,
+        <span key="date" className="tabular-nums text-muted">
+          {reservation.date} {reservation.time}
+        </span>,
+        <span key="gym" className="font-medium text-foreground">
+          {gymName}
+        </span>,
+        <span key="sport" className="text-muted">
+          {reservation.sport}
+        </span>,
+        <span
+          key="status"
+          className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
+        >
+          {tR(`status.${reservation.status}`)}
+        </span>,
+        <Link
+          key="detail"
+          href={detailHref}
+          className="text-[13px] font-semibold text-accent-strong underline-offset-2 transition hover:underline"
+        >
+          {t("rsvDetailLink")}
+        </Link>,
+        reservation.status === "reserved" ? (
+          <Link
+            key="qr"
+            href={detailHref}
+            aria-label={t("rsvQrAria")}
+            className="inline-flex items-center justify-center text-foreground transition hover:text-accent-strong"
+          >
+            <QrGlyph />
+          </Link>
+        ) : (
+          <span key="qr" className="text-subtle">
+            -
+          </span>
+        ),
+      ],
+    };
+  });
+
+  const buildHref = (target: number) => {
+    const params = new URLSearchParams();
+    if (target > 1) params.set("resvPage", String(target));
+    const query = params.toString();
+    return query ? `/mypage?${query}` : "/mypage";
+  };
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">{t("eyebrow")}</p>
-        <div className="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <span
-              className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-slate-100"
-              role="img"
-              aria-label={t("profileImageAria", { name: account.displayName })}
-            >
-              <UserSilhouetteIcon />
-            </span>
-            <div className="min-w-0">
-              <h1 className="break-words text-3xl font-bold text-slate-950">
-                {account.displayName}
-              </h1>
-              <p className="mt-1 break-all text-sm text-slate-600">
-                {account.email}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span className="rounded-md bg-accent-tint px-2.5 py-1 text-xs font-bold text-accent-strong">
-                  UID {formatUserId(account.uid)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            {account.isPasswordProvider ? (
-              <Link
-                href="/mypage/password"
-                className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-              >
-                {t("changePassword")}
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleSignOut}
-              disabled={isSigningOut}
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-error/40 hover:text-error disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              {isSigningOut ? t("signingOut") : t("signOut")}
-            </button>
-          </div>
-        </div>
-
-        {notice ? (
-          <div
-            className={`mt-5 rounded-md border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
-            role={notice.tone === "error" ? "alert" : "status"}
-          >
-            {notice.message}
-          </div>
-        ) : null}
-
-        {account.showVerificationBanner ? (
-          <div
-            className="mt-5 flex flex-col gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:flex-row sm:items-center sm:justify-between"
-            role="status"
-          >
-            <p className="font-semibold">
-              {t("verificationBanner")}
-            </p>
-            <button
-              type="button"
-              onClick={handleResendVerification}
-              disabled={isResendingVerification}
-              className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-warning/50 bg-white px-3 text-xs font-semibold text-warning transition hover:border-warning hover:bg-warning/15 disabled:cursor-not-allowed disabled:border-warning/20 disabled:text-warning/50"
-            >
-              {isResendingVerification
-                ? t("resending")
-                : t("resendVerification")}
-            </button>
-          </div>
-        ) : null}
-
-        {verificationNotice ? (
-          <div
-            className={`mt-3 rounded-md border px-4 py-2 text-sm font-semibold ${noticeStyles[verificationNotice.tone]}`}
-            role={verificationNotice.tone === "error" ? "alert" : "status"}
-          >
-            {verificationNotice.message}
-          </div>
-        ) : null}
-
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-accent-strong">
-              {t("activitySummary")}
-            </p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-950">
-              {t("activityTitle")}
-            </h2>
-          </div>
-          <StatusBreakdown summaryState={summaryState} />
-        </div>
-
-        <SummaryPanel summaryState={summaryState} />
-      </section>
-
-      <ProfileSettingsSection
-        profileState={profileState}
-        saveState={saveState}
-        onNicknameChange={handleNicknameChange}
-        onPreferredRegionChange={handlePreferredRegionChange}
-        onSportToggle={handleSportToggle}
-        onNotificationsToggle={handleNotificationsToggle}
-        onSubmit={handleProfileSubmit}
+    <section className="w-full">
+      <MypageBoard
+        columns={columns}
+        rows={rows}
+        emptyMessage={t("reservationsEmpty")}
+      />
+      <BoardPagination
+        page={currentPage}
+        totalPages={totalPages}
+        buildHref={buildHref}
+        labels={{
+          pagination: t("pagination"),
+          firstPage: t("firstPage"),
+          prevPage: t("prevPage"),
+          nextPage: t("nextPage"),
+          lastPage: t("lastPage"),
+        }}
       />
     </section>
   );
 }
 
-function ProfileSettingsSection({
-  profileState,
-  saveState,
-  onNicknameChange,
-  onPreferredRegionChange,
-  onSportToggle,
-  onNotificationsToggle,
-  onSubmit,
+// 즐겨찾기 내역: 즐겨찾기한 시설을 KMI 보드 표로. 없으면 빈 표.
+function FavoritesPanel({
+  gyms,
+  favorites,
+  loadError,
+  onRemove,
+  page,
 }: {
-  profileState: ProfileState;
-  saveState: SaveState;
-  onNicknameChange: (value: string) => void;
-  onPreferredRegionChange: (value: string) => void;
-  onSportToggle: (sport: Sport, checked: boolean) => void;
-  onNotificationsToggle: (checked: boolean) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  gyms: Gym[];
+  favorites: ReadonlySet<string>;
+  loadError: string | null;
+  onRemove: (gymId: string) => void;
+  page: number;
 }) {
   const t = useTranslations("Mypage");
-  return (
-    <section className="rounded-lg border border-line bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-accent-strong">
-          {t("profileEyebrow")}
-        </p>
-        <h2 className="text-2xl font-bold text-slate-950">
-          {t("profileTitle")}
-        </h2>
-        <p className="text-sm leading-6 text-slate-600">
-          {t("profileDesc")}
-        </p>
-      </div>
 
-      {profileState.status === "loading" || profileState.status === "idle" ? (
-        <div
-          className="mt-5 rounded-md border border-line bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-600"
-          aria-live="polite"
-          aria-busy="true"
+  const favoritedGyms = useMemo(
+    () =>
+      gyms
+        .filter((gym) => favorites.has(gym.id))
+        .sort((left, right) => left.name.localeCompare(right.name, "ko")),
+    [gyms, favorites],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(favoritedGyms.length / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = favoritedGyms.slice(
+    (currentPage - 1) * PER_PAGE,
+    currentPage * PER_PAGE,
+  );
+
+  const columns: BoardColumn[] = [
+    { label: t("favColNumber"), width: "w-[56px] sm:w-[80px]" },
+    { label: t("favColName"), align: "left" },
+    { label: t("favColRegion"), width: "w-[110px]", hideOnMobile: true },
+    { label: t("favColSports"), width: "w-[150px]", hideOnMobile: true },
+    { label: t("favColAction"), width: "w-[116px] sm:w-[150px]" },
+  ];
+
+  const rows: BoardRow[] = pageItems.map((gym, index) => ({
+    key: gym.id,
+    cells: [
+      <span key="no" className="tabular-nums text-muted">
+        {(currentPage - 1) * PER_PAGE + index + 1}
+      </span>,
+      <Link
+        key="name"
+        href={`/gyms/${gym.id}`}
+        className="font-medium text-foreground transition hover:text-accent-strong"
+      >
+        {gym.name}
+      </Link>,
+      <span key="region" className="text-muted">
+        {gym.region}
+      </span>,
+      <span key="sports" className="text-muted">
+        {gym.sports.join(" · ")}
+      </span>,
+      <span key="action" className="flex items-center justify-center gap-1.5">
+        <Link
+          href={`/reserve/${gym.id}`}
+          className="inline-flex h-8 items-center rounded-md border border-accent/30 bg-accent-tint px-2.5 text-[12.5px] font-semibold text-accent-strong transition hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          {t("profileLoading")}
-        </div>
-      ) : null}
+          {t("favReserve")}
+        </Link>
+        <button
+          type="button"
+          onClick={() => onRemove(gym.id)}
+          aria-label={t("favRemoveAria", { name: gym.name })}
+          className="inline-flex h-8 items-center rounded-md border border-line-strong bg-white px-2.5 text-[12.5px] font-semibold text-muted transition hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {t("favRemove")}
+        </button>
+      </span>,
+    ],
+  }));
 
-      {profileState.status === "error" ? (
+  const buildHref = (target: number) => {
+    const params = new URLSearchParams();
+    params.set("tab", "favorites");
+    if (target > 1) params.set("favPage", String(target));
+    return `/mypage?${params.toString()}`;
+  };
+
+  return (
+    <section className="w-full">
+      {loadError ? (
         <div
-          className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-4 text-sm leading-6 text-error"
+          className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
           role="alert"
         >
-          <p className="font-bold">{t("profileErrorTitle")}</p>
-          <p className="mt-1">{profileState.message}</p>
+          {t("favLoadError")}
         </div>
       ) : null}
+      <MypageBoard
+        columns={columns}
+        rows={rows}
+        emptyMessage={t("favoritesEmpty")}
+      />
+      <BoardPagination
+        page={currentPage}
+        totalPages={totalPages}
+        buildHref={buildHref}
+        labels={{
+          pagination: t("pagination"),
+          firstPage: t("firstPage"),
+          prevPage: t("prevPage"),
+          nextPage: t("nextPage"),
+          lastPage: t("lastPage"),
+        }}
+      />
+    </section>
+  );
+}
 
-      {profileState.status === "ready" ? (
-        <ProfileSettingsForm
-          form={profileState.form}
-          saveState={saveState}
-          onNicknameChange={onNicknameChange}
-          onPreferredRegionChange={onPreferredRegionChange}
-          onSportToggle={onSportToggle}
-          onNotificationsToggle={onNotificationsToggle}
-          onSubmit={onSubmit}
-        />
-      ) : null}
+// 문의 내역: 사용자 제출 저장소가 없어 항상 빈 표(KMI VOC와 동일). FAQ 바로가기 제공.
+function InquiriesPanel() {
+  const t = useTranslations("Mypage");
 
-      <div className="flex justify-end pt-2">
+  const columns: BoardColumn[] = [
+    { label: t("inqColNumber"), width: "w-[52px] sm:w-[72px]" },
+    { label: t("inqColGym"), width: "w-[160px]", hideOnMobile: true },
+    { label: t("inqColTitle"), align: "left" },
+    { label: t("inqColName"), width: "w-[100px]", hideOnMobile: true },
+    {
+      label: t("inqColDate"),
+      width: "w-[110px] sm:w-[140px]",
+      hideOnMobile: true,
+    },
+  ];
+
+  return (
+    <section className="w-full">
+      <MypageBoard
+        columns={columns}
+        rows={[]}
+        emptyMessage={t("inquiriesEmpty")}
+      />
+      <BoardPagination
+        page={1}
+        totalPages={1}
+        buildHref={() => "/mypage?tab=inquiries"}
+        labels={{
+          pagination: t("pagination"),
+          firstPage: t("firstPage"),
+          prevPage: t("prevPage"),
+          nextPage: t("nextPage"),
+          lastPage: t("lastPage"),
+        }}
+      />
+      <div className="mt-6 flex justify-center">
         <Link
-          href="/mypage/withdraw"
-          className="text-xs text-slate-400 underline-offset-2 hover:text-error hover:underline"
+          href="/faq"
+          className="inline-flex h-11 items-center justify-center rounded-md border border-line-strong bg-white px-5 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          {t("withdrawLink")}
+          {t("inquiriesCta")}
         </Link>
       </div>
     </section>
   );
 }
 
-function ProfileSettingsForm({
-  form,
-  saveState,
-  onNicknameChange,
-  onPreferredRegionChange,
-  onSportToggle,
-  onNotificationsToggle,
-  onSubmit,
+function FieldLabel({
+  htmlFor,
+  children,
+  required,
 }: {
-  form: ProfileFormState;
+  htmlFor: string;
+  children: React.ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-bold text-slate-800">
+      {children}
+      {required ? <span className="ml-0.5 text-error">*</span> : null}
+    </label>
+  );
+}
+
+const READONLY_INPUT_CLASS =
+  "h-11 cursor-not-allowed rounded-md border border-line bg-slate-100 px-3 text-sm text-slate-500";
+const INPUT_CLASS =
+  "h-11 rounded-md border border-line-strong bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500";
+
+// 회원정보변경: KMI 폼(성명/아이디/생년월일/비밀번호+확인+변경/연락처/주소 + 정보수정·회원탈퇴).
+function AccountPanel({
+  email,
+  isPasswordProvider,
+  profileState,
+  saveState,
+  onFieldChange,
+  onSubmit,
+  onRelock,
+}: {
+  email: string;
+  isPasswordProvider: boolean;
+  profileState: ProfileState;
   saveState: SaveState;
-  onNicknameChange: (value: string) => void;
-  onPreferredRegionChange: (value: string) => void;
-  onSportToggle: (sport: Sport, checked: boolean) => void;
-  onNotificationsToggle: (checked: boolean) => void;
+  onFieldChange: (
+    field: "name" | "phone" | "birthDate" | "address",
+    value: string,
+  ) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onRelock: () => void;
 }) {
   const t = useTranslations("Mypage");
-  const isSaving = saveState.status === "saving";
-  const [nicknameStatus, setNicknameStatus] = useState<
-    "idle" | "checking" | "available" | "taken" | "invalid" | "error"
-  >("idle");
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
-  // 닉네임 변경 시 400ms debounce 후 server check. 본인 닉네임은 server가 available로 처리.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const trimmed = form.nickname.trim();
-    if (trimmed.length === 0) {
-      setNicknameStatus("idle");
-      return;
-    }
-    setNicknameStatus("checking");
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        const result = await checkNicknameAvailability(trimmed, controller.signal);
-        if (controller.signal.aborted) return;
-        if (!result.ok) {
-          setNicknameStatus("error");
-          return;
-        }
-        if (result.available) setNicknameStatus("available");
-        else setNicknameStatus(result.reason === "invalid" ? "invalid" : "taken");
-      } catch {
-        if (!controller.signal.aborted) setNicknameStatus("error");
-      }
-    }, 400);
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [form.nickname]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  const nicknameIsTaken = nicknameStatus === "taken";
-  const nicknameIsInvalid = nicknameStatus === "invalid";
-  const nicknameCheckFailed = nicknameStatus === "error";
-  // 중복/형식 오류 닉네임은 저장 자체를 막는다. 조회 실패(error)는 일시적일 수 있어
-  // 저장을 막지 않고 서버 검증에 맡기되, 안내 문구로 실패를 명시한다(No Silent Fallback).
-  const nicknameHasError = nicknameIsTaken || nicknameIsInvalid;
-  const isSaveDisabled =
-    isSaving ||
-    nicknameStatus === "checking" ||
-    nicknameIsTaken ||
-    nicknameIsInvalid;
-
-  return (
-    <form className="mt-5 flex flex-col gap-5" onSubmit={onSubmit} noValidate>
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="profile-nickname"
-          className="text-sm font-bold text-slate-800"
-        >
-          {t("nicknameLabel")}
-        </label>
-        <input
-          id="profile-nickname"
-          type="text"
-          value={form.nickname}
-          onChange={(event) => onNicknameChange(event.target.value)}
-          maxLength={8}
-          placeholder={t("nicknamePlaceholder")}
-          disabled={isSaving}
-          aria-invalid={nicknameHasError || undefined}
-          className={`h-11 rounded-md border bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${
-            nicknameHasError
-              ? "border-error focus-visible:ring-error/30"
-              : "border-line-strong focus-visible:ring-accent"
-          }`}
-        />
-        {nicknameIsTaken ? (
-          <p className="text-xs font-semibold text-error" role="alert">
-            {t("nicknameTaken")}
-          </p>
-        ) : nicknameIsInvalid ? (
-          <p className="text-xs font-semibold text-error" role="alert">
-            {t("nicknameInvalid")}
-          </p>
-        ) : nicknameCheckFailed ? (
-          <p className="text-xs font-semibold text-warning" role="alert">
-            {t("nicknameCheckFailed")}
-          </p>
-        ) : nicknameStatus === "available" && form.nickname.trim().length > 0 ? (
-          <p className="text-xs font-semibold text-success">
-            {t("nicknameAvailable")}
-          </p>
-        ) : nicknameStatus === "checking" ? (
-          <p className="text-xs text-slate-500">{t("nicknameChecking")}</p>
-        ) : (
-          <p className="text-xs text-slate-500">{t("nicknameHint")}</p>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="profile-region"
-          className="text-sm font-bold text-slate-800"
-        >
-          {t("regionLabel")}
-        </label>
-        <input
-          id="profile-region"
-          type="text"
-          value={form.preferredRegion}
-          onChange={(event) => onPreferredRegionChange(event.target.value)}
-          maxLength={100}
-          placeholder={t("regionPlaceholder")}
-          disabled={isSaving}
-          className="h-11 rounded-md border border-line-strong bg-white px-3 text-sm text-slate-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-        />
-        <p className="text-xs text-slate-500">{t("regionHint")}</p>
-      </div>
-
-      <fieldset className="flex flex-col gap-2" disabled={isSaving}>
-        <legend className="text-sm font-bold text-slate-800">
-          {t("sportsLegend")}
-        </legend>
-        <p className="text-xs text-slate-500">{t("sportsHint")}</p>
-        <div className="mt-1 flex flex-wrap gap-2">
-          {SPORTS.map((sport) => {
-            const checked = form.preferredSports.includes(sport);
-            return (
-              <label
-                key={sport}
-                className={`inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm font-semibold transition focus-within:ring-2 focus-within:ring-accent ${
-                  checked
-                    ? "border-accent bg-accent-tint text-accent-strong"
-                    : "border-line-strong bg-white text-slate-800 hover:border-accent"
-                } ${isSaving ? "cursor-not-allowed opacity-60" : ""}`}
-              >
-                <input
-                  type="checkbox"
-                  className="size-4 accent-accent"
-                  checked={checked}
-                  onChange={(event) =>
-                    onSportToggle(sport, event.target.checked)
-                  }
-                  disabled={isSaving}
-                />
-                {sport}
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <div className="flex flex-col gap-2">
-        <label className={`inline-flex cursor-pointer items-center gap-3 text-sm font-bold text-slate-800 ${isSaving ? "cursor-not-allowed opacity-60" : ""}`}>
-          <input
-            type="checkbox"
-            className="size-4 accent-accent"
-            checked={form.reservationNotificationsEnabled}
-            onChange={(event) => onNotificationsToggle(event.target.checked)}
-            disabled={isSaving}
-          />
-          {t("notificationsLabel")}
-          <span className="text-xs font-normal text-slate-400">
-            {t("notificationsBadge")}
-          </span>
-        </label>
-        <p className="text-xs text-slate-500">{t("notificationsHint")}</p>
-      </div>
-
-      {saveState.status === "success" ? (
+  if (profileState.status === "loading" || profileState.status === "idle") {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
         <div
-          className="rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success"
-          role="status"
+          className="rounded-md border border-line bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-600"
+          aria-live="polite"
+          aria-busy="true"
         >
-          {saveState.message}
+          {t("profileLoading")}
         </div>
-      ) : null}
+      </div>
+    );
+  }
 
-      {saveState.status === "error" ? (
+  if (profileState.status === "error") {
+    return (
+      <div className="mx-auto w-full max-w-2xl">
         <div
-          className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm leading-6 text-error"
+          className="rounded-md border border-error/30 bg-error/10 px-4 py-4 text-sm leading-6 text-error"
           role="alert"
         >
-          <p className="font-bold">{t("profileSaveErrorTitle")}</p>
-          <p className="mt-1">{saveState.message}</p>
+          <p className="font-bold">{t("profileErrorTitle")}</p>
+          <p className="mt-1">{profileState.message}</p>
         </div>
-      ) : null}
+      </div>
+    );
+  }
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={isSaveDisabled}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-        >
-          {isSaving ? t("saving") : t("save")}
-        </button>
-        {isSaving ? (
-          <span
-            className="text-xs font-semibold text-slate-500"
-            aria-live="polite"
-          >
-            {t("savingHint")}
-          </span>
+  const { form } = profileState;
+  const isSaving = saveState.status === "saving";
+
+  return (
+    <div className="mx-auto w-full max-w-2xl">
+      <p className="mb-3 text-right text-xs text-error">{t("accountRequired")}</p>
+      <section className="rounded-2xl border border-line bg-surface-2/40 p-6 sm:p-8">
+        <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
+          {/* 성명 */}
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="account-name">{t("accountNameLabel")}</FieldLabel>
+            <input
+              id="account-name"
+              type="text"
+              value={form.name}
+              onChange={(e) => onFieldChange("name", e.target.value)}
+              maxLength={30}
+              placeholder={t("namePlaceholder")}
+              disabled={isSaving}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          {/* 아이디(이메일) - 읽기 전용 */}
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="account-id" required>
+              {t("accountIdLabel")}
+            </FieldLabel>
+            <input
+              id="account-id"
+              type="email"
+              value={email}
+              readOnly
+              disabled
+              className={READONLY_INPUT_CLASS}
+            />
+            <p className="text-xs text-slate-500">{t("emailReadonlyHint")}</p>
+          </div>
+
+          {/* 생년월일 */}
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="account-birth">{t("birthDateLabel")}</FieldLabel>
+            <input
+              id="account-birth"
+              type="date"
+              value={form.birthDate}
+              onChange={(e) => onFieldChange("birthDate", e.target.value)}
+              disabled={isSaving}
+              className={`${INPUT_CLASS} sm:w-[220px]`}
+            />
+          </div>
+
+          {/* 비밀번호 변경 (비번 회원만, KMI: 현재 비번 없이 새 비번+확인) */}
+          {isPasswordProvider ? (
+            <PasswordChangeInline onRelock={onRelock} disabled={isSaving} />
+          ) : null}
+
+          {/* 연락처 */}
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="account-phone">{t("phoneLabel")}</FieldLabel>
+            <input
+              id="account-phone"
+              type="tel"
+              inputMode="numeric"
+              value={form.phone}
+              onChange={(e) => onFieldChange("phone", e.target.value)}
+              maxLength={20}
+              placeholder={t("phonePlaceholder")}
+              disabled={isSaving}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          {/* 주소 */}
+          <div className="flex flex-col gap-2">
+            <FieldLabel htmlFor="account-address">{t("addressLabel")}</FieldLabel>
+            <input
+              id="account-address"
+              type="text"
+              value={form.address}
+              onChange={(e) => onFieldChange("address", e.target.value)}
+              maxLength={200}
+              placeholder={t("addressPlaceholder")}
+              disabled={isSaving}
+              className={INPUT_CLASS}
+            />
+          </div>
+
+          {saveState.status === "success" ? (
+            <div
+              className="rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success"
+              role="status"
+            >
+              {saveState.message}
+            </div>
+          ) : null}
+          {saveState.status === "error" ? (
+            <div
+              className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm leading-6 text-error"
+              role="alert"
+            >
+              <p className="font-bold">{t("profileSaveErrorTitle")}</p>
+              <p className="mt-1">{saveState.message}</p>
+            </div>
+          ) : null}
+
+          {/* 하단 버튼: 회원탈퇴 · 정보수정 */}
+          <div className="mt-2 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setWithdrawOpen(true)}
+              className="inline-flex h-11 items-center justify-center rounded-md border border-line-strong bg-white px-6 text-sm font-semibold text-slate-700 transition hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              {t("withdrawButton")}
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-6 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            >
+              {isSaving ? t("saving") : t("saveProfile")}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      {withdrawOpen ? (
+        <WithdrawModal
+          isPasswordProvider={isPasswordProvider}
+          onClose={() => setWithdrawOpen(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// KMI 폼 안의 인라인 비밀번호 변경(새 비번 + 확인 + 변경 버튼).
+// 게이트에서 이미 재인증을 마쳤으므로 현재 비번을 다시 받지 않는다. 재인증 시한이 지나
+// requires-recent-login이면 게이트를 다시 잠가 본인 확인을 재요청한다.
+function PasswordChangeInline({
+  onRelock,
+  disabled,
+}: {
+  onRelock: () => void;
+  disabled: boolean;
+}) {
+  const t = useTranslations("Mypage");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [state, setState] = useState<
+    | { kind: "idle" }
+    | { kind: "loading" }
+    | { kind: "success" }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+
+  const policyError = newPassword.length > 0 ? validatePasswordPolicy(newPassword) : null;
+  const mismatch =
+    confirm.length > 0 && confirm !== newPassword ? t("pwMismatch") : null;
+  const canSubmit =
+    newPassword.length > 0 &&
+    confirm.length > 0 &&
+    !policyError &&
+    !mismatch &&
+    state.kind !== "loading";
+
+  const handleChange = async () => {
+    if (!canSubmit) return;
+    setState({ kind: "loading" });
+    const result = await updateMyPasswordDirect(newPassword);
+    if (result.ok) {
+      setState({ kind: "success" });
+      setNewPassword("");
+      setConfirm("");
+      return;
+    }
+    if (result.reason === "requires-recent-login") {
+      // 재인증 시한 만료: 게이트를 다시 잠가 본인 확인을 재요청한다.
+      onRelock();
+      return;
+    }
+    setState({ kind: "error", message: result.message });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-5">
+      <div className="flex flex-col gap-2">
+        <FieldLabel htmlFor="account-new-password" required>
+          {t("pwNewLabel")}
+        </FieldLabel>
+        <input
+          id="account-new-password"
+          type="password"
+          autoComplete="new-password"
+          value={newPassword}
+          onChange={(e) => {
+            setNewPassword(e.target.value);
+            if (state.kind !== "idle") setState({ kind: "idle" });
+          }}
+          placeholder={t("pwNewLabel")}
+          disabled={disabled}
+          aria-invalid={Boolean(policyError) || undefined}
+          className={`${INPUT_CLASS} ${policyError ? "border-error focus-visible:ring-error/30" : ""}`}
+        />
+        <p className={`text-xs ${policyError ? "font-semibold text-error" : "text-slate-500"}`}>
+          {policyError ?? PASSWORD_POLICY_HINT}
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <FieldLabel htmlFor="account-confirm-password" required>
+          {t("pwConfirmLabel")}
+        </FieldLabel>
+        <input
+          id="account-confirm-password"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => {
+            setConfirm(e.target.value);
+            if (state.kind !== "idle") setState({ kind: "idle" });
+          }}
+          placeholder={t("pwConfirmLabel")}
+          disabled={disabled}
+          aria-invalid={Boolean(mismatch) || undefined}
+          className={`${INPUT_CLASS} ${mismatch ? "border-error focus-visible:ring-error/30" : ""}`}
+        />
+        {mismatch ? (
+          <p className="text-xs font-semibold text-error" role="alert">
+            {mismatch}
+          </p>
         ) : null}
       </div>
-    </form>
+
+      {state.kind === "success" ? (
+        <p
+          className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm font-semibold text-success"
+          role="status"
+        >
+          {t("pwSuccess")}
+        </p>
+      ) : null}
+      {state.kind === "error" ? (
+        <p
+          className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
+          role="alert"
+        >
+          {state.message}
+        </p>
+      ) : null}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handleChange}
+          disabled={!canSubmit || disabled}
+          className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+        >
+          {state.kind === "loading" ? t("saving") : t("pwChangeButton")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 회원탈퇴 모달(KMI: [필수] 동의 체크 + 비밀번호 → 회원탈퇴). 사유 카테고리는 노출하지
+// 않고 기본값으로 저장한다. 비번 회원은 비밀번호 재인증, 소셜은 동의만으로 진행한다.
+// 백엔드의 부분 실패(진행 중 예약 / Auth 삭제 실패)는 그대로 보존해 안내·재시도한다.
+function WithdrawModal({
+  isPasswordProvider,
+  onClose,
+}: {
+  isPasswordProvider: boolean;
+  onClose: () => void;
+}) {
+  const t = useTranslations("Mypage");
+  const tW = useTranslations("Withdraw");
+  const router = useRouter();
+  const [agreed, setAgreed] = useState(false);
+  const [password, setPassword] = useState("");
+  const [state, setState] = useState<
+    | { kind: "form" }
+    | { kind: "submitting" }
+    | { kind: "success" }
+    | { kind: "active-reservation"; message: string }
+    | { kind: "auth-delete-failed"; message: string }
+    | { kind: "error"; message: string }
+  >({ kind: "form" });
+
+  const canSubmit =
+    agreed &&
+    (!isPasswordProvider || password.length > 0) &&
+    state.kind === "form";
+
+  const runWithdraw = async () => {
+    setState({ kind: "submitting" });
+    const result = await withdrawAccount({
+      category: DEFAULT_WITHDRAW_CATEGORY,
+      detail: null,
+    });
+    if (result.ok) {
+      setState({ kind: "success" });
+      return;
+    }
+    if (result.reason === "active-reservation") {
+      setState({ kind: "active-reservation", message: result.message });
+      return;
+    }
+    if (result.reason === "auth-delete-failed") {
+      setState({ kind: "auth-delete-failed", message: result.message });
+      return;
+    }
+    setState({ kind: "error", message: result.message });
+  };
+
+  const handleSubmit = async () => {
+    if (!agreed) return;
+    if (isPasswordProvider) {
+      if (password.length === 0) return;
+      setState({ kind: "submitting" });
+      // 본인 확인: 비밀번호 재인증 후 탈퇴. 비번이 틀리면 폼으로 되돌려 안내.
+      const reauth = await reauthenticateMyPassword(password);
+      if (!reauth.ok) {
+        setState({ kind: "error", message: reauth.message });
+        return;
+      }
+    }
+    await runWithdraw();
+  };
+
+  const handleSuccess = async () => {
+    try {
+      const { auth } = getFirebaseClient();
+      await signOut(auth);
+    } catch (error) {
+      console.warn("[withdraw] signOut failed:", error);
+    }
+    router.replace("/");
+  };
+
+  const overlayClass =
+    "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4";
+  const cardClass =
+    "w-full max-w-md rounded-lg border border-line bg-white p-6 shadow-xl";
+
+  if (state.kind === "success") {
+    return (
+      <div className={overlayClass} role="dialog" aria-modal="true">
+        <div className={cardClass}>
+          <h2 className="text-lg font-bold text-slate-950">
+            {tW("successTitle")}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {tW("successDesc")}
+          </p>
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              onClick={handleSuccess}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover"
+            >
+              {tW("confirm")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.kind === "active-reservation") {
+    return (
+      <div className={overlayClass} role="dialog" aria-modal="true">
+        <div className={cardClass}>
+          <h2 className="text-lg font-bold text-slate-950">
+            {tW("activeReservationTitle")}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {state.message}
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              {tW("close")}
+            </button>
+            <Link
+              href="/mypage"
+              className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
+            >
+              {t("tabReservations")}
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.kind === "auth-delete-failed") {
+    return (
+      <div className={overlayClass} role="dialog" aria-modal="true">
+        <div className={cardClass}>
+          <h2 className="text-lg font-bold text-slate-950">
+            {tW("authFailTitle")}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-700">
+            {state.message}
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-10 items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              {tW("close")}
+            </button>
+            <button
+              type="button"
+              onClick={runWithdraw}
+              className="inline-flex h-10 items-center justify-center rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90"
+            >
+              {tW("retry")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={overlayClass} role="dialog" aria-modal="true" aria-labelledby="withdraw-modal-title">
+      <div className={cardClass}>
+        <h2 id="withdraw-modal-title" className="text-lg font-bold text-slate-950">
+          {t("withdrawButton")}
+        </h2>
+
+        <div className="mt-4 rounded-md bg-surface-2/60 px-4 py-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              disabled={state.kind === "submitting"}
+              className="size-4 accent-accent"
+            />
+            <span>
+              <span className="text-accent-strong">{t("wdRequired")}</span>{" "}
+              {t("wdAgree")}
+            </span>
+          </label>
+
+          {isPasswordProvider ? (
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="text-sm font-bold text-slate-800">{t("wdPwLabel")}</p>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (state.kind === "error") setState({ kind: "form" });
+                }}
+                placeholder={t("gatePlaceholder")}
+                disabled={state.kind === "submitting"}
+                className={`mt-2 w-full ${INPUT_CLASS}`}
+              />
+            </div>
+          ) : null}
+        </div>
+
+        {state.kind === "error" ? (
+          <p
+            className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
+            role="alert"
+          >
+            {state.message}
+          </p>
+        ) : null}
+
+        <div className="mt-5 flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={state.kind === "submitting"}
+            className="inline-flex h-11 min-w-[110px] items-center justify-center rounded-md border border-line-strong bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed"
+          >
+            {tW("confirmCancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="inline-flex h-11 min-w-[110px] items-center justify-center rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            {state.kind === "submitting" ? tW("submitting") : t("withdrawButton")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -17,6 +17,10 @@ const profile: UserProfile = {
   userId: "profile-client-user",
   nickname: "나경",
   provider: "local",
+  name: "김나경",
+  phone: "010-1234-5678",
+  birthDate: "1990-01-01",
+  address: "서울 강서구",
   preferredRegion: "서울 강서구",
   preferredSports: ["배드민턴"],
   reservationNotificationsEnabled: true,
@@ -126,9 +130,10 @@ describe("user-profile-client", () => {
 
     await expect(
       saveUserProfile({
-        nickname: "  나경  ",
-        preferredRegion: " 서울 강서구 ",
-        preferredSports: ["배드민턴", "배드민턴"],
+        name: "  김나경  ",
+        phone: " 010-1234-5678 ",
+        birthDate: " 1990-01-01 ",
+        address: " 서울 강서구 ",
         reservationNotificationsEnabled: true,
       }),
     ).resolves.toEqual({
@@ -143,9 +148,10 @@ describe("user-profile-client", () => {
       RequestInit & { body: string },
     ];
     expect(JSON.parse(init.body)).toEqual({
-      nickname: "나경",
-      preferredRegion: "서울 강서구",
-      preferredSports: ["배드민턴"],
+      name: "김나경",
+      phone: "010-1234-5678",
+      birthDate: "1990-01-01",
+      address: "서울 강서구",
       reservationNotificationsEnabled: true,
     });
   });
@@ -196,9 +202,10 @@ describe("user-profile-client", () => {
 
     await expect(
       saveUserProfile({
-        nickname: "나경",
-        preferredRegion: "서울 강서구",
-        preferredSports: ["배드민턴"],
+        name: "김나경",
+        phone: "010-1234-5678",
+        birthDate: "1990-01-01",
+        address: "서울 강서구",
         reservationNotificationsEnabled: true,
       }),
     ).resolves.toEqual({
@@ -216,15 +223,16 @@ describe("user-profile-client", () => {
 
     await expect(
       saveUserProfile({
-        nickname: null,
-        preferredRegion: null,
-        preferredSports: ["축구" as never],
+        name: null,
+        phone: "010-abcd-5678",
+        birthDate: null,
+        address: null,
         reservationNotificationsEnabled: true,
       }),
     ).resolves.toEqual({
       ok: false,
       kind: "error",
-      message: "지원하지 않는 선호 종목입니다: 축구",
+      message: "연락처는 숫자와 하이픈(-)만, 숫자 9자리 이상이어야 합니다.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
