@@ -3,9 +3,16 @@ import { getTranslations } from "next-intl/server";
 import { GymDiscovery } from "@/components/gym-discovery";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
-export default async function GymsPage() {
+export default async function GymsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sport?: string | string[] }>;
+}) {
   const gyms = await gymRepository.list();
   const t = await getTranslations("Gyms");
+  // 메가메뉴 '종목별'에서 넘어온 ?sport=<종목>을 초기 종목 필터로 전달한다.
+  const sportParam = (await searchParams).sport;
+  const initialSport = Array.isArray(sportParam) ? sportParam[0] : sportParam;
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 py-10 text-foreground sm:px-8 sm:py-12">
@@ -33,7 +40,7 @@ export default async function GymsPage() {
       </p>
 
       <div className="mt-9">
-        <GymDiscovery gyms={gyms} />
+        <GymDiscovery gyms={gyms} initialSport={initialSport} />
       </div>
     </main>
   );

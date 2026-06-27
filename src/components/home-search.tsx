@@ -89,15 +89,18 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
           event.preventDefault();
           handleSubmit();
         }}
-        className="grid gap-3 rounded-2xl border border-line bg-white p-4 shadow-[0_16px_40px_rgba(15,23,42,0.16)] sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.3fr_auto] lg:items-end"
+        className="grid gap-3 rounded-2xl border border-line bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.3fr_auto] lg:items-end"
       >
         {/* 지역 */}
         <div className="flex flex-col gap-1.5">
           <span className={FIELD_LABEL_CLASS}>{t("searchRegion")}</span>
           <SelectMenu
             value={region}
-            options={regionOptions.map((item) => ({ value: item, label: item }))}
-            placeholder={t("searchRegionPlaceholder")}
+            options={[
+              { value: "", label: t("searchRegionAll") },
+              ...regionOptions.map((item) => ({ value: item, label: item })),
+            ]}
+            placeholder={t("searchRegionAll")}
             ariaLabel={t("searchRegion")}
             onChange={handleRegionChange}
             triggerClassName={FIELD_TRIGGER_CLASS}
@@ -110,9 +113,8 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
           <SelectMenu
             value={sport}
             options={sportOptions.map((item) => ({ value: item, label: item }))}
-            placeholder={region ? t("searchSportPlaceholder") : t("searchSportFirst")}
+            placeholder={t("searchSportPlaceholder")}
             ariaLabel={t("searchSport")}
-            disabled={!region}
             onChange={handleSportChange}
             triggerClassName={FIELD_TRIGGER_CLASS}
           />
