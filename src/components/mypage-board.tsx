@@ -20,15 +20,15 @@ export type BoardRow = {
   cells: ReactNode[];
 };
 
-function BoardWarnIcon() {
+function BoardWarnIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.75}
+      strokeWidth={1.4}
       aria-hidden="true"
-      className="size-8 text-foreground"
+      className={className ?? "size-8 text-foreground"}
     >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7.5v5" strokeLinecap="round" />
@@ -41,10 +41,19 @@ export function MypageBoard({
   columns,
   rows,
   emptyMessage,
+  // th/td 높이·폰트·빈상태 아이콘은 호출 패널이 지정한다(미지정 시 공통 기본값).
+  headHeightClass = "h-[72px]",
+  cellHeightClass = "h-[106px]",
+  textClass = "text-[18px]",
+  emptyIconClass = "size-10 text-foreground",
 }: {
   columns: BoardColumn[];
   rows: BoardRow[];
   emptyMessage: string;
+  headHeightClass?: string;
+  cellHeightClass?: string;
+  textClass?: string;
+  emptyIconClass?: string;
 }) {
   const isEmpty = rows.length === 0;
 
@@ -62,13 +71,13 @@ export function MypageBoard({
           ))}
         </colgroup>
         <thead>
-          {/* KMI VOC 실측: th bg #F8F8F8, near-black, 16~18px/600, 높이 72px, 가운데 */}
+          {/* KMI VOC 실측: th bg #F8F8F8, near-black, 600 weight, 가운데. 높이·폰트는 prop. */}
           <tr className="border-b border-line bg-surface-2">
             {columns.map((column, index) => (
               <th
                 key={index}
                 scope="col"
-                className={`h-[60px] px-3 text-[15px] font-semibold text-foreground sm:h-[68px] sm:text-[16px] ${
+                className={`${headHeightClass} px-3 ${textClass} font-semibold text-foreground ${
                   index > 0 ? "border-l border-line" : ""
                 } ${column.align === "left" ? "text-left" : "text-center"} ${
                   column.hideOnMobile ? "hidden sm:table-cell" : ""
@@ -89,7 +98,7 @@ export function MypageBoard({
                 {row.cells.map((cell, index) => (
                   <td
                     key={index}
-                    className={`h-[60px] px-3 align-middle text-[15px] text-foreground ${
+                    className={`${cellHeightClass} px-3 align-middle ${textClass} text-foreground ${
                       index > 0 ? "border-l border-line" : ""
                     } ${
                       columns[index]?.align === "left"
@@ -107,10 +116,10 @@ export function MypageBoard({
       </table>
 
       {isEmpty ? (
-        // 빈 표 영역: 그림판 지시 #1(높이 86px) + #6(아이콘↔문구 간격 축소).
-        <div className="flex h-[86px] flex-col items-center justify-center gap-1.5 border-b border-line">
-          <BoardWarnIcon />
-          <p className="text-[16px] font-normal text-foreground">
+        // 빈 표 영역: 아이콘(40px) + 안내 문구를 가운데.
+        <div className="flex h-[106px] flex-col items-center justify-center gap-1.5 border-b border-line">
+          <BoardWarnIcon className={emptyIconClass} />
+          <p className="text-[18px] font-normal text-foreground">
             {emptyMessage}
           </p>
         </div>

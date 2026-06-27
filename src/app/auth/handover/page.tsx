@@ -4,7 +4,7 @@ import { HandoverFlow } from "@/components/handover-flow";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "로그인 처리 중 — 공공체육관 예약",
+  title: "로그인 처리 중 — 서울체육예약",
 };
 
 export default function HandoverPage() {

@@ -13,7 +13,7 @@ import { FAQ_KNOWLEDGE } from "@/lib/server/faq-knowledge";
 // FAQ 봇과 동일 출처(faq-knowledge.ts)를 재사용한다(SSOT 단일). 카테고리 그룹핑은 화면에서만 한다.
 
 export const metadata: Metadata = {
-  title: "문의·FAQ — 공공체육관 예약",
+  title: "문의·FAQ — 서울체육예약",
   description: "가입·예약·취소·이용 방법 등 자주 묻는 질문을 안내합니다.",
 };
 
@@ -126,29 +126,35 @@ export default async function FaqPage({
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-muted">{t("intro")}</p>
 
-      {/* 카테고리 탭 (KMI: 활성 네이비 + 밑줄) */}
-      <nav
-        aria-label={t("title")}
-        className="mt-8 grid grid-cols-2 border-b border-line sm:grid-cols-4"
-      >
-        {TAB_GROUPS.map((group) => {
-          const active = group.key === activeKey;
-          return (
-            <Link
-              key={group.key}
-              href={faqHref({ cat: group.key, field: "all", q: "", page: 1 })}
-              aria-current={active ? "page" : undefined}
-              className={`-mb-px border-b-2 py-4 text-center text-[16px] transition sm:text-[17px] ${
-                active
-                  ? "border-accent font-bold text-accent-strong"
-                  : "border-transparent font-medium text-muted hover:text-foreground"
-              }`}
-            >
-              {group.label}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* 카테고리 탭 (KMI: 활성 네이비 + 밑줄). 하단 구분선은 양쪽 화면 끝까지(full-bleed). */}
+      <div className="relative isolate mt-8">
+        <nav
+          aria-label={t("title")}
+          className="grid grid-cols-2 sm:grid-cols-4"
+        >
+          {TAB_GROUPS.map((group) => {
+            const active = group.key === activeKey;
+            return (
+              <Link
+                key={group.key}
+                href={faqHref({ cat: group.key, field: "all", q: "", page: 1 })}
+                aria-current={active ? "page" : undefined}
+                className={`-mb-px border-b-2 py-4 text-center text-[18px] transition sm:text-[22px] ${
+                  active
+                    ? "border-accent font-bold text-accent-strong"
+                    : "border-transparent font-medium text-muted hover:text-foreground"
+                }`}
+              >
+                {group.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 left-[calc(50%_-_50vw)] -z-10 h-px w-screen bg-line"
+        />
+      </div>
 
       {/* 검색바 (공용 SearchBar: [전체/제목/내용] 드롭다운 + 키워드) */}
       <div className="mt-9">

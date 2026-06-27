@@ -14,9 +14,8 @@
     "openMenu": "メニューを開く",
     "closeMenu": "メニューを閉じる",
     "bySport": "種目別",
-    "byRegion": "地域別",
     "language": "言語",
-    "brand": "公共体育館"
+    "brand": "ソウル体育予約"
   },
   "Footer": {
     "customerCenter": "カスタマーセンター",
@@ -30,9 +29,9 @@
     "info": "ご案内",
     "terms": "利用規約",
     "privacy": "プライバシーポリシー",
-    "brand": "公共体育館",
+    "brand": "ソウル体育予約",
     "brandDesc": "近所の公共スポーツ施設を簡単・安心に予約できる生活スポーツプラットフォームです。",
-    "copyright": "ⓒ 2026 公共体育館。本画面はデザインプレビューであり、実際の情報ではありません。"
+    "copyright": "ⓒ 2026 ソウル体育予約。本画面はデザインプレビューであり、実際の情報ではありません。"
   },
   "Home": {
     "heroTitleLine1": "近所で始める運動、",
@@ -51,8 +50,7 @@
     "searchGym": "体育館",
     "searchDate": "日付",
     "searchSportPlaceholder": "種目を選択",
-    "searchSportFirst": "先に地域を選択",
-    "searchRegionPlaceholder": "地域を選択",
+    "searchRegionAll": "すべて",
     "searchGymFirst": "先に種目を選択",
     "searchGymPlaceholder": "体育館を選択",
     "searchSubmit": "施設検索",
@@ -87,13 +85,33 @@
     "title": "ご利用方法",
     "intro": "ご予約が済んだら、現地では4つのステップで完了します。",
     "step1Title": "予約QRを準備",
-    "step1Desc": "ご来場前に「マイ予約」やマイページで予約QRを開いておきます。",
+    "step1Desc": "ご来場前に「マイ予約」やマイページで予約QRを開いておきます。現地では通信が不安定な場合があるため、画面をキャプチャしておくとより安心です。",
+    "step1Tips": [
+      "ご予約時間の10分前までのご到着をおすすめします。",
+      "QRはご予約者ご本人のみ入場にご利用いただけます。",
+      "予約の変更・取消はご利用開始前までマイページで可能です。"
+    ],
     "step2Title": "現地でQRをスキャン",
-    "step2Desc": "入口の端末にQRをかざすと、ご予約が自動で確認されます。",
+    "step2Desc": "入口の端末にQRをかざすと、ご予約が自動で確認されます。画面に表示される種目・時間・コートがご予約と合っているかご確認ください。",
+    "step2Tips": [
+      "読み取れない場合は画面の明るさを上げて再度お試しください。",
+      "同伴者はご予約人数の範囲内で一緒に入場します。",
+      "ご予約時間を過ぎると入場が制限される場合があります。時間をお守りください。"
+    ],
     "step3Title": "入場・ご利用",
-    "step3Desc": "確認されたら入場し、予約した時間帯とコートをご利用ください。",
+    "step3Desc": "確認されたら入場し、予約した時間帯とコートをご利用ください。指定のコート・区域のみをご使用いただき、安全のため室内履きや運動着など基本のご準備をお願いします。",
+    "step3Tips": [
+      "施設や備品は大切にご使用いただき、破損時はすぐにスタッフへお知らせください。",
+      "飲食物の持ち込みや喫煙など、施設内での禁止行為はお控えください。",
+      "他の利用者の時間帯に影響しないよう、ご予約時間をお守りください。"
+    ],
     "step4Title": "ご利用完了",
-    "step4Desc": "ご利用時間が終わったら片付けて、チェックアウトで終了します。"
+    "step4Desc": "ご利用時間が終わったら使用した場所を片付け、チェックアウトで終了します。次のご予約者のため、終了時間に合わせてコートをお空けください。",
+    "step4Tips": [
+      "使用した備品は元の場所に戻し、ゴミはお持ち帰りください。",
+      "次の利用者への配慮として、時間どおりに退場してください。",
+      "落とし物があった場合はインフォメーションへお問い合わせください。"
+    ]
   },
   "Notice": {
     "title": "お知らせ",
@@ -103,7 +121,7 @@
     "searchLabel": "検索",
     "searchEmpty": "検索結果がありません。",
     "empty": "登録されたお知らせがありません。",
-    "author": "公共体育館",
+    "author": "ソウル体育予約",
     "pinnedLabel": "重要",
     "views": "閲覧",
     "prev": "前の記事",
@@ -226,8 +244,8 @@
     "searchPlaceholder": "体育館名、地域、住所",
     "regionLabel": "地域",
     "regionAll": "すべての区",
-    "sportFilterAria": "種目フィルター",
-    "filterAllSports": "すべて",
+    "sportLabel": "種目",
+    "sportAll": "すべて",
     "favoritesToggle": "お気に入り",
     "sortAria": "並び替え基準",
     "sortDistance": "近い順",
@@ -235,8 +253,11 @@
     "ascending": "昇順",
     "descending": "降順",
     "clearFilters": "条件をリセット",
-    "countTotal": "全 <b>{count}</b> 件の体育館",
-    "countFavorites": "お気に入り <b>{count}</b> 件の体育館",
+    "pagination": "ページ送り",
+    "firstPage": "最初のページ",
+    "prevPage": "前のページ",
+    "nextPage": "次のページ",
+    "lastPage": "最後のページ",
     "locationDenied": "位置情報の権限がブロックされているため、近い順を使用できません。ブラウザの設定で位置情報の権限を許可してから再読み込みしてください。",
     "locationMissing": "位置情報がないため既定の順序で表示されます。「近い順」をもう一度押して権限を許可してください。",
     "recommendAria": "お気に入りに基づくおすすめ",
@@ -248,9 +269,9 @@
     "emptyFavNone": "まだお気に入りの体育館がありません",
     "emptyFiltered": "条件に合う体育館がありません",
     "emptyFavLoadErrorDesc": "しばらくして再度お試しください。",
-    "emptyFavFilteredDesc": "検索/地域/種目の条件を外すか、お気に入りモードを解除してみてください。",
+    "emptyFavFilteredDesc": "地域や種目の条件を外すか、お気に入りモードを解除してみてください。",
     "emptyFavNoneDesc": "よく利用する体育館を保存すると、予約時にすばやく見つけられます。",
-    "emptyFilteredDesc": "検索語を減らすか、地域・種目の条件を変えてみてください。",
+    "emptyFilteredDesc": "地域や種目の条件を変えてみてください。",
     "emptyBrowse": "体育館を見る",
     "emptyClearFavorites": "お気に入りを解除してすべて表示",
     "priceFrom": "{price}から",
@@ -263,7 +284,10 @@
     "hasClosedDays": "休館日あり",
     "viewDetail": "詳細を見る",
     "book": "予約する",
-    "bookAria": "{name}を予約する"
+    "bookAria": "{name}を予約する",
+    "gymLabel": "体育館",
+    "gymPlaceholder": "体育館を選択",
+    "searchButton": "施設検索"
   },
   "LocationModal": {
     "titleDenied": "位置情報の権限がブロックされています",
@@ -485,6 +509,7 @@
   "Mypage": {
     "breadcrumbHome": "ホーム",
     "title": "マイページ",
+    "subtitle": "予約履歴・お気に入り・お問い合わせ・会員情報を一か所で確認・管理できます。",
     "welcome": "{name}様、ようこそ",
     "tabsAria": "マイページタブ",
     "tabReservations": "予約内訳",
@@ -499,7 +524,8 @@
     "rsvColStatus": "状態",
     "rsvColDetail": "予約詳細",
     "rsvColQr": "QRコード",
-    "rsvDetailLink": "表示",
+    "rsvDetailLink": "詳細を見る",
+    "rsvQrLink": "QRを見る",
     "rsvQrAria": "QRコードを表示",
     "rsvMissingGym": "削除された施設",
     "accountRequired": "* 必須項目を入力してください。",
@@ -557,7 +583,7 @@
     "providerPassword": "メール",
     "providerGoogle": "Google",
     "providerSocial": "ソーシャルログイン",
-    "metaTitle": "マイ情報 | 公共体育館予約",
+    "metaTitle": "マイ情報 | ソウル体育予約",
     "metaDesc": "アカウント情報、予約概要、お気に入り概要を確認します。",
     "eyebrow": "マイ情報",
     "loadingTitle": "ログイン情報を確認しています",
@@ -618,7 +644,7 @@
     "savingHint": "サーバーに保存しています。"
   },
   "Password": {
-    "metaTitle": "パスワード変更 | 公共体育館予約",
+    "metaTitle": "パスワード変更 | ソウル体育予約",
     "metaDesc": "現在のパスワードを入力し、新しいパスワードに変更します。",
     "loadingAuth": "ログイン状態を確認しています...",
     "title": "パスワード変更",
@@ -638,7 +664,7 @@
     "confirm": "確認"
   },
   "Withdraw": {
-    "metaTitle": "退会 | 公共体育館予約",
+    "metaTitle": "退会 | ソウル体育予約",
     "metaDesc": "アカウントとすべてのデータを削除し、サービスを退会します。",
     "loadingAuth": "ログイン状態を確認しています...",
     "title": "退会",
@@ -658,7 +684,7 @@
     "confirmSubmit": "退会を確認",
     "submitting": "退会処理中です...",
     "successTitle": "退会が完了しました",
-    "successDesc": "これまで公共体育館予約をご利用いただきありがとうございました。",
+    "successDesc": "これまでソウル体育予約をご利用いただきありがとうございました。",
     "confirm": "確認",
     "authFailTitle": "最後のステップで失敗しました",
     "close": "閉じる",

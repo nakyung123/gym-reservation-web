@@ -125,7 +125,7 @@ export function FaqChatWidget() {
       <div className="flex items-center justify-between border-b border-line bg-surface-2 px-4 py-3">
         <div>
           <p id={titleId} className="text-[15px] font-bold text-foreground">
-            공공체육관 문의 도우미
+            서울체육예약 문의 도우미
           </p>
           <p className="text-[12.5px] text-muted">FAQ를 바탕으로 안내해 드려요</p>
         </div>

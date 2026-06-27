@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 // 실측: 제목 36px/700 mb32 / header pb36 border-b mb40 / 메타 16px #555 '날짜 | 조회'
 //   본문 18px line-height1.8 / post-nav border-t flex space-between(이전 글 좌·다음 글 우)
 //   목록 버튼 160x60 radius30 네이비 18px 가운데. breadcrumb 없음, 컨테이너는 사이트 표준 폭.
-// 색만 우리 토큰(네이비=accent)으로. 작성자(공공체육관)는 유지하되 KMI식 파이프 메타에 포함.
+// 색만 우리 토큰(네이비=accent)으로. 작성자(서울체육예약)는 유지하되 KMI식 파이프 메타에 포함.
 
 // 발행일 표기: 목록과 동일하게 점 구분(YYYY.MM.DD).
 function formatDate(iso: string): string {
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   return {
     title: notice
       ? `${notice.title} — 공지사항`
-      : "공지사항 — 공공체육관 예약",
+      : "공지사항 — 서울체육예약",
   };
 }
 

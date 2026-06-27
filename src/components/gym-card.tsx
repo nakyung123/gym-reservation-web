@@ -1,9 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ButtonLink } from "@/components/app-button";
-import { getGymLowestPrice } from "@/lib/gym-utils";
+import { getGymLowestPrice, getGymThumbnail } from "@/lib/gym-utils";
 import { calculateGymDistanceKm, formatDistanceKm } from "@/lib/distance";
 import { useUserLocation } from "@/hooks/use-user-location";
 import type { Gym } from "@/types/domain";
@@ -31,32 +32,46 @@ export function GymCard({
   const { location } = useUserLocation();
   const distanceKm = calculateGymDistanceKm(gym, location);
   const detailHref = `/gyms/${gym.id}`;
+  const thumbnail = getGymThumbnail(gym.id);
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white transition hover:border-line-strong hover:shadow-[0_4px_16px_rgba(15,23,42,0.09)]">
-      {/* 썸네일(추후 실사진 교체 지점). Link가 영역 전체를 덮고, 배지·하트는 그 위에 둔다. */}
+    <article className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-line-strong hover:shadow-[0_4px_16px_rgba(15,23,42,0.09)]">
+      {/* 썸네일: 등록된 사진이 있으면 실사진, 없으면 그라데이션 placeholder.
+          Link가 영역 전체를 덮고, 배지·하트는 그 위에 둔다. */}
       <div className="relative h-44 overflow-hidden bg-[linear-gradient(135deg,var(--accent-tint),var(--surface-2))]">
+        {thumbnail ? (
+          <Image
+            src={thumbnail}
+            alt={gym.name}
+            fill
+            quality={90}
+            sizes="(max-width: 768px) 100vw, 360px"
+            className="object-cover"
+          />
+        ) : null}
         <Link
           href={detailHref}
           aria-label={t("viewDetailAria", { name: gym.name })}
           className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
         >
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 grid place-items-center text-accent-strong/25"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-14"
+          {thumbnail ? null : (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 grid place-items-center text-accent-strong/25"
             >
-              <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 11h.01M15 11h.01" />
-            </svg>
-          </span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-14"
+              >
+                <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 11h.01M15 11h.01" />
+              </svg>
+            </span>
+          )}
         </Link>
 
         <span className="pointer-events-none absolute left-[13px] top-[13px] inline-flex items-center gap-1.5 rounded-full bg-white/95 px-[11px] py-[5px] text-[12.5px] font-bold text-success shadow-sm">
@@ -73,8 +88,8 @@ export function GymCard({
             aria-label={isFavorite ? tFavorite("remove") : tFavorite("add")}
             className={`absolute right-[11px] top-[11px] z-10 grid size-9 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
               isFavorite
-                ? "text-rose-500"
-                : "text-slate-400 hover:text-rose-400"
+                ? "text-amber-400"
+                : "text-slate-400 hover:text-amber-400"
             }`}
           >
             <svg
@@ -83,12 +98,12 @@ export function GymCard({
               className="size-5"
               fill={isFavorite ? "currentColor" : "none"}
               stroke="currentColor"
-              strokeWidth={2}
+              strokeWidth={1.6}
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .32-.988l5.519-.442a.562.562 0 0 0 .475-.345L11.48 3.5z"
               />
             </svg>
           </button>
@@ -128,7 +143,7 @@ export function GymCard({
         </p>
 
         <div
-          className="mt-[15px] flex flex-wrap gap-[7px]"
+          className="mt-[15px] mb-[18px] flex flex-wrap gap-[7px]"
           aria-label={t("sportsAvailableAria")}
         >
           {gym.sports.map((sport) => (

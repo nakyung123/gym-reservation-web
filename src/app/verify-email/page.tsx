@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "이메일 인증 — 공공체육관 예약",
+  title: "이메일 인증 — 서울체육예약",
 };
 
 // Firebase Auth action link가 인증 자체를 처리하므로 별도 UI는 안내만 제공한다.

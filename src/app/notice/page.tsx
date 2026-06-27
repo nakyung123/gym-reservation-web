@@ -12,8 +12,8 @@ import {
 } from "@/lib/notices";
 
 export const metadata: Metadata = {
-  title: "공지사항 — 공공체육관 예약",
-  description: "공공체육관 예약 서비스의 공지·점검·안내 사항을 확인하세요.",
+  title: "공지사항 — 서울체육예약",
+  description: "서울체육예약 서비스의 공지·점검·안내 사항을 확인하세요.",
 };
 
 // KMI 'KMI 소식' 게시판을 우리 톤으로 옮긴 공지 목록.

@@ -4,7 +4,7 @@ import { SignupView } from "@/components/signup-view";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "회원가입 — 공공체육관 예약",
+  title: "회원가입 — 서울체육예약",
 };
 
 export default function SignupPage() {

@@ -74,7 +74,7 @@ export function sanitizeFaqMessages(raw: unknown): SanitizeResult {
 
 // system 가드(인젝션 경계 + 환각/스코프/결제 정직성). 지식과 분리해 둔다.
 const SYSTEM_GUARD = [
-  "당신은 '공공체육관' 생활체육 예약 서비스의 FAQ 안내 도우미입니다.",
+  "당신은 '서울체육예약' 생활체육 예약 서비스의 FAQ 안내 도우미입니다.",
   "아래 <faq> 안의 내용에 근거해서만 한국어 존댓말로 간결하게 안내하세요.",
   "",
   "규칙:",

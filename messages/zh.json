@@ -14,9 +14,8 @@
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
     "bySport": "按项目",
-    "byRegion": "按地区",
     "language": "语言",
-    "brand": "公共体育馆"
+    "brand": "首尔体育预约"
   },
   "Footer": {
     "customerCenter": "客服中心",
@@ -30,9 +29,9 @@
     "info": "信息",
     "terms": "服务条款",
     "privacy": "隐私政策",
-    "brand": "公共体育馆",
+    "brand": "首尔体育预约",
     "brandDesc": "为您轻松可靠地预约附近公共体育设施的全民体育平台。",
-    "copyright": "ⓒ 2026 公共体育馆。本页面为设计预览，并非实际信息。"
+    "copyright": "ⓒ 2026 首尔体育预约。本页面为设计预览，并非实际信息。"
   },
   "Home": {
     "heroTitleLine1": "就近开启运动，",
@@ -51,8 +50,7 @@
     "searchGym": "体育馆",
     "searchDate": "日期",
     "searchSportPlaceholder": "选择项目",
-    "searchSportFirst": "请先选地区",
-    "searchRegionPlaceholder": "选择地区",
+    "searchRegionAll": "全部",
     "searchGymFirst": "请先选项目",
     "searchGymPlaceholder": "选择体育馆",
     "searchSubmit": "搜索设施",
@@ -87,13 +85,33 @@
     "title": "使用方法",
     "intro": "预约完成后，现场只需四个步骤。",
     "step1Title": "准备预约二维码",
-    "step1Desc": "出发前在“我的预约”或个人页面提前打开预约二维码。",
+    "step1Desc": "出发前在“我的预约”或个人页面提前打开预约二维码。现场网络可能不稳定，建议截图保存更稳妥。",
+    "step1Tips": [
+      "建议在预约时间前10分钟到达。",
+      "二维码仅限预约本人用于入场。",
+      "预约的更改与取消可在使用开始前于个人页面办理。"
+    ],
     "step2Title": "现场扫码",
-    "step2Desc": "将二维码对准入口设备，系统会自动确认您的预约。",
+    "step2Desc": "将二维码对准入口设备，系统会自动确认您的预约。请核对屏幕上显示的项目、时间和场地是否与预约一致。",
+    "step2Tips": [
+      "若无法识别，请调高屏幕亮度后重试。",
+      "同行人员须在预约人数范围内一同入场。",
+      "超过预约时间可能限制入场，请准时到场。"
+    ],
     "step3Title": "入场·使用",
-    "step3Desc": "确认后即可入场，使用预约的时段和场地。",
+    "step3Desc": "确认后即可入场，使用预约的时段和场地。请仅使用指定的场地与区域，并为安全准备好室内鞋、运动服等基本物品。",
+    "step3Tips": [
+      "请爱护设施与器材，如有损坏请立即告知工作人员。",
+      "请勿携带食物入内或在场馆内吸烟等禁止行为。",
+      "请遵守预约时间，避免占用其他用户的时段。"
+    ],
     "step4Title": "使用完成",
-    "step4Desc": "使用时间结束后整理场地，签退即完成。"
+    "step4Desc": "使用时间结束后整理场地，签退即完成。为方便下一位预约者，请按结束时间腾出场地。",
+    "step4Tips": [
+      "请将器材归位，并自行带走垃圾。",
+      "出于对下一位用户的体谅，请准时离场。",
+      "如有遗失物品，请咨询服务台。"
+    ]
   },
   "Notice": {
     "title": "公告",
@@ -103,7 +121,7 @@
     "searchLabel": "搜索",
     "searchEmpty": "未找到搜索结果。",
     "empty": "暂无公告。",
-    "author": "公共体育馆",
+    "author": "首尔体育预约",
     "pinnedLabel": "重要公告",
     "views": "浏览",
     "prev": "上一篇",
@@ -226,8 +244,8 @@
     "searchPlaceholder": "体育馆名称、地区、地址",
     "regionLabel": "地区",
     "regionAll": "全部区",
-    "sportFilterAria": "项目筛选",
-    "filterAllSports": "全部",
+    "sportLabel": "项目",
+    "sportAll": "全部",
     "favoritesToggle": "收藏",
     "sortAria": "排序方式",
     "sortDistance": "由近到远",
@@ -235,8 +253,11 @@
     "ascending": "升序",
     "descending": "降序",
     "clearFilters": "重置条件",
-    "countTotal": "共 <b>{count}</b> 个体育馆",
-    "countFavorites": "收藏 <b>{count}</b> 个体育馆",
+    "pagination": "分页",
+    "firstPage": "第一页",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "lastPage": "最后一页",
     "locationDenied": "位置权限已被阻止，无法使用由近到远排序。请在浏览器设置中允许位置权限后刷新。",
     "locationMissing": "没有位置信息，将按默认顺序显示。请再次点击“由近到远”以允许权限。",
     "recommendAria": "基于收藏的推荐",
@@ -248,9 +269,9 @@
     "emptyFavNone": "还没有收藏的体育馆",
     "emptyFiltered": "没有符合条件的体育馆",
     "emptyFavLoadErrorDesc": "请稍后再试。",
-    "emptyFavFilteredDesc": "请取消搜索/地区/项目条件，或关闭收藏模式。",
+    "emptyFavFilteredDesc": "请取消地区/运动项目条件，或关闭收藏模式。",
     "emptyFavNoneDesc": "保存常用的体育馆，预约时可快速找到。",
-    "emptyFilteredDesc": "请减少搜索词，或更改地区、项目条件。",
+    "emptyFilteredDesc": "请更改地区或运动项目条件。",
     "emptyBrowse": "浏览体育馆",
     "emptyClearFavorites": "取消收藏并查看全部",
     "priceFrom": "{price}起",
@@ -263,7 +284,10 @@
     "hasClosedDays": "有休馆日",
     "viewDetail": "查看详情",
     "book": "预约",
-    "bookAria": "预约{name}"
+    "bookAria": "预约{name}",
+    "gymLabel": "体育馆",
+    "gymPlaceholder": "选择体育馆",
+    "searchButton": "搜索设施"
   },
   "LocationModal": {
     "titleDenied": "位置权限已被阻止",
@@ -485,6 +509,7 @@
   "Mypage": {
     "breadcrumbHome": "首页",
     "title": "我的页面",
+    "subtitle": "在一处查看并管理您的预约记录、收藏、咨询和会员信息。",
     "welcome": "{name}，欢迎您",
     "tabsAria": "我的页面标签",
     "tabReservations": "预约记录",
@@ -499,7 +524,8 @@
     "rsvColStatus": "状态",
     "rsvColDetail": "预约详情",
     "rsvColQr": "二维码",
-    "rsvDetailLink": "查看",
+    "rsvDetailLink": "查看详情",
+    "rsvQrLink": "查看二维码",
     "rsvQrAria": "查看二维码",
     "rsvMissingGym": "已删除的设施",
     "accountRequired": "* 请填写必填项。",
@@ -557,7 +583,7 @@
     "providerPassword": "邮箱",
     "providerGoogle": "Google",
     "providerSocial": "社交登录",
-    "metaTitle": "我的信息 | 公共体育馆预约",
+    "metaTitle": "我的信息 | 首尔体育预约",
     "metaDesc": "查看账户信息、预约摘要和收藏摘要。",
     "eyebrow": "我的信息",
     "loadingTitle": "正在确认登录信息",
@@ -618,7 +644,7 @@
     "savingHint": "正在保存到服务器。"
   },
   "Password": {
-    "metaTitle": "修改密码 | 公共体育馆预约",
+    "metaTitle": "修改密码 | 首尔体育预约",
     "metaDesc": "输入当前密码并修改为新密码。",
     "loadingAuth": "正在确认登录状态...",
     "title": "修改密码",
@@ -638,7 +664,7 @@
     "confirm": "确认"
   },
   "Withdraw": {
-    "metaTitle": "注销账户 | 公共体育馆预约",
+    "metaTitle": "注销账户 | 首尔体育预约",
     "metaDesc": "删除账户和所有数据并注销服务。",
     "loadingAuth": "正在确认登录状态...",
     "title": "注销账户",
@@ -658,7 +684,7 @@
     "confirmSubmit": "确认注销",
     "submitting": "正在处理注销...",
     "successTitle": "注销已完成",
-    "successDesc": "感谢您一直以来使用公共体育馆预约。",
+    "successDesc": "感谢您一直以来使用首尔体育预约。",
     "confirm": "确认",
     "authFailTitle": "最后一步失败了",
     "close": "关闭",

@@ -4,7 +4,7 @@ import { LoginView } from "@/components/login-view";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "로그인 — 공공체육관 예약",
+  title: "로그인 — 서울체육예약",
 };
 
 export default function LoginPage() {

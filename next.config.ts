@@ -55,6 +55,10 @@ if (process.env.NODE_ENV === "production") {
 
 const nextConfig: NextConfig = {
   images: {
+    // next/image는 원본을 받아 자체 재인코딩해 서빙한다(기본 quality 75).
+    // 사진·일러스트 화질을 위해 90을 허용 목록에 추가한다(Next 16은 기본 외 quality를
+    // 쓰려면 명시 화이트리스트 필요). 컴포넌트에서 quality={90}로 지정해 사용한다.
+    qualities: [75, 90],
     // 외부 이미지(운영 배너 등)는 Supabase Storage public URL을 쓴다.
     // next/image 최적화를 위해 해당 호스트를 허용한다.
     remotePatterns: [

@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 // 문구는 국문 하드코딩(초안 — 확정 후 About 네임스페이스로 이전). 내용은 STEPS/PRINCIPLES 배열에서 관리.
 
 export const metadata: Metadata = {
-  title: "사업 소개 — 공공체육관 예약",
+  title: "사업 소개 — 서울체육예약",
   description:
     "공공 체육시설을 누구나 쉽고 공정하게 이용하도록 연결하는 생활체육 예약 플랫폼을 소개합니다.",
 };
@@ -199,7 +199,7 @@ export default function AboutPage() {
               시작하는 생활체육
             </h1>
             <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-muted sm:text-[17px]">
-              공공체육관 예약은 집 근처 공공 체육시설을 누구나 쉽고 공정하게
+              서울체육예약은 집 근처 공공 체육시설을 누구나 쉽고 공정하게
               이용하도록 연결하는 생활체육 예약 플랫폼입니다.
             </p>
           </div>

@@ -14,9 +14,8 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "bySport": "By Sport",
-    "byRegion": "By Region",
     "language": "Language",
-    "brand": "Public Sports Center"
+    "brand": "Seoul Sports Reservation"
   },
   "Footer": {
     "customerCenter": "Customer Center",
@@ -30,9 +29,9 @@
     "info": "Information",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
-    "brand": "Public Sports Center",
+    "brand": "Seoul Sports Reservation",
     "brandDesc": "An everyday-sports platform for booking nearby public sports facilities easily and reliably.",
-    "copyright": "ⓒ 2026 Public Sports Center. This screen is a design preview and not actual information."
+    "copyright": "ⓒ 2026 Seoul Sports Reservation. This screen is a design preview and not actual information."
   },
   "Home": {
     "heroTitleLine1": "Your nearest start to staying active,",
@@ -51,8 +50,7 @@
     "searchGym": "Center",
     "searchDate": "Date",
     "searchSportPlaceholder": "Select sport",
-    "searchSportFirst": "Select region first",
-    "searchRegionPlaceholder": "Select region",
+    "searchRegionAll": "All",
     "searchGymFirst": "Select sport first",
     "searchGymPlaceholder": "Select center",
     "searchSubmit": "Search",
@@ -87,13 +85,33 @@
     "title": "How It Works",
     "intro": "Booked already? On-site, it's just four steps.",
     "step1Title": "Open your booking QR",
-    "step1Desc": "Before you go, open your booking QR under 'My bookings' or your profile.",
+    "step1Desc": "Before you go, open your booking QR under 'My bookings' or your profile. The signal on-site can be spotty, so taking a screenshot is even safer.",
+    "step1Tips": [
+      "We recommend arriving up to 10 minutes before your slot.",
+      "The QR works only for the person who made the booking.",
+      "You can change or cancel from your profile until the start time."
+    ],
     "step2Title": "Scan at the entrance",
-    "step2Desc": "Hold the QR to the entrance reader and your booking is verified automatically.",
+    "step2Desc": "Hold the QR to the entrance reader and your booking is verified automatically. Take a moment to check the sport, time, and court shown on screen.",
+    "step2Tips": [
+      "If it won't scan, raise your screen brightness and try again.",
+      "Companions enter together within your booked party size.",
+      "Entry may be limited after your start time, so please be on time."
+    ],
     "step3Title": "Enter & play",
-    "step3Desc": "Once verified, head in and use your booked time slot and court.",
+    "step3Desc": "Once verified, head in and use your booked time slot and court. Use only your assigned court or area, and bring the basics like indoor shoes and sportswear.",
+    "step3Tips": [
+      "Treat the facilities and equipment with care, and report any damage to staff right away.",
+      "No outside food or smoking inside the facility.",
+      "Stick to your time slot so you don't run into other users' bookings."
+    ],
     "step4Title": "All done",
-    "step4Desc": "When your time is up, tidy up and check out to finish."
+    "step4Desc": "When your time is up, tidy up your space and check out to finish. Please clear the court on time for the next guest.",
+    "step4Tips": [
+      "Return equipment to its place and take your trash with you.",
+      "Leave on time out of courtesy for the next user.",
+      "Ask at the front desk about any lost items."
+    ]
   },
   "Notice": {
     "title": "Notices",
@@ -103,7 +121,7 @@
     "searchLabel": "Search",
     "searchEmpty": "No results found.",
     "empty": "No notices yet.",
-    "author": "Public Sports Center",
+    "author": "Seoul Sports Reservation",
     "pinnedLabel": "Important",
     "views": "Views",
     "prev": "Previous",
@@ -226,8 +244,8 @@
     "searchPlaceholder": "Facility name, region, address",
     "regionLabel": "Region",
     "regionAll": "All districts",
-    "sportFilterAria": "Sport filter",
-    "filterAllSports": "All",
+    "sportLabel": "Sport",
+    "sportAll": "All",
     "favoritesToggle": "Favorites",
     "sortAria": "Sort by",
     "sortDistance": "Nearest",
@@ -235,8 +253,11 @@
     "ascending": "Ascending",
     "descending": "Descending",
     "clearFilters": "Reset filters",
-    "countTotal": "<b>{count}</b> facilities total",
-    "countFavorites": "<b>{count}</b> favorite facilities",
+    "pagination": "Pagination",
+    "firstPage": "First page",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page",
     "locationDenied": "Location access is blocked, so sorting by distance is unavailable. Allow location permission in your browser settings, then refresh.",
     "locationMissing": "No location info, so the default order is shown. Tap ‘Nearest’ again to allow permission.",
     "recommendAria": "Favorites-based recommendation",
@@ -248,9 +269,9 @@
     "emptyFavNone": "You haven't favorited any facilities yet",
     "emptyFiltered": "No facilities match your filters",
     "emptyFavLoadErrorDesc": "Please try again in a moment.",
-    "emptyFavFilteredDesc": "Try clearing search/region/sport filters or turning off favorites mode.",
+    "emptyFavFilteredDesc": "Try clearing the region/sport filters or turning off favorites mode.",
     "emptyFavNoneDesc": "Save facilities you use often to find them quickly when booking.",
-    "emptyFilteredDesc": "Try shortening your search or changing region and sport filters.",
+    "emptyFilteredDesc": "Try changing the region or sport filter.",
     "emptyBrowse": "Browse facilities",
     "emptyClearFavorites": "Turn off favorites and see all",
     "priceFrom": "From {price}",
@@ -263,7 +284,10 @@
     "hasClosedDays": "Has closed days",
     "viewDetail": "View details",
     "book": "Book",
-    "bookAria": "Book {name}"
+    "bookAria": "Book {name}",
+    "gymLabel": "Center",
+    "gymPlaceholder": "Select center",
+    "searchButton": "Search"
   },
   "LocationModal": {
     "titleDenied": "Location access is blocked",
@@ -485,6 +509,7 @@
   "Mypage": {
     "breadcrumbHome": "Home",
     "title": "My Page",
+    "subtitle": "Check and manage your reservations, favorites, inquiries, and account in one place.",
     "welcome": "Welcome, {name}",
     "tabsAria": "My page tabs",
     "tabReservations": "Reservations",
@@ -499,7 +524,8 @@
     "rsvColStatus": "Status",
     "rsvColDetail": "Details",
     "rsvColQr": "QR code",
-    "rsvDetailLink": "View",
+    "rsvDetailLink": "View details",
+    "rsvQrLink": "View QR",
     "rsvQrAria": "View QR code",
     "rsvMissingGym": "Removed facility",
     "accountRequired": "* Required fields.",
@@ -557,7 +583,7 @@
     "providerPassword": "Email",
     "providerGoogle": "Google",
     "providerSocial": "Social login",
-    "metaTitle": "My Info | Public Sports Center Booking",
+    "metaTitle": "My Info | Seoul Sports Reservation",
     "metaDesc": "Check your account info, reservation summary, and favorites summary.",
     "eyebrow": "My Info",
     "loadingTitle": "Checking your login info",
@@ -618,7 +644,7 @@
     "savingHint": "Saving to the server."
   },
   "Password": {
-    "metaTitle": "Change Password | Public Sports Center Booking",
+    "metaTitle": "Change Password | Seoul Sports Reservation",
     "metaDesc": "Enter your current password and change it to a new one.",
     "loadingAuth": "Checking your login status...",
     "title": "Change password",
@@ -638,7 +664,7 @@
     "confirm": "OK"
   },
   "Withdraw": {
-    "metaTitle": "Delete Account | Public Sports Center Booking",
+    "metaTitle": "Delete Account | Seoul Sports Reservation",
     "metaDesc": "Delete your account and all data, and leave the service.",
     "loadingAuth": "Checking your login status...",
     "title": "Delete account",
@@ -658,7 +684,7 @@
     "confirmSubmit": "Confirm deletion",
     "submitting": "Processing your account deletion...",
     "successTitle": "Your account has been deleted",
-    "successDesc": "Thank you for using Public Sports Center Booking.",
+    "successDesc": "Thank you for using Seoul Sports Reservation.",
     "confirm": "OK",
     "authFailTitle": "The final step failed",
     "close": "Close",

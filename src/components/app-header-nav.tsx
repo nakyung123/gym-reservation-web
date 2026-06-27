@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useState, useSyncExternalStore } from "react";
+import { Fragment, useState, useSyncExternalStore, type FocusEvent } from "react";
 import { signOut } from "firebase/auth";
 import { useTranslations } from "next-intl";
 import {
@@ -20,8 +20,9 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 //   예약하기·예약 조회는 GNB에서 제외한다(검색→시설 상세→예약 흐름). 예약 조회는
 //   마이페이지 '예약내역' 탭(기본 탭)으로 통합돼 로그인 사용자는 우측 유틸 "마이페이지"로 접근한다.
 //   로그인 사용자의 우측 유틸은 [마이페이지 · 로그아웃]이다(로그아웃은 Link가 아닌 버튼).
-// - 시설 찾기는 hover 시 메가메뉴(종목별/지역별)를 연다. CSS hover/focus-within 기반.
-//   메가메뉴 항목(종목·지역명)은 데이터성이라 1차 i18n 범위에서 제외(한국어 유지).
+// - 시설 찾기는 hover 시 메가메뉴(종목별)를 연다. CSS hover/focus-within 기반.
+//   종목 클릭 시 /gyms?sport=<종목>으로 이동해 시설 찾기 검색바·목록이 그 종목으로 필터된다.
+//   종목명은 데이터성이라 1차 i18n 범위에서 제외(한국어 유지).
 // 항목 추가/삭제/순서는 배열에서만 관리한다. (구조 유연성 우선)
 type GnbItem = {
   key: string;
@@ -37,11 +38,10 @@ const GNB_ITEMS: GnbItem[] = [
   { key: "notice", href: "/notice" },
 ];
 
-// 메가메뉴 내용. 제목은 메시지 키, 항목(종목·지역명)은 데이터성이라 한국어 유지.
-// (종목·지역 필터 쿼리는 /gyms 필터 계약이 정해지면 이 배열의 href만 채우면 된다.)
+// 메가메뉴 내용(종목별). 제목은 메시지 키, 종목명은 데이터성이라 한국어 유지.
+// 종목 클릭 href는 /gyms?sport=<종목>으로, GymDiscovery가 이 쿼리를 읽어 종목 필터를 건다.
 const FACILITY_MEGA: { titleKey: string; items: string[] }[] = [
   { titleKey: "bySport", items: ["배드민턴", "탁구", "풋살", "농구", "배구"] },
-  { titleKey: "byRegion", items: ["금천구", "노원구", "마포구", "전체 보기"] },
 ];
 
 const GNB_BASE =
@@ -83,11 +83,21 @@ function ChevronRight() {
   );
 }
 
-function FacilityMega() {
+function FacilityMega({
+  open,
+  onNavigate,
+}: {
+  open: boolean;
+  onNavigate: () => void;
+}) {
   const t = useTranslations("Nav");
   return (
     <div
-      className="invisible absolute left-0 top-full z-10 grid w-[600px] -translate-y-1.5 grid-cols-2 gap-x-[30px] gap-y-1.5 rounded-b-xl border border-line bg-white px-[26px] py-6 opacity-0 shadow-[0_4px_16px_rgba(15,23,42,0.09)] transition group-hover/facility:visible group-hover/facility:translate-y-0 group-hover/facility:opacity-100 group-focus-within/facility:visible group-focus-within/facility:translate-y-0 group-focus-within/facility:opacity-100"
+      className={`absolute left-0 top-full z-10 grid w-[400px] grid-cols-2 gap-x-[30px] gap-y-1.5 rounded-b-xl border border-line bg-white px-[26px] py-6 shadow-[0_4px_16px_rgba(15,23,42,0.09)] transition ${
+        open
+          ? "visible translate-y-0 opacity-100"
+          : "invisible -translate-y-1.5 opacity-0"
+      }`}
       role="menu"
     >
       {FACILITY_MEGA.map((group, groupIndex) => (
@@ -103,9 +113,10 @@ function FacilityMega() {
           {group.items.map((item) => (
             <Link
               key={item}
-              href="/gyms"
+              href={`/gyms?sport=${encodeURIComponent(item)}`}
               className={MEGA_LINK_CLASS}
               role="menuitem"
+              onClick={onNavigate}
             >
               <span
                 className="size-1 rounded-full bg-line-strong"
@@ -131,6 +142,15 @@ export function AppHeaderNav() {
   const signedIn = session.ok;
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+  // 데스크톱 '시설 찾기' 메가메뉴(종목별) 열림 상태. CSS hover만으로는 종목을 클릭해도
+  // 포인터가 그대로 올라가 있어 닫히지 않으므로, 상태로 제어해 클릭 시 즉시 닫는다.
+  const [facilityOpen, setFacilityOpen] = useState(false);
+  // 포커스가 메가메뉴(li) 바깥으로 나갈 때만 닫는다(메뉴 항목 간 탭 이동은 열림 유지).
+  const handleFacilityBlur = (event: FocusEvent<HTMLLIElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setFacilityOpen(false);
+    }
+  };
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -163,16 +183,27 @@ export function AppHeaderNav() {
         {GNB_ITEMS.map((item) => (
           <li
             key={item.key}
-            className={`relative flex items-center ${
-              item.mega ? "group/facility" : ""
-            }`}
+            className="relative flex items-center"
+            onMouseEnter={item.mega ? () => setFacilityOpen(true) : undefined}
+            onMouseLeave={item.mega ? () => setFacilityOpen(false) : undefined}
+            onFocus={item.mega ? () => setFacilityOpen(true) : undefined}
+            onBlur={item.mega ? handleFacilityBlur : undefined}
           >
             {item.href ? (
-              <Link href={item.href} className={GNB_LINK_CLASS}>
+              <Link
+                href={item.href}
+                className={GNB_LINK_CLASS}
+                onClick={item.mega ? () => setFacilityOpen(false) : undefined}
+              >
                 {t(item.key)}
               </Link>
             ) : null}
-            {item.mega ? <FacilityMega /> : null}
+            {item.mega ? (
+              <FacilityMega
+                open={facilityOpen}
+                onNavigate={() => setFacilityOpen(false)}
+              />
+            ) : null}
           </li>
         ))}
       </ul>

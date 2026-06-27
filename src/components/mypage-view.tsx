@@ -18,7 +18,7 @@ import {
   type BoardRow,
 } from "@/components/mypage-board";
 import { BoardPagination } from "@/components/board-pagination";
-import { reservationStatusBadgeStyles } from "@/components/reservation-ticket";
+import { ReservationQrModal } from "@/components/reservation-qr-modal";
 import { resendEmailVerification } from "@/lib/firebase-email-auth";
 import {
   reauthenticateMyPassword,
@@ -29,6 +29,8 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
+import { createUserReservationDetail } from "@/lib/reservation-detail";
+import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import {
   PASSWORD_POLICY_HINT,
   validatePasswordPolicy,
@@ -515,29 +517,36 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
         </div>
       ) : null}
 
-      {/* 탭: 문의·FAQ 탭과 동일(grid 4등분, 비활성 muted, 활성 네이비 볼드+밑줄, 하단 구분선) */}
-      <nav
-        aria-label={t("tabsAria")}
-        className="grid grid-cols-2 border-b border-line sm:grid-cols-4"
-      >
-        {TABS.map((tabItem) => {
-          const active = tab === tabItem.key;
-          return (
-            <Link
-              key={tabItem.key}
-              href={tabItem.href}
-              aria-current={active ? "page" : undefined}
-              className={`-mb-px border-b-2 py-4 text-center text-[16px] transition sm:text-[17px] ${
-                active
-                  ? "border-accent font-bold text-accent-strong"
-                  : "border-transparent font-medium text-muted hover:text-foreground"
-              }`}
-            >
-              {t(tabItem.labelKey)}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* 탭: 문의·FAQ 탭과 동일(grid 4등분, 비활성 muted, 활성 네이비 볼드+밑줄).
+          하단 구분선은 양쪽 화면 끝까지(full-bleed) 깔고, 활성 탭 밑줄이 그 위에 얹힌다. */}
+      <div className="relative isolate">
+        <nav
+          aria-label={t("tabsAria")}
+          className="grid grid-cols-2 sm:grid-cols-4"
+        >
+          {TABS.map((tabItem) => {
+            const active = tab === tabItem.key;
+            return (
+              <Link
+                key={tabItem.key}
+                href={tabItem.href}
+                aria-current={active ? "page" : undefined}
+                className={`-mb-px border-b-2 py-4 text-center text-[18px] transition sm:text-[22px] ${
+                  active
+                    ? "border-accent font-bold text-accent-strong"
+                    : "border-transparent font-medium text-muted hover:text-foreground"
+                }`}
+              >
+                {t(tabItem.labelKey)}
+              </Link>
+            );
+          })}
+        </nav>
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 left-[calc(50%_-_50vw)] -z-10 h-px w-screen bg-line"
+        />
+      </div>
 
       {/* 탭↔표 간격: 그림판 지시 #4(72px) */}
       <div className="mt-[72px]">
@@ -593,32 +602,29 @@ function Shell({ children }: { children: React.ReactNode }) {
           <li className="font-semibold text-foreground">{t("title")}</li>
         </ol>
       </nav>
-      <h1 className="mb-6 mt-3 text-[28px] font-bold text-foreground sm:text-[32px]">
+      <h1 className="mt-3 text-[28px] font-bold text-foreground sm:text-[32px]">
         {t("title")}
       </h1>
+      <p className="mb-6 mt-2 text-[15px] leading-relaxed text-muted">
+        {t("subtitle")}
+      </p>
       {children}
     </div>
   );
 }
 
-// 보드 QR 열에 쓰는 QR 글리프(실제 QR 티켓은 예약 상세로 이동해 확인).
-function QrGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="size-5"
-    >
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <path d="M14 14h3v3M21 14v.01M14 21h.01M17 21h.01M21 17v4" strokeLinecap="round" />
-    </svg>
-  );
+// 예약내역 표의 타원 버튼(예약 상세·QR 보기 공용). 기본 흰 배경, hover 시 네이비 채움. 117.92×40.
+const RSV_PILL_CLASS =
+  "inline-flex h-[40px] w-[117.92px] items-center justify-center rounded-full border border-line-strong text-[14px] font-semibold text-foreground transition hover:border-accent hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
+// 예약번호 = 예약일(YYMMDD) + 예약 id에서 파생한 4자리(표시용 안정값). 예: 2026-06-23 → 2606231234
+function reservationDisplayNumber(reservation: Reservation): string {
+  const ymd = reservation.date.slice(2).replaceAll("-", "");
+  let hash = 0;
+  for (const ch of reservation.id) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return `${ymd}${String(hash % 10000).padStart(4, "0")}`;
 }
 
 // 예약내역: KMI 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
@@ -651,6 +657,38 @@ function ReservationsBoardPanel({
     [reservations],
   );
 
+  // QR 보기 클릭 시 페이지 이동 없이 띄울 QR 체크인 팝업의 대상 예약.
+  const [qrReservation, setQrReservation] = useState<Reservation | null>(null);
+  // 예약 취소: 확인 모달 대상 / 취소 진행 중 id / 결과 알림.
+  const [pendingCancel, setPendingCancel] = useState<Reservation | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelNotice, setCancelNotice] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
+  const currentMinuteValue = useCurrentMinuteValue();
+  const now = currentMinuteValue ? new Date(currentMinuteValue) : new Date();
+
+  const handleCancel = async (reservationId: string) => {
+    if (cancellingId) return;
+    setCancellingId(reservationId);
+    setPendingCancel(null);
+    try {
+      const result = await reservationRepository.cancel(reservationId);
+      setCancelNotice({
+        tone: result.ok ? "success" : "error",
+        message: result.message,
+      });
+    } catch {
+      setCancelNotice({
+        tone: "error",
+        message: "예약 취소 중 오류가 발생했습니다. 다시 시도해 주세요.",
+      });
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const pageItems = sorted.slice(
@@ -658,57 +696,85 @@ function ReservationsBoardPanel({
     currentPage * PER_PAGE,
   );
 
+  // 폭은 그리드(컨테이너) 안에 정확히 들어오도록 비율(%)로 둔다. 7칸 균등(≈1/7).
   const columns: BoardColumn[] = [
-    { label: t("rsvColNumber"), width: "w-[52px] sm:w-[72px]" },
-    { label: t("rsvColDate"), width: "w-[150px]", hideOnMobile: true },
-    { label: t("rsvColGym"), align: "left" },
-    { label: t("rsvColSport"), width: "w-[88px]", hideOnMobile: true },
-    { label: t("rsvColStatus"), width: "w-[84px] sm:w-[104px]" },
-    { label: t("rsvColDetail"), width: "w-[64px] sm:w-[84px]" },
-    { label: t("rsvColQr"), width: "w-[84px]", hideOnMobile: true },
+    { label: t("rsvColNumber"), width: "w-[14.285%]" },
+    { label: t("rsvColDate"), width: "w-[14.285%]", hideOnMobile: true },
+    { label: t("rsvColGym"), width: "w-[14.285%]" },
+    { label: t("rsvColSport"), width: "w-[14.285%]", hideOnMobile: true },
+    { label: t("rsvColStatus"), width: "w-[14.285%]" },
+    { label: t("rsvColDetail"), width: "w-[14.285%]" },
+    // QR 체크인은 모바일에서 자주 쓰는 핵심 동작이라 모바일에서도 노출한다.
+    { label: t("rsvColQr"), width: "w-[14.285%]" },
   ];
 
-  const rows: BoardRow[] = pageItems.map((reservation: Reservation, index) => {
+  const rows: BoardRow[] = pageItems.map((reservation: Reservation) => {
     const gym = gymsById.get(reservation.gymId);
     const gymName = gym?.name ?? t("rsvMissingGym");
-    const detailHref = `/reservations/${encodeURIComponent(reservation.id)}`;
+    // 자세히 보기는 새 예약 내역 페이지를 새 탭(독립 화면)으로 연다.
+    const detailHref = `/reservations/${encodeURIComponent(reservation.id)}/detail`;
     return {
       key: reservation.id,
       cells: [
-        <span key="no" className="tabular-nums text-muted">
-          {(currentPage - 1) * PER_PAGE + index + 1}
+        <span key="no" className="tabular-nums text-foreground">
+          {reservationDisplayNumber(reservation)}
         </span>,
-        <span key="date" className="tabular-nums text-muted">
-          {reservation.date} {reservation.time}
+        <span key="date" className="tabular-nums text-foreground">
+          {reservation.date}
         </span>,
-        <span key="gym" className="font-medium text-foreground">
+        <span key="gym" className="text-foreground">
           {gymName}
         </span>,
-        <span key="sport" className="text-muted">
+        <span key="sport" className="text-foreground">
           {reservation.sport}
         </span>,
-        <span
-          key="status"
-          className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
-        >
-          {tR(`status.${reservation.status}`)}
-        </span>,
+        (() => {
+          // 예약중이고 취소 가능 기한 내일 때만 상태 아래에 '예약 취소' 버튼을 노출한다.
+          const canCancel =
+            reservation.status === "reserved" &&
+            createUserReservationDetail(reservation, { now }).cancellation
+              .canCancel;
+          return (
+            <span
+              key="status"
+              className="flex flex-col items-center gap-1 text-foreground"
+            >
+              <span>{tR(`status.${reservation.status}`)}</span>
+              {canCancel ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancelNotice(null);
+                    setPendingCancel(reservation);
+                  }}
+                  disabled={cancellingId === reservation.id}
+                  className="text-[13px] font-semibold text-error underline-offset-2 transition hover:underline disabled:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  {cancellingId === reservation.id ? "취소 중…" : "예약 취소"}
+                </button>
+              ) : null}
+            </span>
+          );
+        })(),
         <Link
           key="detail"
           href={detailHref}
-          className="text-[13px] font-semibold text-accent-strong underline-offset-2 transition hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={RSV_PILL_CLASS}
         >
           {t("rsvDetailLink")}
         </Link>,
         reservation.status === "reserved" ? (
-          <Link
+          <button
             key="qr"
-            href={detailHref}
+            type="button"
+            onClick={() => setQrReservation(reservation)}
             aria-label={t("rsvQrAria")}
-            className="inline-flex items-center justify-center text-foreground transition hover:text-accent-strong"
+            className={RSV_PILL_CLASS}
           >
-            <QrGlyph />
-          </Link>
+            {t("rsvQrLink")}
+          </button>
         ) : (
           <span key="qr" className="text-subtle">
             -
@@ -727,10 +793,23 @@ function ReservationsBoardPanel({
 
   return (
     <section className="w-full">
+      {cancelNotice ? (
+        <div
+          role="alert"
+          className={`mb-4 rounded-md border px-4 py-3 text-sm font-semibold ${
+            cancelNotice.tone === "success"
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-error/30 bg-error/10 text-error"
+          }`}
+        >
+          {cancelNotice.message}
+        </div>
+      ) : null}
       <MypageBoard
         columns={columns}
         rows={rows}
         emptyMessage={t("reservationsEmpty")}
+        cellHeightClass="h-[81px]"
       />
       <BoardPagination
         page={currentPage}
@@ -744,6 +823,57 @@ function ReservationsBoardPanel({
           lastPage: t("lastPage"),
         }}
       />
+      {qrReservation ? (
+        <ReservationQrModal
+          reservation={qrReservation}
+          gymName={
+            gymsById.get(qrReservation.gymId)?.name ?? t("rsvMissingGym")
+          }
+          onClose={() => setQrReservation(null)}
+        />
+      ) : null}
+      {pendingCancel ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="예약 취소 확인"
+          onClick={() => setPendingCancel(null)}
+        >
+          <div
+            className="w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-[18px] font-bold text-slate-900">
+              예약을 취소할까요?
+            </h2>
+            <p className="mt-2 text-[14px] leading-6 text-slate-600">
+              {gymsById.get(pendingCancel.gymId)?.name ?? t("rsvMissingGym")} ·{" "}
+              {pendingCancel.date} {pendingCancel.time} · {pendingCancel.sport}
+            </p>
+            <p className="mt-1 text-[13px] text-slate-400">
+              취소 후에는 되돌릴 수 없습니다.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingCancel(null)}
+                className="h-10 rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancel(pendingCancel.id)}
+                disabled={Boolean(cancellingId)}
+                className="h-10 rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {cancellingId ? "취소 중…" : "예약 취소"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -779,12 +909,13 @@ function FavoritesPanel({
     currentPage * PER_PAGE,
   );
 
+  // 문의내역과 동일한 표 스타일(18px·가운데·th72·td106·아이콘40). 폭은 비율(그리드 내 정렬), 주 컬럼(시설명) 넓게.
   const columns: BoardColumn[] = [
-    { label: t("favColNumber"), width: "w-[56px] sm:w-[80px]" },
-    { label: t("favColName"), align: "left" },
-    { label: t("favColRegion"), width: "w-[110px]", hideOnMobile: true },
-    { label: t("favColSports"), width: "w-[150px]", hideOnMobile: true },
-    { label: t("favColAction"), width: "w-[116px] sm:w-[150px]" },
+    { label: t("favColNumber"), width: "w-[10%]" },
+    { label: t("favColName"), width: "w-[60%]" },
+    { label: t("favColRegion"), width: "w-[10%]", hideOnMobile: true },
+    { label: t("favColSports"), width: "w-[10%]", hideOnMobile: true },
+    { label: t("favColAction"), width: "w-[10%]" },
   ];
 
   const rows: BoardRow[] = pageItems.map((gym, index) => ({
@@ -863,20 +994,18 @@ function FavoritesPanel({
   );
 }
 
-// 문의 내역: 사용자 제출 저장소가 없어 항상 빈 표(KMI VOC와 동일). FAQ 바로가기 제공.
+// 문의 내역: 사용자 제출 저장소가 없어 항상 빈 표(KMI VOC와 동일).
+//   th 140/140/840/140/140·높이 72, td 106, 18px 가운데, 빈상태 아이콘 40px.
 function InquiriesPanel() {
   const t = useTranslations("Mypage");
 
+  // 폭은 비율(그리드 내 정렬): 10/10/60/10/10.
   const columns: BoardColumn[] = [
-    { label: t("inqColNumber"), width: "w-[52px] sm:w-[72px]" },
-    { label: t("inqColGym"), width: "w-[160px]", hideOnMobile: true },
-    { label: t("inqColTitle"), align: "left" },
-    { label: t("inqColName"), width: "w-[100px]", hideOnMobile: true },
-    {
-      label: t("inqColDate"),
-      width: "w-[110px] sm:w-[140px]",
-      hideOnMobile: true,
-    },
+    { label: t("inqColNumber"), width: "w-[10%]" },
+    { label: t("inqColGym"), width: "w-[10%]", hideOnMobile: true },
+    { label: t("inqColTitle"), width: "w-[60%]" },
+    { label: t("inqColName"), width: "w-[10%]", hideOnMobile: true },
+    { label: t("inqColDate"), width: "w-[10%]", hideOnMobile: true },
   ];
 
   return (
@@ -898,14 +1027,6 @@ function InquiriesPanel() {
           lastPage: t("lastPage"),
         }}
       />
-      <div className="mt-6 flex justify-center">
-        <Link
-          href="/faq"
-          className="inline-flex h-11 items-center justify-center rounded-md border border-line-strong bg-white px-5 text-sm font-semibold text-slate-800 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-        >
-          {t("inquiriesCta")}
-        </Link>
-      </div>
     </section>
   );
 }

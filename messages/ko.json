@@ -14,9 +14,8 @@
     "openMenu": "메뉴 열기",
     "closeMenu": "메뉴 닫기",
     "bySport": "종목별",
-    "byRegion": "지역별",
     "language": "언어",
-    "brand": "공공체육관"
+    "brand": "서울체육예약"
   },
   "Footer": {
     "customerCenter": "고객센터",
@@ -30,9 +29,9 @@
     "info": "안내",
     "terms": "이용약관",
     "privacy": "개인정보처리방침",
-    "brand": "공공체육관",
+    "brand": "서울체육예약",
     "brandDesc": "집 근처 공공 체육시설을 쉽고 믿을 수 있게 예약하는 생활체육 플랫폼입니다.",
-    "copyright": "ⓒ 2026 공공체육관. 본 화면은 디자인 프리뷰이며 실제 정보가 아닙니다."
+    "copyright": "ⓒ 2026 서울체육예약. 본 화면은 디자인 프리뷰이며 실제 정보가 아닙니다."
   },
   "Home": {
     "heroTitleLine1": "동네에서 가까운 운동의 시작,",
@@ -51,8 +50,7 @@
     "searchGym": "체육관",
     "searchDate": "날짜",
     "searchSportPlaceholder": "종목 선택",
-    "searchSportFirst": "지역 먼저",
-    "searchRegionPlaceholder": "지역 선택",
+    "searchRegionAll": "전체",
     "searchGymFirst": "종목 먼저",
     "searchGymPlaceholder": "체육관 선택",
     "searchSubmit": "시설 검색",
@@ -87,13 +85,33 @@
     "title": "이용 방법",
     "intro": "예약을 마쳤다면, 현장에서는 네 단계로 끝납니다.",
     "step1Title": "예약 QR 준비",
-    "step1Desc": "방문 전 ‘예약 조회’나 마이페이지에서 예약 QR을 미리 열어 둡니다.",
+    "step1Desc": "방문 전 ‘예약 조회’나 마이페이지에서 예약 QR을 미리 열어 둡니다. 현장에서는 통신이 불안정할 수 있으니 화면을 캡처해 두면 더 안전합니다.",
+    "step1Tips": [
+      "예약 시간 10분 전까지 도착하는 것을 권장합니다.",
+      "QR은 예약자 본인 명의만 입장에 사용할 수 있습니다.",
+      "예약 변경·취소는 이용 시작 전까지 마이페이지에서 가능합니다."
+    ],
     "step2Title": "현장 QR 인식",
-    "step2Desc": "입구 단말기에 QR을 대면 본인 예약이 자동으로 확인됩니다.",
+    "step2Desc": "입구 단말기에 QR을 대면 본인 예약이 자동으로 확인됩니다.\n화면에 표시되는 종목·시간·코트 정보가 예약과 맞는지\n한 번 확인해 주세요.",
+    "step2Tips": [
+      "인식이 안 되면 화면 밝기를 높이고 다시 시도해 주세요.",
+      "동반 인원은 예약한 인원 범위 안에서 함께 입장합니다.",
+      "예약 시간이 지나면 입장이 제한될 수 있으니 시간을 지켜 주세요."
+    ],
     "step3Title": "입장·이용",
-    "step3Desc": "확인되면 입장해 예약한 시간대와 코트를 이용합니다.",
+    "step3Desc": "확인되면 입장해 예약한 시간대와 코트를 이용합니다. 지정된 코트·구역만 사용하고, 안전을 위해 실내화·운동복 등 기본 준비물을 갖춰 주세요.",
+    "step3Tips": [
+      "시설과 장비는 소중히 사용하고, 파손 시 즉시 직원에게 알려 주세요.",
+      "음식물 반입·흡연 등 시설 내 금지 행위는 삼가 주세요.",
+      "다른 이용자의 시간대를 침범하지 않도록 예약 시간을 지켜 주세요."
+    ],
     "step4Title": "이용 완료",
-    "step4Desc": "이용 시간이 끝나면 정리하고 체크아웃으로 마무리됩니다."
+    "step4Desc": "이용 시간이 끝나면 사용한 자리를 정리하고\n체크아웃으로 마무리합니다. 다음 예약자를 위해 종료 시간에 맞춰\n코트를 비워 주세요.",
+    "step4Tips": [
+      "사용한 장비는 제자리에 정리하고 쓰레기는 되가져가 주세요.",
+      "다음 이용자를 배려해 정해진 시간에 자리를 비워 주세요.",
+      "분실물이 있으면 안내데스크에 문의해 주세요."
+    ]
   },
   "Notice": {
     "title": "공지사항",
@@ -103,7 +121,7 @@
     "searchLabel": "검색",
     "searchEmpty": "검색 결과가 없습니다.",
     "empty": "등록된 공지사항이 없습니다.",
-    "author": "공공체육관",
+    "author": "서울체육예약",
     "pinnedLabel": "주요공지",
     "views": "조회",
     "prev": "이전 글",
@@ -226,8 +244,8 @@
     "searchPlaceholder": "체육관명, 지역, 주소",
     "regionLabel": "지역",
     "regionAll": "전체 구",
-    "sportFilterAria": "종목 필터",
-    "filterAllSports": "전체",
+    "sportLabel": "종목",
+    "sportAll": "전체",
     "favoritesToggle": "즐겨찾기",
     "sortAria": "정렬 기준",
     "sortDistance": "가까운 순",
@@ -235,8 +253,11 @@
     "ascending": "오름차순",
     "descending": "내림차순",
     "clearFilters": "조건 초기화",
-    "countTotal": "총 <b>{count}</b>개 체육관",
-    "countFavorites": "즐겨찾기 <b>{count}</b>개 체육관",
+    "pagination": "페이지 탐색",
+    "firstPage": "처음 페이지",
+    "prevPage": "이전 페이지",
+    "nextPage": "다음 페이지",
+    "lastPage": "마지막 페이지",
     "locationDenied": "위치 권한이 차단되어 거리순을 사용할 수 없습니다. 브라우저 설정에서 위치 권한을 허용한 뒤 새로고침해 주세요.",
     "locationMissing": "위치 정보가 없어 기본 순서로 표시됩니다. ‘가까운 순’을 다시 눌러 권한을 허용해 주세요.",
     "recommendAria": "즐겨찾기 기반 추천",
@@ -248,9 +269,9 @@
     "emptyFavNone": "아직 즐겨찾기한 체육관이 없어요",
     "emptyFiltered": "조건에 맞는 체육관이 없습니다",
     "emptyFavLoadErrorDesc": "잠시 후 다시 시도해 주세요.",
-    "emptyFavFilteredDesc": "검색/지역/종목 조건을 풀거나 즐겨찾기 모드를 해제해 보세요.",
+    "emptyFavFilteredDesc": "지역이나 종목 조건을 풀거나 즐겨찾기 모드를 해제해 보세요.",
     "emptyFavNoneDesc": "자주 이용하는 체육관을 저장하면 예약할 때 빠르게 찾을 수 있어요.",
-    "emptyFilteredDesc": "검색어를 줄이거나 지역, 종목 조건을 바꿔보세요.",
+    "emptyFilteredDesc": "지역이나 종목 조건을 바꿔보세요.",
     "emptyBrowse": "체육관 둘러보기",
     "emptyClearFavorites": "즐겨찾기 해제하고 전체 보기",
     "priceFrom": "{price}부터",
@@ -263,7 +284,10 @@
     "hasClosedDays": "휴관일 있음",
     "viewDetail": "상세 보기",
     "book": "예약하기",
-    "bookAria": "{name} 예약하기"
+    "bookAria": "{name} 예약하기",
+    "gymLabel": "체육관",
+    "gymPlaceholder": "체육관 선택",
+    "searchButton": "시설 검색"
   },
   "LocationModal": {
     "titleDenied": "위치 권한이 차단되어 있습니다",
@@ -485,6 +509,7 @@
   "Mypage": {
     "breadcrumbHome": "홈",
     "title": "마이페이지",
+    "subtitle": "예약 내역·즐겨찾기·문의·회원정보를 한 곳에서 확인하고 관리하세요.",
     "welcome": "{name}님, 반갑습니다",
     "tabsAria": "마이페이지 탭",
     "tabReservations": "예약내역",
@@ -499,7 +524,8 @@
     "rsvColStatus": "상태",
     "rsvColDetail": "예약 상세",
     "rsvColQr": "QR코드",
-    "rsvDetailLink": "보기",
+    "rsvDetailLink": "자세히 보기",
+    "rsvQrLink": "QR 보기",
     "rsvQrAria": "QR코드 보기",
     "rsvMissingGym": "삭제된 시설",
     "accountRequired": "* 필수값을 입력해주세요.",
@@ -557,7 +583,7 @@
     "providerPassword": "이메일",
     "providerGoogle": "Google",
     "providerSocial": "소셜 로그인",
-    "metaTitle": "내 정보 | 공공체육관 예약",
+    "metaTitle": "내 정보 | 서울체육예약",
     "metaDesc": "계정 정보, 예약 요약, 즐겨찾기 요약을 확인합니다.",
     "eyebrow": "내 정보",
     "loadingTitle": "로그인 정보를 확인하고 있습니다",
@@ -618,7 +644,7 @@
     "savingHint": "서버에 저장하고 있습니다."
   },
   "Password": {
-    "metaTitle": "비밀번호 변경 | 공공체육관 예약",
+    "metaTitle": "비밀번호 변경 | 서울체육예약",
     "metaDesc": "현재 비밀번호를 입력하고 새 비밀번호로 변경합니다.",
     "loadingAuth": "로그인 상태를 확인하는 중입니다...",
     "title": "비밀번호 변경",
@@ -638,7 +664,7 @@
     "confirm": "확인"
   },
   "Withdraw": {
-    "metaTitle": "회원 탈퇴 | 공공체육관 예약",
+    "metaTitle": "회원 탈퇴 | 서울체육예약",
     "metaDesc": "계정과 모든 데이터를 삭제하고 서비스를 탈퇴합니다.",
     "loadingAuth": "로그인 상태를 확인하는 중입니다...",
     "title": "회원 탈퇴",
@@ -658,7 +684,7 @@
     "confirmSubmit": "탈퇴 확인",
     "submitting": "탈퇴 처리 중입니다...",
     "successTitle": "탈퇴가 완료되었습니다",
-    "successDesc": "그동안 공공체육관 예약을 이용해 주셔서 감사합니다.",
+    "successDesc": "그동안 서울체육예약을 이용해 주셔서 감사합니다.",
     "confirm": "확인",
     "authFailTitle": "마지막 단계에서 실패했습니다",
     "close": "닫기",
