@@ -40,6 +40,7 @@ beforeEach(async () => {
   await prisma.auditLog.deleteMany({});
   await prisma.userNote.deleteMany({});
   await prisma.banner.deleteMany({});
+  await prisma.noticeView.deleteMany({});
   await prisma.rateLimitBucket.deleteMany({});
   await prisma.oAuthAttempt.deleteMany({});
   await prisma.authHandoverTicket.deleteMany({});

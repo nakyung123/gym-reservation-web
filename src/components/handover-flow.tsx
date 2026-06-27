@@ -45,16 +45,22 @@ export function HandoverFlow() {
   const [state, setState] = useState<FlowState>(() => initialState(searchParams));
   const startedRef = useRef(false);
 
-  function handleResult(result: FinalizeResult) {
+  async function handleResult(result: FinalizeResult) {
     if (result.ok) {
       setState({ kind: "success" });
-      // provider 동기화 + UserProfile 보장. 실패해도 본 흐름은 계속.
-      void ensureUserProfile().catch((error) => {
-        console.warn("[handover] ensureUserProfile failed:", error);
-      });
       // LoginView에서 sessionStorage에 박은 from path가 있으면 그곳으로, 없으면 /mypage.
-      const fromPath = popOauthFromPath() ?? "/mypage";
-      setTimeout(() => router.replace(fromPath), 1200);
+      let dest = popOauthFromPath() ?? "/mypage";
+      // provider 동기화 + UserProfile 보장. 아이디 미설정(소셜 신규)이면 회원가입 완성 단계
+      // (/signup)로 보내 약관·정보입력을 마치게 한다. 보장 실패해도 본 흐름은 계속.
+      try {
+        const ensured = await ensureUserProfile();
+        if (ensured.ok && (!ensured.profile || !ensured.profile.loginId)) {
+          dest = "/signup";
+        }
+      } catch (error) {
+        console.warn("[handover] ensureUserProfile failed:", error);
+      }
+      setTimeout(() => router.replace(dest), 1200);
       return;
     }
     if (result.reason === "retryable") {
@@ -80,7 +86,7 @@ export function HandoverFlow() {
       provider === "kakao"
         ? await finalizeKakaoHandover({ ticketId })
         : await finalizeNaverHandover({ ticketId });
-    handleResult(result);
+    await handleResult(result);
   }
 
   async function runRetry(ticketId: string) {
@@ -89,7 +95,7 @@ export function HandoverFlow() {
       provider === "kakao"
         ? await retryKakaoFinalize({ ticketId })
         : await retryNaverFinalize({ ticketId });
-    handleResult(result);
+    await handleResult(result);
   }
 
   useEffect(() => {

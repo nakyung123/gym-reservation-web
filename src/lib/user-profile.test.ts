@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isUserProfile,
+  validateLoginId,
   validateUserProfileInput,
   type UserProfile,
 } from "@/lib/user-profile";
@@ -8,6 +9,7 @@ import {
 const profile: UserProfile = {
   userId: "profile-user",
   nickname: "나경",
+  loginId: "nakyung1",
   provider: "local",
   name: "김나경",
   phone: "010-1234-5678",
@@ -167,5 +169,42 @@ describe("isUserProfile", () => {
     expect(
       isUserProfile({ ...profile, reservationNotificationsEnabled: "true" }),
     ).toBe(false);
+    expect(isUserProfile({ ...profile, loginId: null })).toBe(true);
+    expect(isUserProfile({ ...profile, loginId: 123 })).toBe(false);
+  });
+});
+
+describe("validateLoginId", () => {
+  it("올바른 아이디는 trim된 값을 돌려준다", () => {
+    expect(validateLoginId("  nakyung_01  ")).toEqual({
+      ok: true,
+      value: "nakyung_01",
+    });
+  });
+
+  it("문자열이 아니면 거부한다", () => {
+    expect(validateLoginId(123)).toEqual({
+      ok: false,
+      message: "아이디는 문자열이어야 합니다.",
+    });
+  });
+
+  it("길이가 4자 미만이면 거부한다", () => {
+    expect(validateLoginId("ab1").ok).toBe(false);
+  });
+
+  it("20자를 넘으면 거부한다", () => {
+    expect(validateLoginId("a".repeat(21)).ok).toBe(false);
+  });
+
+  it("대문자/특수문자는 거부한다", () => {
+    expect(validateLoginId("Nakyung").ok).toBe(false);
+    expect(validateLoginId("na-kyung").ok).toBe(false);
+    expect(validateLoginId("na.kyung").ok).toBe(false);
+  });
+
+  it("숫자/언더스코어로 시작하면 거부한다(영문 소문자 시작만 허용)", () => {
+    expect(validateLoginId("1nakyung").ok).toBe(false);
+    expect(validateLoginId("_nakyung").ok).toBe(false);
   });
 });

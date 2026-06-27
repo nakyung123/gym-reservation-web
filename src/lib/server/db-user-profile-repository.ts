@@ -44,6 +44,7 @@ function toUserProfile(row: UserProfileRow): UserProfile {
   return {
     userId: row.userId,
     nickname: row.nickname,
+    loginId: row.loginId,
     provider: normalizeProvider(row.provider),
     name: row.name,
     phone: row.phone,
@@ -79,6 +80,57 @@ export async function getUserProfile(
   return row ? toUserProfile(row) : null;
 }
 
+// 아이디(loginId)로 소유자 uid를 찾는다. 중복확인 API와 아이디 로그인 변환의 공통 경로.
+// 없으면 null. 입력 형식 검증은 호출 측(validateLoginId)이 먼저 수행한다.
+export async function findUserIdByLoginId(
+  loginId: string,
+): Promise<string | null> {
+  const row = await prisma.userProfile.findUnique({
+    where: { loginId },
+    select: { userId: true },
+  });
+  return row?.userId ?? null;
+}
+
+export type SetLoginIdResult =
+  | { ok: true; loginId: string }
+  // already-set: 이미 아이디가 설정됨(불변). taken: 다른 회원이 사용 중. no-profile: 프로필 없음.
+  | { ok: false; reason: "already-set" | "taken" | "no-profile" };
+
+// 아이디를 1회 설정한다(불변). `loginId IS NULL`인 row만 갱신해 재설정/덮어쓰기를 막는다.
+// 다른 회원이 같은 아이디를 선점한 경우 unique 제약 위반(P2002)을 taken으로 변환한다.
+export async function setLoginIdOnce(
+  userId: string,
+  loginId: string,
+): Promise<SetLoginIdResult> {
+  try {
+    const result = await prisma.userProfile.updateMany({
+      where: { userId, loginId: null },
+      data: { loginId },
+    });
+    if (result.count === 1) {
+      return { ok: true, loginId };
+    }
+    // count 0: 프로필이 없거나 이미 아이디가 설정된 상태. 구분해서 응답한다.
+    const existing = await prisma.userProfile.findUnique({
+      where: { userId },
+      select: { loginId: true },
+    });
+    if (!existing) {
+      return { ok: false, reason: "no-profile" };
+    }
+    return { ok: false, reason: "already-set" };
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return { ok: false, reason: "taken" };
+    }
+    throw err;
+  }
+}
+
 // provider는 클라이언트가 보내지 않고 서버가 산출한 값으로 갱신한다.
 // 이미 저장된 provider 값과 다르면 덮어쓴다 (예: 사용자가 동일 이메일에 다른 방식
 // 로그인을 시도해 sign_in_provider가 바뀌는 경우 등은 sign-in 자체가 막혀
@@ -89,12 +141,15 @@ export async function upsertUserProfile(
   provider: ProviderId | null,
 ): Promise<UserProfile> {
   const data = toUserProfileData(input);
+  // provider가 null로 산출되는 경우(예: 아이디 로그인 = custom token, sign_in_provider="custom")
+  // 기존에 저장된 provider(local/google 등)를 null로 덮어쓰지 않는다(No Silent Fallback).
+  const providerUpdate = provider ? { provider } : {};
   const row = await prisma.userProfile.upsert({
     where: { userId },
     // PUT은 보통 ensureUserProfile로 생성된 row를 update하지만, 방어적으로 create
     // 경로에서도 필수 컬럼(preferredSports)을 기본값으로 채운다. nickname은 nullable.
     create: { userId, provider, preferredSports: [], ...data },
-    update: { ...data, provider },
+    update: { ...data, ...providerUpdate },
   });
 
   return toUserProfile(row);
@@ -112,7 +167,9 @@ export async function ensureUserProfile(
 ): Promise<UserProfile> {
   const existing = await prisma.userProfile.findUnique({ where: { userId } });
   if (existing) {
-    if (existing.provider === provider) {
+    // provider가 null로 산출되면(아이디 로그인 custom token 등) 기존 provider를 보존한다.
+    // 알려진 provider를 null로 덮어쓰지 않는다(No Silent Fallback).
+    if (provider === null || existing.provider === provider) {
       return toUserProfile(existing);
     }
     const updated = await prisma.userProfile.update({

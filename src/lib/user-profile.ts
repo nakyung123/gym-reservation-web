@@ -4,6 +4,9 @@ import type { Sport } from "@/types/domain";
 export type UserProfile = {
   userId: string;
   nickname: string | null;
+  // loginId는 사용자가 가입 시 직접 정하는 로그인 식별자(아이디). 1회 설정 후 불변.
+  // 미설정(기존 회원/소셜 직후) 시 null. 로그인 시 아이디→이메일 변환의 기준(SSOT)이다.
+  loginId: string | null;
   // provider는 서버가 산출하는 표시/통계 필드. 알려지지 않은 경우 null.
   provider: "local" | "google" | "kakao" | "naver" | null;
   // 회원정보변경에서 자체 입력받는 회원 정보(휴대폰 본인인증 없이 직접 입력).
@@ -76,6 +79,44 @@ export const NICKNAME_MAX_LENGTH = 8;
 export const NAME_MAX_LENGTH = 30;
 export const PHONE_MAX_LENGTH = 20;
 export const ADDRESS_MAX_LENGTH = 200;
+
+// 아이디(loginId) 규칙. 가입 폼·중복확인 API·설정 API·DB VarChar(20)가 모두 공유하는 SSOT.
+export const LOGIN_ID_MIN_LENGTH = 4;
+export const LOGIN_ID_MAX_LENGTH = 20;
+export const LOGIN_ID_HINT =
+  "영문 소문자로 시작하고, 영문 소문자·숫자·밑줄(_)만 4~20자.";
+// 영문 소문자로 시작 + 영문 소문자/숫자/언더스코어, 총 4~20자.
+// 대문자를 silent하게 소문자로 바꾸지 않고 명시적으로 거부한다(No Silent Fallback).
+const LOGIN_ID_PATTERN = /^[a-z][a-z0-9_]{3,19}$/;
+
+export type LoginIdValidationResult =
+  | { ok: true; value: string }
+  | { ok: false; message: string };
+
+// 아이디 형식 검증. 성공 시 trim된 정규값을 돌려준다(대소문자 변환은 하지 않음).
+export function validateLoginId(value: unknown): LoginIdValidationResult {
+  if (typeof value !== "string") {
+    return { ok: false, message: "아이디는 문자열이어야 합니다." };
+  }
+  const trimmed = value.trim();
+  if (
+    trimmed.length < LOGIN_ID_MIN_LENGTH ||
+    trimmed.length > LOGIN_ID_MAX_LENGTH
+  ) {
+    return {
+      ok: false,
+      message: `아이디는 ${LOGIN_ID_MIN_LENGTH}~${LOGIN_ID_MAX_LENGTH}자여야 합니다.`,
+    };
+  }
+  if (!LOGIN_ID_PATTERN.test(trimmed)) {
+    return {
+      ok: false,
+      message:
+        "아이디는 영문 소문자로 시작하고 영문 소문자·숫자·밑줄(_)만 사용할 수 있습니다.",
+    };
+  }
+  return { ok: true, value: trimmed };
+}
 
 // 연락처: 숫자와 하이픈만 허용하고 하이픈을 뺀 숫자가 9자리 이상이어야 한다.
 function parsePhone(
@@ -198,6 +239,7 @@ export function isUserProfile(value: unknown): value is UserProfile {
   return (
     typeof value.userId === "string" &&
     isNullableString(value.nickname) &&
+    isNullableString(value.loginId) &&
     isProviderId(value.provider) &&
     isNullableString(value.name) &&
     isNullableString(value.phone) &&

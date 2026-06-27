@@ -16,6 +16,7 @@ vi.mock("@/lib/firebase-client", () => ({
 const profile: UserProfile = {
   userId: "profile-client-user",
   nickname: "나경",
+  loginId: "nakyung2",
   provider: "local",
   name: "김나경",
   phone: "010-1234-5678",

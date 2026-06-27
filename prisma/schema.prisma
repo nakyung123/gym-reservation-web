@@ -67,6 +67,9 @@ model Favorite {
 model UserProfile {
   userId                          String   @id @map("user_id") @db.VarChar(64)
   nickname                        String?  @unique @db.VarChar(30)
+  // loginId: 사용자가 정하는 로그인 식별자(아이디). 1회 설정 후 불변, 대소문자 구분 unique.
+  // nullable 유지(기존 회원/소셜 직후 미설정). 로그인 시 아이디→이메일 변환의 기준.
+  loginId                         String?  @unique @map("login_id") @db.VarChar(20)
   provider                        String?  @db.VarChar(16)
   name                            String?  @db.VarChar(30)
   phone                           String?  @db.VarChar(20)

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { signInWithEmail } from "@/lib/firebase-email-auth";
+import { signInWithLoginId } from "@/lib/firebase-login-id-auth";
 import { signInWithGoogle } from "@/lib/firebase-google-auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
 import { startNaverLogin } from "@/lib/firebase-naver-auth";
@@ -23,12 +24,10 @@ type SubmitState =
   | { kind: "loading" }
   | { kind: "error"; message: string };
 
-// 단순 이메일 형식 체크: '@'와 도메인 부분이 있는지만 인라인 안내용.
-// 실제 검증은 Firebase가 한다 (auth/invalid-email). 안내 문구는 호출측에서 i18n한다.
-function isEmailInvalid(value: string): boolean {
-  if (value.length === 0) return false;
-  const at = value.indexOf("@");
-  return at <= 0 || at === value.length - 1;
+// 로그인 식별자가 이메일인지 아이디인지 판별한다. '@'가 있으면 이메일로 본다.
+// 이메일이면 Firebase Email 로그인, 아니면 아이디 로그인(서버 변환) 경로로 보낸다.
+function looksLikeEmail(value: string): boolean {
+  return value.includes("@");
 }
 
 export function LoginView() {
@@ -44,7 +43,7 @@ export function LoginView() {
   );
   const session = parseFirebaseAuthSessionSnapshot(snapshot);
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
 
@@ -55,14 +54,17 @@ export function LoginView() {
     }
   }, [session, fromPath, router]);
 
-  const emailError = isEmailInvalid(email) ? t("emailInvalid") : null;
-  const isFormValid = email.length > 0 && password.length > 0 && !emailError;
+  const isFormValid = identifier.length > 0 && password.length > 0;
 
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!isFormValid) return;
     setSubmitState({ kind: "loading" });
-    const result = await signInWithEmail({ email, password });
+    const trimmed = identifier.trim();
+    // '@' 포함 = 이메일 로그인, 그 외 = 아이디 로그인(서버에서 이메일로 변환).
+    const result = looksLikeEmail(trimmed)
+      ? await signInWithEmail({ email: trimmed, password })
+      : await signInWithLoginId({ loginId: trimmed, password });
     if (result.ok) {
       await ensureUserProfile().catch((error) => {
         console.warn("[login] ensureUserProfile failed:", error);
@@ -131,12 +133,11 @@ export function LoginView() {
 
       <form className="mt-5 flex flex-col gap-3" onSubmit={handleEmailSubmit} noValidate>
         <TextField
-          label={t("email")}
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={setEmail}
-          error={emailError}
+          label={t("loginIdentifier")}
+          type="text"
+          autoComplete="username"
+          value={identifier}
+          onChange={setIdentifier}
         />
         <PasswordField
           label={t("password")}
