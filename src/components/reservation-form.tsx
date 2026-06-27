@@ -944,7 +944,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {noticeTone === "success" ? (
                     <Link
-                      href={`/reservations/${noticeReservation.id}`}
+                      href={`/reservations/${noticeReservation.id}/detail`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       aria-label={t("viewReservationDetailAria")}
                       className={`inline-flex h-9 items-center justify-center rounded-md px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${noticeLinkStyles[noticeTone]}`}
                     >

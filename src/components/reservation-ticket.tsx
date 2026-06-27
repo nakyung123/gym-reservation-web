@@ -23,7 +23,9 @@ export const reservationStatusBadgeStyles: Record<
   used: "bg-surface-2 text-muted",
 };
 
-function createQrCells(seed: string) {
+// QR 표시용 셀(7×7=49칸) 패턴 생성. 실제 스캔용이 아니라 예약 id 시드 기반의
+// 안정적 표시용 패턴이다. QR 미리보기·QR 체크인 팝업이 공유한다.
+export function createQrCells(seed: string) {
   return Array.from({ length: 49 }, (_, index) => {
     const code = seed.charCodeAt(index % seed.length);
     return (code + index * 7) % 3 !== 0;
