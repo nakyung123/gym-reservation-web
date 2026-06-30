@@ -58,7 +58,7 @@ export function LocaleSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={t("language")}
-        className="inline-flex items-center gap-1 rounded text-[14.5px] font-semibold text-muted transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-60"
+        className="inline-flex items-center gap-1 rounded text-[14.5px] font-semibold text-foreground transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-60"
       >
         {LOCALE_SHORT[current]}
         <svg

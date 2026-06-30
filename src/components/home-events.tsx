@@ -252,7 +252,20 @@ export function HomeEvents() {
         {/* 좌측 네이비 패널(한 몸): xl에서 좌측을 뷰포트 끝(left:50%-50vw)까지 빼고 전체 너비 762px.
             즉 762px = 그리드 넘어 블리드된 부분 + 그리드 안쪽 부분(하나의 박스). 텍스트만 pl(그리드 오프셋)로
             그리드 좌측선에 맞춰 패널과 분리한다 — 텍스트는 블리드 영역까지 따라가지 않는다. */}
-        <div className="relative shrink-0 rounded-2xl bg-[linear-gradient(150deg,#1f3c8c_0%,#15235c_100%)] px-8 py-10 text-white sm:px-10 sm:py-12 xl:absolute xl:left-[calc(50%_-_50vw)] xl:top-0 xl:h-[750px] xl:w-[762px] xl:rounded-l-none xl:rounded-r-[40px] xl:py-[72px] xl:pl-[calc((100vw_-_min(100vw,1440px))/2_+_32px)] xl:pr-0">
+        <div className="relative isolate shrink-0 overflow-hidden rounded-2xl px-8 py-10 text-white sm:px-10 sm:py-12 xl:absolute xl:left-[calc(50%_-_50vw)] xl:top-0 xl:h-[750px] xl:w-[762px] xl:rounded-l-none xl:rounded-r-[40px] xl:py-[72px] xl:pl-[calc((100vw_-_min(100vw,1440px))/2_+_32px)] xl:pr-0">
+          {/* 배경 이미지(events-panel) + 전체 균일한 옅은 네이비 오버레이(텍스트 가독성) */}
+          <Image
+            src="/events-panel.png"
+            alt=""
+            aria-hidden="true"
+            fill
+            sizes="(max-width: 1280px) 100vw, 762px"
+            className="pointer-events-none absolute inset-0 -z-20 object-cover"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-10 bg-[#15235c]/40"
+          />
           <p className="text-[18px] font-semibold text-white/90">행사 소식</p>
           <h2 className="mt-3 text-[27px] font-semibold leading-[1.35] tracking-[-0.01em] sm:text-[34px]">
             전국의 스포츠

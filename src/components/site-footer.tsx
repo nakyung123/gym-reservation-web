@@ -20,14 +20,15 @@ type FooterColumn = {
 
 const FOOTER_COLUMNS: FooterColumn[] = [
   {
-    // 바로가기는 현재 GNB 5개 메뉴와 동일하게 맞춘다(라벨도 GNB와 통일).
+    // 바로가기는 GNB 메뉴와 동일하게 맞춘다(라벨·순서 통일).
     titleKey: "quickLinks",
     links: [
       { labelKey: "facilities", href: "/gyms" },
-      { labelKey: "about", href: "/about" },
-      { labelKey: "faq", href: "/faq" },
       { labelKey: "guide", href: "/guide" },
+      { labelKey: "faq", href: "/faq" },
       { labelKey: "notice", href: "/notice" },
+      // 사업 소개: GNB와 동일하게 임시 제외(콘텐츠 갖춰지면 복구).
+      // { labelKey: "about", href: "/about" },
     ],
   },
   {
@@ -76,7 +77,7 @@ export async function SiteFooter() {
               {t("customerCenter")}
             </p>
             <p className="text-[23px] font-extrabold tracking-[-0.01em] text-white tabular-nums">
-              1599-0000
+              1234-5678
             </p>
             <p className="mt-1.5 text-[13.5px] text-slate-400">{t("hours")}</p>
           </div>

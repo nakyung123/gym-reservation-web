@@ -32,10 +32,11 @@ type GnbItem = {
 
 const GNB_ITEMS: GnbItem[] = [
   { key: "facilities", href: "/gyms", mega: true },
-  { key: "about", href: "/about" },
-  { key: "faq", href: "/faq" },
   { key: "guide", href: "/guide" },
+  { key: "faq", href: "/faq" },
   { key: "notice", href: "/notice" },
+  // 사업 소개: 콘텐츠가 갖춰지면 다시 노출(삭제하지 않고 임시 제외).
+  // { key: "about", href: "/about" },
 ];
 
 // 메가메뉴 내용(종목별). 제목은 메시지 키, 종목명은 데이터성이라 한국어 유지.
@@ -54,7 +55,7 @@ const MEGA_LINK_CLASS =
   "flex items-center gap-2 rounded-lg px-[11px] py-2.5 text-[15.5px] text-muted transition hover:bg-accent-tint hover:text-accent-strong focus-visible:outline-none focus-visible:bg-accent-tint focus-visible:text-accent-strong";
 
 const UTIL_LINK_CLASS =
-  "rounded text-[14.5px] font-semibold text-muted transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
+  "rounded text-[14.5px] font-semibold text-foreground transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
 
 // 모바일 드로어: 터치 타깃 44px 이상(min-h-[44px]) 확보.
 const MOBILE_LINK_CLASS =

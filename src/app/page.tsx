@@ -2,8 +2,6 @@ import { FacilityCard } from "@/components/facility-card";
 import { HomeEvents } from "@/components/home-events";
 import { HomeHero } from "@/components/home-hero";
 import { HomeQuickActions } from "@/components/home-quick-actions";
-import { HomeReservationPreview } from "@/components/home-reservation-preview";
-import { HomeSearch } from "@/components/home-search";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { getTranslations } from "next-intl/server";
 
@@ -13,18 +11,10 @@ export default async function Home() {
   const t = await getTranslations("Home");
   const gyms = await gymRepository.list();
   const recommendedGyms = gyms.slice(0, 3);
-  // 홈 빠른 검색에 필요한 필드만 client로 내려준다(경량 projection).
-  const searchGyms = gyms.map(({ id, name, region, sports }) => ({
-    id,
-    name,
-    region,
-    sports,
-  }));
 
   return (
     <main className="bg-background text-foreground">
       <HomeHero />
-      <HomeSearch gyms={searchGyms} />
       <HomeQuickActions />
 
       {/* 가까운 체육시설 */}
@@ -57,12 +47,6 @@ export default async function Home() {
       </section>
 
       <HomeEvents />
-
-      <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
-        <div className="h-px bg-line" />
-      </div>
-
-      <HomeReservationPreview />
     </main>
   );
 }

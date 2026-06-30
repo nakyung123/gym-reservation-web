@@ -83,7 +83,7 @@ export function HomeSearch({ gyms }: HomeSearchProps) {
   };
 
   return (
-    <section className="relative z-10 mx-auto -mt-[40px] w-full max-w-[1440px] px-5 sm:px-8">
+    <section className="relative z-10 mx-auto mt-12 w-full max-w-[1440px] px-5 sm:px-8">
       <form
         onSubmit={(event) => {
           event.preventDefault();

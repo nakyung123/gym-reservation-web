@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/app-button";
 import { useFaqChat } from "@/hooks/use-faq-chat";
 
@@ -18,6 +19,7 @@ const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), [href], textarea:not([disabled])';
 
 export function FaqChatWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const { messages, status, error, send } = useFaqChat();
@@ -92,6 +94,11 @@ export function FaqChatWidget() {
       return;
     }
     send(question);
+  }
+
+  // 문의하기 위젯은 홈에서만 노출한다.
+  if (pathname !== "/") {
+    return null;
   }
 
   if (!open) {

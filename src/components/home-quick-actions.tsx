@@ -117,8 +117,20 @@ const QUICK_ACTIONS: QuickAction[] = [
 export async function HomeQuickActions() {
   const t = await getTranslations("Home");
   return (
-    <div className="mx-auto mt-[22px] w-full max-w-[1440px] px-5 sm:px-8">
-      <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="py-[72px]">
+      <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8">
+        <div className="mb-[30px]">
+          <p className="text-[13.5px] font-bold tracking-[0.06em] text-accent-strong">
+            GUIDE
+          </p>
+          <h2 className="mt-1.5 text-[31px] font-extrabold tracking-[-0.02em] text-slate-950">
+            이렇게 이용하세요
+          </h2>
+          <p className="mt-[9px] text-[16.5px] text-muted">
+            시설 찾기부터 예약 조회까지 한 흐름으로 이용하세요.
+          </p>
+        </div>
+        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {QUICK_ACTIONS.map((action) => (
           <li key={action.titleKey}>
             <div className="flex h-full flex-col rounded-xl border border-line bg-white px-6 py-7">
@@ -139,7 +151,8 @@ export async function HomeQuickActions() {
             </div>
           </li>
         ))}
-      </ul>
-    </div>
+        </ul>
+      </div>
+    </section>
   );
 }

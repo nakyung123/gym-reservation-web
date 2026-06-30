@@ -1,42 +1,60 @@
 /**
- * 홈 히어로(시안 D안). 배드민턴 코트 일러스트(public/hero-badminton.png)를 배경으로 깔고,
- * 좌측 밝은 영역(크림색 벽) 위에 어두운 제목/본문을 얹는다. 일러스트가 밝으므로
- * 흰색 베일(좌→우 투명)로 좌측 텍스트 가독성만 보강한다.
+ * 홈 히어로(풀스크린 통배경). 코트 일러스트(public/hero-court.png)를 화면 전체 폭 배경으로
+ * 깔고, 좌측에 제목/본문/CTA 2개를 얹는다. 일러스트가 밝으므로 좌→우 흰(크림) 베일로
+ * 좌측 텍스트 가독성만 보강한다.
  *
- * 하단 여백(pb-[60px])은 검색바(home-search)가 -40px로 겹쳐 올라올 공간이다.
- * 일러스트는 next/image fill + priority(첫 화면). object-position으로 인물이 보이게 잡는다.
+ * 하단 여백(pb)은 검색바(home-search)가 -40px로 겹쳐 올라올 공간이다.
+ * 이미지는 next/image fill + priority(첫 화면)로, 큰 원본이라도 기기에 맞는 최적화본만 전송된다.
  */
 import Image from "next/image";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 export async function HomeHero() {
   const t = await getTranslations("Home");
   return (
-    <section className="relative h-[440px] overflow-hidden bg-[#f4efe8] sm:h-[460px]">
-      {/* 배경 일러스트 */}
+    <section className="relative flex min-h-[100svh] items-center overflow-hidden bg-[#f4efe8]">
+      {/* 배경 일러스트(전체 폭) */}
       <Image
-        src="/hero-badminton.png"
+        src="/hero-court.png"
         alt=""
         fill
         priority
+        quality={90}
         sizes="100vw"
-        className="object-cover object-[68%_32%]"
+        className="object-cover object-[62%_38%]"
       />
-      {/* 좌측 텍스트 가독성용 흰 베일(밝은 일러스트라 흰→투명) */}
+      {/* 좌측 텍스트 가독성용 흰 베일(밝은 일러스트라 크림→투명) */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(100deg,rgba(244,239,232,0.94)_0%,rgba(244,239,232,0.7)_34%,rgba(244,239,232,0.1)_60%,rgba(244,239,232,0)_78%)]"
+        className="absolute inset-0 bg-[linear-gradient(100deg,rgba(244,239,232,0.95)_0%,rgba(244,239,232,0.82)_28%,rgba(244,239,232,0.35)_50%,rgba(244,239,232,0.05)_68%,rgba(244,239,232,0)_80%)]"
       />
 
-      <div className="relative mx-auto flex h-full w-full max-w-[1440px] flex-col justify-center px-5 pb-[60px] sm:px-8">
-        <h1 className="max-w-[680px] text-[34px] font-extrabold leading-[1.26] tracking-[-0.025em] text-slate-900 sm:text-[46px]">
+      <div className="relative mx-auto flex w-full max-w-[1440px] flex-col px-5 sm:px-8">
+        <h1 className="text-[34px] font-extrabold leading-[1.26] tracking-[-0.025em] text-accent-strong sm:text-[46px]">
           {t("heroTitleLine1")}
           <br />
           {t("heroTitleLine2")}
         </h1>
-        <p className="mt-[18px] max-w-[620px] text-base font-medium text-slate-700 sm:text-[19px]">
+        <p className="mt-[18px] max-w-[460px] text-base font-medium leading-[1.7] text-slate-600 sm:text-[18px]">
           {t("heroSubtitle")}
         </p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            href="/gyms"
+            className="inline-flex h-12 items-center gap-2 rounded-[10px] bg-accent px-6 text-[15px] font-bold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
+            시설 검색하기
+            <span aria-hidden="true">→</span>
+          </Link>
+          <Link
+            href="/guide"
+            className="inline-flex h-12 items-center gap-2 rounded-[10px] border border-accent bg-white/90 px-6 text-[15px] font-bold text-accent-strong backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          >
+            예약 방법 안내
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </section>
   );

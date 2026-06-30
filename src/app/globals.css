@@ -92,3 +92,12 @@ body {
 a {
   text-decoration: none;
 }
+
+/* Tailwind v4 preflight는 버튼 커서를 default로 바꾼다. 비활성이 아닌
+   클릭 가능한 컨트롤은 포인터로 표시한다(SSOT: 여기서 한 번에). */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label[for],
+summary {
+  cursor: pointer;
+}
