@@ -7,10 +7,54 @@ import "server-only";
 
 const SIGN_IN_ENDPOINT =
   "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
+const RESET_PASSWORD_ENDPOINT =
+  "https://identitytoolkit.googleapis.com/v1/accounts:resetPassword";
 
 export type VerifyPasswordResult =
   | { ok: true; uid: string }
   | { ok: false; reason: "invalid-credentials" | "config" | "network" };
+
+export type VerifyResetCodeResult =
+  | { ok: true; email: string }
+  | { ok: false; reason: "invalid-code" | "config" | "network" };
+
+// 비밀번호 재설정 oobCode를 서버에서 검증해 해당 코드가 가리키는 이메일을 돌려준다.
+// newPassword 없이 oobCode만 보내면 코드 검증만 수행하고 email을 반환한다(코드를 소비하지 않으므로
+// 클라이언트의 이후 confirmPasswordReset는 그대로 동작한다). 클라 검증만으로는 서버가 신뢰할 수
+// 없으므로, "이메일로 아이디 조회" 같은 노출 흐름은 이 서버 검증을 본인 확인 근거로 써야 한다.
+export async function verifyPasswordResetOobCode(
+  oobCode: string,
+): Promise<VerifyResetCodeResult> {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim();
+  if (!apiKey) {
+    return { ok: false, reason: "config" };
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${RESET_PASSWORD_ENDPOINT}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // newPassword 미포함 = 검증 전용. 유효하면 { email, requestType: "PASSWORD_RESET" }.
+      body: JSON.stringify({ oobCode }),
+    });
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+
+  if (!response.ok) {
+    // 400 = INVALID_OOB_CODE / EXPIRED_OOB_CODE 등 → 노출 없이 무효 처리.
+    return { ok: false, reason: "invalid-code" };
+  }
+
+  const data = (await response.json().catch(() => null)) as
+    | { email?: unknown }
+    | null;
+  if (!data || typeof data.email !== "string" || data.email.length === 0) {
+    return { ok: false, reason: "invalid-code" };
+  }
+  return { ok: true, email: data.email };
+}
 
 export async function verifyEmailPassword(
   email: string,

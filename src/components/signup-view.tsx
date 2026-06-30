@@ -44,33 +44,40 @@ export function SignupView() {
   const [socialEmail, setSocialEmail] = useState("");
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   // 초기 1회 해석(소셜 복귀/기존 회원 감지). 수동 흐름 진입 후에는 세션 변화로 재해석하지 않는다.
-  const resolvedRef = useRef(false);
+  // startedRef로 async를 정확히 한 번만 시작한다. cleanup으로 결과를 폐기하지 않는 이유:
+  // session은 매 렌더 새 객체라 effect가 자주 재실행되고 StrictMode는 마운트를 두 번 돈다.
+  // cleanup에서 cancelled로 결과를 막으면, 재실행은 startedRef에 막혀 새 async를 못 띄워
+  // setStep이 영영 호출되지 않는다(무한 resolving). 따라서 시작만 한 번 가드하고 결과는 항상 반영한다.
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    if (resolvedRef.current) return;
-    // 로그인 상태 확인 중이면 대기.
+    if (startedRef.current) return;
+    // 로그인 상태 확인 중이면 대기(아직 시작 가드를 세우지 않는다).
     if (!session.ok && session.reason === "not-ready") return;
+
+    startedRef.current = true;
 
     if (!session.ok) {
       // 비로그인 → 가입 방식 선택부터.
-      resolvedRef.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep("auth");
       return;
     }
 
     // 로그인 상태(소셜 복귀 등) → 프로필 완성 여부로 분기.
-    resolvedRef.current = true;
-    let cancelled = false;
     void (async () => {
-      const result = await fetchUserProfile();
-      if (cancelled) return;
-      if (result.ok && result.profile && result.profile.loginId) {
+      let result: Awaited<ReturnType<typeof fetchUserProfile>> | null = null;
+      try {
+        result = await fetchUserProfile();
+      } catch {
+        result = null;
+      }
+      if (result && result.ok && result.profile && result.profile.loginId) {
         // 이미 아이디까지 설정된 회원 → 가입 절차 불필요.
         router.replace(fromPath);
         return;
       }
-      // 미완성(소셜 직후 등) → 소셜 완성 흐름으로 약관부터 이어서 진행.
+      // 미완성(소셜 직후 등)·조회 실패 → 소셜 완성 흐름으로 약관부터 이어서 진행.
       try {
         const { auth } = getFirebaseClient();
         setSocialEmail(auth.currentUser?.email ?? "");
@@ -80,19 +87,16 @@ export function SignupView() {
       setMethod("social");
       setStep("terms");
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [session, fromPath, router]);
 
   function handleSelectEmail() {
-    resolvedRef.current = true;
+    startedRef.current = true;
     setMethod("email");
     setStep("terms");
   }
 
   function handleSocialAuthenticated() {
-    resolvedRef.current = true;
+    startedRef.current = true;
     try {
       const { auth } = getFirebaseClient();
       setSocialEmail(auth.currentUser?.email ?? "");
@@ -103,8 +107,10 @@ export function SignupView() {
     setStep("terms");
   }
 
+  // 단계별 본문. 공통 헤더(로고 + 통합 회원가입 + 닫기)를 가진 풀스크린 셸 안에 렌더된다.
+  let content: React.ReactNode;
   if (step === "resolving") {
-    return (
+    content = (
       <section
         className="w-full rounded-lg border border-line bg-white p-6 text-center shadow-sm"
         aria-busy="true"
@@ -115,53 +121,89 @@ export function SignupView() {
         </div>
       </section>
     );
-  }
-
-  if (step === "auth") {
-    return (
+  } else if (step === "auth") {
+    content = (
       <SignupAuthStep
         onSelectEmail={handleSelectEmail}
         onSocialAuthenticated={handleSocialAuthenticated}
       />
     );
-  }
-
-  if (step === "terms") {
-    return <SignupTermsStep onAgree={() => setStep("info")} />;
-  }
-
-  if (step === "info") {
-    return (
+  } else if (step === "terms") {
+    content = <SignupTermsStep onAgree={() => setStep("info")} />;
+  } else if (step === "info") {
+    content = (
       <SignupInfoForm
         mode={method}
         prefilledEmail={method === "social" ? socialEmail : undefined}
+        onBack={() => setStep("terms")}
         onComplete={({ emailVerificationSent: sent }) => {
           setEmailVerificationSent(sent);
           setStep("done");
         }}
       />
     );
+  } else {
+    // done
+    content = (
+      <section
+        className="w-full rounded-lg border border-success/30 bg-success/10 p-6 text-center shadow-sm"
+        role="status"
+      >
+        <p className="text-sm font-semibold text-success">{t("doneTitle")}</p>
+        <h1 className="mt-2 text-xl font-bold text-slate-950">{t("doneHeading")}</h1>
+        {method === "email" && emailVerificationSent ? (
+          <p className="mt-3 text-sm leading-6 text-slate-600">{t("doneVerify")}</p>
+        ) : (
+          <p className="mt-3 text-sm leading-6 text-slate-600">{t("doneBody")}</p>
+        )}
+        <Link
+          href={fromPath}
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
+        >
+          {t("doneContinue")}
+        </Link>
+      </section>
+    );
   }
 
-  // done
   return (
-    <section
-      className="w-full rounded-lg border border-success/30 bg-success/10 p-6 text-center shadow-sm"
-      role="status"
-    >
-      <p className="text-sm font-semibold text-success">{t("doneTitle")}</p>
-      <h1 className="mt-2 text-xl font-bold text-slate-950">{t("doneHeading")}</h1>
-      {method === "email" && emailVerificationSent ? (
-        <p className="mt-3 text-sm leading-6 text-slate-600">{t("doneVerify")}</p>
-      ) : (
-        <p className="mt-3 text-sm leading-6 text-slate-600">{t("doneBody")}</p>
-      )}
-      <Link
-        href={fromPath}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover"
-      >
-        {t("doneContinue")}
-      </Link>
-    </section>
+    <div className="flex min-h-screen w-full flex-col bg-white">
+      {/* 상단 헤더: 구분선은 풀폭, 내용(로고+타이틀+닫기)은 본문과 같은 컬럼 폭에 정렬 */}
+      <header className="w-full border-b border-[#c9c9c9]">
+        <div className="relative mx-auto flex h-[61px] w-full max-w-[520px] items-center justify-center px-5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[20px] font-extrabold leading-none tracking-[-0.02em] text-accent">
+              서울체육예약
+            </span>
+            <span className="text-[22px] font-bold leading-none text-[#252525]">
+              통합 회원가입
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="닫기"
+            className="absolute right-5 flex items-center justify-center text-[#252525]"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 5l14 14M19 5L5 19" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* 본문: 가운데 컬럼 */}
+      <div className="mx-auto w-full max-w-[520px] px-5 pb-10 pt-10">{content}</div>
+    </div>
   );
 }
