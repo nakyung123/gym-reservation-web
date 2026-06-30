@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import {
   useCallback,
   useEffect,
@@ -11,10 +11,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  formatDateValue,
-  useCurrentMinuteValue,
-} from "@/hooks/use-current-minute";
+import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -23,18 +20,19 @@ import {
 } from "@/lib/firebase-auth-session";
 import { formatGymPrice, getGymSportPrice } from "@/lib/gym-utils";
 import { createReservation } from "@/lib/reservation-service";
-import {
-  isInitialDateInWindow,
-  resolveReservationFormInitial,
-} from "@/lib/reservation-form-initial";
+import { resolveReservationFormInitial } from "@/lib/reservation-form-initial";
 import {
   getReservationTimeState,
+  isGymClosedOnDate,
   type ReservationTimeState,
 } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { fetchReservationSlots } from "@/lib/reservation-slot-availability";
+import { fetchUserProfile } from "@/lib/user-profile-client";
+import type { UserProfile } from "@/lib/user-profile";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import { ReservationCalendar } from "@/components/reservation-calendar";
 import type {
   Gym,
   Reservation,
@@ -44,11 +42,6 @@ import type {
 
 type ReservationFormProps = {
   gym: Gym;
-};
-
-type DateOption = {
-  label: string;
-  value: string;
 };
 
 type NoticeTone = "success" | "warning" | "error";
@@ -61,6 +54,20 @@ type SlotsState =
       slots: Map<string, ReservationSlotAvailability>;
     }
   | { status: "error"; key: string; message: string };
+
+// 약관 동의 항목(모두 필수). 가입 단계에서 이미 동의받지만, 예약 시점 재확인용.
+const REQUIRED_TERMS = [
+  {
+    id: "privacy",
+    label: "[필수] 예약 정보 및 개인정보 수집·이용 동의",
+  },
+  {
+    id: "rules",
+    label: "[필수] 시설 이용 규정 및 취소·환불 정책 동의",
+  },
+] as const;
+
+type TermId = (typeof REQUIRED_TERMS)[number]["id"];
 
 // 예약 불가 사유 → 번역 키 매핑. 라벨 텍스트는 messages의 Reserve.* 를 따른다.
 const unavailableTimeLabelKeys = {
@@ -85,41 +92,8 @@ const noticeLinkStyles: Record<NoticeTone, string> = {
   error: "bg-error text-white hover:bg-error/90",
 };
 
-const reservationNoticeButtonStyles: Record<NoticeTone, string> = {
-  success:
-    "mt-6 h-11 w-full rounded-md bg-success px-5 text-sm font-semibold text-white transition disabled:cursor-default disabled:bg-success disabled:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
-  warning:
-    "mt-6 h-11 w-full rounded-md bg-warning px-5 text-sm font-semibold text-white transition disabled:cursor-default disabled:bg-warning disabled:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
-  error:
-    "mt-6 h-11 w-full rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
-};
-
-function createDateOptions(
-  todayValue: string,
-  locale: string,
-  todayLabel: string,
-  tomorrowLabel: string,
-): DateOption[] {
-  const [year, month, day] = todayValue.split("-").map(Number);
-  const today = new Date(year, month - 1, day);
-  const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: "long" });
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
-
-    const label =
-      index === 0
-        ? todayLabel
-        : index === 1
-          ? tomorrowLabel
-          : weekdayFormatter.format(date);
-
-    return {
-      label,
-      value: formatDateValue(date),
-    };
-  });
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
 }
 
 function getTimeButtonClass(
@@ -136,21 +110,49 @@ function getTimeButtonClass(
     return "cursor-not-allowed border-accent/30 bg-accent-tint text-accent-strong";
   }
 
-  if (timeState.reason === "past-time") {
-    return "cursor-not-allowed border-line bg-surface-2 text-subtle";
-  }
+  return "cursor-not-allowed border-line bg-surface-2 text-subtle";
+}
 
-  return isSelected
-    ? "cursor-not-allowed border-line bg-surface-2 text-subtle"
-    : "cursor-not-allowed border-line bg-surface-2 text-subtle";
+// 예약 상세 페이지(reservation-receipt-view)와 동일한 섹션 헤더:
+// 제목(20px) + 하단 보더 + 펼침 상태를 나타내는 장식용 ^ 아이콘.
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+      <h2 className="text-[20px] font-bold text-slate-900">{title}</h2>
+      <svg viewBox="0 0 16 16" className="h-4 w-4 text-slate-400" aria-hidden="true">
+        <path
+          d="M3 10l5-5 5 5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+// 라벨(좌, 회색) + 값(우) 한 줄. 예약 상세 페이지와 동일.
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[160px_1fr] gap-4 py-2.5">
+      <dt className="text-[14px] text-slate-500">{label}</dt>
+      <dd className="text-[14px] font-medium text-slate-800">{children}</dd>
+    </div>
+  );
 }
 
 export function ReservationForm({ gym }: ReservationFormProps) {
   const t = useTranslations("Reserve");
-  const locale = useLocale();
   // /reserve/[gymId]?sport=&date=&time= 쿼리를 폼 초기 상태에 반영한다.
   // 형식 검증과 sport/time 허용 여부는 resolveReservationFormInitial이 SSOT.
-  // 7일 윈도우 검사는 dateOptions가 준비되는 시점에 isInitialDateInWindow로 한다.
   const searchParams = useSearchParams();
   const { initialSport, initialTime, initialSelectedDate } =
     resolveReservationFormInitial(gym, {
@@ -159,8 +161,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       time: searchParams.get("time"),
     });
 
-  // 미로그인 시 /login?from=<현재 경로+쿼리> 로 redirect. 작업 3의 sport/date/time
-  // 쿼리가 로그인 redirect 후에도 복원되도록 query를 통째로 from에 보존한다.
+  // 미로그인 시 /login?from=<현재 경로+쿼리> 로 redirect. sport/date/time 쿼리가
+  // 로그인 redirect 후에도 복원되도록 query를 통째로 from에 보존한다.
   const searchParamsQuery = searchParams.toString();
   const authFromPath = searchParamsQuery
     ? `/reserve/${gym.id}?${searchParamsQuery}`
@@ -179,14 +181,19 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slotsState, setSlotsState] = useState<SlotsState>({ status: "idle" });
   const [slotsRefetchToken, setSlotsRefetchToken] = useState(0);
-  // 사용자가 시간 버튼을 직접 누른 적이 있는지 추적해서, 자동으로 다른 시간으로
-  // 바뀌었을 때만 안내를 띄운다. 초기 진입 시 자동 전환은 안내하지 않아
-  // 안내가 noisy해지지 않게 한다.
   const [userTouchedTime, setUserTouchedTime] = useState(false);
+  // 약관 동의 상태(모두 필수). 모두 체크해야 예약 버튼이 활성화된다.
+  const [agreed, setAgreed] = useState<Record<TermId, boolean>>({
+    privacy: false,
+    rules: false,
+  });
+  const allAgreed = REQUIRED_TERMS.every((term) => agreed[term.id]);
+
   const resetNotice = useCallback(() => {
     setNotice(null);
     setNoticeReservation(null);
   }, []);
+
   const authSessionSnapshot = useSyncExternalStore(
     subscribeFirebaseAuthSession,
     getFirebaseAuthSessionSnapshot,
@@ -211,47 +218,73 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     () => (reservationReadResult.ok ? reservationReadResult.reservations : []),
     [reservationReadResult],
   );
-  const dateOptions = useMemo(
-    () =>
-      currentMinuteValue
-        ? createDateOptions(
-            currentMinuteValue.slice(0, 10),
-            locale,
-            t("dateToday"),
-            t("dateTomorrow"),
-          )
-        : [],
-    [currentMinuteValue, locale, t],
-  );
-  const effectiveSelectedDate =
-    dateOptions.find((date) => date.value === selectedDate)?.value ??
-    dateOptions[0]?.value ??
-    "";
-  const isDateReady =
-    dateOptions.length > 0 && effectiveSelectedDate.length > 0;
 
-  // 쿼리로 받은 date가 7일 예약 가능 범위 안인지 dateOptions가 준비되는 시점에 1회만
-  // 검증한다. 범위 밖이면 selectedDate를 null로 돌려 today가 표시되게 하고
-  // 사용자가 의도와 다른 날짜를 모르고 submit하지 않도록 notice 영역에 안내한다.
-  // ref가 1회만 통과시키므로 cascading render는 없다. set-state-in-effect 규칙은
-  // 사용자 위치/권한 훅과 동일한 패턴으로 명시 disable한다.
-  const queryDateCheckPendingRef = useRef(initialSelectedDate !== null);
+  // 오늘 날짜(YYYY-MM-DD)와 예약 가능 마지막 날짜(오늘 +2개월).
+  const todayValue = currentMinuteValue ? currentMinuteValue.slice(0, 10) : "";
+  const maxDateValue = useMemo(() => {
+    if (!todayValue) return "";
+    const [year, month, day] = todayValue.split("-").map(Number);
+    const max = new Date(year, month - 1 + 2, day);
+    return `${max.getFullYear()}-${pad2(max.getMonth() + 1)}-${pad2(max.getDate())}`;
+  }, [todayValue]);
+
+  const isDateReady = todayValue.length > 0;
+  // 날짜 미선택 시 오늘을 기본으로 사용한다(시간 그리드가 항상 기준 날짜를 갖도록).
+  const effectiveSelectedDate = selectedDate ?? todayValue;
+
+  // 쿼리로 받은 날짜가 예약 가능 범위/휴관일인지 1회 검증한다. 범위 밖·휴관일이면
+  // 오늘로 되돌리고, 미선택이면 오늘로 채운다. ref가 1회만 통과시켜 cascading은 없다.
+  const dateInitPendingRef = useRef(true);
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!queryDateCheckPendingRef.current) return;
-    if (dateOptions.length === 0) return;
-    queryDateCheckPendingRef.current = false;
-    const inWindow = isInitialDateInWindow(
-      initialSelectedDate,
-      dateOptions.map((date) => date.value),
-    );
-    if (!inWindow) {
-      setSelectedDate(null);
-      setNotice(t("dateWindowWarning"));
+    if (!dateInitPendingRef.current) return;
+    if (!isDateReady) return;
+    dateInitPendingRef.current = false;
+
+    if (selectedDate === null) {
+      setSelectedDate(todayValue);
+      return;
+    }
+    const inRange =
+      selectedDate >= todayValue && selectedDate <= maxDateValue;
+    if (!inRange || isGymClosedOnDate(gym, selectedDate)) {
+      setSelectedDate(todayValue);
+      setNotice("선택하신 날짜가 예약 가능 기간이 아니어서 오늘 날짜로 변경했습니다.");
       setNoticeTone("warning");
     }
-  }, [dateOptions, initialSelectedDate, t]);
+  }, [isDateReady, selectedDate, todayValue, maxDateValue, gym]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // 예약자 정보(프로필) 로드.
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileState, setProfileState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  useEffect(() => {
+    if (!reservationUserId) return;
+    const controller = new AbortController();
+    // 조회 시작 즉시 로딩 표시(외부 fetch 동기화 목적의 의도적 set).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProfileState("loading");
+    fetchUserProfile(controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        if (result.ok) {
+          setProfile(result.profile);
+          setProfileState("ready");
+        } else {
+          setProfileState("error");
+        }
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setProfileState("error");
+      });
+    return () => controller.abort();
+  }, [reservationUserId]);
 
   const price = useMemo(
     () => getGymSportPrice(gym, selectedSport),
@@ -296,12 +329,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
   const slotsRequestKey =
     isDateReady && authSession.ok
-      ? [
-          gym.id,
-          selectedSport,
-          effectiveSelectedDate,
-          String(slotsRefetchToken),
-        ].join("__")
+      ? [gym.id, selectedSport, effectiveSelectedDate, String(slotsRefetchToken)].join(
+          "__",
+        )
       : null;
 
   useEffect(() => {
@@ -347,13 +377,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     return () => {
       controller.abort();
     };
-  }, [
-    effectiveSelectedDate,
-    gym.id,
-    selectedSport,
-    slotsRequestKey,
-    t,
-  ]);
+  }, [effectiveSelectedDate, gym.id, selectedSport, slotsRequestKey, t]);
 
   const slotsLookup =
     slotsState.status === "ready" && slotsState.key === slotsRequestKey
@@ -418,14 +442,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       })
     : selectedTimeStateCandidate;
   const selectedSlot = slotsLookup?.get(effectiveSelectedTime) ?? null;
-  // auth/예약 read가 아직 준비되지 않은 전이적 로딩 상태(not-ready)인지.
-  // 이 상태는 에러가 아니라 로딩이므로 중립 표시로 다룬다.
   const isReservationDataLoading =
     (!authSession.ok && authSession.reason === "not-ready") ||
     (!reservationReadResult.ok && reservationReadResult.reason === "not-ready");
-  // 예약 버튼 비활성 사유 + 톤. "pending"은 전이적 로딩/대기(중립 표시),
-  // "blocked"는 사용자가 조치해야 하는 실제 차단(에러 표시).
-  // not-ready 같은 로딩 사유를 error-red로 보여주지 않는다.
   const submitDisabled: {
     message: string;
     tone: "pending" | "blocked";
@@ -451,15 +470,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             : slotsFetchError
               ? { message: slotsFetchError, tone: "blocked" }
               : slotsFetchPending || !slotsLookup
-                ? {
-                    message: t("slotsChecking"),
-                    tone: "pending",
-                  }
+                ? { message: t("slotsChecking"), tone: "pending" }
                 : selectedSlot && selectedSlot.status !== "available"
-                  ? {
-                      message: t("slotClosedSelected"),
-                      tone: "blocked",
-                    }
+                  ? { message: t("slotClosedSelected"), tone: "blocked" }
                   : null;
   const submitDisabledReason = submitDisabled?.message ?? null;
   const timeSelectionDisabledLabel = isReservationDataLoading
@@ -490,9 +503,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         ? t("reserveDone")
         : t("reserveDuplicate")
       : t("reserveButton");
-  const reserveButtonClass = hasReservationNotice
-    ? reservationNoticeButtonStyles[noticeTone]
-    : "mt-6 h-11 w-full rounded-md bg-accent px-5 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2";
+  // 예약 버튼 비활성: 기존 차단 사유 + 약관 미동의 + 이미 처리된 안내.
+  const reserveButtonDisabled =
+    Boolean(submitDisabledReason) || hasReservationNotice || !allAgreed;
 
   const handleReserve = async () => {
     if (isSubmitting) {
@@ -543,7 +556,6 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       if (result.status === "full") {
         setNoticeTone("error");
         setNoticeReservation(null);
-        // 다른 사용자가 같은 시간대를 채운 상황. 슬롯 목록을 다시 불러와 UI에 반영.
         setSlotsRefetchToken((token) => token + 1);
         return;
       }
@@ -559,350 +571,353 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     }
   };
 
-  // 가벼운 단계 표시. 현재 흐름(좌측 선택 → 우측 요약/제출 → 노티스)에 맞춰
-  // 사용자의 진행 위치만 시각화한다. 멀티스텝 폼으로 변환하지 않는다.
-  const reservationStep: 1 | 2 | 3 =
-    hasReservationNotice && noticeTone === "success"
-      ? 3
-      : userTouchedTime && !submitDisabledReason && !hasReservationNotice
-        ? 2
-        : 1;
-  const reservationSteps: { id: 1 | 2 | 3; label: string }[] = [
-    { id: 1, label: t("stepInfo") },
-    { id: 2, label: t("stepConfirm") },
-    { id: 3, label: t("stepDone") },
-  ];
+  function toggleTerm(id: TermId) {
+    setAgreed((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function toggleAllTerms() {
+    const next = !allAgreed;
+    setAgreed({ privacy: next, rules: next });
+  }
+
+  const profileText = {
+    name: profile?.name?.trim() || "-",
+    birthDate: profile?.birthDate?.trim() || "-",
+    phone: profile?.phone?.trim() || "-",
+  };
+  const profileIncomplete =
+    profileState === "ready" &&
+    (!profile?.name || !profile?.phone);
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-5">
-      <ol
-        className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-white p-3 shadow-sm"
-        aria-label={t("stepsAria")}
-      >
-        {reservationSteps.map((step, index) => {
-          const isCurrent = reservationStep === step.id;
-          const isDone = reservationStep > step.id;
-          return (
-            <li
-              key={step.id}
-              className="flex items-center gap-2"
-              aria-current={isCurrent ? "step" : undefined}
-            >
-              <span
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
-                  isDone
-                    ? "border-accent bg-accent text-white"
-                    : isCurrent
-                      ? "border-accent bg-white text-accent-strong"
-                      : "border-line-strong bg-white text-subtle"
-                }`}
-                aria-hidden="true"
-              >
-                {isDone ? (
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
-                  >
-                    <path d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  step.id
-                )}
-              </span>
-              <span
-                className={`text-sm font-semibold ${
-                  isCurrent
-                    ? "text-accent-strong"
-                    : isDone
-                      ? "text-accent-strong"
-                      : "text-subtle"
-                }`}
-              >
-                {step.label}
-              </span>
-              {index < reservationSteps.length - 1 ? (
-                <span
-                  aria-hidden="true"
-                  className="ml-1 hidden h-px w-6 bg-line sm:inline-block"
-                />
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
+    <div className="mx-auto flex w-[1200px] max-w-full flex-col gap-8">
+      {/* 상단 배너 — 예약 상세 페이지와 동일한 브랜드 네이비 */}
+      <header className="flex h-40 items-center rounded-2xl bg-accent px-12 text-white shadow-sm">
+        <div>
+          <h1 className="text-[32px] font-bold leading-tight">예약하기</h1>
+          <p className="mt-2 text-[20px] text-white/85">
+            원하는 날짜와 시간을 선택해 예약을 신청하세요
+          </p>
+        </div>
+      </header>
 
-      <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[1fr_360px]">
-      <section className="min-w-0 rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">
-          {t("selectEyebrow")}
+      {/* 본문 박스 */}
+      <section className="rounded-2xl bg-white px-12 py-12 shadow-sm">
+        <h2 className="text-[28px] font-bold text-slate-900">{gym.name}</h2>
+        <p className="mt-2 text-[16px] text-slate-500">
+          예약 정보를 확인하고 신청해 주세요.
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-950">{gym.name}</h1>
-        <p className="mt-2 text-sm text-slate-600">{gym.address}</p>
 
-        <div className="mt-7 grid min-w-0 gap-6">
-          <fieldset>
-            <legend className="text-sm font-bold text-slate-950">
-              {t("sportLegend")}
-            </legend>
-            <div
-              className="mt-3 flex flex-wrap gap-2"
-              role="group"
-              aria-label={t("sportSelectAria")}
-            >
-              {gym.sports.map((sport) => (
-                <button
-                  key={sport}
-                  type="button"
-                  aria-pressed={selectedSport === sport}
-                  onClick={() => {
-                    setSelectedSport(sport);
+        <div className="mt-10 flex flex-col gap-12">
+          {/* 예약 종목 */}
+          <div>
+            <SectionHeader title="예약 종목" />
+            <dl className="mt-4">
+              <Row label="종목 선택">
+                <select
+                  value={selectedSport}
+                  onChange={(event) => {
+                    setSelectedSport(event.target.value as Sport);
                     resetNotice();
                   }}
-                  className={`h-10 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                    selectedSport === sport
-                      ? "border-accent bg-accent text-accent-ink"
-                      : "border-line-strong text-muted hover:border-accent hover:text-accent-strong"
-                  }`}
+                  className="h-10 min-w-40 rounded-md border border-slate-300 bg-white px-3 text-[14px] font-semibold text-slate-800 transition focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  {sport}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="text-sm font-bold text-slate-950">
-              {t("dateLegend")}
-            </legend>
-            <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
-              {isDateReady ? (
-                dateOptions.map((date) => (
-                  <button
-                    key={date.value}
-                    type="button"
-                    aria-pressed={effectiveSelectedDate === date.value}
-                    onClick={() => {
-                      setSelectedDate(date.value);
-                      resetNotice();
-                    }}
-                    className={`min-w-0 rounded-md border px-3 py-3 text-left text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                      effectiveSelectedDate === date.value
-                        ? "border-accent bg-accent text-accent-ink"
-                        : "border-line-strong text-muted hover:border-accent"
-                    }`}
-                  >
-                    <span className="block font-semibold">{date.label}</span>
-                    <span className="mt-1 block text-xs opacity-80">
-                      {date.value}
-                    </span>
-                  </button>
+                  {gym.sports.map((sport) => (
+                    <option key={sport} value={sport}>
+                      {sport}
+                    </option>
+                  ))}
+                </select>
+              </Row>
+              {gym.sports.length > 1 ? (
+                gym.sports.map((sport) => (
+                  <Row key={sport} label={sport}>
+                    {formatGymPrice(getGymSportPrice(gym, sport))}
+                  </Row>
                 ))
               ) : (
-                <div className="col-span-2 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500 sm:col-span-4">
-                  {t("dateLoading")}
-                </div>
+                <Row label="이용 요금">
+                  <span className="font-bold text-accent-strong">
+                    {formatGymPrice(price)}
+                  </span>
+                </Row>
               )}
+            </dl>
+          </div>
+
+          {/* 예약 일자 */}
+          <div>
+            <SectionHeader title="예약 일자" />
+            <p className="mt-4 text-[14px] text-slate-500">
+              원하는 날짜를 선택하면 해당 날짜의 예약 가능 시간을 확인할 수 있습니다.
+            </p>
+            <div className="mx-auto mt-6 max-w-md">
+        {isDateReady ? (
+          <ReservationCalendar
+            selectedDate={selectedDate}
+            todayValue={todayValue}
+            monthsAhead={2}
+            isDateDisabled={(value) => isGymClosedOnDate(gym, value)}
+            onSelect={(value) => {
+              setSelectedDate(value);
+              resetNotice();
+            }}
+          />
+        ) : (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-6 text-center text-sm font-semibold text-slate-400">
+            {t("dateLoading")}
+          </div>
+        )}
             </div>
-          </fieldset>
 
-          <fieldset>
-            <legend className="text-sm font-bold text-slate-950">
-              {t("timeLegend")}
-            </legend>
-            {isDateReady ? (
-              <>
-                <div className="mt-3 grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-5">
-                  {gym.availableTimes.map((time) => {
-                    const timeState = timeStates.get(time) ?? {
-                      available: false as const,
-                      reason: "time-unavailable" as const,
-                      message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
-                    };
-                    const isSelected = effectiveSelectedTime === time;
-                    const slot = slotsLookup?.get(time) ?? null;
-                    const isStaticallyAvailable = timeState.available;
-                    const isClosed = slot?.status === "closed";
-                    const isFull = slot?.status === "full";
-                    const isSlotBlocked =
-                      isStaticallyAvailable &&
-                      (slotsFetchPending ||
-                        Boolean(slotsFetchError) ||
-                        isFull ||
-                        isClosed);
-                    const isDisabled =
-                      Boolean(timeSelectionDisabledReason) ||
-                      !isStaticallyAvailable ||
-                      isSlotBlocked;
-                    const timeButtonStateClass = (() => {
-                      if (timeSelectionDisabledReason || isSlotBlocked) {
-                        return "cursor-not-allowed border-line bg-surface-2 text-subtle";
-                      }
-                      return getTimeButtonClass(timeState, isSelected);
-                    })();
-                    const timeLabel = (() => {
-                      if (timeSelectionDisabledReason) {
-                        return timeSelectionDisabledLabel;
-                      }
-                      if (!isStaticallyAvailable) {
-                        return t(unavailableTimeLabelKeys[timeState.reason]);
-                      }
-                      if (slotsFetchPending) return t("timeLabelChecking");
-                      if (slotsFetchError) return t("timeLabelUnavailable");
-                      if (isClosed) return t("timeClosed");
-                      if (isFull) return t("timeFull");
-                      if (slot)
-                        return t("timeRemaining", { count: slot.remaining });
-                      return null;
-                    })();
-                    const titleMessage = (() => {
-                      if (timeSelectionDisabledReason)
-                        return timeSelectionDisabledReason;
-                      if (!isStaticallyAvailable) return timeState.message;
-                      if (slotsFetchPending) return t("slotsChecking");
-                      if (slotsFetchError) return slotsFetchError;
-                      if (isClosed) return t("titleClosed");
-                      if (isFull) return t("titleFull");
-                      if (slot)
-                        return t("titleSlot", {
-                          capacity: slot.capacity,
-                          remaining: slot.remaining,
-                        });
-                      return t("titleAvailable");
-                    })();
+            <fieldset className="mt-8 border-t border-slate-200 pt-6">
+              <legend className="text-[15px] font-bold text-slate-900">
+                {t("timeLegend")}
+              </legend>
+          {isDateReady ? (
+            <>
+              <div className="mt-4 grid min-w-0 grid-cols-3 gap-2 sm:grid-cols-5">
+                {gym.availableTimes.map((time) => {
+                  const timeState = timeStates.get(time) ?? {
+                    available: false as const,
+                    reason: "time-unavailable" as const,
+                    message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
+                  };
+                  const isSelected = effectiveSelectedTime === time;
+                  const slot = slotsLookup?.get(time) ?? null;
+                  const isStaticallyAvailable = timeState.available;
+                  const isClosed = slot?.status === "closed";
+                  const isFull = slot?.status === "full";
+                  const isSlotBlocked =
+                    isStaticallyAvailable &&
+                    (slotsFetchPending ||
+                      Boolean(slotsFetchError) ||
+                      isFull ||
+                      isClosed);
+                  const isDisabled =
+                    Boolean(timeSelectionDisabledReason) ||
+                    !isStaticallyAvailable ||
+                    isSlotBlocked;
+                  const timeButtonStateClass = (() => {
+                    if (timeSelectionDisabledReason || isSlotBlocked) {
+                      return "cursor-not-allowed border-line bg-surface-2 text-subtle";
+                    }
+                    return getTimeButtonClass(timeState, isSelected);
+                  })();
+                  const timeLabel = (() => {
+                    if (timeSelectionDisabledReason) {
+                      return timeSelectionDisabledLabel;
+                    }
+                    if (!isStaticallyAvailable) {
+                      return t(unavailableTimeLabelKeys[timeState.reason]);
+                    }
+                    if (slotsFetchPending) return t("timeLabelChecking");
+                    if (slotsFetchError) return t("timeLabelUnavailable");
+                    if (isClosed) return t("timeClosed");
+                    if (isFull) return t("timeFull");
+                    if (slot) return t("timeRemaining", { count: slot.remaining });
+                    return null;
+                  })();
+                  const titleMessage = (() => {
+                    if (timeSelectionDisabledReason)
+                      return timeSelectionDisabledReason;
+                    if (!isStaticallyAvailable) return timeState.message;
+                    if (slotsFetchPending) return t("slotsChecking");
+                    if (slotsFetchError) return slotsFetchError;
+                    if (isClosed) return t("titleClosed");
+                    if (isFull) return t("titleFull");
+                    if (slot)
+                      return t("titleSlot", {
+                        capacity: slot.capacity,
+                        remaining: slot.remaining,
+                      });
+                    return t("titleAvailable");
+                  })();
 
-                    return (
-                      <button
-                        key={time}
-                        type="button"
-                        disabled={isDisabled}
-                        aria-pressed={!isDisabled && isSelected}
-                        aria-label={`${time}${timeLabel ? ` - ${timeLabel}` : ` - ${t("timeAriaAvailable")}`}`}
-                        onClick={() => {
-                          setUserTouchedTime(true);
-                          setSelectedTime(time);
-                          resetNotice();
-                        }}
-                        className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${timeButtonStateClass}`}
-                        title={titleMessage}
-                      >
-                        <span className="block">{time}</span>
-                        {timeLabel ? (
-                          <span className="mt-1 block text-[11px] leading-4">
-                            {timeLabel}
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-                {timeSelectionDisabledReason ? (
-                  isReservationDataLoading ? (
-                    <p className="mt-3 text-xs leading-5 text-slate-500" role="status">
-                      {timeSelectionDisabledReason}
-                    </p>
-                  ) : (
-                    <p className="mt-3 text-sm font-semibold text-warning" role="alert">
-                      {timeSelectionDisabledReason}
-                    </p>
-                  )
-                ) : slotsFetchError ? (
-                  <p className="mt-3 text-sm font-semibold text-error" role="alert">
-                    {slotsFetchError}
-                  </p>
-                ) : slotsFetchPending ? (
-                  <p className="mt-3 text-xs leading-5 text-slate-500">
-                    {t("slotsChecking")}
-                  </p>
-                ) : availableTimeCount === 0 ? (
-                  <p className="mt-3 text-sm font-semibold text-warning" role="alert">
-                    {t("noAvailableTimes")}
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      disabled={isDisabled}
+                      aria-pressed={!isDisabled && isSelected}
+                      aria-label={`${time}${timeLabel ? ` - ${timeLabel}` : ` - ${t("timeAriaAvailable")}`}`}
+                      onClick={() => {
+                        setUserTouchedTime(true);
+                        setSelectedTime(time);
+                        resetNotice();
+                      }}
+                      className={`min-h-14 rounded-md border px-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${timeButtonStateClass}`}
+                      title={titleMessage}
+                    >
+                      <span className="block">{time}</span>
+                      {timeLabel ? (
+                        <span className="mt-1 block text-[11px] leading-4">
+                          {timeLabel}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {timeSelectionDisabledReason ? (
+                isReservationDataLoading ? (
+                  <p className="mt-3 text-xs leading-5 text-slate-500" role="status">
+                    {timeSelectionDisabledReason}
                   </p>
                 ) : (
-                  <div className="mt-3 space-y-1">
-                    <p className="text-xs leading-5 text-slate-500">
-                      {t("availableCount", {
-                        available: availableTimeCount,
-                        total: gym.availableTimes.length,
+                  <p className="mt-3 text-sm font-semibold text-warning" role="alert">
+                    {timeSelectionDisabledReason}
+                  </p>
+                )
+              ) : slotsFetchError ? (
+                <p className="mt-3 text-sm font-semibold text-error" role="alert">
+                  {slotsFetchError}
+                </p>
+              ) : slotsFetchPending ? (
+                <p className="mt-3 text-xs leading-5 text-slate-500">
+                  {t("slotsChecking")}
+                </p>
+              ) : availableTimeCount === 0 ? (
+                <p className="mt-3 text-sm font-semibold text-warning" role="alert">
+                  {t("noAvailableTimes")}
+                </p>
+              ) : (
+                <div className="mt-3 space-y-1">
+                  <p className="text-xs leading-5 text-slate-500">
+                    {t("availableCount", {
+                      available: availableTimeCount,
+                      total: gym.availableTimes.length,
+                    })}
+                  </p>
+                  {userTouchedTime &&
+                  !hasReservationNotice &&
+                  selectedTime !== effectiveSelectedTime ? (
+                    <p
+                      className="text-xs font-semibold leading-5 text-warning"
+                      role="status"
+                    >
+                      {t("timeAutoChanged", {
+                        original: selectedTime,
+                        effective: effectiveSelectedTime,
                       })}
                     </p>
-                    {userTouchedTime &&
-                    !hasReservationNotice &&
-                    selectedTime !== effectiveSelectedTime ? (
-                      <p
-                        className="text-xs font-semibold leading-5 text-warning"
-                        role="status"
-                      >
-                        {t("timeAutoChanged", {
-                          original: selectedTime,
-                          effective: effectiveSelectedTime,
-                        })}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </>
+                  ) : null}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="mt-4 rounded-md border border-line bg-surface-2 px-3 py-3 text-sm font-semibold text-subtle">
+              {t("dateLoading")}
+            </div>
+          )}
+            </fieldset>
+          </div>
+
+          {/* 예약자 정보 */}
+          <div>
+            <SectionHeader title="예약자 정보" />
+            {profileState === "loading" || profileState === "idle" ? (
+              <p className="mt-4 text-sm text-slate-500">
+                예약자 정보를 불러오는 중입니다…
+              </p>
+            ) : profileState === "error" ? (
+              <p className="mt-4 text-sm font-semibold text-error" role="alert">
+                예약자 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.
+              </p>
             ) : (
-              <div className="mt-3 rounded-md border border-line bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-500">
-                {t("dateLoading")}
-              </div>
+              <>
+                <dl className="mt-4">
+                  <Row label="예약자명">{profileText.name}</Row>
+                  <Row label="생년월일">{profileText.birthDate}</Row>
+                  <Row label="연락처">{profileText.phone}</Row>
+                </dl>
+                {profileIncomplete ? (
+                  <p className="mt-2 text-[13px] leading-relaxed text-warning">
+                    예약자 정보가 비어 있습니다.{" "}
+                    <Link
+                      href="/mypage"
+                      className="font-semibold underline underline-offset-2"
+                    >
+                      마이페이지
+                    </Link>
+                    에서 정보를 입력해 주세요.
+                  </p>
+                ) : null}
+              </>
             )}
-          </fieldset>
+          </div>
+
+          {/* 약관 동의 */}
+          <div>
+            <SectionHeader title="약관 동의" />
+            <label className="mt-4 flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <input
+                type="checkbox"
+                checked={allAgreed}
+                onChange={toggleAllTerms}
+                className="size-5 shrink-0 accent-accent"
+              />
+              <span className="text-[15px] font-bold text-slate-900">
+                예약 내용을 확인하였고, 모두 동의합니다.
+              </span>
+            </label>
+            <ul className="mt-3 flex flex-col gap-2">
+              {REQUIRED_TERMS.map((term) => (
+                <li key={term.id}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={agreed[term.id]}
+                      onChange={() => toggleTerm(term.id)}
+                      className="size-5 shrink-0 accent-accent"
+                    />
+                    <span className="text-[14px] text-slate-800">{term.label}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {!allAgreed ? (
+              <p className="mt-3 text-[13px] font-semibold text-slate-500">
+                필수 약관에 모두 동의하시면 예약을 신청할 수 있습니다.
+              </p>
+            ) : null}
+          </div>
+
+          {/* 결제 내역 */}
+          <div>
+            <SectionHeader title="결제 내역" />
+            <dl className="mt-4">
+              <Row label="예약 일시">
+                {effectiveSelectedDate || t("summaryDatePreparing")}{" "}
+                {effectiveSelectedTime}
+              </Row>
+              <div className="mt-1 grid grid-cols-[160px_1fr] gap-4 rounded-lg bg-slate-50 px-4 py-3">
+                <dt className="self-center text-[14px] text-slate-500">
+                  현장 결제 예정 금액
+                </dt>
+                <dd className="self-center text-[16px] font-bold text-accent-strong">
+                  {formatGymPrice(price)}
+                </dd>
+              </div>
+            </dl>
+          </div>
         </div>
       </section>
 
-      <aside className="min-w-0 rounded-lg border border-line bg-white p-6 shadow-sm">
-        <p className="text-sm font-semibold text-accent-strong">
-          {t("summaryEyebrow")}
-        </p>
-        <p className="mt-1 text-xs leading-5 text-slate-500">
-          {t("summaryDesc")}
-        </p>
-        <dl className="mt-4 grid gap-3 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">{t("summaryGym")}</dt>
-            <dd className="font-semibold text-slate-950">{gym.name}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">{t("summarySport")}</dt>
-            <dd className="font-semibold text-slate-950">{selectedSport}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">{t("summaryDate")}</dt>
-            <dd className="font-semibold text-slate-950">
-              {effectiveSelectedDate || t("summaryDatePreparing")}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">{t("summaryTime")}</dt>
-            <dd className="font-semibold text-slate-950">
-              {effectiveSelectedTime}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4 border-t border-line pt-3">
-            <dt className="font-bold text-slate-950">{t("summaryPrice")}</dt>
-            <dd className="font-bold text-slate-950">
-              {formatGymPrice(price)}
-            </dd>
-          </div>
-        </dl>
-
+      {/* 예약 신청 */}
+      <div className="flex flex-col items-center gap-4">
         <button
           type="button"
           onClick={handleReserve}
-          disabled={Boolean(submitDisabledReason) || hasReservationNotice}
-          className={reserveButtonClass}
+          disabled={reserveButtonDisabled}
+          className="h-14 w-full max-w-90 rounded-full bg-accent text-[18px] font-bold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           {reserveButtonLabel}
         </button>
 
         {shouldShowSubmitDisabledReason && submitDisabled ? (
           <p
-            className={`mt-3 text-sm font-semibold ${
+            className={`text-sm font-semibold ${
               submitDisabled.tone === "pending" ? "text-slate-500" : "text-error"
             }`}
             role={submitDisabled.tone === "pending" ? "status" : "alert"}
@@ -914,7 +929,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         {notice ? (
           <div
             role="alert"
-            className={`mt-4 rounded-md border p-4 text-sm font-semibold ${noticeStyles[noticeTone]}`}
+            className={`w-full rounded-md border p-4 text-sm font-semibold ${noticeStyles[noticeTone]}`}
           >
             <p>{notice}</p>
             {noticeReservation ? (
@@ -971,7 +986,6 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             ) : null}
           </div>
         ) : null}
-      </aside>
       </div>
     </div>
   );
