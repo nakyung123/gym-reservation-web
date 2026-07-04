@@ -19,6 +19,7 @@ import {
 } from "@/components/mypage-board";
 import { BoardPagination } from "@/components/board-pagination";
 import { ReservationQrModal } from "@/components/reservation-qr-modal";
+import { AlertModal } from "@/components/alert-modal";
 import { resendEmailVerification } from "@/lib/firebase-email-auth";
 import {
   reauthenticateMyPassword,
@@ -29,16 +30,17 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
-import { createUserReservationDetail } from "@/lib/reservation-detail";
-import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
 import {
   PASSWORD_POLICY_HINT,
   validatePasswordPolicy,
 } from "@/lib/password-policy";
 import { withdrawAccount } from "@/lib/withdrawal-client";
 import { fetchUserProfile, saveUserProfile } from "@/lib/user-profile-client";
+import { fetchMyVocPosts } from "@/lib/voc-client";
+import { MypageInquiriesTable } from "@/components/mypage-inquiries-table";
+import { reservationDisplayNumber } from "@/components/reservation-ticket";
 import type { UserProfile } from "@/lib/user-profile";
-import type { Gym, Reservation } from "@/types/domain";
+import type { Gym, Reservation, VocPost } from "@/types/domain";
 
 type Tab = "reservations" | "favorites" | "inquiries" | "info";
 
@@ -139,6 +141,16 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error && error.message
     ? error.message
     : "알 수 없는 오류가 발생했습니다.";
+}
+
+// QR 코드는 이용 시작 30분 전부터 확인 가능. 그 전이면 true(아직 QR 미생성).
+// 시각 비교(Date.now)는 렌더가 아닌 모듈 함수에서 수행한다.
+const QR_LEAD_MS = 30 * 60 * 1000;
+function isQrTooEarly(reservation: Reservation): boolean {
+  const startMs = new Date(
+    `${reservation.date}T${reservation.time}:00`,
+  ).getTime();
+  return !Number.isNaN(startMs) && Date.now() < startMs - QR_LEAD_MS;
 }
 
 function logErrorStatus(context: string, message: string, status?: number) {
@@ -281,8 +293,7 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
   const saveAbortControllerRef = useRef<AbortController | null>(null);
   const readyUserId = authState.status === "ready" ? authState.user.uid : null;
 
-  const { favorites, toggleFavorite, loadError: favoritesLoadError } =
-    useFavorites();
+  const { favorites, loadError: favoritesLoadError } = useFavorites();
 
   useEffect(() => {
     try {
@@ -560,11 +571,13 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
             gyms={gyms}
             favorites={favorites}
             loadError={favoritesLoadError}
-            onRemove={toggleFavorite}
             page={parsePage(searchParams.get("favPage"))}
           />
         ) : tab === "inquiries" ? (
-          <InquiriesPanel />
+          <InquiriesPanel
+            gyms={gyms}
+            page={parsePage(searchParams.get("inqPage"))}
+          />
         ) : account.isPasswordProvider && !gateUnlocked ? (
           <AccountGate onUnlock={() => setGateUnlocked(true)} />
         ) : (
@@ -617,16 +630,6 @@ function Shell({ children }: { children: React.ReactNode }) {
 const RSV_PILL_CLASS =
   "inline-flex h-[40px] w-[117.92px] items-center justify-center rounded-full border border-line-strong text-[14px] font-semibold text-foreground transition hover:border-accent hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
-// 예약번호 = 예약일(YYMMDD) + 예약 id에서 파생한 4자리(표시용 안정값). 예: 2026-06-23 → 2606231234
-function reservationDisplayNumber(reservation: Reservation): string {
-  const ymd = reservation.date.slice(2).replaceAll("-", "");
-  let hash = 0;
-  for (const ch of reservation.id) {
-    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  }
-  return `${ymd}${String(hash % 10000).padStart(4, "0")}`;
-}
-
 // 예약내역: KMI 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
 function ReservationsBoardPanel({
   gyms,
@@ -659,34 +662,16 @@ function ReservationsBoardPanel({
 
   // QR 보기 클릭 시 페이지 이동 없이 띄울 QR 체크인 팝업의 대상 예약.
   const [qrReservation, setQrReservation] = useState<Reservation | null>(null);
-  // 예약 취소: 확인 모달 대상 / 취소 진행 중 id / 결과 알림.
-  const [pendingCancel, setPendingCancel] = useState<Reservation | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [cancelNotice, setCancelNotice] = useState<{
-    tone: "success" | "error";
-    message: string;
-  } | null>(null);
-  const currentMinuteValue = useCurrentMinuteValue();
-  const now = currentMinuteValue ? new Date(currentMinuteValue) : new Date();
+  // 이용 30분 전 이전에 QR 보기를 누르면 팝업 대신 안내 알림창을 띄운다.
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
-  const handleCancel = async (reservationId: string) => {
-    if (cancellingId) return;
-    setCancellingId(reservationId);
-    setPendingCancel(null);
-    try {
-      const result = await reservationRepository.cancel(reservationId);
-      setCancelNotice({
-        tone: result.ok ? "success" : "error",
-        message: result.message,
-      });
-    } catch {
-      setCancelNotice({
-        tone: "error",
-        message: "예약 취소 중 오류가 발생했습니다. 다시 시도해 주세요.",
-      });
-    } finally {
-      setCancellingId(null);
+  // 30분 전 이전이면 팝업 대신 안내 알림창을 띄운다(판정은 모듈 함수 isQrTooEarly).
+  const handleQrClick = (reservation: Reservation) => {
+    if (isQrTooEarly(reservation)) {
+      setAlertMessage("예약 시간 30분 전부터 QR 코드를 확인할 수 있습니다.");
+      return;
     }
+    setQrReservation(reservation);
   };
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE));
@@ -711,7 +696,7 @@ function ReservationsBoardPanel({
   const rows: BoardRow[] = pageItems.map((reservation: Reservation) => {
     const gym = gymsById.get(reservation.gymId);
     const gymName = gym?.name ?? t("rsvMissingGym");
-    // 자세히 보기는 새 예약 내역 페이지를 새 탭(독립 화면)으로 연다.
+    // 자세히 보기는 예약 상세 페이지로 같은 탭에서 이동한다(사이트 헤더/푸터 유지).
     const detailHref = `/reservations/${encodeURIComponent(reservation.id)}/detail`;
     return {
       key: reservation.id,
@@ -728,48 +713,18 @@ function ReservationsBoardPanel({
         <span key="sport" className="text-foreground">
           {reservation.sport}
         </span>,
-        (() => {
-          // 예약중이고 취소 가능 기한 내일 때만 상태 아래에 '예약 취소' 버튼을 노출한다.
-          const canCancel =
-            reservation.status === "reserved" &&
-            createUserReservationDetail(reservation, { now }).cancellation
-              .canCancel;
-          return (
-            <span
-              key="status"
-              className="flex flex-col items-center gap-1 text-foreground"
-            >
-              <span>{tR(`status.${reservation.status}`)}</span>
-              {canCancel ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCancelNotice(null);
-                    setPendingCancel(reservation);
-                  }}
-                  disabled={cancellingId === reservation.id}
-                  className="text-[13px] font-semibold text-error underline-offset-2 transition hover:underline disabled:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  {cancellingId === reservation.id ? "취소 중…" : "예약 취소"}
-                </button>
-              ) : null}
-            </span>
-          );
-        })(),
-        <Link
-          key="detail"
-          href={detailHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={RSV_PILL_CLASS}
-        >
+        // 예약 취소는 예약 상세 페이지에서만 제공한다. 목록 상태 칸은 상태 텍스트만 표시.
+        <span key="status" className="text-foreground">
+          {tR(`status.${reservation.status}`)}
+        </span>,
+        <Link key="detail" href={detailHref} className={RSV_PILL_CLASS}>
           {t("rsvDetailLink")}
         </Link>,
         reservation.status === "reserved" ? (
           <button
             key="qr"
             type="button"
-            onClick={() => setQrReservation(reservation)}
+            onClick={() => handleQrClick(reservation)}
             aria-label={t("rsvQrAria")}
             className={RSV_PILL_CLASS}
           >
@@ -793,18 +748,6 @@ function ReservationsBoardPanel({
 
   return (
     <section className="w-full">
-      {cancelNotice ? (
-        <div
-          role="alert"
-          className={`mb-4 rounded-md border px-4 py-3 text-sm font-semibold ${
-            cancelNotice.tone === "success"
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-error/30 bg-error/10 text-error"
-          }`}
-        >
-          {cancelNotice.message}
-        </div>
-      ) : null}
       <MypageBoard
         columns={columns}
         rows={rows}
@@ -832,47 +775,11 @@ function ReservationsBoardPanel({
           onClose={() => setQrReservation(null)}
         />
       ) : null}
-      {pendingCancel ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="예약 취소 확인"
-          onClick={() => setPendingCancel(null)}
-        >
-          <div
-            className="w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-[18px] font-bold text-slate-900">
-              예약을 취소할까요?
-            </h2>
-            <p className="mt-2 text-[14px] leading-6 text-slate-600">
-              {gymsById.get(pendingCancel.gymId)?.name ?? t("rsvMissingGym")} ·{" "}
-              {pendingCancel.date} {pendingCancel.time} · {pendingCancel.sport}
-            </p>
-            <p className="mt-1 text-[13px] text-slate-400">
-              취소 후에는 되돌릴 수 없습니다.
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingCancel(null)}
-                className="h-10 rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                닫기
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCancel(pendingCancel.id)}
-                disabled={Boolean(cancellingId)}
-                className="h-10 rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {cancellingId ? "취소 중…" : "예약 취소"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {alertMessage ? (
+        <AlertModal
+          message={alertMessage}
+          onClose={() => setAlertMessage(null)}
+        />
       ) : null}
     </section>
   );
@@ -883,16 +790,32 @@ function FavoritesPanel({
   gyms,
   favorites,
   loadError,
-  onRemove,
   page,
 }: {
   gyms: Gym[];
   favorites: ReadonlySet<string>;
   loadError: string | null;
-  onRemove: (gymId: string) => void;
   page: number;
 }) {
   const t = useTranslations("Mypage");
+
+  // 예약횟수 집계용 예약 스냅샷. 예약내역 표와 동일한 저장소를 구독한다.
+  const snapshot = useSyncExternalStore(
+    reservationRepository.subscribe,
+    reservationRepository.getSnapshot,
+    reservationRepository.getServerSnapshot,
+  );
+  // 예약횟수 = 그 시설에 낸 예약 건수(상태 무관, 취소 포함).
+  const bookingCountByGym = useMemo(() => {
+    const map = new Map<string, number>();
+    const parsed = parseReservationSnapshot(snapshot);
+    if (parsed.ok) {
+      for (const reservation of parsed.reservations) {
+        map.set(reservation.gymId, (map.get(reservation.gymId) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [snapshot]);
 
   const favoritedGyms = useMemo(
     () =>
@@ -909,13 +832,13 @@ function FavoritesPanel({
     currentPage * PER_PAGE,
   );
 
-  // 문의내역과 동일한 표 스타일(18px·가운데·th72·td106·아이콘40). 폭은 비율(그리드 내 정렬), 주 컬럼(시설명) 넓게.
+  // 종목이 여러 개면 줄바꿈으로 행 높이가 커지므로 시설명 폭을 줄이고 종목 폭을 넓혀 밸런스를 맞춘다.
   const columns: BoardColumn[] = [
     { label: t("favColNumber"), width: "w-[10%]" },
-    { label: t("favColName"), width: "w-[60%]" },
-    { label: t("favColRegion"), width: "w-[10%]", hideOnMobile: true },
-    { label: t("favColSports"), width: "w-[10%]", hideOnMobile: true },
-    { label: t("favColAction"), width: "w-[10%]" },
+    { label: t("favColName"), width: "w-[40%]" },
+    { label: t("favColRegion"), width: "w-[16%]", hideOnMobile: true },
+    { label: t("favColSports"), width: "w-[22%]", hideOnMobile: true },
+    { label: t("favColUsage"), width: "w-[12%]" },
   ];
 
   const rows: BoardRow[] = pageItems.map((gym, index) => ({
@@ -931,27 +854,14 @@ function FavoritesPanel({
       >
         {gym.name}
       </Link>,
-      <span key="region" className="text-muted">
+      <span key="region" className="text-foreground">
         {gym.region}
       </span>,
-      <span key="sports" className="text-muted">
-        {gym.sports.join(" · ")}
+      <span key="sports" className="text-foreground">
+        {gym.sports.join(", ")}
       </span>,
-      <span key="action" className="flex items-center justify-center gap-1.5">
-        <Link
-          href={`/reserve/${gym.id}`}
-          className="inline-flex h-8 items-center rounded-md border border-accent/30 bg-accent-tint px-2.5 text-[12.5px] font-semibold text-accent-strong transition hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {t("favReserve")}
-        </Link>
-        <button
-          type="button"
-          onClick={() => onRemove(gym.id)}
-          aria-label={t("favRemoveAria", { name: gym.name })}
-          className="inline-flex h-8 items-center rounded-md border border-line-strong bg-white px-2.5 text-[12.5px] font-semibold text-muted transition hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {t("favRemove")}
-        </button>
+      <span key="usage" className="tabular-nums text-foreground">
+        {t("favUsageCount", { count: bookingCountByGym.get(gym.id) ?? 0 })}
       </span>,
     ],
   }));
@@ -977,6 +887,7 @@ function FavoritesPanel({
         columns={columns}
         rows={rows}
         emptyMessage={t("favoritesEmpty")}
+        cellHeightClass="h-[81px]"
       />
       <BoardPagination
         page={currentPage}
@@ -994,31 +905,70 @@ function FavoritesPanel({
   );
 }
 
-// 문의 내역: 사용자 제출 저장소가 없어 항상 빈 표(KMI VOC와 동일).
-//   th 140/140/840/140/140·높이 72, td 106, 18px 가운데, 빈상태 아이콘 40px.
-function InquiriesPanel() {
-  const t = useTranslations("Mypage");
+type VocListState =
+  | { status: "loading" }
+  | { status: "ready"; posts: VocPost[]; total: number }
+  | { status: "error"; message: string };
 
-  // 폭은 비율(그리드 내 정렬): 10/10/60/10/10.
-  const columns: BoardColumn[] = [
-    { label: t("inqColNumber"), width: "w-[10%]" },
-    { label: t("inqColGym"), width: "w-[10%]", hideOnMobile: true },
-    { label: t("inqColTitle"), width: "w-[60%]" },
-    { label: t("inqColName"), width: "w-[10%]", hideOnMobile: true },
-    { label: t("inqColDate"), width: "w-[10%]", hideOnMobile: true },
-  ];
+// 문의 내역: 로그인 사용자가 공개 문의 게시판(문의·FAQ)에 등록한 글을 예약/즐겨찾기 내역과 동일한
+// 표로 보여준다. 작성은 공개 게시판에서 하므로 여기엔 '문의하기' 버튼이 없다.
+// 행을 누르면 그 아래로 체육관/카테고리/답변이 펼쳐진다(표 구현은 MypageInquiriesTable).
+function InquiriesPanel({ gyms, page }: { gyms: Gym[]; page: number }) {
+  const t = useTranslations("Mypage");
+  const [state, setState] = useState<VocListState>({ status: "loading" });
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const controller = new AbortController();
+    setState({ status: "loading" });
+    fetchMyVocPosts(page, controller.signal)
+      .then((result) => {
+        if (result.ok) {
+          setState({ status: "ready", posts: result.posts, total: result.total });
+          return;
+        }
+        setState({ status: "error", message: result.message });
+      })
+      .catch((error) => {
+        if (isAbortError(error)) return;
+        setState({ status: "error", message: getErrorMessage(error) });
+      });
+    return () => controller.abort();
+  }, [page]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const posts = state.status === "ready" ? state.posts : [];
+  const total = state.status === "ready" ? state.total : 0;
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+
+  const buildHref = (target: number) => {
+    const params = new URLSearchParams();
+    params.set("tab", "inquiries");
+    if (target > 1) params.set("inqPage", String(target));
+    return `/mypage?${params.toString()}`;
+  };
+
+  const emptyMessage =
+    state.status === "loading"
+      ? t("inqLoading")
+      : state.status === "error"
+        ? state.message
+        : t("inquiriesEmpty");
 
   return (
     <section className="w-full">
-      <MypageBoard
-        columns={columns}
-        rows={[]}
-        emptyMessage={t("inquiriesEmpty")}
+      <MypageInquiriesTable
+        posts={posts}
+        gyms={gyms}
+        total={total}
+        page={currentPage}
+        emptyMessage={emptyMessage}
       />
       <BoardPagination
-        page={1}
-        totalPages={1}
-        buildHref={() => "/mypage?tab=inquiries"}
+        page={currentPage}
+        totalPages={totalPages}
+        buildHref={buildHref}
         labels={{
           pagination: t("pagination"),
           firstPage: t("firstPage"),
