@@ -6,7 +6,7 @@ import { getTranslations } from "next-intl/server";
  * 컬럼은 flex space-between로 분배하고, px 값(패딩 44/30·제목 15.5·전화 23 등)을 시안대로 옮겼다.
  *
  * 라벨/제목은 i18n 메시지 키(Footer 네임스페이스)로 관리하고 getTranslations로 렌더한다.
- * href가 없는 항목(이용약관·개인정보처리방침)은 아직 페이지가 없는 메뉴로, 이동하지 않는다.
+ * 이용약관·개인정보처리방침은 공지사항 상시 게시글(/notice/{id})로 연결한다.
  */
 type FooterLink = {
   labelKey: string;
@@ -34,9 +34,9 @@ const FOOTER_COLUMNS: FooterColumn[] = [
   {
     titleKey: "info",
     links: [
-      // 이용약관·개인정보처리방침은 법적 문서라 데모로 채우지 않고 placeholder로 둔다.
-      { labelKey: "terms" },
-      { labelKey: "privacy" },
+      // 이용약관·개인정보처리방침은 공지사항 게시글로 연결한다.
+      { labelKey: "terms", href: "/notice/terms-of-service" },
+      { labelKey: "privacy", href: "/notice/privacy-policy" },
     ],
   },
 ];

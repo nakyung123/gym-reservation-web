@@ -143,6 +143,8 @@ function PostNavItem({
   emptyLabel: string;
 }) {
   const isNext = side === "next";
+  // 이전/다음 글이 있으면 검은색, 없으면 #8E8E8E.
+  const colorClass = item ? "text-foreground" : "text-[#8E8E8E]";
   const arrow = (
     <svg
       viewBox="0 0 24 24"
@@ -152,13 +154,15 @@ function PostNavItem({
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className="size-5 shrink-0 text-subtle"
+      className={`size-5 shrink-0 ${colorClass}`}
     >
       <path d={isNext ? "M5 12h14M13 6l6 6-6 6" : "M19 12H5M11 6l-6 6 6 6"} />
     </svg>
   );
   const labelEl = (
-    <span className="shrink-0 text-[15px] font-semibold text-subtle sm:text-[16px]">
+    <span
+      className={`shrink-0 text-[15px] font-semibold sm:text-[16px] ${colorClass}`}
+    >
       {label}
     </span>
   );
@@ -167,7 +171,7 @@ function PostNavItem({
       {item.title}
     </span>
   ) : (
-    <span className="truncate text-[15px] text-line-strong sm:text-[16px]">
+    <span className="truncate text-[15px] text-[#8E8E8E] sm:text-[16px]">
       {emptyLabel}
     </span>
   );

@@ -29,16 +29,19 @@ function formatDate(iso: string): string {
   return iso.replaceAll("-", ".");
 }
 
-// q/page를 보존한 목록 URL.
-function listHref(page: number, q: string): string {
+const SEARCH_FIELDS = ["all", "title", "content"] as const;
+
+// field/q/page를 보존한 목록 URL.
+function listHref(page: number, q: string, field: string): string {
   const params = new URLSearchParams();
+  if (field && field !== "all") params.set("field", field);
   if (q) params.set("q", q);
   if (page > 1) params.set("page", String(page));
   const query = params.toString();
   return query ? `/notice?${query}` : "/notice";
 }
 
-type SearchParams = Promise<{ page?: string; q?: string }>;
+type SearchParams = Promise<{ page?: string; q?: string; field?: string }>;
 type Row = { notice: Notice; number: number };
 
 export default async function NoticePage({
@@ -47,13 +50,26 @@ export default async function NoticePage({
   searchParams: SearchParams;
 }) {
   const t = await getTranslations("Notice");
-  const { page: pageParam, q: qParam } = await searchParams;
+  const {
+    page: pageParam,
+    q: qParam,
+    field: fieldParam,
+  } = await searchParams;
   const query = (qParam ?? "").trim();
+  const field = SEARCH_FIELDS.includes(
+    (fieldParam ?? "") as (typeof SEARCH_FIELDS)[number],
+  )
+    ? (fieldParam as string)
+    : "all";
   const isSearching = query.length > 0;
 
-  // 검색 중에는 주요공지 구분 없이 전체에서 제목 매칭(평면), 아니면 일반 공지만 순번/페이지.
+  // 검색 중에는 주요공지 구분 없이 전체에서 검색 범위(전체/제목/내용)로 매칭(평면), 아니면 일반 공지만 순번/페이지.
   const source = isSearching
-    ? listNotices().filter((notice) => notice.title.includes(query))
+    ? listNotices().filter((notice) => {
+        if (field === "title") return notice.title.includes(query);
+        if (field === "content") return notice.body.includes(query);
+        return notice.title.includes(query) || notice.body.includes(query);
+      })
     : listNormalNotices();
   const pinned = isSearching ? [] : listPinnedNotices();
 
@@ -95,18 +111,25 @@ export default async function NoticePage({
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-muted">{t("intro")}</p>
 
-      {/* 검색바 (공용 SearchBar) */}
-      <div className="mt-9">
+      {/* 검색바 (공용 SearchBar, 문의·FAQ와 동일 규격). 위·아래 60px */}
+      <div className="mt-[60px]">
         <SearchBar
           action="/notice"
+          variant="board"
           placeholder={t("searchPlaceholder")}
           searchLabel={t("searchLabel")}
+          fields={[
+            { value: "all", label: t("allCategory") },
+            { value: "title", label: t("fieldTitle") },
+            { value: "content", label: t("fieldContent") },
+          ]}
+          defaultField={field}
           defaultQuery={query}
         />
       </div>
 
       {/* 게시판 */}
-      <div className="mt-10 border-t-2 border-foreground/80">
+      <div className="mt-[60px] border-t-2 border-foreground/80">
         {isEmpty ? (
           <p className="py-20 text-center text-[15px] text-muted">
             {isSearching ? t("searchEmpty") : t("empty")}
@@ -129,12 +152,14 @@ export default async function NoticePage({
               </tr>
             </thead>
             <tbody>
-              {pinned.map((notice) => (
+              {pinned.map((notice, index) => (
                 <NoticeRow
                   key={notice.id}
                   notice={notice}
                   author={t("author")}
                   pinned
+                  // 마지막 주요공지 아래 구분선은 게시판 맨 위 구분선과 동일하게(두껍게).
+                  strongBottom={index === pinned.length - 1}
                   left={
                     <span className="inline-flex h-9 items-center rounded-[25px] bg-accent px-3.5 text-[13px] font-bold text-white">
                       {t("pinnedLabel")}
@@ -163,7 +188,7 @@ export default async function NoticePage({
         <BoardPagination
           page={page}
           totalPages={totalPages}
-          buildHref={(p) => listHref(p, query)}
+          buildHref={(p) => listHref(p, query, field)}
           labels={{
             pagination: t("pagination"),
             firstPage: t("firstPage"),
@@ -183,15 +208,21 @@ function NoticeRow({
   author,
   left,
   pinned = false,
+  strongBottom = false,
 }: {
   notice: Notice;
   author: string;
   left: ReactNode;
   pinned?: boolean;
+  strongBottom?: boolean;
 }) {
   return (
     <tr
-      className={`group border-b border-line transition-colors ${
+      className={`group transition-colors ${
+        strongBottom
+          ? "border-b-2 border-foreground/80"
+          : "border-b border-line"
+      } ${
         pinned ? "bg-accent-tint hover:bg-accent-tint/70" : "hover:bg-surface-2"
       }`}
     >

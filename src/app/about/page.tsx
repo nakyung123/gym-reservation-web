@@ -158,7 +158,7 @@ const PRINCIPLES: Principle[] = [
   },
   {
     title: "접근",
-    desc: "한국어·English·日本語·中文, 누구나 막힘없이 이용하도록.",
+    desc: "한국어·English, 누구나 막힘없이 이용하도록.",
     icon: (
       <>
         <circle cx="12" cy="12" r="9" />
