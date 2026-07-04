@@ -80,6 +80,76 @@ describe("createReservationInDb", () => {
     expect(locks[0].reservationId).toBe(reservations[0].id);
   });
 
+  it("people을 보내면 저장가 = 단가 × 인원으로 합산 저장된다", async () => {
+    const result = await createReservationInDb({
+      userId: userA,
+      draft: { ...draftFor("10:00"), people: 3 },
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // 배드민턴 단가 12000 × 3명
+    expect(result.reservation.price).toBe(36000);
+
+    const stored = await prisma.reservation.findUnique({
+      where: { id: result.reservation.id },
+    });
+    expect(stored?.price).toBe(36000);
+  });
+
+  it("people 미전송 시 저장가 = 단가(×1) — 기존 동작 유지", async () => {
+    const result = await createReservationInDb({
+      userId: userA,
+      draft: draftFor("11:00"),
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.reservation.price).toBe(12000);
+  });
+
+  it("people이 정원을 초과하면 rejected (배드민턴 정원 4, 5 요청)", async () => {
+    const result = await createReservationInDb({
+      userId: userA,
+      draft: { ...draftFor("12:00"), people: 5 },
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+
+    // 거부 시 reservation/slot이 생성되지 않는다.
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationSlot.count()).toBe(0);
+  });
+
+  it("people이 0이면 rejected", async () => {
+    const result = await createReservationInDb({
+      userId: userA,
+      draft: { ...draftFor("14:00"), people: 0 },
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe("rejected");
+  });
+
+  it("people 경계값(배드민턴 정원 4)은 합산 저장된다", async () => {
+    const result = await createReservationInDb({
+      userId: userA,
+      draft: { ...draftFor("10:00"), people: 4 },
+      gym: TEST_GYM,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.reservation.price).toBe(48000); // 12000 × 4
+  });
+
   it("같은 사용자가 같은 슬롯을 두 번 예약하면 두 번째는 duplicate로 차단된다", async () => {
     const draft = draftFor("11:00");
 

@@ -15,6 +15,7 @@ const reservation: Reservation = {
   time: "10:00",
   price: 12000,
   status: "reserved",
+  paymentMethod: null,
   createdAt: "2026-05-01T00:00:00.000Z",
 };
 

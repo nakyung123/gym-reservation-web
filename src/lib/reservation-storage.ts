@@ -145,6 +145,7 @@ function buildReservation(draft: ReservationDraft): Reservation {
     ...draft,
     id: createReservationId(),
     status: "reserved",
+    paymentMethod: draft.paymentMethod ?? null,
     createdAt: new Date().toISOString(),
   };
 }

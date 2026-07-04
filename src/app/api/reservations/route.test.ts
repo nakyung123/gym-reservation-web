@@ -217,6 +217,70 @@ describe("POST /api/reservations", () => {
     expect(stored.price).toBe(12000);
   });
 
+  it("people을 보내면 저장가 = 단가 × 인원으로 합산 저장된다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "people-route-user" });
+    const date = futureDate(2);
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "11:00",
+        people: 3,
+      }),
+    );
+    const body = (await response.json()) as {
+      reservation?: { id?: unknown; price?: unknown };
+    };
+
+    expect(response.status).toBe(201);
+    // 배드민턴 단가 12000 × 3명
+    expect(body.reservation?.price).toBe(36000);
+
+    const stored = await prisma.reservation.findUniqueOrThrow({
+      where: { id: String(body.reservation?.id) },
+    });
+    expect(stored.price).toBe(36000);
+  });
+
+  it("정원을 초과한 people은 422 rejected로 응답하고 예약을 만들지 않는다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "people-over-route-user" });
+    const date = futureDate(3);
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "12:00",
+        people: 5,
+      }),
+    );
+    const body = (await response.json()) as { status?: unknown };
+
+    expect(response.status).toBe(422);
+    expect(body.status).toBe("rejected");
+    expect(await prisma.reservation.count()).toBe(0);
+  });
+
+  it("people이 number가 아니면 400으로 거부한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "people-bad-route-user" });
+    const date = futureDate(4);
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "13:00",
+        people: "3",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it("같은 사용자의 같은 활성 예약은 409 duplicate로 응답하고 슬롯을 다시 늘리지 않는다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "duplicate-route-user" });
     const date = futureDate();

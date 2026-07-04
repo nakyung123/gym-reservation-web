@@ -13,6 +13,17 @@ export const reservationStatusLabel: Record<Reservation["status"], string> = {
   used: "이용 완료",
 };
 
+// 예약번호 표시값 = 예약일(YYMMDD) + 예약 id 파생 4자리(표시용 안정값).
+// 마이페이지 예약 목록과 예약 상세가 공유하는 SSOT. 예: 2026-06-23 → 2606231234
+export function reservationDisplayNumber(reservation: Reservation): string {
+  const ymd = reservation.date.slice(2).replaceAll("-", "");
+  let hash = 0;
+  for (const ch of reservation.id) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return `${ymd}${String(hash % 10000).padStart(4, "0")}`;
+}
+
 // 예약 상태 배지 색상 SSOT(사용자/관리자 공통).
 export const reservationStatusBadgeStyles: Record<
   Reservation["status"],

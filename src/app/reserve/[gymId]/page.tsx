@@ -27,7 +27,7 @@ export default async function ReservePage({ params }: ReservePageProps) {
   const t = await getTranslations("Reserve");
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 sm:py-12">
+    <main className="bg-background px-5 py-8 text-foreground sm:px-8 sm:py-12">
       {/* ReservationForm이 useSearchParams로 ?sport=&date=&time= 쿼리를
           폼 초기값에 반영하므로 정적 프리렌더 경로에서 Suspense 경계가 필요하다. */}
       <Suspense

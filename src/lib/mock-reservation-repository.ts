@@ -34,6 +34,7 @@ function buildReservation(draft: ReservationDraft): Reservation {
     time: draft.time,
     price: draft.price,
     status: "reserved",
+    paymentMethod: draft.paymentMethod ?? null,
     createdAt: now,
   };
 }

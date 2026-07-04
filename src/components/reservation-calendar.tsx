@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
-// 예약 일자 선택용 월간 캘린더 (PC). 시안의 '검진 일자' 캘린더를 우리 예약에 맞춰 재현한다.
+// 예약 일자 선택용 월간 캘린더 (PC). 시안(검진 예약 캘린더)을 예약에 맞춰 픽셀 재현한다.
 // - 예약 가능 범위: 오늘 ~ monthsAhead개월 뒤(기본 2개월). 그 밖/과거/휴관일은 비활성.
 // - 날짜만 고른다. 시간 선택과 실시간 잔여는 호출 측(예약 폼)의 시간 그리드가 담당한다.
 // - 날짜 비교는 YYYY-MM-DD 문자열 사전식 비교로 타임존 영향 없이 처리한다.
+// 스펙: 폭 752 / padding 16 / 타이틀 28px / 이전·다음 28×28 / 요일·일자 16px /
+//       선택 셀 98×56 / 예약 가능 기간 박스 367×80 / 선택완료 92×44.
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -15,6 +17,11 @@ function pad2(n: number) {
 
 function toValue(year: number, month: number, day: number) {
   return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+// YYYY-MM-DD → YYYY.MM.DD (안내 박스 표기용).
+function toDot(value: string) {
+  return value.replaceAll("-", ".");
 }
 
 // 해당 월(month=1~12)의 달력 셀 배열. 앞쪽 빈칸은 null로 채워 일요일 시작 7열에 맞춘다.
@@ -34,12 +41,14 @@ export function ReservationCalendar({
   monthsAhead = 2,
   isDateDisabled,
   onSelect,
+  closedDaysText = "연중무휴",
 }: {
   selectedDate: string | null;
   todayValue: string;
   monthsAhead?: number;
   isDateDisabled?: (value: string) => boolean;
   onSelect: (value: string) => void;
+  closedDaysText?: string;
 }) {
   const [ty, tm, td] = todayValue.split("-").map(Number);
   const maxObj = new Date(ty, tm - 1 + monthsAhead, td);
@@ -60,32 +69,44 @@ export function ReservationCalendar({
   function goPrev() {
     if (atMinMonth) return;
     setView((v) =>
-      v.month <= 1 ? { year: v.year - 1, month: 12 } : { year: v.year, month: v.month - 1 },
+      v.month <= 1
+        ? { year: v.year - 1, month: 12 }
+        : { year: v.year, month: v.month - 1 },
     );
   }
 
   function goNext() {
     if (atMaxMonth) return;
     setView((v) =>
-      v.month >= 12 ? { year: v.year + 1, month: 1 } : { year: v.year, month: v.month + 1 },
+      v.month >= 12
+        ? { year: v.year + 1, month: 1 }
+        : { year: v.year, month: v.month + 1 },
     );
   }
 
   const navButtonClass =
-    "grid size-9 place-items-center rounded-full text-[20px] text-foreground transition hover:bg-accent-tint disabled:cursor-not-allowed disabled:text-line-strong disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+    "grid size-7 place-items-center rounded-full border border-line text-foreground transition hover:bg-accent-tint disabled:cursor-not-allowed disabled:text-line-strong disabled:hover:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
   return (
-    <div>
-      {/* 예약 가능 기간 안내 */}
-      <p className="text-center text-[13px] text-muted">
-        예약 가능 기간{" "}
-        <span className="font-semibold text-accent-strong">
-          {todayValue} ~ {maxValue}
-        </span>
-      </p>
+    <div className="mx-auto w-full max-w-[752px] py-4">
+      {/* 안내 박스 2개: 제목은 검정, 값은 네이비. 자체 좌우 패딩 없이 섹션 그리드에 맞춤. 사이 20px */}
+      <div className="flex gap-5">
+        <div className="flex-1 rounded-xl bg-slate-50 px-4 py-4 text-center">
+          <p className="text-[14px] text-slate-900">예약 가능 기간</p>
+          <p className="mt-1 text-[16px] font-bold text-accent-strong">
+            {toDot(todayValue)} ~ {toDot(maxValue)}
+          </p>
+        </div>
+        <div className="flex-1 rounded-xl bg-slate-50 px-4 py-4 text-center">
+          <p className="text-[14px] text-slate-900">휴무일</p>
+          <p className="mt-1 text-[16px] font-bold text-accent-strong">
+            {closedDaysText}
+          </p>
+        </div>
+      </div>
 
-      {/* 월 네비게이션 */}
-      <div className="mt-3 flex items-center justify-center gap-6">
+      {/* 월 네비게이션 — 타이틀 28px, 화살표 28×28 */}
+      <div className="mt-6 flex items-center justify-center gap-6">
         <button
           type="button"
           onClick={goPrev}
@@ -93,9 +114,20 @@ export function ReservationCalendar({
           aria-label="이전 달"
           className={navButtonClass}
         >
-          ‹
+          <svg
+            viewBox="0 0 24 24"
+            className="size-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </button>
-        <span className="text-[20px] font-bold text-foreground">
+        <span className="text-[28px] font-bold text-slate-900">
           {view.year}.{pad2(view.month)}
         </span>
         <button
@@ -105,12 +137,23 @@ export function ReservationCalendar({
           aria-label="다음 달"
           className={navButtonClass}
         >
-          ›
+          <svg
+            viewBox="0 0 24 24"
+            className="size-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 6l6 6-6 6" />
+          </svg>
         </button>
       </div>
 
-      {/* 요일 헤더 */}
-      <div className="mt-5 grid grid-cols-7 text-center text-[13px] font-semibold">
+      {/* 요일 헤더 16px */}
+      <div className="mt-6 grid grid-cols-7 text-center text-[16px]">
         {WEEKDAYS.map((weekday, index) => (
           <span
             key={weekday}
@@ -127,11 +170,11 @@ export function ReservationCalendar({
         ))}
       </div>
 
-      {/* 날짜 그리드 */}
-      <div className="mt-2 grid grid-cols-7 justify-items-center gap-y-1">
+      {/* 날짜 그리드 — 셀 높이 56, 선택 시 98×56 네이비 박스 */}
+      <div className="mt-2 grid grid-cols-7">
         {cells.map((day, index) => {
           if (day === null) {
-            return <span key={`pad-${index}`} className="size-10" />;
+            return <div key={`pad-${index}`} className="h-14" />;
           }
           const value = toValue(view.year, view.month, day);
           const weekday = index % 7;
@@ -142,41 +185,57 @@ export function ReservationCalendar({
           const isSelected = value === selectedDate;
           const isToday = value === todayValue;
 
-          const dayClass = isSelected
-            ? "bg-accent font-bold text-white"
+          const numberClass = isSelected
+            ? "text-white"
             : disabled
-              ? "cursor-not-allowed text-line-strong"
+              ? "text-slate-300"
               : weekday === 0
-                ? "text-error hover:bg-accent-tint"
+                ? "text-error"
                 : weekday === 6
-                  ? "text-accent-strong hover:bg-accent-tint"
-                  : "text-foreground hover:bg-accent-tint";
+                  ? "text-accent-strong"
+                  : "text-slate-800";
 
           return (
-            <div key={value} className="flex flex-col items-center">
-              <button
-                type="button"
-                disabled={disabled}
-                aria-pressed={isSelected}
-                aria-label={`${view.year}년 ${view.month}월 ${day}일${
-                  isClosed ? " 휴관일" : ""
-                }`}
-                title={isClosed ? "휴관일" : undefined}
-                onClick={() => onSelect(value)}
-                className={`grid size-10 place-items-center rounded-full text-[15px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${dayClass}`}
-              >
-                {day}
-              </button>
-              <span
-                className={`text-[10px] font-semibold leading-none ${
-                  isToday ? "text-accent-strong" : "text-transparent"
-                }`}
-              >
-                오늘
-              </span>
-            </div>
+            <button
+              key={value}
+              type="button"
+              disabled={disabled}
+              aria-pressed={isSelected}
+              aria-label={`${view.year}년 ${view.month}월 ${day}일${
+                isClosed ? " 휴관일" : ""
+              }`}
+              title={isClosed ? "휴관일" : undefined}
+              onClick={() => onSelect(value)}
+              className={`relative mx-auto flex h-14 w-full max-w-[98px] items-center justify-center rounded-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                isSelected
+                  ? "bg-accent"
+                  : disabled
+                    ? "cursor-not-allowed"
+                    : "hover:bg-accent-tint"
+              }`}
+            >
+              {/* 숫자는 항상 셀 정중앙. '오늘'은 절대 위치라 중앙 정렬에 영향 없음 */}
+              <span className={`text-[16px] ${numberClass}`}>{day}</span>
+              {isToday ? (
+                <span
+                  className={`absolute bottom-1 text-[11px] font-semibold leading-none ${
+                    isSelected ? "text-white" : "text-accent-strong"
+                  }`}
+                >
+                  오늘
+                </span>
+              ) : null}
+            </button>
           );
         })}
+      </div>
+
+      {/* 예약불가 범례 */}
+      <div className="mt-4 flex justify-end">
+        <span className="flex items-center gap-1.5 text-[13px] text-slate-400">
+          <span className="size-1.5 rounded-full bg-slate-300" />
+          예약불가
+        </span>
       </div>
     </div>
   );

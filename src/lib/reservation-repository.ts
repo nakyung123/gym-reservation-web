@@ -221,6 +221,10 @@ export function isReservation(value: unknown): value is Reservation {
     (candidate.status === "reserved" ||
       candidate.status === "cancelled" ||
       candidate.status === "used") &&
+    // paymentMethod는 결제수단 도입 이전 데이터를 위해 미전송(undefined)/null도 허용한다.
+    (candidate.paymentMethod === undefined ||
+      candidate.paymentMethod === null ||
+      typeof candidate.paymentMethod === "string") &&
     typeof candidate.createdAt === "string"
   );
 }

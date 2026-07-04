@@ -101,7 +101,7 @@ export function ReservationQrModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-[400px] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="h-[849px] max-h-[90vh] w-full max-w-[454px] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -131,24 +131,24 @@ export function ReservationQrModal({
 
         {/* QR 카드: 파란 헤더(시설명) + QR + 남은 시간 */}
         <div className="mt-5 overflow-hidden rounded-2xl border border-line shadow-sm">
-          <div className="bg-accent px-4 py-3 text-center text-[15px] font-bold text-white">
+          <div className="bg-accent px-4 py-3 text-center text-[16px] font-bold text-white">
             {gymName}
           </div>
           <div className="flex flex-col items-center gap-4 px-6 py-6">
             <QRCodeSVG
               value={entryCode}
               level="M"
-              size={220}
-              className={`h-auto w-full max-w-[220px] ${isExpired ? "opacity-30" : ""}`}
+              size={170}
+              className={`h-auto w-full max-w-[170px] ${isExpired ? "opacity-30" : ""}`}
               role="img"
               aria-label="입장 QR 코드"
             />
             {isExpired ? (
-              <p className="text-center text-[15px] font-semibold text-error">
+              <p className="text-center text-[16px] font-semibold text-error">
                 시간이 지나 만료된 코드입니다.
               </p>
             ) : (
-              <div className="flex items-center gap-2 text-[15px] text-slate-500">
+              <div className="flex items-center gap-2 text-[16px] text-slate-500">
                 <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
                   <circle
                     cx="10"
@@ -179,26 +179,26 @@ export function ReservationQrModal({
         {/* 예약 정보 */}
         <dl className="mt-5">
           <div className="flex items-center justify-between border-b border-slate-100 py-3">
-            <dt className="text-[15px] font-semibold text-slate-700">이름</dt>
-            <dd className="text-[15px] text-slate-900">{name ?? "—"}</dd>
+            <dt className="text-[16px] font-semibold text-slate-700">이름</dt>
+            <dd className="text-[16px] text-slate-900">{name ?? "—"}</dd>
           </div>
           <div className="flex items-center justify-between border-b border-slate-100 py-3">
-            <dt className="text-[15px] font-semibold text-slate-700">종목</dt>
-            <dd className="text-[15px] text-slate-900">{reservation.sport}</dd>
+            <dt className="text-[16px] font-semibold text-slate-700">종목</dt>
+            <dd className="text-[16px] text-slate-900">{reservation.sport}</dd>
           </div>
           <div className="flex items-center justify-between border-b border-slate-100 py-3">
-            <dt className="text-[15px] font-semibold text-slate-700">
+            <dt className="text-[16px] font-semibold text-slate-700">
               시작시간
             </dt>
-            <dd className="text-[15px] text-slate-900">
+            <dd className="text-[16px] text-slate-900">
               {isValidStart ? formatDateTime(startDate) : "—"}
             </dd>
           </div>
           <div className="flex items-center justify-between py-3">
-            <dt className="text-[15px] font-semibold text-slate-700">
+            <dt className="text-[16px] font-semibold text-slate-700">
               종료시간
             </dt>
-            <dd className="text-[15px] text-slate-900">
+            <dd className="text-[16px] text-slate-900">
               {isValidStart ? formatDateTime(endDate) : "—"}
             </dd>
           </div>

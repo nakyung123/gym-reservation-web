@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/prisma-client";
 import {
   DEMO_RESERVATION_ID_PREFIX,
+  isPaymentMethod,
   isReservationStatus,
   isSport,
 } from "@/lib/domain-constants";
@@ -12,11 +13,15 @@ import {
   validateReservationDraft,
   validateUserReservationCancellation,
 } from "@/lib/reservation-rules";
-import { getGymSportPrice } from "@/lib/gym-utils";
+import {
+  computeReservationPrice,
+  isValidPeople,
+} from "@/lib/sport-capacity";
 import { ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT } from "@/lib/admin/admin-reservation-slot-policy";
 import { toDomainGym } from "@/lib/server/db-gym-mapper";
 import type {
   Gym,
+  PaymentMethod,
   Reservation,
   ReservationDraft,
   ReservationSlotAvailability,
@@ -71,6 +76,8 @@ function toDomainReservation(row: ReservationRow): Reservation {
     time: row.time,
     price: row.price,
     status: row.status,
+    // 알 수 없는 값은 null로 정규화(결제수단 도입 이전/손상 데이터 방어).
+    paymentMethod: isPaymentMethod(row.paymentMethod) ? row.paymentMethod : null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -700,7 +707,15 @@ export async function getAdminReservationOverview(
 
 export type CreateReservationInput = {
   userId: string;
-  draft: { gymId: string; sport: Sport; date: string; time: string };
+  // people은 전송용 transient. 서버가 단가 × clamp(people)로 합산가를 재계산해 저장한다.
+  draft: {
+    gymId: string;
+    sport: Sport;
+    date: string;
+    time: string;
+    people?: number;
+    paymentMethod?: PaymentMethod | null;
+  };
   gym: Gym;
 };
 
@@ -725,6 +740,15 @@ export async function createReservationInDb(
 ): Promise<CreateReservationOutput> {
   const { userId, draft, gym } = input;
 
+  // 인원 범위 검증은 트랜잭션 진입 전 early reject (새 중간 상태 없음).
+  if (!isValidPeople(draft.sport, draft.people)) {
+    return {
+      ok: false,
+      status: "rejected",
+      message: "이용 인원이 올바르지 않습니다.",
+    };
+  }
+
   const reservationsForUser = await listUserReservations(userId);
   const fullDraft: ReservationDraft = {
     userId,
@@ -732,7 +756,8 @@ export async function createReservationInDb(
     sport: draft.sport,
     date: draft.date,
     time: draft.time,
-    price: getGymSportPrice(gym, draft.sport),
+    // 저장가 = 단가 × clamp(people). people 미전송 시 ×1 → 기존 동작 유지.
+    price: computeReservationPrice(gym, draft.sport, draft.people),
   };
 
   // 서버에서 룰 재검증.
@@ -780,6 +805,7 @@ export async function createReservationInDb(
           time: draft.time,
           price: fullDraft.price,
           status: "reserved",
+          paymentMethod: draft.paymentMethod ?? null,
           activeKey,
         },
       });

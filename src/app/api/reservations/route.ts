@@ -5,7 +5,11 @@ import {
   listUserReservations,
 } from "@/lib/server/db-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
-import { isReservationStatus, isSport } from "@/lib/domain-constants";
+import {
+  isPaymentMethod,
+  isReservationStatus,
+  isSport,
+} from "@/lib/domain-constants";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { notifyReservationEvent } from "@/lib/server/reservation-notify";
 
@@ -45,6 +49,8 @@ type CreateBody = {
   sport?: unknown;
   date?: unknown;
   time?: unknown;
+  people?: unknown;
+  paymentMethod?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -75,6 +81,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // people은 전송용 transient(미전송 시 서버가 1로 처리). 보낸 경우 number만 허용하고,
+  // 범위 검증(정원 초과·비정수)은 createReservationInDb의 isValidPeople이 422로 reject한다.
+  if (body.people !== undefined && typeof body.people !== "number") {
+    return Response.json(
+      { message: "이용 인원이 올바르지 않습니다." },
+      { status: 400 },
+    );
+  }
+  const people = body.people;
+
+  // paymentMethod는 선택적(미전송 시 null). 보낸 경우 알려진 결제 수단만 허용한다.
+  if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
+    return Response.json(
+      { message: "결제 수단이 올바르지 않습니다." },
+      { status: 400 },
+    );
+  }
+  const paymentMethod = isPaymentMethod(body.paymentMethod)
+    ? body.paymentMethod
+    : null;
+
   let gym: Awaited<ReturnType<typeof gymRepository.findById>>;
   try {
     gym = await gymRepository.findById(body.gymId);
@@ -101,6 +128,8 @@ export async function POST(request: NextRequest) {
         sport: body.sport,
         date: body.date,
         time: body.time,
+        people,
+        paymentMethod,
       },
       gym,
     });

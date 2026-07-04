@@ -48,6 +48,7 @@ function reservationFor(overrides: Partial<Reservation> = {}): Reservation {
     time: draft.time,
     price: draft.price,
     status: "reserved",
+    paymentMethod: null,
     createdAt: "2026-05-01T00:00:00.000Z",
     ...overrides,
   };

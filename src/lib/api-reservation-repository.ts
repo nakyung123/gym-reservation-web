@@ -297,6 +297,8 @@ function buildReservation(draft: ReservationDraft): Reservation {
         ? crypto.randomUUID()
         : `pending-${Date.now()}`,
     status: "reserved",
+    // draft.paymentMethod는 선택적이므로 미전송 시 null로 정규화한다.
+    paymentMethod: draft.paymentMethod ?? null,
     createdAt: new Date().toISOString(),
   };
 }
@@ -321,6 +323,11 @@ async function createReservation(
     };
   }
 
+  // people은 Reservation 도메인 타입엔 없는 전송용 transient다. build()가 draft에서
+  // spread로 실어 보내므로 여기서만 로컬 캐스트로 읽어 POST 본문에 포함한다.
+  // 서버는 이 값으로 합산가(단가 × 인원)를 재계산해 저장한다.
+  const people = (reservation as Reservation & { people?: number }).people;
+
   let response: Response;
   try {
     response = await fetch("/api/reservations", {
@@ -334,6 +341,8 @@ async function createReservation(
         sport: reservation.sport,
         date: reservation.date,
         time: reservation.time,
+        people,
+        paymentMethod: reservation.paymentMethod,
       }),
     });
   } catch {
