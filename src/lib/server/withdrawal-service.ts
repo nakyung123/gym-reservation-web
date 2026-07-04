@@ -5,7 +5,7 @@ import type { WithdrawalInput } from "@/lib/withdrawal";
 
 // 회원 탈퇴 처리 service.
 // 1. 진행 중 예약(status="reserved") 검사 → 있으면 차단.
-// 2. 사용자 데이터 hard delete (Reservation → ReservationLock cascade, Favorite, UserProfile).
+// 2. 사용자 데이터 hard delete (Reservation → ReservationLock cascade, Favorite, Inquiry, 본인 VocPost, UserProfile).
 // 3. Firebase Auth user 삭제.
 // 4. 익명 사유 기록 (uid 미저장).
 // DB 작업은 트랜잭션으로 묶고, Firebase Auth 삭제는 트랜잭션 외부에서 수행한다
@@ -45,12 +45,17 @@ export async function withdrawAccount(
   }
 
   // 2. DB 데이터 삭제. Reservation 삭제 시 ReservationLock도 cascade.
+  // 1:1 문의(Inquiry)와 본인이 로그인 상태로 작성한 공개 게시판 글(VocPost, userId 연결)도 예약·즐겨찾기·
+  // 프로필과 동일하게 hard delete한다(uid 미보관 원칙 일관 + 탈퇴자 연락처/이메일 PII 잔존 방지).
+  // userId 스코프라 익명(userId=null) 글은 영향받지 않는다.
   // 사유 기록은 일부러 이 트랜잭션에 포함하지 않는다 — Auth 삭제 실패 후 재시도 시
   // 같은 사유가 중복 기록되지 않도록 Auth 성공 후에 1회만 기록한다(아래 4번).
   try {
     await prisma.$transaction([
       prisma.reservation.deleteMany({ where: { userId } }),
       prisma.favorite.deleteMany({ where: { userId } }),
+      prisma.inquiry.deleteMany({ where: { userId } }),
+      prisma.vocPost.deleteMany({ where: { userId } }),
       prisma.userProfile.deleteMany({ where: { userId } }),
     ]);
   } catch {
