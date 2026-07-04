@@ -350,7 +350,7 @@ export function AdminBannersView() {
           <h2 className="text-sm font-bold text-slate-950">등록된 배너</h2>
 
           {listState.status === "loading" ? (
-            <AdminLoadingRow message="배너를 불러오는 중입니다." />
+            <AdminLoadingRow message="페이지를 불러오는 중입니다." />
           ) : null}
 
           {listState.status === "error" ? (

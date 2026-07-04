@@ -113,7 +113,7 @@ export function BoardPagination({
   return (
     <nav
       aria-label={labels.pagination}
-      className="mt-9 flex items-center justify-center gap-1.5"
+      className="mt-20 mb-14 flex items-center justify-center gap-1.5"
     >
       <PagerArrow kind="first" disabled={atFirst} targetPage={1} href={hrefFor(1)} onNavigate={onNavigate} label={labels.firstPage} />
       <PagerArrow kind="prev" disabled={atFirst} targetPage={page - 1} href={hrefFor(page - 1)} onNavigate={onNavigate} label={labels.prevPage} />

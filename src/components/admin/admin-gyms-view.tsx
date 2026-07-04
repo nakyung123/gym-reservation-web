@@ -526,7 +526,7 @@ export function AdminGymsView() {
             </div>
 
             {gymsState.status === "loading" ? (
-              <AdminLoadingRow message="시설 목록을 불러오는 중입니다." />
+              <AdminLoadingRow message="페이지를 불러오는 중입니다." />
             ) : null}
 
             {gymsState.status === "error" ? (

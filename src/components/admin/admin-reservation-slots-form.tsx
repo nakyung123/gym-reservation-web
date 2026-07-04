@@ -810,7 +810,7 @@ export function AdminReservationSlotsForm({
           ) : null}
 
           {slotsState.status === "loading" ? (
-            <AdminLoadingRow message="슬롯 정보를 불러오는 중입니다." />
+            <AdminLoadingRow message="페이지를 불러오는 중입니다." />
           ) : null}
 
           {slotsState.status === "error" ? (

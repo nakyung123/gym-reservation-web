@@ -158,7 +158,7 @@ export function AdminCustomerDetailView({ userId }: { userId: string }) {
         </header>
 
         {detailState.status === "loading" ? (
-          <AdminLoadingRow message="고객 상세를 불러오는 중입니다." />
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
         ) : null}
 
         {detailState.status === "error" ? (
@@ -335,7 +335,7 @@ function DetailBody({
             {reservationError}
           </p>
         ) : reservations === null ? (
-          <AdminLoadingRow message="예약 이력을 불러오는 중입니다." />
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
         ) : reservations.length === 0 ? (
           <AdminEmptyState title="예약 이력이 없습니다" />
         ) : (

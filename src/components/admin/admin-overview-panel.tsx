@@ -115,7 +115,7 @@ export function AdminOverviewPanel() {
       ) : null}
 
       {overviewState.status === "loading" ? (
-        <AdminLoadingRow message="운영 요약을 불러오는 중입니다." />
+        <AdminLoadingRow message="페이지를 불러오는 중입니다." />
       ) : null}
 
       {overviewState.status === "error" ? (

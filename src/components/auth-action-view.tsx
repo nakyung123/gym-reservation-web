@@ -127,7 +127,7 @@ export function AuthActionView() {
 
       <div className="mx-auto w-full max-w-[520px] px-5 pb-10 pt-12">
         {phase.kind === "verifying" ? (
-          <p className="mt-10 text-center text-[15px] text-[#777]">확인하는 중입니다…</p>
+          <p className="mt-10 text-center text-[15px] text-[#777]">페이지를 불러오는 중입니다.</p>
         ) : null}
 
         {phase.kind === "error" ? (

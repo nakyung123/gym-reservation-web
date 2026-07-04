@@ -727,7 +727,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                       className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent"
                       aria-hidden="true"
                     />
-                    예약 상세를 불러오는 중입니다.
+                    페이지를 불러오는 중입니다.
                   </p>
                 ) : null}
                 {detailState.status === "error" ? (
@@ -905,7 +905,7 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           ) : null}
 
           {reservationsState.status === "loading" ? (
-            <AdminLoadingRow message="예약 목록을 불러오는 중입니다." />
+            <AdminLoadingRow message="페이지를 불러오는 중입니다." />
           ) : null}
 
           {reservationsState.status === "error" ? (

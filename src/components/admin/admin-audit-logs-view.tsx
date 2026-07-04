@@ -103,7 +103,7 @@ export function AdminAuditLogsView() {
         </div>
 
         {state.status === "loading" ? (
-          <AdminLoadingRow message="운영 이력을 불러오는 중입니다." />
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
         ) : null}
 
         {state.status === "error" ? (

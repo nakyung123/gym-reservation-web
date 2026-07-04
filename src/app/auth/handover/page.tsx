@@ -25,7 +25,7 @@ function HandoverLoadingPanel() {
     >
       <p className="text-sm font-semibold text-accent-strong">로그인 처리</p>
       <h1 className="mt-2 text-xl font-bold text-slate-950">
-        로그인 정보를 확인하고 있습니다
+        페이지를 불러오는 중입니다.
       </h1>
       <div className="mt-6 flex justify-center" aria-hidden="true">
         <span className="size-8 animate-spin rounded-full border-2 border-line border-t-accent" />

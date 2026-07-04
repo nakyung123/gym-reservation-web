@@ -175,7 +175,7 @@ export function AdminRevenueView() {
         </div>
 
         {state.status === "loading" ? (
-          <AdminLoadingRow message="매출/정산을 불러오는 중입니다." />
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
         ) : null}
 
         {state.status === "error" ? (

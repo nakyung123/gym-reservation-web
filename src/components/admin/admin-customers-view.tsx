@@ -110,7 +110,7 @@ export function AdminCustomersView() {
         </form>
 
         {state.status === "loading" ? (
-          <AdminLoadingRow message="고객 목록을 불러오는 중입니다." />
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
         ) : null}
 
         {state.status === "error" ? (
