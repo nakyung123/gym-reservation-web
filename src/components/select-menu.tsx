@@ -37,6 +37,7 @@ export function SelectMenu({
   disabled = false,
   onChange,
   triggerClassName = "",
+  placeholderClassName = "text-subtle",
 }: {
   value: string;
   options: SelectOption[];
@@ -45,6 +46,8 @@ export function SelectMenu({
   disabled?: boolean;
   onChange: (value: string) => void;
   triggerClassName?: string;
+  // 미선택(placeholder) 상태 글자색. 기본은 흐린 톤이며, 필요 시 검은색 등으로 덮어쓴다.
+  placeholderClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -85,7 +88,7 @@ export function SelectMenu({
         aria-label={ariaLabel}
         className={`flex w-full items-center justify-between gap-2 outline-none ${triggerClassName}`}
       >
-        <span className={`truncate ${selected ? "text-slate-950" : "text-subtle"}`}>
+        <span className={`truncate ${selected ? "text-slate-950" : placeholderClassName}`}>
           {selected ? selected.label : placeholder}
         </span>
         <ChevronDown

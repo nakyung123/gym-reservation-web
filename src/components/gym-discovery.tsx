@@ -33,7 +33,7 @@ const PER_PAGE = 9;
 // 검색바 드롭다운 공통 컨트롤 룩(홈 검색바 FIELD_TRIGGER_CLASS와 동일: 높이·radius·보더·disabled 톤).
 const CONTROL_CLASS =
   "h-12 rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] transition focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2";
-const FIELD_LABEL_CLASS = "text-[12.5px] font-bold text-subtle";
+const FIELD_LABEL_CLASS = "text-[12.5px] font-bold text-foreground";
 
 // ?sport= 쿼리가 실제 종목인지 검증한다(SSOT=domain-constants SPORTS).
 function isValidSport(value: string | undefined): value is Sport {
@@ -125,7 +125,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [page, setPage] = useState(1);
   const { favorites, toggleFavorite, isFavorite, toggleError, loadError } = useFavorites();
-  const { location, permission, openPromptModal } = useUserLocation();
+  const { location, permission, requestLocation } = useUserLocation();
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -144,7 +144,14 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   }, [initialSport]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const availableRegions = useMemo(() => getAvailableRegions(gyms), [gyms]);
+  // 지역 옵션: 선택한 종목이 있는 지역만(종목→지역 방향 cascade). 종목이 전체면 전 지역.
+  const availableRegions = useMemo(() => {
+    const scoped =
+      selectedSport === "전체"
+        ? gyms
+        : gyms.filter((gym) => gym.sports.includes(selectedSport));
+    return getAvailableRegions(scoped);
+  }, [gyms, selectedSport]);
 
   // 종목: 선택한 지역의 체육관이 가진 종목만(홈 검색바와 동일, 도메인 표준 순서 SPORTS).
   const sportOptions = useMemo(() => {
@@ -206,37 +213,61 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
     resetPage();
   };
 
-  // 지역이 바뀌면 종목·체육관을, 종목이 바뀌면 체육관을 초기화해 cascade 정합성을 유지한다(홈 검색바와 동일).
+  // 지역이 바뀌면 체육관을 초기화한다. 종목은 새 지역에서도 가능하면 유지하고, 불가능할 때만 전체로 되돌린다.
   const handleRegionChange = (value: string) => {
     setSelectedRegion(value);
-    setSelectedSport("전체");
+    setSelectedSport((prev) => {
+      if (prev === "전체") return prev;
+      const stillAvailable = gyms.some(
+        (gym) =>
+          (value === "전체" || gym.region === value) &&
+          gym.sports.includes(prev),
+      );
+      return stillAvailable ? prev : "전체";
+    });
     setSelectedGymId("");
     resetPage();
   };
 
+  // 종목이 바뀌면 체육관을 초기화한다. 지역은 그 종목이 있는 지역이면 유지하고, 없을 때만 전체로 되돌린다.
   const handleSportChange = (value: string) => {
-    setSelectedSport(value as SportFilter);
+    const sport = value as SportFilter;
+    setSelectedSport(sport);
+    setSelectedRegion((prev) => {
+      if (sport === "전체" || prev === "전체") return prev;
+      const stillAvailable = gyms.some(
+        (gym) => gym.region === prev && gym.sports.includes(sport),
+      );
+      return stillAvailable ? prev : "전체";
+    });
     setSelectedGymId("");
     resetPage();
   };
 
-  // '시설 검색': 고른 체육관 상세로 이동(홈 검색바와 동일 동작).
+  // '시설 검색': 체육관을 고른 경우 상세로 이동. 체육관 미선택(전체)이면 현재 지역·종목 필터로 목록 조회(목록은 실시간 반영이라 1페이지로 정렬).
   const handleSubmit = () => {
-    if (!selectedGymId) return;
-    router.push(`/gyms/${selectedGymId}`);
-  };
-
-  // 가까운 순: 위치 없으면 권한 모달을 띄우고 의도를 보존한다.
-  const handleDistanceClick = () => {
-    if (!location) {
-      // denied는 권한 변경 이벤트가 안 올 수 있어 pendingSort 약속을 걸지 않는다.
-      if (permission !== "denied") setPendingSort("distance");
-      openPromptModal();
+    if (selectedGymId) {
+      router.push(`/gyms/${selectedGymId}`);
       return;
     }
-    setPendingSort(null);
-    setSelectedSort("distance");
     resetPage();
+  };
+
+  // 가까운 순: 위치 없으면 브라우저 네이티브 위치 권한 팝업을 직접 띄운다(커스텀 모달 대신).
+  const handleDistanceClick = () => {
+    if (location) {
+      setPendingSort(null);
+      setSelectedSort("distance");
+      resetPage();
+      return;
+    }
+    // 위치 미보유. 거리순 의도를 기록해 안내 문구가 뜨게 한다(허용되면 effect가 자동 전환).
+    setPendingSort("distance");
+    // 이미 차단(denied)된 경우엔 브라우저 정책상 네이티브 팝업이 다시 뜨지 않으므로
+    // 재요청 없이 안내 문구(locationDenied)만 노출한다. 그 외(prompt 등)엔 네이티브 팝업 요청.
+    if (permission !== "denied") {
+      void requestLocation();
+    }
   };
 
   // 가격순: 비활성 상태면 오름차순으로 켜고, 이미 가격순이면 방향만 토글.
@@ -259,7 +290,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
     }`;
 
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-6">
       {/* 검색 패널(그림자 없이 border만 — 그림자는 카드에만). 컨트롤 톤은 홈 검색바와 동일. */}
       <div className="rounded-2xl border border-line bg-white p-5 sm:p-6">
         {/* 검색바: 홈과 동일한 cascade(지역 → 종목 → 체육관 → 시설 검색).
@@ -318,7 +349,12 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
                 value: gym.id,
                 label: gym.name,
               }))}
-              placeholder={t("gymPlaceholder")}
+              placeholder={
+                hasNonFavoritesFilter
+                  ? t("gymCount", { count: gymOptions.length })
+                  : t("gymPlaceholder")
+              }
+              placeholderClassName="text-slate-950"
               ariaLabel={t("gymLabel")}
               disabled={gymOptions.length === 0}
               onChange={setSelectedGymId}
@@ -329,7 +365,6 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
           <Button
             type="submit"
             size="lg"
-            disabled={selectedGymId === ""}
             className="h-12 w-full gap-2 sm:col-span-2 lg:col-span-1"
           >
             <svg
@@ -351,7 +386,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
 
         {/* 정렬(가까운 순·가격순) + 즐겨찾기 필터 + 초기화 */}
         <div
-          className="mt-4 flex flex-wrap justify-end gap-2 border-t border-line pt-4"
+          className="mt-[25px] flex flex-wrap justify-end gap-2 border-t border-line pt-[25px]"
           role="group"
           aria-label={t("sortAria")}
         >

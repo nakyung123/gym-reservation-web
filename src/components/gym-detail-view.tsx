@@ -115,7 +115,7 @@ export function GymDetailView({
       </div>
 
       {/* 상단 2단: 좌측 사진 + 우측 시설 요약 */}
-      <div className="mt-6 grid gap-8 lg:grid-cols-2">
+      <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-[60px]">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-[#e8eefb]">
           {thumbnail ? (
             <Image
@@ -129,7 +129,7 @@ export function GymDetailView({
           ) : null}
         </div>
 
-        <dl className="flex h-full flex-col divide-y divide-line overflow-hidden rounded-2xl border border-line">
+        <dl className="flex h-full flex-col divide-y divide-line">
           <SummaryRow label="장소" value={gym.address} />
           <SummaryRow label="시설 사용 시간" value={gym.openHours} />
           <SummaryRow label="휴무일" value={closed} />
@@ -234,7 +234,7 @@ export function GymDetailView({
 // 라벨은 항상 한 줄로 유지(가장 긴 "시설 사용 시간" 기준 폭 확보).
 function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex flex-1 items-center gap-3 px-5 py-3">
+    <div className="flex flex-1 items-center gap-3 py-3">
       <dt className="w-32 shrink-0 whitespace-nowrap text-[19px] font-bold text-foreground">
         {label}
       </dt>
