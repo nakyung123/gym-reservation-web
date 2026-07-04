@@ -3,7 +3,10 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { BoardPagination } from "@/components/board-pagination";
 import { SearchBar } from "@/components/search-bar";
+import { VocBoard } from "@/components/voc-board";
 import { FAQ_KNOWLEDGE } from "@/lib/server/faq-knowledge";
+import { listVocPosts } from "@/lib/server/db-voc-repository";
+import { gymRepository } from "@/lib/gym-repository-provider";
 
 // 문의·FAQ = FAQ 지식 SSOT(faq-knowledge.ts)를 KMI FAQ(INFO/FAQ)처럼 보여준다.
 //  - 상단 카테고리 탭(가입·계정/예약·취소/결제·환불/문의) — KMI 탭 톤(활성 네이비 밑줄).
@@ -83,6 +86,15 @@ export default async function FaqPage({
     : "all";
   const query = (qParam ?? "").trim();
 
+  // '문의' 탭은 FAQ 아코디언 대신 공개 문의 게시판(고객의 소리식)을 보여준다.
+  const isSupport = activeKey === "support";
+  const requestedPage = Math.max(
+    1,
+    Number.isNaN(Number.parseInt(pageParam ?? "1", 10))
+      ? 1
+      : Number.parseInt(pageParam ?? "1", 10),
+  );
+
   // 활성 탭의 카테고리에 속한 Q&A를 모으고, 검색 범위(전체/제목/내용)로 필터한다.
   const groupEntries = FAQ_KNOWLEDGE.filter((category) =>
     activeGroup.categories.includes(category.title),
@@ -102,6 +114,19 @@ export default async function FaqPage({
     totalPages,
   );
   const pageItems = matched.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  // 문의 게시판 데이터(문의 탭에서만 사용). 페이지네이션 라벨은 게시판 공용(Notice) 재사용.
+  const voc = isSupport
+    ? await listVocPosts({ page: requestedPage })
+    : { posts: [], total: 0 };
+  const vocGyms = isSupport ? await gymRepository.list() : [];
+  const paginationLabels = {
+    pagination: tNav("pagination"),
+    firstPage: tNav("firstPage"),
+    prevPage: tNav("prevPage"),
+    nextPage: tNav("nextPage"),
+    lastPage: tNav("lastPage"),
+  };
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 py-10 sm:px-8 sm:py-12">
@@ -156,10 +181,22 @@ export default async function FaqPage({
         />
       </div>
 
-      {/* 검색바 (공용 SearchBar: [전체/제목/내용] 드롭다운 + 키워드) */}
-      <div className="mt-9">
+      {isSupport ? (
+        <VocBoard
+          posts={voc.posts}
+          total={voc.total}
+          page={requestedPage}
+          gyms={vocGyms}
+          buildHref={(p) => faqHref({ cat: activeKey, field: "all", q: "", page: p })}
+          paginationLabels={paginationLabels}
+        />
+      ) : (
+        <>
+      {/* 검색바 (공용 SearchBar: [전체/제목/내용] 드롭다운 + 키워드). 위·아래 60px */}
+      <div className="mt-[60px]">
         <SearchBar
           action="/faq"
+          variant="board"
           placeholder={t("searchPlaceholder")}
           searchLabel={t("searchLabel")}
           fields={[
@@ -174,7 +211,7 @@ export default async function FaqPage({
       </div>
 
       {/* 아코디언 (KMI: Q 배지 + 질문 22px, 펼치면 A + 답변) */}
-      <div className="mt-9 border-t border-foreground">
+      <div className="mt-[60px] border-t border-foreground">
         {pageItems.length === 0 ? (
           <p className="py-20 text-center text-[15px] text-muted">
             {t("empty")}
@@ -235,6 +272,8 @@ export default async function FaqPage({
           }}
         />
       ) : null}
+        </>
+      )}
     </main>
   );
 }
