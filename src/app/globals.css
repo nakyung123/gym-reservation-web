@@ -101,3 +101,31 @@ label[for],
 summary {
   cursor: pointer;
 }
+
+/* 로딩 스피너: 두 원이 각자 좌↔우로 움직이며 서로 자리를 맞바꾼다.
+   한 덩어리로 도는 게 아니라, 빨강은 좌→우, 네이비는 우→좌로 엇갈려 이동한다.
+   교차 지점에서 겹치므로 빨강(orbit-a)을 항상 앞에 두어 지나가는 느낌을 준다. */
+@keyframes orbit-a {
+  0%,
+  100% {
+    transform: translateX(-11px);
+  }
+  50% {
+    transform: translateX(11px);
+  }
+}
+
+@keyframes orbit-b {
+  0%,
+  100% {
+    transform: translateX(11px);
+  }
+  50% {
+    transform: translateX(-11px);
+  }
+}
+
+@theme {
+  --animate-orbit-a: orbit-a 1.2s ease-in-out infinite;
+  --animate-orbit-b: orbit-b 1.2s ease-in-out infinite;
+}

@@ -1,4 +1,10 @@
-import type { ReservationStatus, Sport } from "@/types/domain";
+import type {
+  InquiryStatus,
+  PaymentMethod,
+  ReservationStatus,
+  Sport,
+  VocCategory,
+} from "@/types/domain";
 
 export const SPORTS = [
   "배드민턴",
@@ -32,5 +38,59 @@ export function isReservationStatus(
   return (
     typeof value === "string" &&
     (RESERVATION_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+// 결제 수단 SSOT(예약 폼 선택지·서버 검증·상세 표시 공용). 값=DB 저장값, label=국문 표시.
+export const PAYMENT_METHODS = [
+  "card",
+  "easy-pay",
+  "virtual-account",
+] as const satisfies readonly PaymentMethod[];
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  card: "카드결제",
+  "easy-pay": "간편결제",
+  "virtual-account": "가상계좌(무통장 입금)",
+};
+
+export function isPaymentMethod(value: unknown): value is PaymentMethod {
+  return (
+    typeof value === "string" &&
+    (PAYMENT_METHODS as readonly string[]).includes(value)
+  );
+}
+
+export const INQUIRY_STATUSES = [
+  "open",
+  "answered",
+] as const satisfies readonly InquiryStatus[];
+
+export function isInquiryStatus(value: unknown): value is InquiryStatus {
+  return (
+    typeof value === "string" &&
+    (INQUIRY_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+// 공개 문의 게시판 분류 SSOT(작성 폼 선택지·목록/상세 표시 공용).
+export const VOC_CATEGORIES = [
+  "inquiry",
+  "praise",
+  "complaint",
+  "suggestion",
+] as const satisfies readonly VocCategory[];
+
+export const VOC_CATEGORY_LABELS: Record<VocCategory, string> = {
+  inquiry: "문의합니다",
+  praise: "칭찬합니다",
+  complaint: "건의합니다",
+  suggestion: "제안합니다",
+};
+
+export function isVocCategory(value: unknown): value is VocCategory {
+  return (
+    typeof value === "string" &&
+    (VOC_CATEGORIES as readonly string[]).includes(value)
   );
 }

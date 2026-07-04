@@ -6,6 +6,10 @@ import { FaqChatWidget } from "@/components/faq-chat-widget";
 
 // fetch를 모킹해 네트워크 없이 위젯 상태 전이(닫힘/열림·웰컴·스트림 렌더·429 안내)를 검증한다.
 // vitest.unit.config.ts include 대상(파일 상단 @vitest-environment jsdom로 DOM 활성화).
+//
+// 위젯은 홈("/")에서만 렌더된다(pathname !== "/"면 null). jsdom에는 next 라우터 컨텍스트가 없어
+// usePathname()이 null을 반환하므로, 홈에 있는 상황을 시뮬레이션하려면 "/"로 모킹해야 한다.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
 function streamOk(text: string): Response {
   const body = new ReadableStream<Uint8Array>({

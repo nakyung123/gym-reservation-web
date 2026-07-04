@@ -47,6 +47,12 @@ export default defineConfig({
       "src/components/faq-chat-widget.test.tsx",
       // 공지사항 SSOT(정적 데이터) 정렬/조회.
       "src/lib/notices.test.ts",
+      // 종목별 인원(정원) SSOT: clamp/검증/합산가 — 순수 함수, DB 무관.
+      "src/lib/sport-capacity.test.ts",
+      // 공개 문의 게시판(VOC): rate limit(create per-IP / verify per-IP·per-post)·fail-closed·
+      // dedup 통과·검증. checkRateLimit·repository 모킹으로 DB/네트워크 없이 검증.
+      "src/app/api/voc/route.test.ts",
+      "src/app/api/voc/[id]/verify/route.test.ts",
     ],
   },
   resolve: {

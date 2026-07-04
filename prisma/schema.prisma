@@ -95,6 +95,7 @@ model Reservation {
   time      String           @db.VarChar(5)
   price     Int
   status    String           @db.VarChar(16)
+  paymentMethod String?      @map("payment_method") @db.VarChar(20)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamp(3)
   activeKey String           @map("active_key") @db.VarChar(255)
   gym       Gym              @relation(fields: [gymId], references: [id])
@@ -256,6 +257,48 @@ model Banner {
 
   @@index([isActive, sortOrder], map: "idx_banner_active_sort")
   @@map("banners")
+}
+
+// 1:1 문의(마이페이지 "문의 내역"). userId는 Firebase uid(예약/즐겨찾기와 동일 키).
+// status: open(접수) | answered(답변완료) — enum 대신 문자열 컬럼(이 저장소 convention, Reservation.status와 동일).
+// gymId는 시설 관련 문의면 연결, 일반 문의면 null(FK 없이 API에서 실재 검증 — 시설 삭제와 무관하게 문의 보존).
+// answer/answeredAt은 관리자 답변 시점에 채워진다. 본인 문의만 접근(조회는 항상 userId 스코프).
+model Inquiry {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id") @db.VarChar(64)
+  gymId      String?   @map("gym_id") @db.VarChar(64)
+  title      String    @db.VarChar(100)
+  body       String    @db.Text
+  status     String    @default("open") @db.VarChar(16)
+  answer     String?   @db.Text
+  answeredAt DateTime? @map("answered_at") @db.Timestamp(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamp(3)
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_inquiries_user_created")
+  @@index([status, createdAt(sort: Desc)], map: "idx_inquiries_status_created")
+  @@map("inquiries")
+}
+
+// 공개 문의 게시판(문의·FAQ '문의' 탭, KMI 고객의 소리식). 로그인 없이 익명으로 작성하고
+// 글별 임시 비밀번호(해시 저장)로 본문을 보호한다. 성명/연락처/이메일은 수집하되
+// 목록/상세 공개 응답에는 노출하지 않는다(성명은 마스킹). gymId는 FK 없이 저장(시설 삭제와 무관).
+model VocPost {
+  id           String   @id @default(cuid())
+  category     String   @db.VarChar(20)
+  gymId        String?  @map("gym_id") @db.VarChar(64)
+  // 작성자(로그인 사용자) uid. 익명(비로그인) 작성은 null. 로그인 작성 시 마이페이지 문의 내역에 노출한다.
+  userId       String?  @map("user_id") @db.VarChar(128)
+  authorName   String   @map("author_name") @db.VarChar(50)
+  phone        String?  @db.VarChar(30)
+  email        String?  @db.VarChar(120)
+  title        String   @db.VarChar(200)
+  body         String   @db.Text
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+
+  @@index([createdAt(sort: Desc)], map: "idx_voc_created")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_voc_user_created")
+  @@map("voc_posts")
 }
 
 // 공지사항 조회수 카운터. 공지 본문/메타는 코드(src/lib/notices.ts)가 SSOT이고,
