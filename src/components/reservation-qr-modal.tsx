@@ -34,12 +34,15 @@ function formatCountdown(remainingMs: number) {
 type ReservationQrModalProps = {
   reservation: Reservation;
   gymName: string;
+  // 예약 인원(price÷단가 역산). 역산 불가 시 null → "—"로 표기.
+  people?: number | null;
   onClose: () => void;
 };
 
 export function ReservationQrModal({
   reservation,
   gymName,
+  people = null,
   onClose,
 }: ReservationQrModalProps) {
   const [name, setName] = useState<string | null>(null);
@@ -94,20 +97,22 @@ export function ReservationQrModal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[80] flex items-stretch justify-center bg-black/50 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="QR 체크인"
       onClick={onClose}
     >
+      {/* 모바일: 화면을 꽉 채우고(rounded 없음) 세로 여백을 균등 분배(justify-evenly).
+          데스크톱: 고정 폭 카드. */}
       <div
-        className="h-[849px] max-h-[90vh] w-full max-w-[454px] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="flex h-full w-full flex-col overflow-y-auto bg-white p-[42px] shadow-xl sm:h-[860px] sm:max-h-[92vh] sm:max-w-[460px] sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-[22px] font-bold text-slate-900">QR 체크인</h2>
-            <p className="mt-1 text-[14px] text-slate-500">
+            <p className="mt-1 text-[16px] text-slate-500">
               이용하려는 체육시설에 QR코드로 체크인하세요.
             </p>
           </div>
@@ -129,80 +134,91 @@ export function ReservationQrModal({
           </button>
         </div>
 
-        {/* QR 카드: 파란 헤더(시설명) + QR + 남은 시간 */}
-        <div className="mt-5 overflow-hidden rounded-2xl border border-line shadow-sm">
-          <div className="bg-accent px-4 py-3 text-center text-[16px] font-bold text-white">
-            {gymName}
+        {/* 본문: QR 카드 + 예약 정보. 정보 리스트가 남는 세로 공간을 채워 하단 여백을
+            상단 여백(패딩 42px)과 맞춘다. */}
+        <div className="flex flex-1 flex-col pt-8">
+          {/* QR 카드: 310×310 정사각형. 파란 헤더(시설명) + QR + 남은 시간. */}
+          <div className="mx-auto flex h-[310px] w-[310px] max-w-full flex-col overflow-hidden rounded-2xl border border-line shadow-sm">
+            <div className="bg-accent px-4 py-3 text-center text-[18px] font-bold text-white">
+              {gymName}
+            </div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
+              <QRCodeSVG
+                value={entryCode}
+                level="M"
+                size={185}
+                className={`h-auto w-full max-w-[185px] ${isExpired ? "opacity-30" : ""}`}
+                role="img"
+                aria-label="입장 QR 코드"
+              />
+              {isExpired ? (
+                <p className="text-center text-[18px] font-semibold text-error">
+                  시간이 지나 만료된 코드입니다.
+                </p>
+              ) : (
+                <div className="flex items-center gap-2 text-[18px] text-slate-500">
+                  <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="7.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    />
+                    <path
+                      d="M10 6v4l2.5 2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <span>남은 시간</span>
+                  <span className="font-mono text-[18px] font-bold tabular-nums text-accent-strong">
+                    {countdown}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-4 px-6 py-6">
-            <QRCodeSVG
-              value={entryCode}
-              level="M"
-              size={170}
-              className={`h-auto w-full max-w-[170px] ${isExpired ? "opacity-30" : ""}`}
-              role="img"
-              aria-label="입장 QR 코드"
-            />
-            {isExpired ? (
-              <p className="text-center text-[16px] font-semibold text-error">
-                시간이 지나 만료된 코드입니다.
-              </p>
-            ) : (
-              <div className="flex items-center gap-2 text-[16px] text-slate-500">
-                <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true">
-                  <circle
-                    cx="10"
-                    cy="10"
-                    r="7.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                  />
-                  <path
-                    d="M10 6v4l2.5 2"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                <span>남은 시간</span>
-                <span className="font-mono text-[16px] font-bold tabular-nums text-accent-strong">
-                  {countdown}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* 예약 정보 */}
-        <dl className="mt-5">
-          <div className="flex items-center justify-between border-b border-slate-100 py-3">
-            <dt className="text-[16px] font-semibold text-slate-700">이름</dt>
-            <dd className="text-[16px] text-slate-900">{name ?? "—"}</dd>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 py-3">
-            <dt className="text-[16px] font-semibold text-slate-700">종목</dt>
-            <dd className="text-[16px] text-slate-900">{reservation.sport}</dd>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 py-3">
-            <dt className="text-[16px] font-semibold text-slate-700">
-              시작시간
-            </dt>
-            <dd className="text-[16px] text-slate-900">
-              {isValidStart ? formatDateTime(startDate) : "—"}
-            </dd>
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <dt className="text-[16px] font-semibold text-slate-700">
-              종료시간
-            </dt>
-            <dd className="text-[16px] text-slate-900">
-              {isValidStart ? formatDateTime(endDate) : "—"}
-            </dd>
-          </div>
-        </dl>
+          {/* 예약 정보: 남는 세로 공간을 채워(flex-1) 하단 여백을 상단(패딩 42px)과 맞춘다.
+              rows를 균등 분배(justify-between)해 구분선·텍스트 간격 밸런스를 준다. */}
+          <dl className="mt-8 flex w-full flex-1 flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-slate-100 py-3">
+              <dt className="text-[18px] font-semibold text-slate-700">이름</dt>
+              <dd className="text-[18px] text-slate-900">{name ?? "—"}</dd>
+            </div>
+            <div className="flex items-center justify-between border-b border-slate-100 py-3">
+              <dt className="text-[18px] font-semibold text-slate-700">종목</dt>
+              <dd className="text-[18px] text-slate-900">{reservation.sport}</dd>
+            </div>
+            <div className="flex items-center justify-between border-b border-slate-100 py-3">
+              <dt className="text-[18px] font-semibold text-slate-700">인원</dt>
+              <dd className="text-[18px] text-slate-900">
+                {people != null ? `${people}명` : "—"}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between border-b border-slate-100 py-3">
+              <dt className="text-[18px] font-semibold text-slate-700">
+                시작시간
+              </dt>
+              <dd className="text-[18px] text-slate-900">
+                {isValidStart ? formatDateTime(startDate) : "—"}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between py-3">
+              <dt className="text-[18px] font-semibold text-slate-700">
+                종료시간
+              </dt>
+              <dd className="text-[18px] text-slate-900">
+                {isValidStart ? formatDateTime(endDate) : "—"}
+              </dd>
+            </div>
+          </dl>
+        </div>
       </div>
     </div>
   );

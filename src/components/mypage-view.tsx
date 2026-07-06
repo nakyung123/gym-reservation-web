@@ -35,6 +35,7 @@ import {
   validatePasswordPolicy,
 } from "@/lib/password-policy";
 import { withdrawAccount } from "@/lib/withdrawal-client";
+import { getGymSportPrice } from "@/lib/gym-utils";
 import { fetchUserProfile, saveUserProfile } from "@/lib/user-profile-client";
 import { fetchMyVocPosts } from "@/lib/voc-client";
 import { MypageInquiriesTable } from "@/components/mypage-inquiries-table";
@@ -49,6 +50,17 @@ function parseTab(value: string | null): Tab {
     return value;
   }
   return "reservations";
+}
+
+// 예약 인원 역산: Reservation에는 인원 컬럼이 없고 price를 단가×인원 합산가로 저장하므로,
+// price ÷ 종목 단가가 정수로 딱 떨어질 때만 인원으로 신뢰한다. 시설 미확인·단가 변경 등으로
+// 나눠떨어지지 않으면 null을 반환해 QR 화면에서 "—"로 표기한다(잘못된 값 노출 방지).
+function derivePeople(gym: Gym | undefined, reservation: Reservation): number | null {
+  if (!gym) return null;
+  const unit = getGymSportPrice(gym, reservation.sport);
+  if (!Number.isFinite(unit) || unit <= 0) return null;
+  const people = reservation.price / unit;
+  return Number.isInteger(people) && people > 0 ? people : null;
 }
 
 const TABS: { key: Tab; href: string; labelKey: string }[] = [
@@ -772,6 +784,7 @@ function ReservationsBoardPanel({
           gymName={
             gymsById.get(qrReservation.gymId)?.name ?? t("rsvMissingGym")
           }
+          people={derivePeople(gymsById.get(qrReservation.gymId), qrReservation)}
           onClose={() => setQrReservation(null)}
         />
       ) : null}

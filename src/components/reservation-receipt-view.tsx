@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
+import { AlertModal } from "@/components/alert-modal";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -59,6 +61,7 @@ type CancelState =
   | { kind: "idle" }
   | { kind: "confirm" }
   | { kind: "submitting" }
+  | { kind: "done" }
   | { kind: "error"; message: string };
 
 function isAbortError(error: unknown): boolean {
@@ -113,6 +116,7 @@ export function ReservationReceiptView({
     status: "idle",
   });
   const [cancelState, setCancelState] = useState<CancelState>({ kind: "idle" });
+  const router = useRouter();
   const authSessionSnapshot = useSyncExternalStore(
     subscribeFirebaseAuthSession,
     getFirebaseAuthSessionSnapshot,
@@ -220,7 +224,8 @@ export function ReservationReceiptView({
             ? { ...prev, reservation: result.reservation }
             : prev,
         );
-        setCancelState({ kind: "idle" });
+        // 취소 완료 알림을 띄우고, 사용자가 확인하면 마이페이지(예약내역)로 이동한다.
+        setCancelState({ kind: "done" });
         return;
       }
       setCancelState({ kind: "error", message: result.message });
@@ -380,71 +385,56 @@ export function ReservationReceiptView({
                 {cancelState.message}
               </p>
             ) : null}
-            <div className="flex items-center justify-between gap-3">
+            {/* 취소 가능한 예약만 '예약 취소'를 노출한다. 취소 완료·불가 예약은
+                '목록으로'만 남기고 가운데 정렬한다. */}
+            <div
+              className={`flex items-center gap-3 ${
+                canCancel ? "justify-between" : "justify-start"
+              }`}
+            >
               <Link
                 href="/mypage"
                 className="inline-flex h-[44px] w-[94px] items-center justify-center rounded-md border border-line-strong bg-white text-[14px] font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 목록으로
               </Link>
-              <button
-                type="button"
-                onClick={() => setCancelState({ kind: "confirm" })}
-                disabled={!canCancel || isSubmitting}
-                className="inline-flex h-[44px] w-[94px] items-center justify-center rounded-md border border-line-strong bg-white text-[14px] font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:text-subtle disabled:hover:border-line-strong disabled:hover:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {isSubmitting ? "취소 중…" : "예약 취소"}
-              </button>
+              {canCancel ? (
+                <button
+                  type="button"
+                  onClick={() => setCancelState({ kind: "confirm" })}
+                  disabled={isSubmitting}
+                  className="inline-flex h-[44px] w-[94px] items-center justify-center rounded-md border border-line-strong bg-white text-[14px] font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:text-subtle disabled:hover:border-line-strong disabled:hover:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  {isSubmitting ? "취소 중…" : "예약 취소"}
+                </button>
+              ) : null}
             </div>
           </div>
         </CollapsibleSection>
       </div>
 
-      {/* 예약 취소 확인 모달 */}
+      {/* 예약 취소 확인 — 통일 알림창(confirm 변형: 닫기 | 예약 취소) */}
       {cancelState.kind === "confirm" || cancelState.kind === "submitting" ? (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="예약 취소 확인"
-          onClick={() => {
+        <AlertModal
+          message="예약을 취소하시겠습니까?"
+          onClose={() => {
             if (!isSubmitting) setCancelState({ kind: "idle" });
           }}
-        >
-          <div
-            className="w-[360px] max-w-full rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-[18px] font-bold text-slate-900">
-              예약을 취소할까요?
-            </h2>
-            <p className="mt-2 text-[14px] leading-6 text-slate-600">
-              {gymSummary.name} · {reservation.date} {reservation.time} ·{" "}
-              {reservation.sport}
-            </p>
-            <p className="mt-1 text-[13px] text-slate-400">
-              취소 후에는 되돌릴 수 없습니다.
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setCancelState({ kind: "idle" })}
-                disabled={isSubmitting}
-                className="h-10 rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                닫기
-              </button>
-              <button
-                type="button"
-                onClick={handleCancel}
-                disabled={isSubmitting}
-                className="h-10 rounded-md bg-error px-4 text-sm font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-error/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {isSubmitting ? "취소 중…" : "예약 취소"}
-              </button>
-            </div>
-          </div>
-        </div>
+          confirm={{
+            confirmLabel: "예약 취소",
+            onConfirm: handleCancel,
+            busy: isSubmitting,
+            busyLabel: "취소 중…",
+          }}
+        />
+      ) : null}
+
+      {/* 취소 완료 — 확인 시 마이페이지(예약내역)로 이동 */}
+      {cancelState.kind === "done" ? (
+        <AlertModal
+          message="예약 취소가 완료되었습니다."
+          onClose={() => router.push("/mypage")}
+        />
       ) : null}
     </div>
   );
