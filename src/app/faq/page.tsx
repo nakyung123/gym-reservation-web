@@ -213,7 +213,7 @@ export default async function FaqPage({
       {/* 아코디언 (KMI: Q 배지 + 질문 22px, 펼치면 A + 답변) */}
       <div className="mt-[60px] border-t border-foreground">
         {pageItems.length === 0 ? (
-          <p className="py-20 text-center text-[15px] text-muted">
+          <p className="pt-[50px] pb-20 text-center text-[15px] text-foreground">
             {t("empty")}
           </p>
         ) : (

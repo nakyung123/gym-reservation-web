@@ -131,7 +131,7 @@ export default async function NoticePage({
       {/* 게시판 */}
       <div className="mt-[60px] border-t-2 border-foreground/80">
         {isEmpty ? (
-          <p className="py-20 text-center text-[15px] text-muted">
+          <p className="pt-[50px] pb-20 text-center text-[15px] text-foreground">
             {isSearching ? t("searchEmpty") : t("empty")}
           </p>
         ) : (
