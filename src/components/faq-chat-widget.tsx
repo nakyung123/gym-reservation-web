@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/app-button";
 import { useFaqChat } from "@/hooks/use-faq-chat";
@@ -109,11 +110,17 @@ export function FaqChatWidget() {
         onClick={() => setOpen(true)}
         aria-expanded={false}
         aria-controls={panelId}
-        aria-label="문의 도우미 열기"
-        className="fixed bottom-5 right-5 z-50 inline-flex h-14 items-center gap-2 rounded-full bg-accent px-5 font-bold text-accent-ink shadow-lg transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+        aria-label="채팅 상담 열기"
+        className="fixed bottom-5 right-5 z-50 h-[100px] w-[100px] rounded-full border-[3px] border-accent shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
-        <span aria-hidden="true">💬</span>
-        문의하기
+        {/* 원형으로 클립한 로그인 캐릭터(원형 배경 포함) */}
+        <span className="absolute inset-0 overflow-hidden rounded-full">
+          <Image src="/login-character.png" alt="" fill className="object-cover" />
+        </span>
+        {/* 하단에 흰 타원 배지 + 네이비 텍스트 */}
+        <span className="absolute bottom-[9px] left-1/2 -translate-x-1/2 rounded-full bg-white px-2.5 py-[3px] text-[11px] font-bold text-accent-strong shadow-[0_1px_4px_rgba(15,23,42,0.25)]">
+          채팅상담
+        </span>
       </button>
     );
   }
@@ -128,19 +135,28 @@ export function FaqChatWidget() {
       onKeyDown={onPanelKeyDown}
       className="fixed bottom-5 right-5 z-50 flex h-[min(560px,calc(100vh-2.5rem))] w-[min(380px,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-2xl"
     >
-      {/* 헤더 */}
-      <div className="flex items-center justify-between border-b border-line bg-surface-2 px-4 py-3">
-        <div>
-          <p id={titleId} className="text-[15px] font-bold text-foreground">
-            서울체육예약 문의 도우미
+      {/* 헤더 — 네이비 브랜드 바 + 캐릭터 아바타 */}
+      <div className="flex items-center gap-3 bg-accent px-4 py-3">
+        <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
+          <Image
+            src="/login-character.png"
+            alt=""
+            width={36}
+            height={36}
+            className="h-9 w-9 object-cover"
+          />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p id={titleId} className="text-[15px] font-bold text-white">
+            채팅 상담
           </p>
-          <p className="text-[12.5px] text-muted">FAQ를 바탕으로 안내해 드려요</p>
+          <p className="text-[12.5px] text-white/80">FAQ를 바탕으로 안내해 드려요</p>
         </div>
         <button
           type="button"
           onClick={closePanel}
-          aria-label="문의 도우미 닫기"
-          className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-white hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label="채팅 상담 닫기"
+          className="inline-flex size-8 items-center justify-center rounded-md text-white/80 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <span aria-hidden="true">✕</span>
         </button>

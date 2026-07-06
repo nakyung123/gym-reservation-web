@@ -42,19 +42,40 @@ export async function HomeHero() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/gyms"
-            className="inline-flex h-12 items-center gap-2 rounded-[10px] bg-accent px-6 text-[15px] font-bold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            className="inline-flex h-14 items-center gap-2 rounded-[10px] bg-accent px-6 text-[15px] font-bold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
             시설 검색하기
             <span aria-hidden="true">→</span>
           </Link>
           <Link
             href="/guide"
-            className="inline-flex h-12 items-center gap-2 rounded-[10px] border border-accent bg-white/90 px-6 text-[15px] font-bold text-accent-strong backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            className="inline-flex h-14 items-center gap-2 rounded-[10px] border border-accent bg-white/90 px-6 text-[15px] font-bold text-accent-strong backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            예약 방법 안내
+            이용 방법 안내
             <span aria-hidden="true">→</span>
           </Link>
         </div>
+      </div>
+
+      {/* 스크롤 유도: 하단 중앙에 흰 원 + 아래 화살표(통통 튀는 애니메이션). 장식 요소라
+          aria-hidden. 스크롤을 아래로 유도한다. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-4 flex justify-center"
+      >
+        <span className="flex h-9 w-9 animate-bounce items-center justify-center rounded-full bg-white shadow-[0_4px_14px_rgba(15,23,42,0.18)]">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4 text-accent-strong"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </span>
       </div>
     </section>
   );
