@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/app-button";
+import { AlertModal } from "@/components/alert-modal";
 import { GymCard } from "@/components/gym-card";
 import { SelectMenu } from "@/components/select-menu";
 import { BoardPagination } from "@/components/board-pagination";
@@ -23,8 +24,10 @@ type GymDiscoveryProps = {
 
 type SportFilter = Sport | "전체";
 type RegionFilter = string | "전체";
-// 정렬: 가까운 순(distance) | 가격순(price). 가격순은 asc/desc 토글.
-type GymSort = "distance" | "price";
+// 정렬: 미적용(none) | 가까운 순(distance) | 가격순(price). 가격순은 asc/desc 토글.
+// none은 버튼이 모두 꺼진 기본 상태로, 목록은 가격 오름차순으로 보여준다.
+// 정렬 버튼을 다시 눌러 마지막 상태를 지나면 none으로 돌아간다(가까운순 2번·가격순 3번).
+type GymSort = "none" | "distance" | "price";
 type SortDir = "asc" | "desc";
 
 // 페이지당 카드 수(시설 찾기 목록).
@@ -52,10 +55,12 @@ function sortGyms(
   location: GeoPoint | null,
 ) {
   return [...gyms].sort((left, right) => {
-    if (sort === "price") {
+    // none: 기본 정렬(가격 오름차순). price와 같은 규칙이되 방향 토글은 없다.
+    if (sort === "price" || sort === "none") {
       const diff = getGymLowestPrice(left) - getGymLowestPrice(right);
+      const signed = sort === "none" ? diff : dir === "desc" ? -diff : diff;
       // 오름차순(낮은→높은)이 기본, 다시 누르면 내림차순. 동가는 이름순 tiebreak.
-      return (dir === "desc" ? -diff : diff) || left.name.localeCompare(right.name);
+      return signed || left.name.localeCompare(right.name);
     }
 
     // 가까운 순. 위치 없으면 거리 비교가 불가능하므로 이름순으로 폴백.
@@ -116,12 +121,16 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   );
   // 체육관: 홈 검색바와 동일한 cascade의 마지막 단계. 고르고 '시설 검색'을 누르면 상세로 이동.
   const [selectedGymId, setSelectedGymId] = useState("");
-  // 기본 정렬: 가격 오름차순(위치 권한 없이도 항상 동작).
-  const [selectedSort, setSelectedSort] = useState<GymSort>("price");
+  // 기본 정렬: none(버튼 모두 꺼짐, 목록은 가격 오름차순). 정렬 버튼으로 켜고, 마지막 상태를 지나면 다시 none.
+  const [selectedSort, setSelectedSort] = useState<GymSort>("none");
   const [priceDir, setPriceDir] = useState<SortDir>("asc");
   // 거리순 클릭 시 위치 권한이 없어 모달을 띄운 경우 의도를 보존했다가
   // location이 채워지면 자동으로 거리순으로 전환한다 (재클릭 불필요).
   const [pendingSort, setPendingSort] = useState<GymSort | null>(null);
+  // 위치 권한이 차단되어 가까운 순을 못 쓸 때 띄우는 통일 알림창.
+  const [locationDeniedAlert, setLocationDeniedAlert] = useState(false);
+  // 즐겨찾기한 체육관이 없을 때 즐겨찾기 필터를 누르면 띄우는 통일 알림창(화면은 유지).
+  const [favoritesEmptyAlert, setFavoritesEmptyAlert] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [page, setPage] = useState(1);
   const { favorites, toggleFavorite, isFavorite, toggleError, loadError } = useFavorites();
@@ -133,6 +142,15 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
     setSelectedSort("distance");
     setPendingSort(null);
   }, [location, pendingSort]);
+
+  // 가까운 순 의도가 있는데 위치 권한이 차단(denied)됐고 좌표가 없으면(네이티브 팝업 거부 포함)
+  // 통일 알림창을 띄운다.
+  useEffect(() => {
+    if (pendingSort === "distance" && permission === "denied" && !location) {
+      setLocationDeniedAlert(true);
+      setPendingSort(null);
+    }
+  }, [pendingSort, permission, location]);
 
   // 메가메뉴 '종목별'에서 ?sport=가 바뀌어 들어오면(이미 /gyms에 있을 때 포함)
   // 종목 필터를 동기화하고 1페이지로 되돌린다.
@@ -192,7 +210,6 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
 
   const hasNonFavoritesFilter =
     selectedRegion !== "전체" || selectedSport !== "전체";
-  const hasActiveFilter = hasNonFavoritesFilter || favoritesOnly;
 
   // 페이지네이션(클라이언트 state). 필터로 결과가 줄면 safePage로 clamp한다.
   const totalPages = Math.max(1, Math.ceil(filteredGyms.length / PER_PAGE));
@@ -255,26 +272,41 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
 
   // 가까운 순: 위치 없으면 브라우저 네이티브 위치 권한 팝업을 직접 띄운다(커스텀 모달 대신).
   const handleDistanceClick = () => {
+    // 이미 가까운 순이면 한 번 더 눌러 해제(none)한다.
+    if (selectedSort === "distance") {
+      setPendingSort(null);
+      setSelectedSort("none");
+      resetPage();
+      return;
+    }
     if (location) {
       setPendingSort(null);
       setSelectedSort("distance");
       resetPage();
       return;
     }
-    // 위치 미보유. 거리순 의도를 기록해 안내 문구가 뜨게 한다(허용되면 effect가 자동 전환).
+    // 위치 미보유. 거리순 의도를 기록해 허용되면 effect가 자동 전환하게 한다.
     setPendingSort("distance");
     // 이미 차단(denied)된 경우엔 브라우저 정책상 네이티브 팝업이 다시 뜨지 않으므로
-    // 재요청 없이 안내 문구(locationDenied)만 노출한다. 그 외(prompt 등)엔 네이티브 팝업 요청.
-    if (permission !== "denied") {
+    // 재요청 없이 통일 알림창을 띄운다. 그 외(prompt 등)엔 네이티브 팝업 요청.
+    if (permission === "denied") {
+      setLocationDeniedAlert(true);
+    } else {
       void requestLocation();
     }
   };
 
-  // 가격순: 비활성 상태면 오름차순으로 켜고, 이미 가격순이면 방향만 토글.
+  // 가격순: 꺼짐→오름차순→내림차순→해제(none) 순으로 순환(3번 누르면 해제).
   const handlePriceClick = () => {
     setPendingSort(null);
     if (selectedSort === "price") {
-      setPriceDir((dir) => (dir === "asc" ? "desc" : "asc"));
+      if (priceDir === "asc") {
+        setPriceDir("desc");
+      } else {
+        // 내림차순에서 한 번 더 → 해제. 다음 사용을 위해 방향은 오름차순으로 되돌린다.
+        setSelectedSort("none");
+        setPriceDir("asc");
+      }
     } else {
       setSelectedSort("price");
       setPriceDir("asc");
@@ -412,10 +444,15 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
             {selectedSort === "price" ? <SortDirArrow dir={priceDir} /> : null}
           </button>
 
-          {/* 즐겨찾기 필터. 정렬 버튼과 동일한 대표색(accent) 톤, 별 아이콘으로 구분. */}
+          {/* 즐겨찾기 필터. 정렬 버튼과 동일한 대표색(accent) 톤, 별 아이콘으로 구분.
+              끄는 중이 아니고 즐겨찾기한 곳이 없으면 화면을 바꾸지 않고 알림창만 띄운다. */}
           <button
             type="button"
             onClick={() => {
+              if (!favoritesOnly && favorites.size === 0) {
+                setFavoritesEmptyAlert(true);
+                return;
+              }
               setFavoritesOnly((prev) => !prev);
               resetPage();
             }}
@@ -425,27 +462,25 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
             <FavoriteStar className="h-4 w-4" filled={favoritesOnly} />
             {t("favoritesToggle")}
           </button>
-
-          {hasActiveFilter ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="h-10 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-muted transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              {t("clearFilters")}
-            </button>
-          ) : null}
         </div>
 
-        {(selectedSort === "distance" || pendingSort === "distance") &&
-        !location ? (
-          <p className="mt-3 text-xs font-semibold text-warning" role="status">
-            {permission === "denied"
-              ? t("locationDenied")
-              : t("locationMissing")}
-          </p>
-        ) : null}
       </div>
+
+      {/* 위치 권한 차단 시 통일 알림창(간결 문구). */}
+      {locationDeniedAlert ? (
+        <AlertModal
+          message={t("locationDenied")}
+          onClose={() => setLocationDeniedAlert(false)}
+        />
+      ) : null}
+
+      {/* 즐겨찾기한 체육관이 없을 때 통일 알림창(화면은 그대로 유지). */}
+      {favoritesEmptyAlert ? (
+        <AlertModal
+          message={t("favoritesEmpty")}
+          onClose={() => setFavoritesEmptyAlert(false)}
+        />
+      ) : null}
 
       {toggleError && (
         <p role="alert" className="text-sm font-semibold text-error">

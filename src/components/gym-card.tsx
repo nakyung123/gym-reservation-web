@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ButtonLink } from "@/components/app-button";
 import { getGymLowestPrice, getGymThumbnail } from "@/lib/gym-utils";
@@ -28,6 +29,7 @@ export function GymCard({
 }: GymCardProps) {
   const t = useTranslations("Gyms");
   const tFavorite = useTranslations("Favorite");
+  const router = useRouter();
   const lowestPrice = getGymLowestPrice(gym);
   const { location } = useUserLocation();
   const distanceKm = calculateGymDistanceKm(gym, location);
@@ -35,7 +37,13 @@ export function GymCard({
   const thumbnail = getGymThumbnail(gym.id);
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-line-strong hover:shadow-[0_4px_16px_rgba(15,23,42,0.09)]">
+    // 카드 전체를 클릭하면 상세로 이동한다(썸네일·이름 외 흰 바탕 영역 포함).
+    // 즐겨찾기·예약 버튼은 목적지가 달라 stopPropagation으로 카드 이동을 막는다.
+    // 키보드/스크린리더 이동은 썸네일·이름의 실제 Link가 담당한다.
+    <article
+      onClick={() => router.push(detailHref)}
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-line-strong hover:shadow-[0_4px_16px_rgba(15,23,42,0.09)]"
+    >
       {/* 썸네일: 등록된 사진이 있으면 실사진, 없으면 그라데이션 placeholder.
           Link가 영역 전체를 덮고, 배지·하트는 그 위에 둔다. */}
       <div className="relative h-44 overflow-hidden bg-[linear-gradient(135deg,var(--accent-tint),var(--surface-2))]">
@@ -83,7 +91,10 @@ export function GymCard({
         {onToggleFavorite !== undefined ? (
           <button
             type="button"
-            onClick={onToggleFavorite}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite();
+            }}
             aria-pressed={isFavorite}
             aria-label={isFavorite ? tFavorite("remove") : tFavorite("add")}
             className={`absolute right-[11px] top-[11px] z-10 grid size-9 place-items-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -168,13 +179,15 @@ export function GymCard({
               {t("cardPerHours")}
             </span>
           </p>
-          <ButtonLink
-            href={`/reserve/${gym.id}`}
-            aria-label={t("bookAria", { name: gym.name })}
-            style={{ paddingLeft: 32, paddingRight: 32 }}
-          >
-            {t("book")}
-          </ButtonLink>
+          <span onClick={(event) => event.stopPropagation()}>
+            <ButtonLink
+              href={`/reserve/${gym.id}`}
+              aria-label={t("bookAria", { name: gym.name })}
+              style={{ paddingLeft: 32, paddingRight: 32 }}
+            >
+              {t("book")}
+            </ButtonLink>
+          </span>
         </div>
       </div>
     </article>
