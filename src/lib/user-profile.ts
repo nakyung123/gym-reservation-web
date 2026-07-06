@@ -149,7 +149,8 @@ function parsePhone(
 }
 
 // 생년월일: YYYY-MM-DD 형식 + 실제 달력상 유효 + 미래 금지 + 1900년 이후.
-function parseBirthDate(
+// 클라이언트 폼(회원가입)에서도 같은 규칙으로 사전 검증하도록 export한다(SSOT).
+export function parseBirthDate(
   value: unknown,
 ): { ok: true; value: string | null } | { ok: false; message: string } {
   if (value === null) {

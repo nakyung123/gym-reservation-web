@@ -10,10 +10,13 @@ import { ensureUserProfile, saveUserProfile } from "@/lib/user-profile-client";
 import { validatePasswordPolicy } from "@/lib/password-policy";
 import {
   LOGIN_ID_HINT,
+  parseBirthDate,
   validateLoginId,
   validateUserProfileInput,
 } from "@/lib/user-profile";
+import { formatBirthDate } from "@/lib/input-format";
 import { SignupStepIndicator } from "@/components/signup-step-indicator";
+import { AlertModal } from "@/components/alert-modal";
 
 // 회원가입 3단계: 정보 입력. email(직접가입)·social(소셜 후 완성) 두 모드를 공통 처리한다.
 // 다단계 저장(계정 생성/비번 연결 → 프로필 보장 → 아이디 설정 → 프로필 저장)을 각 단계 ref로
@@ -63,7 +66,11 @@ export function SignupInfoForm({
 }: {
   mode: Mode;
   prefilledEmail?: string;
-  onComplete: (result: { emailVerificationSent: boolean }) => void;
+  onComplete: (result: {
+    emailVerificationSent: boolean;
+    name: string;
+    loginId: string;
+  }) => void;
   onBack?: () => void;
 }) {
   const initialEmail = prefilledEmail ?? "";
@@ -73,6 +80,8 @@ export function SignupInfoForm({
   const [loginId, setLoginIdValue] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [phoneA, setPhoneA] = useState("010");
@@ -81,17 +90,19 @@ export function SignupInfoForm({
   const [emailLocal, setEmailLocal] = useState(initialLocal);
   const [emailDomain, setEmailDomain] = useState(initialDomain);
   const [domainPreset, setDomainPreset] = useState("직접입력");
-  const [address, setAddress] = useState("");
   const [idCheck, setIdCheck] = useState<IdCheck>({ status: "idle" });
   const [emailCheck, setEmailCheck] = useState<EmailCheck>({ status: "idle" });
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
+  // 다음 버튼은 항상 활성화하고, 미완료 항목이 있으면 이 알림창으로 안내한다.
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // 다단계 진행 가드. 재시도 시 완료된 단계를 건너뛴다.
   const accountReadyRef = useRef(false);
   const loginIdSetRef = useRef(false);
   const emailVerificationSentRef = useRef(false);
 
-  const emailLocked = mode === "social";
+  // 소셜은 물론, 이메일 가입도 앞 단계(본인 인증)에서 이메일을 받았으면 정보 입력에서 잠근다(재입력 방지).
+  const emailLocked = mode === "social" || Boolean(prefilledEmail);
 
   const combinedPhone =
     phoneA && phoneB && phoneC ? `${phoneA}-${phoneB}-${phoneC}` : "";
@@ -104,6 +115,11 @@ export function SignupInfoForm({
   const loginIdValidation = validateLoginId(loginId);
   const loginIdError =
     loginId.length > 0 && !loginIdValidation.ok ? loginIdValidation.message : null;
+  // 생년월일은 서버와 같은 규칙(parseBirthDate)으로 사전 검증한다. 빈 값은 아직 미입력으로 본다.
+  const trimmedBirthDate = birthDate.trim();
+  const birthDateCheck = parseBirthDate(trimmedBirthDate);
+  const birthDateError =
+    trimmedBirthDate.length > 0 && !birthDateCheck.ok ? birthDateCheck.message : null;
   const passwordError = validatePasswordPolicy(password);
   const passwordConfirmError =
     passwordConfirm.length > 0 && passwordConfirm !== password
@@ -125,7 +141,8 @@ export function SignupInfoForm({
     !passwordError &&
     !passwordConfirmError &&
     name.trim().length > 0 &&
-    birthDate.trim().length > 0 &&
+    trimmedBirthDate.length > 0 &&
+    birthDateCheck.ok &&
     combinedPhone.length > 0 &&
     combinedEmail.length > 0 &&
     (emailLocked || emailCheck.status === "available");
@@ -193,9 +210,30 @@ export function SignupInfoForm({
     setEmailCheck({ status: result.reason === "invalid" ? "invalid" : "taken" });
   }
 
+  // 미완료 항목을 위에서부터 찾아 첫 안내 문구를 돌려준다(다음 버튼 클릭 시 알림창용).
+  function firstInvalidMessage(): string | null {
+    if (idCheck.status !== "available") return "아이디 중복 확인을 완료해 주세요.";
+    if (password.length === 0 || passwordError)
+      return "비밀번호를 조건에 맞게 입력해 주세요.";
+    if (passwordConfirm.length === 0 || passwordConfirmError)
+      return "비밀번호가 일치하는지 확인해 주세요.";
+    if (name.trim().length === 0) return "성명을 입력해 주세요.";
+    if (trimmedBirthDate.length === 0) return "생년월일을 입력해 주세요.";
+    if (!birthDateCheck.ok) return birthDateCheck.message;
+    if (combinedPhone.length === 0) return "연락처를 입력해 주세요.";
+    if (combinedEmail.length === 0) return "이메일을 입력해 주세요.";
+    if (!emailLocked && emailCheck.status !== "available")
+      return "이메일 중복 확인을 완료해 주세요.";
+    return null;
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!isFormValid) return;
+    // 다음 버튼은 항상 활성화. 미완료 항목이 있으면 알림창으로 안내한다.
+    if (!isFormValid) {
+      setAlertMessage(firstInvalidMessage() ?? "입력 정보를 다시 확인해 주세요.");
+      return;
+    }
     setSubmitState({ kind: "loading" });
 
     // 1단계: 계정 준비 (email=계정 생성, social=비밀번호 연결).
@@ -236,12 +274,12 @@ export function SignupInfoForm({
       loginIdSetRef.current = true;
     }
 
-    // 4단계: 회원정보 저장(성명·생년월일·연락처·주소).
+    // 4단계: 회원정보 저장(성명·생년월일·연락처). 주소 입력칸은 제거됨(null 저장).
     const validation = validateUserProfileInput({
       name: name.trim(),
       phone: combinedPhone,
       birthDate: birthDate.trim(),
-      address: address.trim() || null,
+      address: null,
       reservationNotificationsEnabled: true,
     });
     if (!validation.ok) {
@@ -254,7 +292,11 @@ export function SignupInfoForm({
       return;
     }
 
-    onComplete({ emailVerificationSent: emailVerificationSentRef.current });
+    onComplete({
+      emailVerificationSent: emailVerificationSentRef.current,
+      name: name.trim(),
+      loginId,
+    });
   }
 
   return (
@@ -265,8 +307,8 @@ export function SignupInfoForm({
         <h1 className="text-[22px] font-bold text-[#252525]">
           필수 정보를 입력해 주세요.
         </h1>
-        <span className="text-[14px] text-[#9b9b9b]">
-          필수 입력<Dot />
+        <span className="text-[14px] text-[#252525]">
+          <span className="text-red-500">*</span>필수입력
         </span>
       </div>
 
@@ -286,7 +328,7 @@ export function SignupInfoForm({
               type="button"
               onClick={handleCheckId}
               disabled={isLoading || idCheck.status === "checking"}
-              className="h-[50px] shrink-0 rounded-[3px] bg-[#f1f1f1] px-4 text-[14px] font-medium text-[#555] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-[50px] shrink-0 rounded-[3px] bg-[#121212] px-4 text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {idCheck.status === "checking" ? "확인 중" : "중복 확인"}
             </button>
@@ -306,14 +348,20 @@ export function SignupInfoForm({
 
         {/* 비밀번호 */}
         <Field label="비밀번호">
-          <input
-            type="password"
-            autoComplete="new-password"
-            placeholder="비밀번호 (영문 소문자·숫자·특수문자 8자 이상)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={INPUT_CLASS}
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="비밀번호 (영문 소문자·숫자·특수문자 8자 이상)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className={`${INPUT_CLASS} pr-12`}
+            />
+            <PasswordToggle
+              shown={showPassword}
+              onToggle={() => setShowPassword((v) => !v)}
+            />
+          </div>
           <ul className="mt-2 flex flex-col gap-1">
             {pwRules.map((rule) => (
               <li
@@ -333,14 +381,20 @@ export function SignupInfoForm({
 
         {/* 비밀번호 확인 */}
         <Field label="비밀번호 확인">
-          <input
-            type="password"
-            autoComplete="new-password"
-            placeholder="비밀번호를 확인해 주세요."
-            value={passwordConfirm}
-            onChange={(e) => setPasswordConfirm(e.target.value)}
-            className={INPUT_CLASS}
-          />
+          <div className="relative">
+            <input
+              type={showPasswordConfirm ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="비밀번호를 확인해 주세요."
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              className={`${INPUT_CLASS} pr-12`}
+            />
+            <PasswordToggle
+              shown={showPasswordConfirm}
+              onToggle={() => setShowPasswordConfirm((v) => !v)}
+            />
+          </div>
           {passwordConfirmError ? <Hint tone="err">{passwordConfirmError}</Hint> : null}
         </Field>
 
@@ -356,16 +410,18 @@ export function SignupInfoForm({
           />
         </Field>
 
-        {/* 생년월일 */}
+        {/* 생년월일 — 숫자 입력 시 자동으로 - 삽입(YYYY-MM-DD), 8자리 제한 */}
         <Field label="생년월일">
           <input
             type="text"
             inputMode="numeric"
             placeholder="YYYY-MM-DD"
             value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
+            onChange={(e) => setBirthDate(formatBirthDate(e.target.value))}
+            maxLength={10}
             className={INPUT_CLASS}
           />
+          {birthDateError ? <Hint tone="err">{birthDateError}</Hint> : null}
         </Field>
 
         {/* 연락처 */}
@@ -410,7 +466,7 @@ export function SignupInfoForm({
               disabled={emailLocked}
               className={`${INPUT_CLASS} flex-1`}
             />
-            <span className="text-[#9b9b9b]">@</span>
+            <span className="text-[#252525]">@</span>
             <input
               type="text"
               value={emailDomain}
@@ -420,31 +476,50 @@ export function SignupInfoForm({
             />
           </div>
           <div className="mt-2 flex gap-2">
-            <select
-              value={domainPreset}
-              onChange={(e) => handleDomainPresetChange(e.target.value)}
-              disabled={emailLocked}
-              className={`${INPUT_CLASS} flex-1`}
-            >
-              {DOMAIN_PRESETS.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+            {/* 도메인 선택: 네이티브 화살표 대신 앱 공통 톤의 커스텀 셰브론 사용(일관성) */}
+            <div className="relative flex-1">
+              <select
+                value={domainPreset}
+                onChange={(e) => handleDomainPresetChange(e.target.value)}
+                disabled={emailLocked}
+                className={`${INPUT_CLASS} w-full appearance-none pr-10`}
+              >
+                {DOMAIN_PRESETS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#252525]"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
             {!emailLocked ? (
               <button
                 type="button"
                 onClick={handleCheckEmail}
                 disabled={isLoading || emailCheck.status === "checking"}
-                className="h-[50px] shrink-0 rounded-[3px] bg-[#f1f1f1] px-4 text-[14px] font-medium text-[#555] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-[50px] shrink-0 rounded-[3px] bg-[#121212] px-4 text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {emailCheck.status === "checking" ? "확인 중" : "중복 확인"}
               </button>
             ) : null}
           </div>
           {emailLocked ? (
-            <Hint tone="muted">소셜 계정에서 가져온 이메일입니다.</Hint>
+            <Hint tone="muted">
+              {mode === "social"
+                ? "소셜 계정에서 가져온 이메일입니다."
+                : "앞에서 입력한 이메일입니다."}
+            </Hint>
           ) : emailCheck.status === "available" ? (
             <Hint tone="ok">사용할 수 있는 이메일입니다.</Hint>
           ) : emailCheck.status === "taken" ? (
@@ -456,18 +531,6 @@ export function SignupInfoForm({
           ) : null}
         </Field>
 
-        {/* 주소 */}
-        <Field label="주소">
-          <input
-            type="text"
-            autoComplete="street-address"
-            placeholder="주소를 입력해 주세요."
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </Field>
-
         {submitState.kind === "error" ? (
           <p
             className="rounded-[3px] border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
@@ -477,33 +540,71 @@ export function SignupInfoForm({
           </p>
         ) : null}
 
-        {/* 이전 / 다음 */}
+        {/* 이전 / 다음 — 두 버튼 동일 크기(flex-1), 간격 gap-3 유지.
+            다음 버튼은 항상 활성화하고 미완료 항목은 알림창으로 안내한다. */}
         <div className="mt-2 flex gap-3">
           {onBack ? (
             <button
               type="button"
               onClick={onBack}
               disabled={isLoading}
-              className="h-[56px] w-[40%] rounded-[3px] border border-[#d0d0d0] bg-white text-[17px] font-medium text-[#252525] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-[56px] flex-1 rounded-[3px] border border-[#d0d0d0] bg-white text-[17px] font-medium text-[#252525] disabled:cursor-not-allowed disabled:opacity-60"
             >
               이전
             </button>
           ) : null}
           <button
             type="submit"
-            disabled={isLoading || !isFormValid}
-            className="h-[56px] flex-1 rounded-[3px] bg-[#121212] text-[17px] font-medium text-white transition disabled:cursor-not-allowed disabled:bg-[#f1f1f1] disabled:text-[#9b9b9b]"
+            disabled={isLoading}
+            className="h-[56px] flex-1 rounded-[3px] bg-[#121212] text-[17px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-90"
           >
             {isLoading ? "처리 중…" : "다음"}
           </button>
         </div>
       </form>
+
+      {/* 통일 알림창(미완료 항목 안내) */}
+      {alertMessage ? (
+        <AlertModal message={alertMessage} onClose={() => setAlertMessage(null)} />
+      ) : null}
     </div>
   );
 }
 
+// 필수 표시(빨간 별표).
 function Dot() {
-  return <span className="ml-0.5 align-top text-[12px] text-[#3b82f6]">•</span>;
+  return <span className="ml-0.5 align-middle text-[13px] text-red-500">*</span>;
+}
+
+// 비밀번호 표시/숨김 토글(눈 아이콘). 입력칸 우측에 겹쳐 배치.
+function PasswordToggle({
+  shown,
+  onToggle,
+}: {
+  shown: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={shown ? "비밀번호 숨기기" : "비밀번호 보기"}
+      className="absolute right-3 top-1/2 flex h-[22px] w-[22px] -translate-y-1/2 items-center justify-center text-[#9b9b9b]"
+    >
+      {shown ? (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ) : (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 3l18 18" />
+          <path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a18.6 18.6 0 0 1-3.2 4.2M6.6 6.6A18.6 18.6 0 0 0 2 12s3.5 7 10 7a10.9 10.9 0 0 0 4.4-.9" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </svg>
+      )}
+    </button>
+  );
 }
 
 function Field({

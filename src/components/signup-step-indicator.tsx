@@ -2,48 +2,53 @@
 
 // 회원가입 4단계 진행 인디케이터. 약관 동의·정보 입력 단계 상단에 노출한다.
 // current 인덱스 기준: 이전 단계는 완료(진한 회색), 현재는 강조(파랑), 이후는 대기(연한 회색).
+// 아이콘은 사용자가 제공한 단계별 SVG(46x40, duotone)를 옮긴 것. 색은 currentColor로 두어
+// 상태(tone)에 따라 파랑/진회색/연회색으로 틴트되고, 베이스 도형은 opacity 0.4로 duotone을 유지한다.
 
 type StepDef = {
   label: string;
   icon: (props: { className: string }) => React.ReactNode;
 };
 
+const ICON_SIZE = { width: 46, height: 40 } as const;
+
 const STEPS: StepDef[] = [
   {
     label: "본인 인증",
     icon: ({ className }) => (
-      <svg className={className} width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="4" y="10" width="16" height="11" rx="2" />
-        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      <svg className={className} {...ICON_SIZE} viewBox="0 0 46 40" fill="none" aria-hidden="true">
+        <path opacity="0.4" d="M7 33.3839V20.7226C7 16.5022 9.2141 14.392 13.6423 14.392H31.3577C35.7859 14.392 38 16.5022 38 20.7226V33.3839C38 37.6042 35.7859 39.7145 31.3577 39.7145H13.6423C9.2141 39.7145 7 37.6042 7 33.3839Z" fill="currentColor" />
+        <path d="M15.3046 14.3896V10.1692C15.3046 6.39231 18.5362 3.30986 22.5017 3.30986C26.4671 3.30986 29.6988 6.38988 29.6988 10.1692V14.3896H31.3606C31.9563 14.3896 32.506 14.4359 33.0225 14.5115V10.1692C33.0174 4.64031 28.3028 0.144562 22.4991 0.144562C16.6954 0.144562 11.9834 4.64031 11.9834 10.1692V14.5115C12.4999 14.4359 13.047 14.3896 13.6453 14.3896H15.3071H15.3046Z" fill="currentColor" />
+        <path d="M25.3121 24.9402C25.3121 23.483 24.0721 22.3012 22.5432 22.3012H22.5227C20.9938 22.3012 19.7666 23.483 19.7666 24.9402C19.7666 25.776 20.2038 26.4875 20.8404 26.9699V31.2708C20.8404 32.1455 21.5844 32.8546 22.5023 32.8546C23.4201 32.8546 24.1641 32.1455 24.1641 31.2708V27.0236C24.8442 26.5435 25.3146 25.8101 25.3146 24.9402H25.3121Z" fill="currentColor" />
       </svg>
     ),
   },
   {
     label: "약관 동의",
     icon: ({ className }) => (
-      <svg className={className} width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="5" y="4" width="14" height="17" rx="2" />
-        <path d="M9 4h6v3H9z" />
-        <path d="m9 13 2 2 4-4" />
+      <svg className={className} {...ICON_SIZE} viewBox="0 0 46 40" fill="none" aria-hidden="true">
+        <path opacity="0.4" d="M32.3592 4.44827H34.5808C39.0263 4.44827 41.2479 6.66983 41.2479 11.1153V33.3381C41.2479 37.7836 39.0263 40.0051 34.5808 40.0051H12.3604C7.91493 40.0051 5.69336 37.7836 5.69336 33.3381V11.113C5.69336 6.66747 7.91493 4.44591 12.3604 4.44591H14.582" fill="currentColor" />
+        <path d="M32.3593 3.33609V5.55766C32.3593 7.77922 31.2473 8.89119 29.0258 8.89119H17.9156C15.694 8.89119 14.582 7.77922 14.582 5.55766V3.33609C14.582 1.11453 15.694 0.00256348 17.9156 0.00256348H29.0258C31.2473 0.00256348 32.3593 1.11453 32.3593 3.33609Z" fill="currentColor" />
+        <path d="M21.62 28.3356C21.1927 28.3356 20.7677 28.1727 20.4419 27.8469L16.7377 24.1427C16.0861 23.4911 16.0861 22.4358 16.7377 21.7866C17.3893 21.1373 18.4446 21.135 19.0939 21.7866L21.62 24.3127L27.8479 18.0847C28.4995 17.4331 29.5548 17.4331 30.204 18.0847C30.8556 18.7363 30.8556 19.7916 30.204 20.4409L22.798 27.8492C22.4722 28.175 22.0473 28.3379 21.62 28.3379V28.3356Z" fill="currentColor" />
       </svg>
     ),
   },
   {
     label: "정보 입력",
     icon: ({ className }) => (
-      <svg className={className} width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M6 3h8l5 5v13a0 0 0 0 1 0 0H6a0 0 0 0 1 0 0V3Z" />
-        <path d="M14 3v5h5" />
-        <path d="M9 13h6M9 17h6" />
+      <svg className={className} {...ICON_SIZE} viewBox="0 0 46 40" fill="none" aria-hidden="true">
+        <path opacity="0.4" d="M42.5967 7.50629C42.5967 2.50629 40.0967 0.00628662 35.0967 0.00628662H10.0967C5.09668 0.00628662 2.59668 2.50629 2.59668 7.50629V32.5063C2.59668 37.5063 5.09668 40.0063 10.0967 40.0063H24.4911C25.5745 40.0063 26.63 39.7507 27.5967 39.3118V30.8396C27.5967 27.6174 30.2078 25.0063 33.43 25.0063H41.9022C42.3467 24.0396 42.5967 22.9841 42.5967 21.9007V7.50629Z" fill="currentColor" />
+        <path d="M27.5974 30.8397V39.3119C28.4029 38.9453 29.1529 38.4508 29.7918 37.8119L40.3974 27.2064C41.0362 26.5675 41.5307 25.8175 41.8973 25.0119H33.4251C30.2029 25.0119 27.5918 27.623 27.5918 30.8453L27.5974 30.8397Z" fill="currentColor" />
+        <path d="M31.4855 16.1174H13.7077C12.7855 16.1174 12.041 15.3729 12.041 14.4507C12.041 13.5285 12.7855 12.7841 13.7077 12.7841H31.4855C32.4077 12.7841 33.1521 13.5285 33.1521 14.4507C33.1521 15.3729 32.4077 16.1174 31.4855 16.1174ZM24.2632 24.4507C24.2632 23.5285 23.5188 22.7841 22.5966 22.7841H13.7077C12.7855 22.7841 12.041 23.5285 12.041 24.4507C12.041 25.3729 12.7855 26.1174 13.7077 26.1174H22.5966C23.5188 26.1174 24.2632 25.3729 24.2632 24.4507Z" fill="currentColor" />
       </svg>
     ),
   },
   {
     label: "가입 완료",
     icon: ({ className }) => (
-      <svg className={className} width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M5 21V4" />
-        <path d="M5 4h12l-2 4 2 4H5" />
+      <svg className={className} {...ICON_SIZE} viewBox="0 0 46 40" fill="none" aria-hidden="true">
+        <path opacity="0.4" d="M6.5 6.42241C6.5 2.14662 8.72976 0.00872803 13.1893 0.00872803H39.3889L30.4699 11.7671L39.3889 23.5256H6.5V6.42241Z" fill="currentColor" />
+        <path d="M9.84463 23.5257V38.4054C9.84463 39.2926 9.09766 40.0088 8.17232 40.0088C7.24697 40.0088 6.5 39.2926 6.5 38.4054V23.5257H9.84463Z" fill="currentColor" />
       </svg>
     ),
   },
@@ -64,14 +69,14 @@ export function SignupStepIndicator({ current }: { current: number }) {
           <div key={step.label} className="flex flex-1 items-start">
             <div className="flex flex-1 flex-col items-center gap-2">
               {step.icon({ className: tone })}
-              <span className={`text-[15px] font-medium ${tone}`}>{step.label}</span>
+              <span className={`text-[18px] font-medium ${tone}`}>{step.label}</span>
             </div>
             {index < STEPS.length - 1 ? (
               <svg
                 className="mt-3 shrink-0 text-[#d0d0d0]"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
+                width="10"
+                height="17.14"
+                viewBox="0 0 10 17.14"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth={2}
@@ -79,7 +84,7 @@ export function SignupStepIndicator({ current }: { current: number }) {
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <path d="M9 6l6 6-6 6" />
+                <path d="M1.5 1.5 8.5 8.57 1.5 15.64" />
               </svg>
             ) : null}
           </div>

@@ -1,8 +1,11 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { AlertModal } from "@/components/alert-modal";
+import { KakaoIcon, NaverIcon, GoogleIcon, FacebookIcon } from "@/components/social-icons";
 import { signInWithEmail } from "@/lib/firebase-email-auth";
 import { signInWithLoginId } from "@/lib/firebase-login-id-auth";
 import { signInWithGoogle } from "@/lib/firebase-google-auth";
@@ -46,6 +49,8 @@ export function LoginView() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberId, setRememberId] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
+  // 통일 알림창 메시지(빈 입력·로그인 실패 안내). null이면 닫힘.
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   // 이미 로그인되어 있으면 from으로 즉시 redirect.
   useEffect(() => {
@@ -58,7 +63,11 @@ export function LoginView() {
 
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!isFormValid) return;
+    // 버튼은 항상 활성화돼 있으므로, 빈 입력이면 알림창으로 안내한다.
+    if (!isFormValid) {
+      setAlertMessage("아이디 또는 비밀번호를 입력하세요.");
+      return;
+    }
     setSubmitState({ kind: "loading" });
     const trimmed = identifier.trim();
     // '@' 포함 = 이메일 로그인, 그 외 = 아이디 로그인(서버에서 이메일로 변환).
@@ -72,7 +81,9 @@ export function LoginView() {
       router.replace(fromPath);
       return;
     }
-    setSubmitState({ kind: "error", message: result.message });
+    // 계정/비밀번호 오류는 어떤 필드가 틀렸는지 노출하지 않고 통일 문구로 안내한다.
+    setSubmitState({ kind: "idle" });
+    setAlertMessage("이메일 또는 비밀번호가 올바르지 않습니다.");
   }
 
   async function handleGoogle() {
@@ -89,7 +100,8 @@ export function LoginView() {
       setSubmitState({ kind: "idle" });
       return;
     }
-    setSubmitState({ kind: "error", message: result.message });
+    setSubmitState({ kind: "idle" });
+    setAlertMessage(result.message);
   }
 
   // 소셜 OAuth는 외부 redirect 흐름이라 from path를 server state에 박지 않고
@@ -111,7 +123,8 @@ export function LoginView() {
     persistOauthFromPath();
     const result = await startKakaoLogin();
     if (!result.ok) {
-      setSubmitState({ kind: "error", message: result.message });
+      setSubmitState({ kind: "idle" });
+      setAlertMessage(result.message);
     }
   }
 
@@ -120,7 +133,8 @@ export function LoginView() {
     persistOauthFromPath();
     const result = await startNaverLogin();
     if (!result.ok) {
-      setSubmitState({ kind: "error", message: result.message });
+      setSubmitState({ kind: "idle" });
+      setAlertMessage(result.message);
     }
   }
 
@@ -138,7 +152,8 @@ export function LoginView() {
       setSubmitState({ kind: "idle" });
       return;
     }
-    setSubmitState({ kind: "error", message: result.message });
+    setSubmitState({ kind: "idle" });
+    setAlertMessage(result.message);
   }
 
   const isLoading = submitState.kind === "loading";
@@ -152,8 +167,8 @@ export function LoginView() {
         <div className="relative mx-auto flex h-[61px] w-full max-w-[520px] items-center justify-center px-5">
           <button
             type="button"
-            onClick={() => router.back()}
-            aria-label="뒤로가기"
+            onClick={() => router.push("/")}
+            aria-label="홈으로"
             className="absolute left-5 flex items-center justify-center text-[#252525]"
           >
             <svg
@@ -170,34 +185,29 @@ export function LoginView() {
               <path d="M10 2 2 10.5 10 19" />
             </svg>
           </button>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[20px] font-extrabold leading-none tracking-[-0.02em] text-accent">
-              서울체육예약
-            </span>
-            <span className="text-[22px] font-bold leading-none text-[#252525]">
-              통합 로그인
-            </span>
-          </div>
+          <span className="text-[22px] font-bold leading-none tracking-[-0.01em] text-[#252525]">
+            서울체육예약 로그인
+          </span>
         </div>
       </header>
 
-      {/* 본문: 480 가운데 컬럼 */}
-      <div className="mx-auto w-full max-w-[520px] px-5 pb-10 pt-10">
-        {/* 캐릭터 이미지 placeholder 160 x 159.5 */}
-        <div className="mx-auto flex h-[159.5px] w-40 items-center justify-center rounded-full bg-[#e8eefb] text-xs text-accent">
-          캐릭터
+      {/* 본문: 가운데 컬럼. 캐릭터 상단이 페이지 최상단에서 약 100px(헤더 61 + pt 39)에 오게 한다. */}
+      <div className="mx-auto w-full max-w-[520px] px-5 pb-6 pt-[39px]">
+        {/* 캐릭터 이미지 160 x 159.5 */}
+        <div className="mx-auto flex h-[159.5px] w-40 items-center justify-center">
+          <Image
+            src="/login-character.png"
+            alt="서울체육예약 캐릭터"
+            width={160}
+            height={160}
+            priority
+            className="h-[159.5px] w-40 object-contain"
+          />
         </div>
 
-        <h1 className="mt-6 text-center text-[23px] font-bold leading-[1.3] text-[#252525]">
-          KMI 통합 회원 아이디로 로그인 해주세요.
+        <h1 className="mt-4 text-center text-[23px] font-bold leading-[1.3] text-[#252525]">
+          서울체육예약 아이디로 로그인해 주세요.
         </h1>
-        <p className="mt-4 text-center text-[20px] font-medium leading-[1.3] text-[#252525]">
-          통합 회원으로 가입하면
-          <br />
-          예약/건강검진/결과조회를
-          <br />
-          하나의 계정으로 로그인 할 수 있습니다.
-        </p>
 
         <form className="mt-7" onSubmit={handleEmailSubmit} noValidate>
           <input
@@ -238,17 +248,17 @@ export function LoginView() {
             </button>
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-5 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setRememberId((v) => !v)}
               className="flex items-center gap-2 text-[15px] text-[#252525]"
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                className={`flex h-5 w-5 items-center justify-center rounded-full ${
                   rememberId
-                    ? "border-accent bg-accent text-white"
-                    : "border-[#c9c9c9] bg-[#e3e3e3] text-white"
+                    ? "bg-accent text-white"
+                    : "bg-[#e3e3e3] text-white"
                 }`}
                 aria-hidden="true"
               >
@@ -263,78 +273,61 @@ export function LoginView() {
             </Link>
           </div>
 
+          {/* 버튼은 항상 활성화. 빈 입력/오류는 알림창으로 안내한다. */}
           <button
             type="submit"
-            disabled={isLoading || !isFormValid}
-            className="mt-[10px] h-[60px] w-full rounded-[3px] bg-[#121212] text-[18px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-90"
+            disabled={isLoading}
+            className="mt-5 h-[60px] w-full rounded-[3px] bg-[#121212] text-[18px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-90"
           >
-            {isLoading ? "로그인 중…" : "통합 회원 로그인"}
+            {isLoading ? "로그인 중…" : "로그인"}
           </button>
         </form>
 
-        {submitState.kind === "error" ? (
-          <p
-            className="mt-3 rounded-[3px] border border-error/30 bg-error/10 px-3 py-2 text-sm text-error"
-            role="alert"
-          >
-            {submitState.message}
-          </p>
-        ) : null}
-
-        {/* 통합 회원가입 안내 */}
-        <div className="flex flex-col items-center gap-3 py-5">
+        {/* 회원가입 안내 — 회원가입 버튼은 로그인 버튼과 동일 크기(h-60, 18px). */}
+        <div className="flex flex-col items-center gap-3 pt-4">
           <p className="text-[18px] font-medium text-[#252525]">
-            KMI의 혜택을 하나의 아이디로 이용하세요.
+            아직 서울체육예약 회원이 아니신가요?
           </p>
           <Link
             href={signupHref}
-            className="flex h-[44px] w-full items-center justify-center gap-1 rounded-[3px] bg-[#3b82f6] text-[16px] font-bold text-white"
+            className="flex h-[60px] w-full items-center justify-center rounded-[3px] bg-[#3b82f6] text-[18px] font-medium text-white"
           >
-            통합 회원가입
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
+            회원가입
           </Link>
         </div>
 
-        {/* 구분선 */}
-        <hr className="border-t border-[#e3e3e3]" />
+        {/* 구분선 — 위·아래 간격 동일(my-8, 32px). */}
+        <hr className="my-8 border-t border-[#e3e3e3]" />
 
         {/* 소셜 로그인 4종 (Apple → Facebook 대체) */}
-        <div className="mt-[30px] grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <SocialButton label="카카오 로그인" onClick={handleKakao} disabled={isLoading}>
             <span className="flex h-20 w-20 items-center justify-center rounded-full bg-[#FEE500]">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="#3C1E1E" aria-hidden="true">
-                <path d="M12 4C7 4 3 7.1 3 11c0 2.5 1.7 4.7 4.2 5.9-.2.6-.7 2.3-.8 2.7 0 .2.1.4.4.2.2-.1 2.6-1.8 3.6-2.5.5.1 1 .1 1.6.1 5 0 9-3.1 9-7s-4-7-9-7Z" />
-              </svg>
+              <KakaoIcon />
             </span>
           </SocialButton>
           <SocialButton label="네이버 로그인" onClick={handleNaver} disabled={isLoading}>
             <span className="flex h-20 w-20 items-center justify-center rounded-full bg-[#03C75A]">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-                <path d="M15.2 12.4 8.6 3H4v18h4.8v-9.4L15.4 21H20V3h-4.8v9.4Z" />
-              </svg>
+              <NaverIcon />
             </span>
           </SocialButton>
           <SocialButton label="구글 로그인" onClick={handleGoogle} disabled={isLoading}>
             <span className="flex h-20 w-20 items-center justify-center rounded-full border border-[#e3e3e3] bg-white">
-              <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="#4285F4" d="M21.6 12.2c0-.6-.1-1.2-.2-1.8H12v3.4h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.1Z" />
-                <path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22Z" />
-                <path fill="#FBBC05" d="M6.4 14c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.4H3.1a10 10 0 0 0 0 9.2L6.4 14Z" />
-                <path fill="#EA4335" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.4L6.4 10c.8-2.4 3-4.1 5.6-4.1Z" />
-              </svg>
+              <GoogleIcon />
             </span>
           </SocialButton>
           <SocialButton label="페이스북 로그인" onClick={handleFacebook} disabled={isLoading}>
             <span className="flex h-20 w-20 items-center justify-center rounded-full bg-[#1877F2]">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-                <path d="M14 9V7c0-.8.2-1.3 1.4-1.3H17V2.6c-.4-.1-1.4-.2-2.5-.2-2.5 0-4.1 1.5-4.1 4.2V9H8v3h2.4v9H14v-9h2.5l.4-3H14Z" />
-              </svg>
+              <FacebookIcon />
             </span>
           </SocialButton>
         </div>
       </div>
+
+      {/* 통일 알림창(빈 입력·로그인 실패 안내) */}
+      {alertMessage ? (
+        <AlertModal message={alertMessage} onClose={() => setAlertMessage(null)} />
+      ) : null}
     </div>
   );
 }

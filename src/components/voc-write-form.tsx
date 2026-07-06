@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { SelectMenu } from "@/components/select-menu";
 import { createVocPost } from "@/lib/voc-client";
+import { formatPhone } from "@/lib/input-format";
 import { VOC_CATEGORIES, VOC_CATEGORY_LABELS } from "@/lib/domain-constants";
 import type { Gym, VocCategory } from "@/types/domain";
 
@@ -152,9 +153,9 @@ export function VocWriteForm({ gyms }: { gyms: Gym[] }) {
             type="tel"
             inputMode="numeric"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            maxLength={20}
-            placeholder="010 - 0000 - 0000"
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            maxLength={13}
+            placeholder="010-0000-0000"
             disabled={disabled}
             className={`${FIELD_CLASS} w-full`}
           />
