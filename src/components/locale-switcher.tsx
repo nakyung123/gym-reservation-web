@@ -8,7 +8,7 @@ import { LOCALES, LOCALE_LABELS, LOCALE_SHORT, type Locale } from "@/i18n/config
 
 // 언어 전환 드롭다운. 쿠키 기반이라 선택 시 setLocale(쿠키 저장) 후 router.refresh로
 // 서버 컴포넌트를 새 언어로 다시 렌더한다. a11y: aria-expanded/haspopup, ESC·외부클릭 닫기.
-export function LocaleSwitcher() {
+export function LocaleSwitcher({ transparent = false }: { transparent?: boolean }) {
   const t = useTranslations("Nav");
   const current = useLocale() as Locale;
   const router = useRouter();
@@ -58,7 +58,11 @@ export function LocaleSwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={t("language")}
-        className="inline-flex items-center gap-1 rounded text-[14.5px] font-semibold text-foreground transition hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:opacity-60"
+        className={`inline-flex items-center gap-1 rounded text-[14.5px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 ${
+          transparent
+            ? "text-slate-500 hover:text-slate-700 focus-visible:ring-accent"
+            : "text-foreground hover:text-accent-strong focus-visible:ring-accent"
+        }`}
       >
         {LOCALE_SHORT[current]}
         <svg

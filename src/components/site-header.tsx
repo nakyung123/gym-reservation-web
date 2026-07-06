@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AppHeaderNav } from "@/components/app-header-nav";
+import { BrandLogo } from "@/components/brand-logo";
 
 // 전역 GNB 헤더.
 // - 홈(/)에서는 풀스크린 히어로 위에 얹히도록 fixed 투명으로 시작하고, 히어로를 지나
@@ -16,6 +17,9 @@ export function SiteHeader() {
   const pathname = usePathname();
   const isHome = pathname === "/";
   const [scrolled, setScrolled] = useState(false);
+  // 홈 히어로 최상단(투명 상태)에서 헤더에 마우스를 올리면, 스크롤을 내렸을 때와
+  // 동일한 솔리드 상태로 전환한다. 구분선도 이때 회색→라인 색으로 바뀐다.
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (!isHome) return;
@@ -27,40 +31,36 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [isHome]);
 
+  // 스크롤로 내렸거나(hover 포함) 헤더에 마우스가 올라오면 솔리드로 본다.
+  const solid = scrolled || hovered;
+  // 홈 최상단(투명 상태): 로고/메뉴/구분선을 흰색으로 렌더한다.
+  const transparent = isHome && !solid;
   const headerClass = isHome
     ? `fixed inset-x-0 top-0 z-50 border-b-[0.5px] transition-colors duration-300 ${
-        scrolled
+        solid
           ? "border-line bg-surface/95 backdrop-blur-sm"
-          : "border-black bg-transparent"
+          : "border-slate-300 bg-transparent"
       }`
     : "sticky top-0 z-50 border-b border-line bg-surface";
 
   return (
-    <header className={headerClass}>
+    <header
+      className={headerClass}
+      onMouseEnter={isHome ? () => setHovered(true) : undefined}
+      onMouseLeave={isHome ? () => setHovered(false) : undefined}
+    >
       <nav
         className="mx-auto flex h-[76px] w-full max-w-[1440px] items-center gap-11 px-5 sm:px-8"
         aria-label="주요 메뉴"
       >
         <Link
           href="/"
-          className="flex shrink-0 items-start gap-1 rounded-md text-xl font-extrabold tracking-[-0.02em] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          aria-label={t("brand")}
+          className="flex shrink-0 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
-          <span>{t("brand")}</span>
-          {/* 시안 01: 워드마크 우상단 ㄱ자 포인트(네이비) */}
-          <svg
-            viewBox="0 0 12 12"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            className="mt-0.5 size-2.5 text-accent"
-          >
-            <path d="M3 3h6v6" />
-          </svg>
+          <BrandLogo className="text-[24px]" />
         </Link>
-        <AppHeaderNav />
+        <AppHeaderNav transparent={transparent} />
       </nav>
     </header>
   );

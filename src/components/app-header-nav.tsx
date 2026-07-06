@@ -63,8 +63,13 @@ const MOBILE_LINK_CLASS =
 const MOBILE_UTIL_CLASS =
   "flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-line-strong text-[14.5px] font-bold text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
-function UtilSeparator() {
-  return <span className="h-[13px] w-px bg-line-strong" aria-hidden="true" />;
+function UtilSeparator({ transparent }: { transparent?: boolean }) {
+  return (
+    <span
+      className={`h-[13px] w-px ${transparent ? "bg-slate-400/70" : "bg-line-strong"}`}
+      aria-hidden="true"
+    />
+  );
 }
 
 function ChevronRight() {
@@ -132,7 +137,9 @@ function FacilityMega({
   );
 }
 
-export function AppHeaderNav() {
+// transparent: 홈 히어로 최상단(투명 상태)에서는 로고/메뉴/구분선을 흰색으로 렌더한다.
+// 헤더에 마우스가 올라오거나 스크롤하면 솔리드로 바뀌며 이 값이 false가 된다.
+export function AppHeaderNav({ transparent = false }: { transparent?: boolean }) {
   const t = useTranslations("Nav");
   const snapshot = useSyncExternalStore(
     subscribeFirebaseAuthSession,
@@ -177,6 +184,17 @@ export function AppHeaderNav() {
         { key: "signup", href: "/signup" },
       ];
 
+  // 투명 상태(홈 최상단)에서는 밝은 히어로 위에서 읽히도록 적당한 회색 테마로 렌더한다.
+  const gnbLinkClass = transparent
+    ? `${GNB_BASE} text-slate-500 hover:text-slate-700 hover:after:scale-x-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset`
+    : GNB_LINK_CLASS;
+  const utilLinkClass = transparent
+    ? "rounded text-[14.5px] font-semibold text-slate-500 transition hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+    : UTIL_LINK_CLASS;
+  const hamburgerClass = transparent
+    ? "ml-auto grid size-11 place-items-center rounded-lg border border-slate-400 text-slate-500 transition hover:border-slate-500 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
+    : "ml-auto grid size-11 place-items-center rounded-lg border border-line-strong text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden";
+
   return (
     <>
       {/* 데스크톱 GNB */}
@@ -193,7 +211,7 @@ export function AppHeaderNav() {
             {item.href ? (
               <Link
                 href={item.href}
-                className={GNB_LINK_CLASS}
+                className={gnbLinkClass}
                 onClick={item.mega ? () => setFacilityOpen(false) : undefined}
               >
                 {t(item.key)}
@@ -213,27 +231,27 @@ export function AppHeaderNav() {
       <div className="ml-auto hidden items-center gap-3.5 lg:flex">
         {utilLinks.map((link, index) => (
           <Fragment key={link.href}>
-            {index > 0 ? <UtilSeparator /> : null}
-            <Link href={link.href} className={UTIL_LINK_CLASS}>
+            {index > 0 ? <UtilSeparator transparent={transparent} /> : null}
+            <Link href={link.href} className={utilLinkClass}>
               {t(link.key)}
             </Link>
           </Fragment>
         ))}
         {signedIn ? (
           <>
-            <UtilSeparator />
+            <UtilSeparator transparent={transparent} />
             <button
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              className={`${UTIL_LINK_CLASS} disabled:cursor-not-allowed disabled:text-line-strong`}
+              className={`${utilLinkClass} disabled:cursor-not-allowed disabled:text-line-strong`}
             >
               {loggingOut ? t("loggingOut") : t("logout")}
             </button>
           </>
         ) : null}
-        <UtilSeparator />
-        <LocaleSwitcher />
+        <UtilSeparator transparent={transparent} />
+        <LocaleSwitcher transparent={transparent} />
       </div>
 
       {/* 모바일 햄버거 */}
@@ -243,7 +261,7 @@ export function AppHeaderNav() {
         aria-label={menuOpen ? t("closeMenu") : t("openMenu")}
         aria-expanded={menuOpen}
         aria-controls="mobile-menu"
-        className="ml-auto grid size-11 place-items-center rounded-lg border border-line-strong text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
+        className={hamburgerClass}
       >
         <svg
           viewBox="0 0 24 24"
