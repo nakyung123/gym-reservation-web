@@ -107,4 +107,21 @@ describe("GET /api/me/login-id-availability", () => {
     expect(findSpy).not.toHaveBeenCalled();
     findSpy.mockRestore();
   });
+
+  it("같은 IP가 1분에 30회를 넘기면 429로 응답한다 (enumeration 방어)", async () => {
+    // 다른 테스트의 버킷(XFF 미설정)과 섞이지 않도록 전용 IP를 쓴다.
+    const limitedRequest = () =>
+      new NextRequest(
+        "http://localhost:3000/api/me/login-id-availability?loginId=ab",
+        { headers: { "x-forwarded-for": "203.0.113.9" } },
+      );
+
+    for (let i = 0; i < 30; i += 1) {
+      const response = await GET(limitedRequest());
+      expect(response.status).toBe(200);
+    }
+
+    const blocked = await GET(limitedRequest());
+    expect(blocked.status).toBe(429);
+  });
 });

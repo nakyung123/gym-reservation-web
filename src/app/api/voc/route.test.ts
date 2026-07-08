@@ -4,12 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // IP추출/429응답은 실제 구현으로 라우트의 rate limit·fail-closed·검증·dedup 통과를 검증한다.
 // vi.mock은 hoist되므로 팩토리가 참조하는 mock 함수도 vi.hoisted로 함께 hoist한다.
 // vitest.unit.config.ts include 대상(DB-free).
-const { createVocPost, checkRateLimit } = vi.hoisted(() => ({
-  createVocPost: vi.fn(),
-  checkRateLimit: vi.fn(),
-}));
+const { createVocPost, checkRateLimit, verifyIdTokenFromRequest } = vi.hoisted(
+  () => ({
+    createVocPost: vi.fn(),
+    checkRateLimit: vi.fn(),
+    verifyIdTokenFromRequest: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/server/db-voc-repository", () => ({ createVocPost }));
+vi.mock("@/lib/server/auth", () => ({ verifyIdTokenFromRequest }));
 vi.mock("@/lib/server/rate-limit", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/server/rate-limit")>();
   return { ...actual, checkRateLimit };
@@ -46,10 +50,14 @@ const VALID_BODY = {
   password: "1234",
 };
 
-function makeRequest(body: unknown): NextRequest {
+function makeRequest(body: unknown, { idToken }: { idToken?: string } = {}): NextRequest {
   return new Request("http://localhost/api/voc", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-forwarded-for": "1.2.3.4" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-forwarded-for": "1.2.3.4",
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   }) as unknown as NextRequest;
 }
@@ -102,6 +110,31 @@ describe("POST /api/voc (공개 문의 작성)", () => {
   it("잘못된 JSON body는 400이다", async () => {
     const response = await POST(makeRequest("not-json"));
     expect(response.status).toBe(400);
+    expect(createVocPost).not.toHaveBeenCalled();
+  });
+
+  it("Authorization 헤더 없이 작성하면 익명(userId=null)으로 저장한다", async () => {
+    const response = await POST(makeRequest(VALID_BODY));
+    expect(response.status).toBe(201);
+    expect(verifyIdTokenFromRequest).not.toHaveBeenCalled();
+    expect(createVocPost).toHaveBeenCalledWith(expect.anything(), null);
+  });
+
+  it("유효한 Authorization 헤더면 uid를 글에 연결한다", async () => {
+    verifyIdTokenFromRequest.mockResolvedValueOnce({ ok: true, uid: "voc-user" });
+    const response = await POST(makeRequest(VALID_BODY, { idToken: "good" }));
+    expect(response.status).toBe(201);
+    expect(createVocPost).toHaveBeenCalledWith(expect.anything(), "voc-user");
+  });
+
+  it("Authorization 헤더가 있는데 무효면 익명 저장 대신 401로 거부한다", async () => {
+    verifyIdTokenFromRequest.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      message: "인증이 만료되었습니다.",
+    });
+    const response = await POST(makeRequest(VALID_BODY, { idToken: "expired" }));
+    expect(response.status).toBe(401);
     expect(createVocPost).not.toHaveBeenCalled();
   });
 });

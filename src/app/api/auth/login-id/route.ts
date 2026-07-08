@@ -52,6 +52,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // per-loginId rate limit: IP를 바꿔가며 특정 아이디 하나를 무차별 대입하는 경로를 캡한다
+  // (VOC verify의 per-IP + per-대상 이중 제한과 동일 패턴). 정상 사용자는 10회/10분에 걸리지 않는다.
+  const targetLimit = await checkRateLimit({
+    scope: "login-id:target",
+    identifier: validation.value,
+    limit: 10,
+    windowMs: 10 * 60_000,
+  });
+  if (!targetLimit.ok) return rateLimitedJsonResponse(targetLimit);
+
   let uid: string | null;
   try {
     uid = await findUserIdByLoginId(validation.value);

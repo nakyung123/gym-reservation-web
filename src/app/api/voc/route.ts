@@ -79,10 +79,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 인증은 선택이다: Authorization 헤더가 있고 유효하면 uid를 글에 연결하고(마이페이지 노출),
-  // 없거나 무효하면 익명(null)으로 작성한다. 공개 게시판이라 로그인은 강제하지 않는다.
-  const auth = await verifyIdTokenFromRequest(request);
-  const userId = auth.ok ? auth.uid : null;
+  // 인증은 선택이다: 헤더가 없으면 익명(null)으로 작성한다(공개 게시판이라 로그인 비강제).
+  // 단, Authorization 헤더가 있는데 무효(만료 등)면 익명으로 조용히 대체하지 않고 401로
+  // 응답한다 — 성공처럼 저장되면 글이 마이페이지 내역에 연결되지 않아 사라진 것처럼 보인다
+  // (login-id-availability와 동일 원칙).
+  let userId: string | null = null;
+  if (request.headers.get("authorization")) {
+    const auth = await verifyIdTokenFromRequest(request);
+    if (!auth.ok) {
+      return Response.json({ message: auth.message }, { status: auth.status });
+    }
+    userId = auth.uid;
+  }
 
   try {
     // reused=true(짧은 창 내 재전송)면 기존 글을 그대로 돌려준다(중복 생성 없음). 응답 형태는 동일.

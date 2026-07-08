@@ -59,6 +59,16 @@ describe("createInquiryInDb", () => {
     expect(other.reused).toBe(false);
     expect(await prisma.inquiry.count()).toBe(2);
   });
+
+  it("같은 내용이라도 대상 gymId가 다르면 별개 문의로 생성된다", async () => {
+    await createInquiryInDb(draft(userA, { gymId: "gym-alpha" }));
+    const other = await createInquiryInDb(draft(userA, { gymId: "gym-beta" }));
+    const general = await createInquiryInDb(draft(userA));
+
+    expect(other.reused).toBe(false);
+    expect(general.reused).toBe(false);
+    expect(await prisma.inquiry.count()).toBe(3);
+  });
 });
 
 describe("listUserInquiries", () => {

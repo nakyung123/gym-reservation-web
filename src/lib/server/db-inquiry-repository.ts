@@ -1,14 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/server/prisma-client";
 import { isInquiryStatus } from "@/lib/domain-constants";
-import { INQUIRY_DEDUP_WINDOW_MS } from "@/lib/inquiry";
+import { INQUIRY_DEDUP_WINDOW_MS, INQUIRY_PAGE_SIZE } from "@/lib/inquiry";
+import type { AdminInquiry } from "@/lib/admin/inquiry";
 import type { Inquiry, InquiryStatus } from "@/types/domain";
 import type { Prisma } from "@prisma/client";
 
 type InquiryRow = Prisma.InquiryGetPayload<Prisma.InquiryDefaultArgs>;
-
-// 마이페이지 목록과 동일한 페이지 크기(mypage-view PER_PAGE=10).
-export const INQUIRY_PAGE_SIZE = 10;
 
 // Prisma row → 도메인 Inquiry. status는 문자열 컬럼이라 안전 변환(미지 값은 open으로 폴백).
 function toDomainInquiry(row: InquiryRow): Inquiry {
@@ -33,8 +31,9 @@ export type CreateInquiryInput = {
   gymId: string | null;
 };
 
-// 1:1 문의 등록. 멱등성: 같은 uid가 동일 title+body를 60초 내 재전송하면 기존 건을 반환한다
-// (등록 더블클릭·네트워크 재시도 시 중복 레코드 방지). reused=true면 신규 생성이 아니다.
+// 1:1 문의 등록. 멱등성: 같은 uid가 동일 gymId+title+body를 60초 내 재전송하면 기존 건을
+// 반환한다(등록 더블클릭·네트워크 재시도 시 중복 레코드 방지). reused=true면 신규 생성이 아니다.
+// gymId도 매칭에 포함한다 — 같은 내용을 다른 체육관 대상으로 문의하면 별개 건이다.
 export async function createInquiryInDb(
   input: CreateInquiryInput,
 ): Promise<{ inquiry: Inquiry; reused: boolean }> {
@@ -42,6 +41,7 @@ export async function createInquiryInDb(
   const existing = await prisma.inquiry.findFirst({
     where: {
       userId: input.userId,
+      gymId: input.gymId,
       title: input.title,
       body: input.body,
       createdAt: { gte: since },
@@ -92,8 +92,6 @@ export async function getUserInquiryById(
   });
   return row ? toDomainInquiry(row) : null;
 }
-
-export type AdminInquiry = Inquiry & { userLabel: string };
 
 export type ListAdminInquiriesInput = {
   status?: InquiryStatus;

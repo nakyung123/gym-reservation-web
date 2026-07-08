@@ -33,8 +33,10 @@ function toPublicVocPost(
   };
 }
 
-// 멱등: 같은 성명+분류+본문을 VOC_DEDUP_WINDOW_MS 내 재전송하면 기존 글을 재사용한다
-// (작성 더블클릭·네트워크 재시도 시 중복 레코드 방지). reused=true면 신규 생성이 아니다.
+// 멱등: 같은 작성자(userId)+성명+분류+본문을 VOC_DEDUP_WINDOW_MS 내 재전송하면 기존 글을
+// 재사용한다(작성 더블클릭·네트워크 재시도 시 중복 레코드 방지). reused=true면 신규 생성이 아니다.
+// userId도 매칭에 포함한다 — 동명의 다른 사람(익명 vs 로그인) 글이 오병합되어 두 번째 작성자의
+// 비밀번호·연락처가 유실되는 것을 막는다.
 export async function createVocPost(
   input: VocValidated,
   // 로그인 사용자가 작성하면 uid를 함께 저장해 마이페이지 문의 내역에 노출한다. 익명이면 null.
@@ -43,6 +45,7 @@ export async function createVocPost(
   const since = new Date(Date.now() - VOC_DEDUP_WINDOW_MS);
   const existing = await prisma.vocPost.findFirst({
     where: {
+      userId,
       authorName: input.authorName,
       category: input.category,
       body: input.body,

@@ -128,4 +128,31 @@ describe("POST /api/auth/login-id", () => {
     );
     expect(response.status).toBe(429);
   });
+
+  it("per-IP는 통과해도 per-loginId 한도 초과면 429 (분산 IP 무차별 대입 캡)", async () => {
+    checkRateLimit
+      .mockResolvedValueOnce({ ok: true, remaining: 19, resetAt: new Date() })
+      .mockResolvedValueOnce({
+        ok: false,
+        retryAfterSeconds: 600,
+        resetAt: new Date(),
+      });
+
+    const response = await POST(
+      requestFor({ loginId: "loginok01", password: "Passw0rd!" }),
+    );
+
+    expect(response.status).toBe(429);
+    // 두 번째 검사가 아이디 단위 스코프인지 확인.
+    expect(checkRateLimit).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        scope: "login-id:target",
+        identifier: "loginok01",
+      }),
+    );
+    // 한도에 걸리면 계정 조회·비밀번호 검증으로 진행하지 않는다.
+    expect(getUser).not.toHaveBeenCalled();
+    expect(verifyEmailPassword).not.toHaveBeenCalled();
+  });
 });

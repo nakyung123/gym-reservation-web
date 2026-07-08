@@ -47,6 +47,7 @@ beforeEach(async () => {
   await prisma.withdrawalReason.deleteMany({});
   await prisma.userProfile.deleteMany({});
   await prisma.inquiry.deleteMany({});
+  await prisma.vocPost.deleteMany({});
   await prisma.reservationLock.deleteMany({});
   await prisma.reservation.deleteMany({});
   await prisma.reservationSlot.deleteMany({});
