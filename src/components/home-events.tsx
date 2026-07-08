@@ -283,7 +283,7 @@ export function HomeEvents() {
                     role="tab"
                     aria-selected={active}
                     onClick={() => handleTab(tab)}
-                    className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-full px-4 py-2.5 text-[16px] font-semibold transition xl:h-[68px] xl:w-full xl:rounded-none xl:px-3 xl:py-0 xl:text-[22px] ${
+                    className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-full px-3 py-2.5 text-[15px] font-semibold transition sm:px-4 sm:text-[16px] xl:h-[68px] xl:w-full xl:rounded-none xl:px-3 xl:py-0 xl:text-[22px] ${
                       active ? "bg-white/15 text-white xl:bg-transparent" : "text-white/60 hover:text-white/90"
                     }`}
                   >

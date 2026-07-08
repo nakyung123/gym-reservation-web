@@ -94,7 +94,7 @@ export function SearchBar({
               aria-haspopup="listbox"
               aria-expanded={open}
               className={`flex items-center pr-4 text-[16px] font-medium text-foreground outline-none ${
-                isBoard ? "gap-[111px]" : "gap-2"
+                isBoard ? "gap-3 sm:gap-[111px]" : "gap-2"
               }`}
             >
               {current?.label}

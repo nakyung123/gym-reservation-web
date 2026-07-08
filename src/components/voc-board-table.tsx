@@ -55,7 +55,9 @@ export function VocBoardTable({
 
   return (
     <div className="mx-auto mt-4 w-full max-w-[1400px] border-t-2 border-foreground/80">
-      <table className="w-full table-fixed">
+      {/* 모바일: 5열이 좁아 글자가 겹치지 않도록 최소 폭 + 가로 스크롤(마이페이지 보드와 동일 패턴). */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] table-fixed sm:min-w-0">
         <colgroup>
           <col className="w-[14%]" />
           <col className="w-[18%]" />
@@ -112,7 +114,8 @@ export function VocBoardTable({
                       {total - ((page - 1) * PAGE_SIZE + index)}
                     </td>
                     <td className="h-[72px] border-l border-line px-3 text-center align-middle text-[18px] text-foreground">
-                      {gymName}
+                      {/* 전역 keep-all로 긴 시설명이 셀을 넘치지 않도록 말줄임 처리 */}
+                      <span className="block truncate">{gymName}</span>
                     </td>
                     <td className="h-[72px] border-l border-line pl-[19px] pr-3 align-middle text-[18px]">
                       <span className="flex items-center gap-2 text-foreground transition group-hover:text-accent-strong">
@@ -146,7 +149,8 @@ export function VocBoardTable({
             })
           )}
         </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   );
 }

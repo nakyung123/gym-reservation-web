@@ -640,7 +640,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 // 예약내역 표의 타원 버튼(예약 상세·QR 보기 공용). 기본 흰 배경, hover 시 네이비 채움. 117.92×40.
 const RSV_PILL_CLASS =
-  "inline-flex h-[40px] w-[117.92px] items-center justify-center rounded-full border border-line-strong text-[14px] font-semibold text-foreground transition hover:border-accent hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+  "inline-flex h-[40px] w-[117.92px] max-w-full items-center justify-center rounded-full border border-line-strong text-[14px] font-semibold text-foreground transition hover:border-accent hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 // 예약내역: KMI 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
 function ReservationsBoardPanel({
@@ -719,7 +719,7 @@ function ReservationsBoardPanel({
         <span key="date" className="tabular-nums text-foreground">
           {reservation.date}
         </span>,
-        <span key="gym" className="text-foreground">
+        <span key="gym" className="block truncate text-foreground">
           {gymName}
         </span>,
         <span key="sport" className="text-foreground">

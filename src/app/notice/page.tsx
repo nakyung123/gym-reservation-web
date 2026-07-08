@@ -137,7 +137,7 @@ export default async function NoticePage({
         ) : (
           <table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[84px] sm:w-[120px]" />
+              <col className="w-[92px] sm:w-[120px]" />
               <col />
               <col className="hidden sm:table-column sm:w-[150px]" />
               <col className="w-[92px] sm:w-[140px]" />
@@ -161,7 +161,7 @@ export default async function NoticePage({
                   // 마지막 주요공지 아래 구분선은 게시판 맨 위 구분선과 동일하게(두껍게).
                   strongBottom={index === pinned.length - 1}
                   left={
-                    <span className="inline-flex h-9 items-center rounded-[25px] bg-accent px-3.5 text-[13px] font-bold text-white">
+                    <span className="inline-flex h-8 items-center rounded-[25px] bg-accent px-2.5 text-[12px] font-bold text-white sm:h-9 sm:px-3.5 sm:text-[13px]">
                       {t("pinnedLabel")}
                     </span>
                   }
@@ -229,7 +229,7 @@ function NoticeRow({
       <td className="h-[64px] pl-3 pr-2 text-center align-middle sm:h-[100px]">
         {left}
       </td>
-      <td className="h-[64px] pr-4 align-middle sm:h-[100px] sm:pl-3 sm:pr-9">
+      <td className="h-[64px] pl-2 pr-4 align-middle sm:h-[100px] sm:pl-3 sm:pr-9">
         <Link
           href={`/notice/${notice.id}`}
           prefetch={false}

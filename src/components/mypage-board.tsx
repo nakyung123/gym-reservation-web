@@ -59,7 +59,9 @@ export function MypageBoard({
 
   return (
     <div className="border-t-2 border-foreground/80">
-      <table className="w-full table-fixed">
+      {/* 모바일: 열이 좁아 글자가 겹치지 않도록 표에 최소 폭을 주고 가로 스크롤로 보완한다. */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] table-fixed sm:min-w-0">
         <colgroup>
           {columns.map((column, index) => (
             <col
@@ -113,7 +115,8 @@ export function MypageBoard({
             ))}
           </tbody>
         ) : null}
-      </table>
+        </table>
+      </div>
 
       {isEmpty ? (
         // 빈 표 영역: 아이콘(40px) + 안내 문구를 가운데.
