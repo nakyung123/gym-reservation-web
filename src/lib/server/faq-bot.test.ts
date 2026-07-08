@@ -80,7 +80,7 @@ describe("buildFaqSystemPrompt", () => {
     const prompt = buildFaqSystemPrompt();
     // 지식
     expect(prompt).toContain("간편 로그인"); // 가입
-    expect(prompt).toContain("현장 확인 코드"); // 체크인
+    expect(prompt).toContain("QR 체크인"); // 체크인
     // 취소 시한: USER_CANCEL_CUTOFF_MINUTES=120 → 2시간 (SSOT에서 파생)
     expect(prompt).toContain("이용 시작 2시간 전까지");
     // 결제/환불 데모 정직성

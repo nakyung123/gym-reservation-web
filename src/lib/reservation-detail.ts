@@ -16,11 +16,6 @@ export type UserReservationDetail = {
     reason: ReservationCancellationUnavailableReason | null;
     message: string | null;
   };
-  admission: {
-    active: boolean;
-    entryCode: string | null;
-    message: string;
-  };
 };
 
 const cancellationMessages: Record<
@@ -31,6 +26,8 @@ const cancellationMessages: Record<
   used: "이미 이용 완료된 예약은 취소할 수 없습니다.",
 };
 
+// QR 체크인 팝업의 QR payload. 예약 id에서 파생한 표시용 값으로, 서버 검증 플로우는 없다
+// (현장 시각 확인용 — 알려진 한계). 화면에 텍스트로 노출하지 않는다.
 export function getReservationEntryCode(reservation: Pick<Reservation, "id">) {
   return reservation.id.slice(0, 10).toUpperCase();
 }
@@ -39,19 +36,6 @@ export function createUserReservationDetail(
   reservation: Reservation,
   { now = new Date() }: { now?: Date } = {},
 ): UserReservationDetail {
-  const admission =
-    reservation.status === "reserved"
-      ? {
-          active: true,
-          entryCode: getReservationEntryCode(reservation),
-          message: "현장 확인 코드가 활성화되었습니다.",
-        }
-      : {
-          active: false,
-          entryCode: null,
-          message: "예약 완료 상태의 예약만 현장 확인 코드가 활성화됩니다.",
-        };
-
   if (reservation.status !== "reserved") {
     return {
       cancellation: {
@@ -60,7 +44,6 @@ export function createUserReservationDetail(
         reason: "not-reserved",
         message: cancellationMessages[reservation.status],
       },
-      admission,
     };
   }
 
@@ -74,7 +57,6 @@ export function createUserReservationDetail(
       reason: validation.ok ? null : validation.reason,
       message: validation.ok ? null : validation.message,
     },
-    admission,
   };
 }
 
@@ -104,11 +86,6 @@ export function isUserReservationDetail(
       reason?: unknown;
       message?: unknown;
     };
-    admission?: {
-      active?: unknown;
-      entryCode?: unknown;
-      message?: unknown;
-    };
   };
 
   return (
@@ -117,10 +94,6 @@ export function isUserReservationDetail(
       detail.cancellation.deadline === null) &&
     isCancellationReason(detail.cancellation.reason) &&
     (typeof detail.cancellation.message === "string" ||
-      detail.cancellation.message === null) &&
-    typeof detail.admission?.active === "boolean" &&
-    (typeof detail.admission.entryCode === "string" ||
-      detail.admission.entryCode === null) &&
-    typeof detail.admission.message === "string"
+      detail.cancellation.message === null)
   );
 }

@@ -20,7 +20,7 @@ const reservation: Reservation = {
 };
 
 describe("reservation detail helpers", () => {
-  it("creates active admission and cancellable metadata for a future reservation", () => {
+  it("creates cancellable metadata for a future reservation", () => {
     const detail = createUserReservationDetail(reservation, {
       now: new Date(2026, 4, 20, 6, 0),
     });
@@ -33,11 +33,6 @@ describe("reservation detail helpers", () => {
     expect(new Date(detail.cancellation.deadline ?? "").getTime()).toBe(
       new Date(2026, 4, 20, 8, 0).getTime(),
     );
-    expect(detail.admission).toEqual({
-      active: true,
-      entryCode: "RESERVATIO",
-      message: "현장 확인 코드가 활성화되었습니다.",
-    });
   });
 
   it("marks reservation as not cancellable after the cancellation deadline", () => {
@@ -52,7 +47,7 @@ describe("reservation detail helpers", () => {
     expect(detail.cancellation.message).toContain("전까지만 취소");
   });
 
-  it("marks inactive reservations as not cancellable and disables admission", () => {
+  it("marks inactive reservations as not cancellable", () => {
     const detail = createUserReservationDetail({
       ...reservation,
       status: "cancelled",
@@ -65,14 +60,10 @@ describe("reservation detail helpers", () => {
         reason: "not-reserved",
         message: "이미 취소된 예약입니다.",
       },
-      admission: {
-        active: false,
-        entryCode: null,
-      },
     });
   });
 
-  it("builds the same entry code shape used by the mobile ticket", () => {
+  it("builds the same entry code shape used by the QR check-in modal", () => {
     expect(getReservationEntryCode(reservation)).toBe("RESERVATIO");
   });
 
@@ -89,7 +80,7 @@ describe("reservation detail helpers", () => {
     expect(
       isUserReservationDetail({
         ...detail,
-        admission: { ...detail.admission, entryCode: 123 },
+        cancellation: { ...detail.cancellation, deadline: 123 },
       }),
     ).toBe(false);
   });

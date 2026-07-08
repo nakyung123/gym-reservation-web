@@ -219,17 +219,6 @@
       "month": "1 Month",
       "quarter": "3 Months"
     },
-    "ticketMobile": "Mobile Pass",
-    "ticketActive": "Active",
-    "ticketActiveAria": "Pass status: active",
-    "ticketQrAria": "Mobile pass QR code",
-    "ticketEntryCode": "On-site code",
-    "ticketUsed": "Used",
-    "ticketInactive": "Pass inactive",
-    "ticketUsedAria": "Pass used",
-    "ticketInactiveAria": "Pass deactivated",
-    "ticketUnavailable": "Facility info needed",
-    "ticketUnavailableAria": "Pass facility info needs checking",
     "missingGymName": "Facility removed from current list"
   },
   "Favorite": {
@@ -506,10 +495,7 @@
     "cancelling": "Cancelling",
     "keep": "Keep",
     "cancelReservation": "Cancel reservation",
-    "cancelUnexpectedError": "An unexpected error occurred while cancelling.",
-    "ticketEyebrow": "Pass",
-    "ticketTitle": "Mobile pass",
-    "ticketDesc": "Only booked reservations have an active on-site code."
+    "cancelUnexpectedError": "An unexpected error occurred while cancelling."
   },
   "Mypage": {
     "breadcrumbHome": "Home",

@@ -181,7 +181,7 @@ describe("fetchUserReservation", () => {
         gym,
         detail: {
           ...detail,
-          admission: { ...detail.admission, active: "yes" },
+          cancellation: { ...detail.cancellation, canCancel: "yes" },
         },
       }),
     );

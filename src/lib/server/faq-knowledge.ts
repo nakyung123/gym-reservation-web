@@ -12,7 +12,7 @@ import { USER_CANCEL_CUTOFF_MINUTES } from "@/lib/reservation-rules";
 // - 가입 약관 2건(만14세/이용약관): signup-terms-step.tsx TERMS
 // - 예약 제한 사유: reservation-rules.ts reservationRuleMessages
 // - 취소(변경 기능 없음, 취소만): reservations [reservationId] route.ts DELETE
-// - 현장 확인 코드: reservation-detail.ts getReservationEntryCode
+// - QR 체크인(이용 30분 전부터): mypage-view.tsx isQrTooEarly + reservation-qr-modal.tsx
 // - 고객센터 1599-0000 / 평일 09:00–18:00: site-footer.tsx (데모 번호)
 
 const CANCEL_CUTOFF_HOURS = USER_CANCEL_CUTOFF_MINUTES / 60;
@@ -73,7 +73,7 @@ export const FAQ_KNOWLEDGE: FaqCategory[] = [
     entries: [
       {
         q: "현장에서 어떻게 입장하나요?",
-        a: "예약이 완료되면 예약 상세에 현장 확인 코드가 활성화됩니다. 방문하실 때 이 코드로 확인합니다.",
+        a: "마이페이지 예약 내역의 'QR코드' 버튼으로 QR 체크인 화면을 열 수 있습니다. QR 코드는 예약 시간 30분 전부터 확인할 수 있으며, 방문 시 이 QR 코드로 체크인합니다.",
       },
     ],
   },

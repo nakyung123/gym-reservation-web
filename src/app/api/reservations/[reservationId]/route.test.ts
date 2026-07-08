@@ -78,7 +78,6 @@ describe("GET /api/reservations/[reservationId]", () => {
       gym?: { id?: unknown; name?: unknown };
       detail?: {
         cancellation?: { canCancel?: unknown; deadline?: unknown };
-        admission?: { active?: unknown; entryCode?: unknown };
       };
     };
 
@@ -90,10 +89,6 @@ describe("GET /api/reservations/[reservationId]", () => {
     expect(body.detail).toMatchObject({
       cancellation: {
         canCancel: true,
-      },
-      admission: {
-        active: true,
-        entryCode: created.reservation.id.slice(0, 10).toUpperCase(),
       },
     });
     expect(body.gym).toMatchObject({
@@ -250,7 +245,6 @@ describe("DELETE /api/reservations/[reservationId]", () => {
       reservation?: { status?: unknown };
       detail?: {
         cancellation?: { canCancel?: unknown; reason?: unknown };
-        admission?: { active?: unknown; entryCode?: unknown };
       };
     };
 
@@ -261,10 +255,6 @@ describe("DELETE /api/reservations/[reservationId]", () => {
       cancellation: {
         canCancel: false,
         reason: "not-reserved",
-      },
-      admission: {
-        active: false,
-        entryCode: null,
       },
     });
 
