@@ -252,6 +252,8 @@ describe("apiReservationRepository", () => {
         sport: reservation.sport,
         date: reservation.date,
         time: reservation.time,
+        // repository가 미지정 paymentMethod를 null로 정규화해 전송한다.
+        paymentMethod: reservation.paymentMethod ?? null,
       }),
     });
   });
