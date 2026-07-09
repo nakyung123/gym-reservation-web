@@ -112,3 +112,9 @@ API 계약을 사용하는 client helper를 수정한 경우:
 - 브라우저 확인이 필요하고 Claude 환경에서 `/browse` 스킬(gstack)을 사용할 수 있으면 우선 사용한다.
 - 해당 도구를 사용할 수 없거나 사용자 환경에서만 확인 가능한 경우, 사용자에게 브라우저 확인을 요청한다.
 - `mcp__claude-in-chrome__*` 도구는 사용하지 않는다.
+
+## Health Stack
+
+- typecheck: npx tsc --noEmit --pretty false
+- lint: npm run lint
+- test: npm run test
