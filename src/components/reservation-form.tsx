@@ -7,11 +7,18 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   useSyncExternalStore,
 } from "react";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
+import { useReservationSlots } from "@/hooks/use-reservation-slots";
+import { useReservationProfile } from "@/hooks/use-reservation-profile";
+import {
+  createWizardInitialState,
+  wizardReducer,
+} from "@/components/reservation-wizard-reducer";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -32,9 +39,6 @@ import {
 } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
-import { fetchReservationSlots } from "@/lib/reservation-slot-availability";
-import { fetchUserProfile } from "@/lib/user-profile-client";
-import type { UserProfile } from "@/lib/user-profile";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { ReservationCalendar } from "@/components/reservation-calendar";
 import { CollapsibleSection } from "@/components/collapsible-section";
@@ -54,26 +58,11 @@ import {
   unavailableTimeLabelKeys,
   type TermId,
 } from "@/components/reservation-form-parts";
-import type {
-  Gym,
-  PaymentMethod,
-  Reservation,
-  ReservationSlotAvailability,
-  Sport,
-} from "@/types/domain";
+import type { Gym, PaymentMethod, Reservation, Sport } from "@/types/domain";
 
 type ReservationFormProps = {
   gym: Gym;
 };
-
-type SlotsState =
-  | { status: "idle" }
-  | {
-      status: "ready";
-      key: string;
-      slots: Map<string, ReservationSlotAvailability>;
-    }
-  | { status: "error"; key: string; message: string };
 
 export function ReservationForm({ gym }: ReservationFormProps) {
   const t = useTranslations("Reserve");
@@ -98,15 +87,17 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
   // 처음엔 종목 미선택으로 시작. 딥링크(?sport=)로 들어오면 그 종목을 확정 상태로 편다.
   const initialSportParam = searchParams.get("sport");
+  const hasInitialSport = Boolean(initialSportParam);
   const [selectedSport, setSelectedSport] = useState<Sport | null>(
     initialSportParam ? initialSport : null,
   );
-  // 종목 선택완료 여부(달력 조회 게이트). 딥링크면 확정 상태로 시작.
-  const [sportConfirmed, setSportConfirmed] = useState(
-    Boolean(initialSportParam),
+  // 단계 진행 상태(섹션 열림 + 종목/인원/정보 확정 플래그 + 종목 강조)는 wizardReducer가 SSOT.
+  // "선택완료 → 현재 접고 다음 열기" 전이 규칙을 한곳에 모아 조합 실수를 막는다.
+  const [wizard, dispatchWizard] = useReducer(
+    wizardReducer,
+    hasInitialSport,
+    createWizardInitialState,
   );
-  // 선택완료 없이 달력 조회 시 선택완료 버튼을 빨갛게 강조.
-  const [sportError, setSportError] = useState(false);
   // 페이지 공통 알림 모달 메시지(null이면 닫힘). 어떤 알림이든 이 채널로 띄운다.
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(
@@ -115,24 +106,6 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [selectedTime, setSelectedTime] = useState(initialTime);
   // 이용 인원(1~종목 정원). 종목 변경 시 정원 초과분은 onChange에서 clamp한다.
   const [people, setPeople] = useState(1);
-  // 섹션 열림 상태(선택완료로 현재 접고 다음 펴는 단계 진행용).
-  // 예약 일자는 처음 접힘 → 달력 조회하기(종목 확정 후)로 연다.
-  // 초기 진입 시 예약 종목만 펼치고 나머지는 접는다. 선택완료로 다음 단계가 열린다.
-  const [openSections, setOpenSections] = useState({
-    sport: true,
-    date: Boolean(initialSportParam),
-    people: false,
-    profile: false,
-    terms: false,
-    payment: false,
-  });
-  // 달력 조회하기가 한 번이라도 성공했는지. 성공 후에는 버튼을 다시 보이지 않는다.
-  const [calendarRevealed, setCalendarRevealed] = useState(
-    Boolean(initialSportParam),
-  );
-  // 이용 인원·예약자 정보 완료 여부. 완료해야 접힘 요약을 노출한다(초기엔 요약 없이 접힘).
-  const [peopleConfirmed, setPeopleConfirmed] = useState(false);
-  const [profileConfirmed, setProfileConfirmed] = useState(false);
   const [noticeReservation, setNoticeReservation] =
     useState<Reservation | null>(null);
   // 결제 수단(목업) 선택 · 제출 상태 · 완료된 예약 · 실패 사유.
@@ -142,8 +115,6 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState<Reservation | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [slotsState, setSlotsState] = useState<SlotsState>({ status: "idle" });
-  const [slotsRefetchToken] = useState(0);
   const [userTouchedTime, setUserTouchedTime] = useState(false);
   // 약관 동의 상태(모두 필수). 모두 체크해야 예약 버튼이 활성화된다.
   const [agreed, setAgreed] = useState<Record<TermId, boolean>>({
@@ -217,40 +188,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   }, [isDateReady, selectedDate, todayValue, maxDateValue, gym]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // 예약자 정보(프로필) 로드.
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileState, setProfileState] = useState<
-    "idle" | "loading" | "ready" | "error"
-  >("idle");
-  // 예약 연락처: 회원정보 연락처를 기본값으로 불러오되 이 예약 건에서 수정 가능.
-  const [phoneInput, setPhoneInput] = useState("");
-  useEffect(() => {
-    if (!reservationUserId) return;
-    const controller = new AbortController();
-    // 조회 시작 즉시 로딩 표시(외부 fetch 동기화 목적의 의도적 set).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProfileState("loading");
-    fetchUserProfile(controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        if (result.ok) {
-          setProfile(result.profile);
-          // 연락처 입력칸 기본값 = 회원 연락처(없으면 빈칸, '-' 미표시).
-          setPhoneInput(result.profile?.phone?.trim() ?? "");
-          setProfileState("ready");
-        } else {
-          setProfileState("error");
-        }
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) return;
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-        setProfileState("error");
-      });
-    return () => controller.abort();
-  }, [reservationUserId]);
+  // 예약자 정보(프로필) 로드. 연락처는 회원 정보를 기본값으로 채우되 편집 가능.
+  const { profile, profileState, phoneInput, setPhoneInput } =
+    useReservationProfile(reservationUserId);
 
   // 예약 완료 화면으로 전환되면 맨 위로 스크롤(제출 버튼 위치에 머물러 아래에서 나타나는 문제 방지).
   useEffect(() => {
@@ -307,68 +247,18 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     selectedDate,
   ]);
 
-  const slotsRequestKey =
-    isDateReady && authSession.ok && selectedSport && selectedDate
-      ? [gym.id, selectedSport, effectiveSelectedDate, String(slotsRefetchToken)].join(
-          "__",
-        )
-      : null;
-
-  useEffect(() => {
-    if (!slotsRequestKey || !selectedSport) return;
-    const controller = new AbortController();
-
-    fetchReservationSlots({
+  // 실시간 슬롯 가용성 조회는 use-reservation-slots 훅에 위임한다.
+  // 선행 조건(날짜 준비·인증·종목/날짜 선택)이 모두 충족될 때만 조회한다.
+  const { slotsLookup, slotsFetchError, slotsFetchPending } =
+    useReservationSlots({
       gymId: gym.id,
       sport: selectedSport,
       date: effectiveSelectedDate,
-      signal: controller.signal,
-    })
-      .then((result) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        if (result.ok) {
-          setSlotsState({
-            status: "ready",
-            key: slotsRequestKey,
-            slots: new Map(result.slots.map((slot) => [slot.time, slot])),
-          });
-        } else {
-          setSlotsState({
-            status: "error",
-            key: slotsRequestKey,
-            message: result.message,
-          });
-        }
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        const detail = error instanceof Error ? error.message : "";
-        setSlotsState({
-          status: "error",
-          key: slotsRequestKey,
-          message: t("slotsFetchError", { detail }).trim(),
-        });
-      });
-
-    return () => {
-      controller.abort();
-    };
-  }, [effectiveSelectedDate, gym.id, selectedSport, slotsRequestKey, t]);
-
-  const slotsLookup =
-    slotsState.status === "ready" && slotsState.key === slotsRequestKey
-      ? slotsState.slots
-      : null;
-  const slotsFetchError =
-    slotsState.status === "error" && slotsState.key === slotsRequestKey
-      ? slotsState.message
-      : null;
-  const slotsFetchPending =
-    Boolean(slotsRequestKey) && !slotsLookup && !slotsFetchError;
+      enabled: Boolean(
+        isDateReady && authSession.ok && selectedSport && selectedDate,
+      ),
+      formatFetchError: (detail) => t("slotsFetchError", { detail }).trim(),
+    });
   const hasReservationNotice = noticeReservation !== null;
   const timeSelectionDisabledReason = !authSession.ok
     ? authSession.message
@@ -535,7 +425,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   // 모든 필수 약관 동의가 완료되면 약관을 접고 결제 수단을 펼친다(다음 단계 자동 진행).
   function openPaymentIfAllAgreed(nextAgreed: Record<TermId, boolean>) {
     if (REQUIRED_TERMS.every((term) => nextAgreed[term.id])) {
-      setOpenSections((s) => ({ ...s, terms: false, payment: true }));
+      dispatchWizard({ type: "OPEN_PAYMENT" });
     }
   }
 
@@ -644,9 +534,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             <CollapsibleSection
               title="예약 종목"
               description="원하는 종목을 선택해 주세요."
-              open={openSections.sport}
+              open={wizard.openSections.sport}
               onOpenChange={(v) =>
-                setOpenSections((s) => ({ ...s, sport: v }))
+                dispatchWizard({ type: "TOGGLE_SECTION", section: "sport", open: v })
               }
               summary={
                 <SummaryPeek
@@ -665,7 +555,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       onClick={() => {
                         setSelectedSport(sport);
                         // 종목을 바꾸면 선택완료를 다시 눌러야 달력 조회 가능.
-                        setSportConfirmed(false);
+                        dispatchWizard({ type: "SELECT_SPORT" });
                         // 종목 변경 시 새 정원을 넘는 인원은 정원으로 내린다.
                         setPeople((prev) =>
                           Math.min(prev, SPORT_MAX_PEOPLE[sport] ?? 1),
@@ -696,39 +586,36 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               })}
             </ul>
             <StepConfirm
-              error={sportError}
+              error={wizard.sportError}
               onClick={() => {
                 if (!selectedSport) {
-                  setSportError(true);
+                  dispatchWizard({ type: "SPORT_ERROR" });
                   setAlertMessage("예약 종목을 선택 완료해주세요.");
                   return;
                 }
                 // 종목 확정: 빨간 강조 해제 + 섹션 접어 요약 표시.
-                setSportConfirmed(true);
-                setSportError(false);
-                setOpenSections((s) => ({ ...s, sport: false }));
+                dispatchWizard({ type: "CONFIRM_SPORT" });
               }}
             />
             </CollapsibleSection>
 
             {/* 달력 조회하기 — 종목 확정 후 예약 일자(달력)를 연다. 미확정 시 알림.
                 한 번 조회에 성공하면 이후로는 버튼을 다시 보이지 않는다. */}
-            {!calendarRevealed ? (
+            {!wizard.calendarRevealed ? (
               <div className="my-4 flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
-                    if (!sportConfirmed) {
-                      setSportError(true);
+                    if (!wizard.sportConfirmed) {
+                      dispatchWizard({ type: "SPORT_ERROR" });
                       setAlertMessage("예약 종목을 선택 완료해주세요.");
                       return;
                     }
-                    setCalendarRevealed(true);
                     // 캘린더를 열면서 오늘을 기본 선택 → 캘린더+시간대가 함께 노출된다.
                     if (todayValue) {
                       setSelectedDate((prev) => prev ?? todayValue);
                     }
-                    setOpenSections((s) => ({ ...s, sport: false, date: true }));
+                    dispatchWizard({ type: "REVEAL_CALENDAR" });
                   }}
                   className="h-[52px] w-[150.88px] rounded-full bg-accent text-[16px] font-medium text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
@@ -740,8 +627,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <CollapsibleSection
                 title="예약 일자"
               description="원하는 날짜를 선택하면 해당 날짜의 예약 가능 시간을 확인할 수 있습니다."
-              open={openSections.date}
-              onOpenChange={(v) => setOpenSections((s) => ({ ...s, date: v }))}
+              open={wizard.openSections.date}
+              onOpenChange={(v) =>
+                dispatchWizard({ type: "TOGGLE_SECTION", section: "date", open: v })
+              }
               summary={
                 selectedDate ? (
                   <SummaryPeek
@@ -917,9 +806,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             {/* 시간대 아래 구분선(박스 끝까지) + 선택완료(→ 이용 인원) */}
             <StepConfirm
               divider="full"
-              onClick={() =>
-                setOpenSections((s) => ({ ...s, date: false, people: true }))
-              }
+              onClick={() => dispatchWizard({ type: "CONFIRM_DATE" })}
             />
             </CollapsibleSection>
             )}
@@ -927,12 +814,12 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             {/* 이용 인원 */}
             <CollapsibleSection
               title="이용 인원"
-              open={openSections.people}
+              open={wizard.openSections.people}
               onOpenChange={(v) =>
-                setOpenSections((s) => ({ ...s, people: v }))
+                dispatchWizard({ type: "TOGGLE_SECTION", section: "people", open: v })
               }
               summary={
-                peopleConfirmed ? (
+                wizard.peopleConfirmed ? (
                   <SummaryPeek label="이용 인원" value={`${people}명`} />
                 ) : undefined
               }
@@ -972,26 +859,19 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 </div>
               </div>
               <StepConfirm
-                onClick={() => {
-                  setPeopleConfirmed(true);
-                  setOpenSections((s) => ({
-                    ...s,
-                    people: false,
-                    profile: true,
-                  }));
-                }}
+                onClick={() => dispatchWizard({ type: "CONFIRM_PEOPLE" })}
               />
             </CollapsibleSection>
 
             {/* 예약자 정보 */}
             <CollapsibleSection
               title="예약자 정보"
-              open={openSections.profile}
+              open={wizard.openSections.profile}
               onOpenChange={(v) =>
-                setOpenSections((s) => ({ ...s, profile: v }))
+                dispatchWizard({ type: "TOGGLE_SECTION", section: "profile", open: v })
               }
               summary={
-                profileConfirmed ? (
+                wizard.profileConfirmed ? (
                   <div className="flex flex-col gap-2">
                     <SummaryPeek label="예약자명" value={profileText.name} />
                     <SummaryPeek
@@ -1035,14 +915,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 <StepConfirm
                   label="입력완료"
                   divider="full"
-                  onClick={() => {
-                    setProfileConfirmed(true);
-                    setOpenSections((s) => ({
-                      ...s,
-                      profile: false,
-                      terms: true,
-                    }));
-                  }}
+                  onClick={() => dispatchWizard({ type: "CONFIRM_PROFILE" })}
                 />
               </>
             )}
@@ -1052,8 +925,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             <CollapsibleSection
               title="약관 동의"
               description="아래의 약관에 동의해 주세요."
-              open={openSections.terms}
-              onOpenChange={(v) => setOpenSections((s) => ({ ...s, terms: v }))}
+              open={wizard.openSections.terms}
+              onOpenChange={(v) =>
+                dispatchWizard({ type: "TOGGLE_SECTION", section: "terms", open: v })
+              }
             >
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3.5">
               <CircleCheck
@@ -1082,9 +957,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             {/* 결제 수단 — 이 페이지에서 바로 결제(포트폴리오용 목업, 실 PG 없음) */}
             <CollapsibleSection
               title="결제 수단"
-              open={openSections.payment}
+              open={wizard.openSections.payment}
               onOpenChange={(v) =>
-                setOpenSections((s) => ({ ...s, payment: v }))
+                dispatchWizard({ type: "TOGGLE_SECTION", section: "payment", open: v })
               }
             >
               {/* 결제 금액 박스 (네이비) */}
