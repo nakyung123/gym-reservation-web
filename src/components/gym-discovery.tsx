@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/app-button";
@@ -8,6 +8,13 @@ import { AlertModal } from "@/components/alert-modal";
 import { GymCard } from "@/components/gym-card";
 import { SelectMenu } from "@/components/select-menu";
 import { BoardPagination } from "@/components/board-pagination";
+import {
+  createGymFilterInitialState,
+  gymFilterReducer,
+  isValidSport,
+  type GymSort,
+  type SortDir,
+} from "@/components/gym-filters-reducer";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
@@ -24,14 +31,6 @@ type GymDiscoveryProps = {
   initialSport?: string;
 };
 
-type SportFilter = Sport | "전체";
-type RegionFilter = string | "전체";
-// 정렬: 미적용(none) | 가까운 순(distance) | 가격순(price). 가격순은 asc/desc 토글.
-// none은 버튼이 모두 꺼진 기본 상태로, 목록은 가격 오름차순으로 보여준다.
-// 정렬 버튼을 다시 눌러 마지막 상태를 지나면 none으로 돌아간다(가까운순 2번·가격순 3번).
-type GymSort = "none" | "distance" | "price";
-type SortDir = "asc" | "desc";
-
 // 페이지당 카드 수(시설 찾기 목록).
 const PER_PAGE = 9;
 
@@ -39,11 +38,6 @@ const PER_PAGE = 9;
 const CONTROL_CLASS =
   "h-12 rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px] transition focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2";
 const FIELD_LABEL_CLASS = "text-[12.5px] font-bold text-foreground";
-
-// ?sport= 쿼리가 실제 종목인지 검증한다(SSOT=domain-constants SPORTS).
-function isValidSport(value: string | undefined): value is Sport {
-  return !!value && (SPORTS as readonly string[]).includes(value);
-}
 
 function distanceForSort(gym: Gym, location: GeoPoint | null): number {
   const km = calculateGymDistanceKm(gym, location);
@@ -117,41 +111,43 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   const t = useTranslations("Gyms");
   const paginationLabels = useBoardPaginationLabels("Gyms");
   const router = useRouter();
-  const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
-  // 종목: 검색바 select. 기본 전체, 메가메뉴에서 ?sport=로 들어오면 그 종목.
-  const [selectedSport, setSelectedSport] = useState<SportFilter>(
-    isValidSport(initialSport) ? initialSport : "전체",
+  // 필터·정렬·페이지 상태는 gym-filters-reducer가 SSOT. resetPage/cascade 전이를
+  // 리듀서에 모아 "필터가 바뀌면 1페이지로" 불변식을 한곳에서 보장한다.
+  const [filters, dispatch] = useReducer(
+    gymFilterReducer,
+    isValidSport(initialSport) ? initialSport : null,
+    createGymFilterInitialState,
   );
-  // 체육관: 홈 검색바와 동일한 cascade의 마지막 단계. 고르고 '시설 검색'을 누르면 상세로 이동.
-  const [selectedGymId, setSelectedGymId] = useState("");
-  // 기본 정렬: none(버튼 모두 꺼짐, 목록은 가격 오름차순). 정렬 버튼으로 켜고, 마지막 상태를 지나면 다시 none.
-  const [selectedSort, setSelectedSort] = useState<GymSort>("none");
-  const [priceDir, setPriceDir] = useState<SortDir>("asc");
-  // 거리순 클릭 시 위치 권한이 없어 모달을 띄운 경우 의도를 보존했다가
-  // location이 채워지면 자동으로 거리순으로 전환한다 (재클릭 불필요).
-  const [pendingSort, setPendingSort] = useState<GymSort | null>(null);
-  // 위치 권한이 차단되어 가까운 순을 못 쓸 때 띄우는 통일 알림창.
+  const {
+    region: selectedRegion,
+    sport: selectedSport,
+    gymId: selectedGymId,
+    sort: selectedSort,
+    priceDir,
+    favoritesOnly,
+    page,
+    pendingSort,
+  } = filters;
+  // 알림 모달 2종은 순수 UI transient(필터 상태 아님)라 컴포넌트 로컬 상태로 둔다.
+  // 위치 권한이 차단되어 가까운 순을 못 쓸 때, 그리고 즐겨찾기가 없을 때 각각 띄운다.
   const [locationDeniedAlert, setLocationDeniedAlert] = useState(false);
-  // 즐겨찾기한 체육관이 없을 때 즐겨찾기 필터를 누르면 띄우는 통일 알림창(화면은 유지).
   const [favoritesEmptyAlert, setFavoritesEmptyAlert] = useState(false);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [page, setPage] = useState(1);
   const { favorites, toggleFavorite, isFavorite, toggleError, loadError } = useFavorites();
   const { location, permission, requestLocation } = useUserLocation();
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  // 거리순 의도를 보류(pendingSort=distance)한 뒤 위치가 채워지면 자동으로 거리순 전환.
   useEffect(() => {
     if (!location || pendingSort !== "distance") return;
-    setSelectedSort("distance");
-    setPendingSort(null);
+    dispatch({ type: "LOCATION_RESOLVED" });
   }, [location, pendingSort]);
 
   // 가까운 순 의도가 있는데 위치 권한이 차단(denied)됐고 좌표가 없으면(네이티브 팝업 거부 포함)
-  // 통일 알림창을 띄운다.
+  // 통일 알림창을 띄우고 보류 의도는 해제한다.
   useEffect(() => {
     if (pendingSort === "distance" && permission === "denied" && !location) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocationDeniedAlert(true);
-      setPendingSort(null);
+      dispatch({ type: "CLEAR_PENDING_SORT" });
     }
   }, [pendingSort, permission, location]);
 
@@ -159,11 +155,9 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   // 종목 필터를 동기화하고 1페이지로 되돌린다.
   useEffect(() => {
     if (isValidSport(initialSport)) {
-      setSelectedSport(initialSport);
-      setPage(1);
+      dispatch({ type: "SYNC_SPORT", value: initialSport });
     }
   }, [initialSport]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // 지역 옵션: 선택한 종목이 있는 지역만(종목→지역 방향 cascade). 종목이 전체면 전 지역.
   const availableRegions = useMemo(() => {
@@ -221,74 +215,28 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
     pageItems: pagedGyms,
   } = usePagination(filteredGyms, page, PER_PAGE);
 
-  // 필터·정렬이 바뀌면 보던 페이지가 사라지는 혼란을 막기 위해 1페이지로 되돌린다.
-  const resetPage = () => setPage(1);
-
-  const clearFilters = () => {
-    setSelectedRegion("전체");
-    setSelectedSport("전체");
-    setSelectedGymId("");
-    setFavoritesOnly(false);
-    resetPage();
-  };
-
-  // 지역이 바뀌면 체육관을 초기화한다. 종목은 새 지역에서도 가능하면 유지하고, 불가능할 때만 전체로 되돌린다.
-  const handleRegionChange = (value: string) => {
-    setSelectedRegion(value);
-    setSelectedSport((prev) => {
-      if (prev === "전체") return prev;
-      const stillAvailable = gyms.some(
-        (gym) =>
-          (value === "전체" || gym.region === value) &&
-          gym.sports.includes(prev),
-      );
-      return stillAvailable ? prev : "전체";
-    });
-    setSelectedGymId("");
-    resetPage();
-  };
-
-  // 종목이 바뀌면 체육관을 초기화한다. 지역은 그 종목이 있는 지역이면 유지하고, 없을 때만 전체로 되돌린다.
-  const handleSportChange = (value: string) => {
-    const sport = value as SportFilter;
-    setSelectedSport(sport);
-    setSelectedRegion((prev) => {
-      if (sport === "전체" || prev === "전체") return prev;
-      const stillAvailable = gyms.some(
-        (gym) => gym.region === prev && gym.sports.includes(sport),
-      );
-      return stillAvailable ? prev : "전체";
-    });
-    setSelectedGymId("");
-    resetPage();
-  };
-
   // '시설 검색': 체육관을 고른 경우 상세로 이동. 체육관 미선택(전체)이면 현재 지역·종목 필터로 목록 조회(목록은 실시간 반영이라 1페이지로 정렬).
   const handleSubmit = () => {
     if (selectedGymId) {
       router.push(`/gyms/${selectedGymId}`);
       return;
     }
-    resetPage();
+    dispatch({ type: "SUBMIT_SEARCH" });
   };
 
   // 가까운 순: 위치 없으면 브라우저 네이티브 위치 권한 팝업을 직접 띄운다(커스텀 모달 대신).
   const handleDistanceClick = () => {
     // 이미 가까운 순이면 한 번 더 눌러 해제(none)한다.
     if (selectedSort === "distance") {
-      setPendingSort(null);
-      setSelectedSort("none");
-      resetPage();
+      dispatch({ type: "DISTANCE_OFF" });
       return;
     }
     if (location) {
-      setPendingSort(null);
-      setSelectedSort("distance");
-      resetPage();
+      dispatch({ type: "DISTANCE_ON" });
       return;
     }
     // 위치 미보유. 거리순 의도를 기록해 허용되면 effect가 자동 전환하게 한다.
-    setPendingSort("distance");
+    dispatch({ type: "DISTANCE_PENDING" });
     // 이미 차단(denied)된 경우엔 브라우저 정책상 네이티브 팝업이 다시 뜨지 않으므로
     // 재요청 없이 통일 알림창을 띄운다. 그 외(prompt 등)엔 네이티브 팝업 요청.
     if (permission === "denied") {
@@ -298,23 +246,16 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
     }
   };
 
+  // 지역·종목 변경은 cascade + 체육관 초기화 + 1페이지 전이를 리듀서가 처리한다.
+  const handleRegionChange = (value: string) =>
+    dispatch({ type: "SET_REGION", value, gyms });
+  const handleSportChange = (value: string) =>
+    dispatch({ type: "SET_SPORT", value, gyms });
+
   // 가격순: 꺼짐→오름차순→내림차순→해제(none) 순으로 순환(3번 누르면 해제).
-  const handlePriceClick = () => {
-    setPendingSort(null);
-    if (selectedSort === "price") {
-      if (priceDir === "asc") {
-        setPriceDir("desc");
-      } else {
-        // 내림차순에서 한 번 더 → 해제. 다음 사용을 위해 방향은 오름차순으로 되돌린다.
-        setSelectedSort("none");
-        setPriceDir("asc");
-      }
-    } else {
-      setSelectedSort("price");
-      setPriceDir("asc");
-    }
-    resetPage();
-  };
+  const handlePriceClick = () => dispatch({ type: "PRICE_CLICK" });
+
+  const clearFilters = () => dispatch({ type: "CLEAR_FILTERS" });
 
   const sortButtonClass = (active: boolean) =>
     `inline-flex h-10 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
@@ -391,7 +332,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
               placeholderClassName="text-slate-950"
               ariaLabel={t("gymLabel")}
               disabled={gymOptions.length === 0}
-              onChange={setSelectedGymId}
+              onChange={(value) => dispatch({ type: "SET_GYM_ID", value })}
               triggerClassName={CONTROL_CLASS}
             />
           </div>
@@ -455,8 +396,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
                 setFavoritesEmptyAlert(true);
                 return;
               }
-              setFavoritesOnly((prev) => !prev);
-              resetPage();
+              dispatch({ type: "TOGGLE_FAVORITES" });
             }}
             aria-pressed={favoritesOnly}
             className={sortButtonClass(favoritesOnly)}
@@ -515,7 +455,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
               page={safePage}
               totalPages={totalPages}
               onNavigate={(p) => {
-                setPage(p);
+                dispatch({ type: "SET_PAGE", page: p });
                 // 페이지를 넘기면 목록 상단으로 스크롤한다(공지 URL 이동과 동일한 UX).
                 if (typeof window !== "undefined") {
                   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -549,10 +489,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
             {favoritesOnly ? (
               <button
                 type="button"
-                onClick={() => {
-                  setFavoritesOnly(false);
-                  resetPage();
-                }}
+                onClick={() => dispatch({ type: "CLEAR_FAVORITES" })}
                 className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-3 text-sm font-semibold text-accent-ink transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 {!loadError && !hasNonFavoritesFilter
