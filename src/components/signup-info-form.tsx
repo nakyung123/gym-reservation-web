@@ -15,6 +15,7 @@ import {
   validateUserProfileInput,
 } from "@/lib/user-profile";
 import { formatBirthDate } from "@/lib/input-format";
+import { useAvailabilityCheck } from "@/hooks/use-availability-check";
 import { SignupStepIndicator } from "@/components/signup-step-indicator";
 import { AlertModal } from "@/components/alert-modal";
 
@@ -26,22 +27,6 @@ import { AlertModal } from "@/components/alert-modal";
 // 않는다(부분 실패·멱등성).
 
 type Mode = "email" | "social";
-
-type IdCheck =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "available" }
-  | { status: "taken" }
-  | { status: "invalid"; message: string }
-  | { status: "error"; message: string };
-
-type EmailCheck =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "available" }
-  | { status: "taken" }
-  | { status: "invalid" }
-  | { status: "error"; message: string };
 
 type SubmitState =
   | { kind: "idle" }
@@ -89,8 +74,9 @@ export function SignupInfoForm({
   const [emailLocal, setEmailLocal] = useState(initialLocal);
   const [emailDomain, setEmailDomain] = useState(initialDomain);
   const [domainPreset, setDomainPreset] = useState("직접입력");
-  const [idCheck, setIdCheck] = useState<IdCheck>({ status: "idle" });
-  const [emailCheck, setEmailCheck] = useState<EmailCheck>({ status: "idle" });
+  // 아이디·이메일 중복 확인은 동일한 상태머신이라 공통 훅으로 처리한다.
+  const idCheck = useAvailabilityCheck();
+  const emailCheck = useAvailabilityCheck();
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
   // 다음 버튼은 항상 활성화하고, 미완료 항목이 있으면 이 알림창으로 안내한다.
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -133,7 +119,7 @@ export function SignupInfoForm({
 
   const isLoading = submitState.kind === "loading";
   const isFormValid =
-    idCheck.status === "available" &&
+    idCheck.state.status === "available" &&
     password.length > 0 &&
     passwordConfirm.length > 0 &&
     !passwordError &&
@@ -143,74 +129,50 @@ export function SignupInfoForm({
     birthDateCheck.ok &&
     combinedPhone.length > 0 &&
     combinedEmail.length > 0 &&
-    (emailLocked || emailCheck.status === "available");
+    (emailLocked || emailCheck.state.status === "available");
 
   function handleLoginIdChange(value: string) {
     setLoginIdValue(value);
-    setIdCheck({ status: "idle" });
+    idCheck.reset();
   }
 
   async function handleCheckId() {
-    const validation = validateLoginId(loginId);
-    if (!validation.ok) {
-      setIdCheck({ status: "invalid", message: validation.message });
-      return;
-    }
-    setIdCheck({ status: "checking" });
-    const result = await checkLoginIdAvailability(validation.value);
-    if (!result.ok) {
-      setIdCheck({ status: "error", message: result.message });
-      return;
-    }
-    if (result.available) {
-      setIdCheck({ status: "available" });
-      return;
-    }
-    setIdCheck(
-      result.reason === "invalid"
-        ? { status: "invalid", message: "사용할 수 없는 아이디입니다." }
-        : { status: "taken" },
-    );
+    await idCheck.run({
+      validate: () => validateLoginId(loginId),
+      fetcher: checkLoginIdAvailability,
+      invalidMessage: "사용할 수 없는 아이디입니다.",
+    });
   }
 
   // 이메일 입력이 바뀌면 직전 중복확인 결과를 무효화한다.
   function handleEmailLocalChange(value: string) {
     setEmailLocal(value);
-    setEmailCheck({ status: "idle" });
+    emailCheck.reset();
   }
 
   function handleDomainPresetChange(value: string) {
     setDomainPreset(value);
     setEmailDomain(value === "직접입력" ? "" : value);
-    setEmailCheck({ status: "idle" });
+    emailCheck.reset();
   }
 
   function handleEmailDomainChange(value: string) {
     setEmailDomain(value);
-    setEmailCheck({ status: "idle" });
+    emailCheck.reset();
   }
 
   async function handleCheckEmail() {
-    if (!combinedEmail) {
-      setEmailCheck({ status: "invalid" });
-      return;
-    }
-    setEmailCheck({ status: "checking" });
-    const result = await checkEmailAvailability(combinedEmail);
-    if (!result.ok) {
-      setEmailCheck({ status: "error", message: result.message });
-      return;
-    }
-    if (result.available) {
-      setEmailCheck({ status: "available" });
-      return;
-    }
-    setEmailCheck({ status: result.reason === "invalid" ? "invalid" : "taken" });
+    await emailCheck.run({
+      // 이메일은 조합 완성 여부만 사전 검증(형식 문구는 두지 않는다).
+      validate: () =>
+        combinedEmail ? { ok: true, value: combinedEmail } : { ok: false },
+      fetcher: checkEmailAvailability,
+    });
   }
 
   // 미완료 항목을 위에서부터 찾아 첫 안내 문구를 돌려준다(다음 버튼 클릭 시 알림창용).
   function firstInvalidMessage(): string | null {
-    if (idCheck.status !== "available") return "아이디 중복 확인을 완료해 주세요.";
+    if (idCheck.state.status !== "available") return "아이디 중복 확인을 완료해 주세요.";
     if (password.length === 0 || passwordError)
       return "비밀번호를 조건에 맞게 입력해 주세요.";
     if (passwordConfirm.length === 0 || passwordConfirmError)
@@ -220,7 +182,7 @@ export function SignupInfoForm({
     if (!birthDateCheck.ok) return birthDateCheck.message;
     if (combinedPhone.length === 0) return "연락처를 입력해 주세요.";
     if (combinedEmail.length === 0) return "이메일을 입력해 주세요.";
-    if (!emailLocked && emailCheck.status !== "available")
+    if (!emailLocked && emailCheck.state.status !== "available")
       return "이메일 중복 확인을 완료해 주세요.";
     return null;
   }
@@ -264,7 +226,7 @@ export function SignupInfoForm({
     if (!loginIdSetRef.current) {
       const idResult = await setLoginId(loginId);
       if (!idResult.ok) {
-        setIdCheck({ status: "taken" });
+        idCheck.markTaken();
         setSubmitState({ kind: "error", message: idResult.message });
         return;
       }
@@ -320,18 +282,18 @@ export function SignupInfoForm({
             <button
               type="button"
               onClick={handleCheckId}
-              disabled={isLoading || idCheck.status === "checking"}
+              disabled={isLoading || idCheck.state.status === "checking"}
               className="h-[50px] shrink-0 rounded-[3px] bg-[#121212] px-4 text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {idCheck.status === "checking" ? "확인 중" : "중복 확인"}
+              {idCheck.state.status === "checking" ? "확인 중" : "중복 확인"}
             </button>
           </div>
-          {idCheck.status === "available" ? (
+          {idCheck.state.status === "available" ? (
             <Hint tone="ok">사용할 수 있는 아이디입니다.</Hint>
-          ) : idCheck.status === "taken" ? (
+          ) : idCheck.state.status === "taken" ? (
             <Hint tone="err">이미 사용 중인 아이디입니다.</Hint>
-          ) : idCheck.status === "invalid" || idCheck.status === "error" ? (
-            <Hint tone="err">{idCheck.message}</Hint>
+          ) : idCheck.state.status === "invalid" || idCheck.state.status === "error" ? (
+            <Hint tone="err">{idCheck.state.message}</Hint>
           ) : loginIdError ? (
             <Hint tone="err">{loginIdError}</Hint>
           ) : (
@@ -500,10 +462,10 @@ export function SignupInfoForm({
               <button
                 type="button"
                 onClick={handleCheckEmail}
-                disabled={isLoading || emailCheck.status === "checking"}
+                disabled={isLoading || emailCheck.state.status === "checking"}
                 className="h-[50px] shrink-0 rounded-[3px] bg-[#121212] px-4 text-[14px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {emailCheck.status === "checking" ? "확인 중" : "중복 확인"}
+                {emailCheck.state.status === "checking" ? "확인 중" : "중복 확인"}
               </button>
             ) : null}
           </div>
@@ -513,14 +475,14 @@ export function SignupInfoForm({
                 ? "소셜 계정에서 가져온 이메일입니다."
                 : "인증을 완료한 이메일입니다."}
             </Hint>
-          ) : emailCheck.status === "available" ? (
+          ) : emailCheck.state.status === "available" ? (
             <Hint tone="ok">사용할 수 있는 이메일입니다.</Hint>
-          ) : emailCheck.status === "taken" ? (
+          ) : emailCheck.state.status === "taken" ? (
             <Hint tone="err">이미 사용 중인 이메일입니다.</Hint>
-          ) : emailCheck.status === "invalid" ? (
+          ) : emailCheck.state.status === "invalid" ? (
             <Hint tone="err">이메일 형식이 올바르지 않습니다.</Hint>
-          ) : emailCheck.status === "error" ? (
-            <Hint tone="err">{emailCheck.message}</Hint>
+          ) : emailCheck.state.status === "error" ? (
+            <Hint tone="err">{emailCheck.state.message}</Hint>
           ) : null}
         </Field>
 
