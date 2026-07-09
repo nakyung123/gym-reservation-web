@@ -83,7 +83,7 @@ export function LoginView() {
     }
     // 계정/비밀번호 오류는 어떤 필드가 틀렸는지 노출하지 않고 통일 문구로 안내한다.
     setSubmitState({ kind: "idle" });
-    setAlertMessage("이메일 또는 비밀번호가 올바르지 않습니다.");
+    setAlertMessage("아이디 또는 비밀번호가 올바르지 않습니다.");
   }
 
   async function handleGoogle() {

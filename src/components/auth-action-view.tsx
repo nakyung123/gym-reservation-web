@@ -12,10 +12,12 @@ import { fetchLoginIdByResetCode } from "@/lib/find-account-client";
 import { validatePasswordPolicy } from "@/lib/password-policy";
 import { FindAccountHeader } from "@/components/find-account-header";
 
-// Firebase 이메일 작업(action) 핸들러. 비밀번호 재설정 메일과 이메일 인증 메일의 링크가
+// Firebase 이메일 작업(action) 핸들러. 비밀번호 재설정·이메일 인증·가입 인증 링크가
 // 모두 이 페이지로 온다(Firebase 콘솔에서 작업 URL을 이 경로로 지정해야 활성화됨).
 //   mode=resetPassword: oobCode 검증 → 아이디 표시 → 새 비밀번호 설정 → 완료.
 //   mode=verifyEmail:   oobCode 적용(applyActionCode) → 인증 완료 안내.
+//   mode=signIn:        가입 전 이메일 인증 링크 → 쿼리를 유지한 채 /signup으로 포워딩.
+//                       링크 검증(signInWithEmailLink)은 회원가입 위저드가 수행한다.
 // oobCode가 만료/무효면 명시적 오류 화면을 보여준다(말없는 fallback 금지).
 
 type Phase =
@@ -42,6 +44,13 @@ export function AuthActionView() {
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
+
+    // 가입 전 이메일 인증 링크(mode=signIn)는 회원가입 위저드가 처리한다.
+    // oobCode 등 링크 파라미터를 그대로 유지해 /signup으로 넘긴다.
+    if (mode === "signIn") {
+      router.replace(`/signup${window.location.search}`);
+      return;
+    }
 
     void (async () => {
       if (!oobCode) {
@@ -75,7 +84,7 @@ export function AuthActionView() {
         });
       }
     })();
-  }, [mode, oobCode]);
+  }, [mode, oobCode, router]);
 
   const passwordError = validatePasswordPolicy(password);
   const passwordConfirmError =

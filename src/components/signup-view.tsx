@@ -1,10 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useTranslations } from "next-intl";
+import { signOut } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import {
   getFirebaseAuthSessionServerSnapshot,
@@ -12,6 +18,11 @@ import {
   parseFirebaseAuthSessionSnapshot,
   subscribeFirebaseAuthSession,
 } from "@/lib/firebase-auth-session";
+import {
+  completeSignupEmailLink,
+  getStoredSignupEmail,
+  isSignupEmailLink,
+} from "@/lib/firebase-email-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
 import { fetchUserProfile } from "@/lib/user-profile-client";
 import { SignupAuthStep } from "@/components/signup-auth-step";
@@ -22,12 +33,23 @@ import { SignupStepIndicator } from "@/components/signup-step-indicator";
 import { AlertModal } from "@/components/alert-modal";
 
 // 회원가입 4단계 위저드: 본인 인증 → 약관 동의 → 정보 입력 → 가입 완료.
-// 이메일 가입: auth(이메일 선택) → terms → info(계정 생성) → done.
+// 이메일 가입(가입 전 인증): auth(이메일 선택) → email(인증 링크 발송·대기) →
+//   (메일의 링크 클릭으로 복귀, 이메일 소유 확정·비밀번호 없는 로그인) → terms →
+//   info(비밀번호·아이디 설정) → done. 링크를 클릭하기 전에는 다음 단계로 넘어갈 수 없다.
 // 소셜 가입: auth(소셜) → OAuth → (복귀) → terms → info(완성) → done.
 //   소셜 redirect 복귀나 미완성 프로필 상태로 재진입하면 resolving 단계에서 감지해
 //   terms부터 이어서 진행한다. 이미 아이디까지 설정된 회원은 마이페이지로 보낸다.
+// link-email: 인증 링크를 다른 기기(또는 저장 유실 브라우저)에서 열었을 때
+//   본인 확인을 위해 링크를 받은 이메일을 재입력하는 단계.
 
-type Step = "resolving" | "auth" | "email" | "terms" | "info" | "done";
+type Step =
+  | "resolving"
+  | "auth"
+  | "email"
+  | "link-email"
+  | "terms"
+  | "info"
+  | "done";
 type Method = "email" | "social";
 
 export function SignupView() {
@@ -53,6 +75,15 @@ export function SignupView() {
   const [completedLoginId, setCompletedLoginId] = useState("");
   // 헤더 X: 진행 중 단계(auth/terms/info)에서는 이탈 확인 알림창을 띄운다.
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // 이메일 인증 링크 복귀 처리 상태. linkHrefRef는 검증에 쓸 원본 링크 URL,
+  // linkAlert는 만료/불일치 등 명시적 실패 안내(next: 닫은 뒤 이동할 단계).
+  const linkHrefRef = useRef<string | null>(null);
+  const [linkAlert, setLinkAlert] = useState<{
+    message: string;
+    next: "email" | "none";
+  } | null>(null);
+  const [linkEmailInput, setLinkEmailInput] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
   // 초기 1회 해석(소셜 복귀/기존 회원 감지). 수동 흐름 진입 후에는 세션 변화로 재해석하지 않는다.
   // startedRef로 async를 정확히 한 번만 시작한다. cleanup으로 결과를 폐기하지 않는 이유:
   // session은 매 렌더 새 객체라 effect가 자주 재실행되고 StrictMode는 마운트를 두 번 돈다.
@@ -60,8 +91,96 @@ export function SignupView() {
   // setStep이 영영 호출되지 않는다(무한 resolving). 따라서 시작만 한 번 가드하고 결과는 항상 반영한다.
   const startedRef = useRef(false);
 
+  // 링크 인증 직후(또는 인증된 세션으로 재진입) 위저드를 이어간다.
+  // 이미 아이디까지 설정된 기존 회원이면 가입 절차가 필요 없어 원래 목적지로 보낸다.
+  const resumeAfterEmailLink = useCallback(async () => {
+    let result: Awaited<ReturnType<typeof fetchUserProfile>> | null = null;
+    try {
+      result = await fetchUserProfile();
+    } catch {
+      result = null;
+    }
+    if (result && result.ok && result.profile && result.profile.loginId) {
+      router.replace(fromPath);
+      return;
+    }
+    let verifiedEmail = "";
+    try {
+      const { auth } = getFirebaseClient();
+      verifiedEmail = auth.currentUser?.email ?? "";
+    } catch {
+      verifiedEmail = "";
+    }
+    setMethod("email");
+    setEmailAccountEmail(verifiedEmail);
+    setStep("terms");
+  }, [router, fromPath]);
+
+  // 링크 검증 실행. 실패는 종류별로 명시적으로 안내한다(말없는 fallback 금지).
+  const completeEmailLink = useCallback(
+    async (email: string, href: string) => {
+      setLinkBusy(true);
+      const result = await completeSignupEmailLink(email, href);
+      if (!result.ok) {
+        setLinkBusy(false);
+        if (result.reason === "email-mismatch") {
+          // 재입력한 이메일이 링크를 받은 주소와 다름 → 재입력 단계에서 다시 시도.
+          setStep("link-email");
+          setLinkAlert({ message: result.message, next: "none" });
+          return;
+        }
+        // 이미 사용된 링크를 다시 열었더라도 이 브라우저에 로그인 세션이 남아 있으면
+        // 실패로 보지 않고 진행 중이던 가입을 이어간다(재클릭 멱등).
+        let hasSession = false;
+        try {
+          hasSession = Boolean(getFirebaseClient().auth.currentUser);
+        } catch {
+          hasSession = false;
+        }
+        if (hasSession) {
+          router.replace("/signup");
+          await resumeAfterEmailLink();
+          return;
+        }
+        // 만료/무효 링크 → 안내 후 이메일 단계에서 재발송하게 한다.
+        setLinkAlert({ message: result.message, next: "email" });
+        return;
+      }
+      // 검증 성공: URL의 oobCode를 제거하고 약관 단계로 이어간다.
+      router.replace("/signup");
+      setLinkBusy(false);
+      await resumeAfterEmailLink();
+    },
+    [router, resumeAfterEmailLink],
+  );
+
+  // 이메일 인증 링크 복귀 진입점. 같은 브라우저면 보관된 이메일로 즉시 검증하고,
+  // 다른 기기(또는 저장 유실)면 이메일 재입력 단계로 보낸다.
+  const resolveEmailLink = useCallback(
+    async (href: string) => {
+      linkHrefRef.current = href;
+      const stored = getStoredSignupEmail();
+      if (!stored) {
+        setStep("link-email");
+        return;
+      }
+      await completeEmailLink(stored, href);
+    },
+    [completeEmailLink],
+  );
+
   useEffect(() => {
     if (startedRef.current) return;
+
+    // 이메일 인증 링크로 복귀한 경우: 세션 준비를 기다리지 않고 링크부터 처리한다.
+    if (isSignupEmailLink(window.location.href)) {
+      startedRef.current = true;
+      // startedRef 가드로 1회만 실행된다(파일 상단 resolving 주석 참고).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void resolveEmailLink(window.location.href);
+      return;
+    }
+
     // 로그인 상태 확인 중이면 대기(아직 시작 가드를 세우지 않는다).
     if (!session.ok && session.reason === "not-ready") return;
 
@@ -69,12 +188,11 @@ export function SignupView() {
 
     if (!session.ok) {
       // 비로그인 → 가입 방식 선택부터.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep("auth");
       return;
     }
 
-    // 로그인 상태(소셜 복귀 등) → 프로필 완성 여부로 분기.
+    // 로그인 상태(소셜 복귀·링크 인증 후 재진입 등) → 프로필 완성 여부로 분기.
     void (async () => {
       let result: Awaited<ReturnType<typeof fetchUserProfile>> | null = null;
       try {
@@ -87,23 +205,37 @@ export function SignupView() {
         router.replace(fromPath);
         return;
       }
-      // 미완성(소셜 직후 등)·조회 실패 → 소셜 완성 흐름으로 약관부터 이어서 진행.
+      // 미완성·조회 실패 → 가입 방식에 맞춰 약관부터 이어서 진행한다.
+      let user: ReturnType<typeof getFirebaseClient>["auth"]["currentUser"] = null;
       try {
         const { auth } = getFirebaseClient();
-        setSocialEmail(auth.currentUser?.email ?? "");
+        user = auth.currentUser;
       } catch {
-        setSocialEmail("");
+        user = null;
       }
-      setMethod("social");
+      // 소셜 provider(google.com, oidc.kakao 등)가 하나라도 있으면 소셜 완성 흐름,
+      // 이메일 링크로만 만들어진 계정이면 이메일 흐름으로 복원한다(비밀번호 재설정 필요).
+      const isSocialUser =
+        user?.providerData.some(
+          (p) => p.providerId !== "password" && p.providerId !== "emailLink",
+        ) ?? true;
+      if (isSocialUser || !user?.email) {
+        setSocialEmail(user?.email ?? "");
+        setMethod("social");
+      } else {
+        setEmailAccountEmail(user.email);
+        setMethod("email");
+      }
       setStep("terms");
     })();
-  }, [session, fromPath, router]);
+  }, [session, fromPath, router, resolveEmailLink]);
 
   // 진행 중이면 이탈 확인, 완료/해석 단계에서는 바로 닫는다.
   function handleClose() {
     if (
       step === "auth" ||
       step === "email" ||
+      step === "link-email" ||
       step === "terms" ||
       step === "info"
     ) {
@@ -120,10 +252,39 @@ export function SignupView() {
     setStep("email");
   }
 
-  // 이메일 입력 완료 → 이메일을 보관하고 약관 단계로.
-  function handleEmailEntered(email: string) {
-    setEmailAccountEmail(email);
-    setStep("terms");
+  // 대기 화면에서 링크 클릭이 감지되면(다른 탭에서 인증 → 세션 로그인) 약관 단계로 진행.
+  function handleEmailVerified() {
+    void resumeAfterEmailLink();
+  }
+
+  // 다른 기기/저장 유실 복귀: 재입력한 이메일로 링크를 검증한다.
+  async function handleLinkEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (linkBusy) return;
+    const trimmed = linkEmailInput.trim();
+    if (trimmed.length === 0) {
+      setLinkAlert({ message: "이메일을 입력해 주세요.", next: "none" });
+      return;
+    }
+    const href = linkHrefRef.current;
+    if (!href) {
+      setLinkAlert({
+        message: "유효하지 않은 접근입니다. 메일의 링크로 다시 시도해 주세요.",
+        next: "email",
+      });
+      return;
+    }
+    await completeEmailLink(trimmed, href);
+  }
+
+  // 링크 오류 알림 닫기: 만료/무효면 이메일 단계로 보내 재발송하게 한다.
+  function handleLinkAlertClose() {
+    const next = linkAlert?.next;
+    setLinkAlert(null);
+    if (next === "email") {
+      setMethod("email");
+      setStep("email");
+    }
   }
 
   function handleSocialAuthenticated() {
@@ -163,8 +324,43 @@ export function SignupView() {
     content = (
       <SignupEmailStep
         initialEmail={emailAccountEmail}
-        onNext={handleEmailEntered}
+        sessionReady={session.ok}
+        onVerified={handleEmailVerified}
       />
+    );
+  } else if (step === "link-email") {
+    // 인증 링크를 다른 기기에서 열었거나 보관된 이메일이 없을 때의 본인 확인 화면.
+    content = (
+      <section className="w-full">
+        <h1 className="mt-6 text-center text-[23px] font-bold leading-[1.4] text-[#252525]">
+          인증 메일을 받은 이메일을
+          <br />
+          입력해 주세요.
+        </h1>
+        <p className="mt-4 text-center text-[18px] leading-[1.6] text-[#252525]">
+          보안을 위해 인증 링크를 요청한
+          <br />
+          이메일 주소를 확인합니다.
+        </p>
+
+        <form className="mt-8" onSubmit={handleLinkEmailSubmit} noValidate>
+          <input
+            type="email"
+            autoComplete="email"
+            placeholder="이메일을 입력해 주세요."
+            value={linkEmailInput}
+            onChange={(e) => setLinkEmailInput(e.target.value)}
+            className="h-[50px] w-full rounded-[3px] border border-[#d0d0d0] px-3 text-[15px] text-[#252525] placeholder:text-[#bdbdbd] focus:border-accent focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={linkBusy}
+            className="mt-6 h-[56px] w-full rounded-[3px] bg-[#121212] text-[17px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-90"
+          >
+            {linkBusy ? "확인 중…" : "인증 완료하기"}
+          </button>
+        </form>
+      </section>
     );
   } else if (step === "terms") {
     content = <SignupTermsStep onAgree={() => setStep("info")} />;
@@ -212,13 +408,24 @@ export function SignupView() {
           </div>
 
           {/* 캐릭터-버튼 간격은 기존의 2배(mt-16). */}
+          {/* 가입 직후 세션을 정리하고 로그인 화면에서 새 아이디로 직접 로그인하게 한다.
+              signOut 실패 시에도 로그인 화면으로는 이동한다(재로그인 시 세션 교체됨). */}
           <div className="mt-16 flex justify-center">
-            <Link
-              href="/login"
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const { auth } = getFirebaseClient();
+                  await signOut(auth);
+                } catch {
+                  // 세션 정리 실패는 무시하고 로그인 화면으로 이동한다.
+                }
+                router.replace("/login");
+              }}
               className="flex h-[60px] w-full max-w-[480px] items-center justify-center rounded-[3px] bg-[#121212] text-[18px] font-medium text-white transition hover:opacity-90"
             >
               로그인하기
-            </Link>
+            </button>
           </div>
         </div>
       </section>
@@ -258,6 +465,11 @@ export function SignupView() {
 
       {/* 본문: 가운데 컬럼 */}
       <div className="mx-auto w-full max-w-[520px] px-5 pb-10 pt-10">{content}</div>
+
+      {/* 링크 검증 실패(만료/불일치 등) 알림창 */}
+      {linkAlert ? (
+        <AlertModal message={linkAlert.message} onClose={handleLinkAlertClose} />
+      ) : null}
 
       {/* 이탈 확인 알림창 — 확인 시 홈으로 이동 */}
       {showExitConfirm ? (

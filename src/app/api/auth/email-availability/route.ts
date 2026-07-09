@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 // 이메일 사용 가능 여부 조회. 가입 폼에서 호출하므로 unauthenticated 허용.
 // 이메일 계정의 SSOT는 Firebase Auth이므로 Admin getUserByEmail로 존재 여부를 확인한다.
 // 응답: { available: true } | { available: false, reason: "taken" | "invalid" }
-// 최종 보호는 가입 시 signupWithEmail의 auth/email-already-in-use 처리에 있다.
+// 최종 보호: 이미 가입된 이메일로 인증 링크를 열면 새 계정이 아니라 기존 계정 로그인이 되고,
+// 회원가입 위저드가 loginId 보유 회원을 감지해 가입 절차 없이 원래 목적지로 보낸다.
 // 무인증 + 매 호출 Admin getUserByEmail 왕복이라 enumeration/비용 방어용 per-IP rate limit를 건다
 // (이메일 중복확인은 버튼 액션이라 30/분이면 정상 사용을 막지 않는다).
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

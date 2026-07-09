@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { EmailAuthProvider, linkWithCredential } from "firebase/auth";
-import { signupWithEmail } from "@/lib/firebase-email-auth";
+import { setSignupPassword } from "@/lib/firebase-email-auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import { checkLoginIdAvailability, setLoginId } from "@/lib/login-id-client";
 import { checkEmailAvailability } from "@/lib/email-availability-client";
@@ -18,9 +18,12 @@ import { formatBirthDate } from "@/lib/input-format";
 import { SignupStepIndicator } from "@/components/signup-step-indicator";
 import { AlertModal } from "@/components/alert-modal";
 
-// 회원가입 3단계: 정보 입력. email(직접가입)·social(소셜 후 완성) 두 모드를 공통 처리한다.
-// 다단계 저장(계정 생성/비번 연결 → 프로필 보장 → 아이디 설정 → 프로필 저장)을 각 단계 ref로
-// 가드해, 중간 실패 후 재시도해도 이미 끝난 단계를 다시 실행하지 않는다(부분 실패·멱등성).
+// 회원가입 3단계: 정보 입력. email(이메일 링크 인증 후)·social(소셜 후 완성) 두 모드를
+// 공통 처리한다. 두 모드 모두 이 시점에 이미 로그인된 계정이 있고(이메일=링크 인증,
+// 소셜=OAuth), 여기서는 비밀번호 설정(email=updatePassword, social=linkWithCredential)과
+// 프로필/아이디 저장만 한다. 다단계 저장(비번 설정 → 프로필 보장 → 아이디 설정 → 프로필
+// 저장)을 각 단계 ref로 가드해, 중간 실패 후 재시도해도 이미 끝난 단계를 다시 실행하지
+// 않는다(부분 실패·멱등성).
 
 type Mode = "email" | "social";
 
@@ -66,11 +69,7 @@ export function SignupInfoForm({
 }: {
   mode: Mode;
   prefilledEmail?: string;
-  onComplete: (result: {
-    emailVerificationSent: boolean;
-    name: string;
-    loginId: string;
-  }) => void;
+  onComplete: (result: { name: string; loginId: string }) => void;
   onBack?: () => void;
 }) {
   const initialEmail = prefilledEmail ?? "";
@@ -99,7 +98,6 @@ export function SignupInfoForm({
   // 다단계 진행 가드. 재시도 시 완료된 단계를 건너뛴다.
   const accountReadyRef = useRef(false);
   const loginIdSetRef = useRef(false);
-  const emailVerificationSentRef = useRef(false);
 
   // 소셜은 물론, 이메일 가입도 앞 단계(본인 인증)에서 이메일을 받았으면 정보 입력에서 잠근다(재입력 방지).
   const emailLocked = mode === "social" || Boolean(prefilledEmail);
@@ -236,16 +234,15 @@ export function SignupInfoForm({
     }
     setSubmitState({ kind: "loading" });
 
-    // 1단계: 계정 준비 (email=계정 생성, social=비밀번호 연결).
+    // 1단계: 계정 준비 (email=링크 인증된 계정에 비밀번호 설정, social=비밀번호 연결).
     if (!accountReadyRef.current) {
       if (mode === "email") {
-        const created = await signupWithEmail({ email: combinedEmail, password });
-        if (!created.ok) {
-          setSubmitState({ kind: "error", message: created.message });
+        const set = await setSignupPassword(password);
+        if (!set.ok) {
+          setSubmitState({ kind: "error", message: set.message });
           return;
         }
         accountReadyRef.current = true;
-        emailVerificationSentRef.current = created.emailVerificationSent;
       } else {
         const linked = await linkSocialPassword(combinedEmail, password);
         if (!linked.ok) {
@@ -292,11 +289,7 @@ export function SignupInfoForm({
       return;
     }
 
-    onComplete({
-      emailVerificationSent: emailVerificationSentRef.current,
-      name: name.trim(),
-      loginId,
-    });
+    onComplete({ name: name.trim(), loginId });
   }
 
   return (
@@ -518,7 +511,7 @@ export function SignupInfoForm({
             <Hint tone="muted">
               {mode === "social"
                 ? "소셜 계정에서 가져온 이메일입니다."
-                : "앞에서 입력한 이메일입니다."}
+                : "인증을 완료한 이메일입니다."}
             </Hint>
           ) : emailCheck.status === "available" ? (
             <Hint tone="ok">사용할 수 있는 이메일입니다.</Hint>
