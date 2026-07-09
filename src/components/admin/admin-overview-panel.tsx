@@ -1,23 +1,32 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   fetchAdminOverview,
+  fetchAdminOverviewTrend,
   type AdminReservationOverview,
+  type AdminReservationTrendPoint,
 } from "@/lib/admin/admin-overview-client";
 import { formatGymPrice } from "@/lib/gym-utils";
 import {
   AdminButtonSpinner,
-  AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import { ReservationTrendChart } from "@/components/admin/admin-charts";
 import { reservationStatusLabel } from "@/components/reservation-ticket";
 
 type OverviewState =
-  | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; overview: AdminReservationOverview }
   | { status: "error"; message: string };
+
+type TrendState =
+  | { status: "loading" }
+  | { status: "ready"; trend: AdminReservationTrendPoint[] }
+  | { status: "error"; message: string };
+
+// 추이 차트 범위(선택 날짜 포함 최근 14일).
+const TREND_DAYS = 14;
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -26,6 +35,13 @@ function pad(value: number) {
 function getTodayValue(): string {
   const now = new Date();
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+// YYYY-MM-DD 문자열을 UTC 기준으로 delta일 이동한다.
+function shiftDate(date: string, delta: number): string {
+  const base = new Date(`${date}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + delta);
+  return base.toISOString().slice(0, 10);
 }
 
 function getSlotUsageLabel(overview: AdminReservationOverview) {
@@ -49,24 +65,78 @@ function getCancellationRateLabel(
 
 export function AdminOverviewPanel() {
   const [selectedDate, setSelectedDate] = useState(getTodayValue);
+  // 실제 조회에 쓰인 날짜. 진입 시 오늘 날짜로 자동 조회한다.
+  const [submittedDate, setSubmittedDate] = useState(selectedDate);
+  // 같은 날짜 재조회용 nonce.
+  const [reloadKey, setReloadKey] = useState(0);
   const [overviewState, setOverviewState] = useState<OverviewState>({
-    status: "idle",
+    status: "loading",
+  });
+  const [trendState, setTrendState] = useState<TrendState>({
+    status: "loading",
   });
 
-  const handleQuery = useCallback(async () => {
-    setOverviewState({ status: "loading" });
-    const result = await fetchAdminOverview(selectedDate);
+  // 요약·추이를 함께 로드한다. effect body에서 곧바로 setState 하지 않도록
+  // setTimeout(0)로 미룬다(다른 admin view와 동일 패턴).
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setOverviewState({ status: "loading" });
+        setTrendState({ status: "loading" });
 
-    if (result.ok) {
-      setOverviewState({ status: "ready", overview: result.overview });
-      return;
+        const trendFrom = shiftDate(submittedDate, -(TREND_DAYS - 1));
+        try {
+          const [overviewResult, trendResult] = await Promise.all([
+            fetchAdminOverview(submittedDate, controller.signal),
+            fetchAdminOverviewTrend(
+              trendFrom,
+              submittedDate,
+              controller.signal,
+            ),
+          ]);
+          if (controller.signal.aborted) return;
+
+          if (overviewResult.ok) {
+            setOverviewState({
+              status: "ready",
+              overview: overviewResult.overview,
+            });
+          } else {
+            setOverviewState({
+              status: "error",
+              message: overviewResult.message,
+            });
+          }
+
+          if (trendResult.ok) {
+            setTrendState({ status: "ready", trend: trendResult.trend });
+          } else {
+            setTrendState({ status: "error", message: trendResult.message });
+          }
+        } catch {
+          // AbortError(언마운트/재요청)는 무시한다.
+        }
+      })();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [submittedDate, reloadKey]);
+
+  const handleQuery = useCallback(() => {
+    if (selectedDate === submittedDate) {
+      setReloadKey((key) => key + 1);
+    } else {
+      setSubmittedDate(selectedDate);
     }
-
-    setOverviewState({ status: "error", message: result.message });
-  }, [selectedDate]);
+  }, [selectedDate, submittedDate]);
 
   const overview =
     overviewState.status === "ready" ? overviewState.overview : null;
+  const trend = trendState.status === "ready" ? trendState.trend : null;
+  const isLoading = overviewState.status === "loading";
 
   return (
     <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
@@ -74,7 +144,8 @@ export function AdminOverviewPanel() {
         <div>
           <h2 className="text-sm font-bold text-slate-950">운영 요약</h2>
           <p className="mt-1 text-xs text-slate-500">
-            날짜별 예약 상태, 예상 매출, 관리된 슬롯 현황을 확인합니다.
+            날짜별 예약 상태, 예상 매출, 슬롯 현황과 최근 {TREND_DAYS}일 예약
+            추이를 확인합니다.
           </p>
         </div>
 
@@ -88,10 +159,10 @@ export function AdminOverviewPanel() {
           <button
             type="button"
             onClick={handleQuery}
-            disabled={overviewState.status === "loading"}
+            disabled={isLoading}
             className="h-10 rounded-md bg-accent px-3 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            {overviewState.status === "loading" ? (
+            {isLoading ? (
               <span className="inline-flex items-center gap-2">
                 <AdminButtonSpinner />
                 조회 중
@@ -103,18 +174,7 @@ export function AdminOverviewPanel() {
         </div>
       </div>
 
-      <p className="mt-3 text-xs font-semibold text-slate-500">
-        관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 조회됩니다.
-      </p>
-
-      {overviewState.status === "idle" ? (
-        <AdminEmptyState
-          title="아직 운영 요약을 조회하지 않았습니다"
-          description="날짜를 선택한 뒤 조회를 누르면 요약이 표시됩니다."
-        />
-      ) : null}
-
-      {overviewState.status === "loading" ? (
+      {isLoading ? (
         <AdminLoadingRow message="페이지를 불러오는 중입니다." />
       ) : null}
 
@@ -129,7 +189,7 @@ export function AdminOverviewPanel() {
 
       {overview ? (
         <p className="mt-5 text-xs font-semibold text-slate-500">
-          조회 날짜 {selectedDate}
+          조회 날짜 {submittedDate}
         </p>
       ) : null}
 
@@ -177,6 +237,26 @@ export function AdminOverviewPanel() {
             <p className="mt-1 text-xs text-slate-500">
               마감 {overview.slots.closed}개 · 정원마감 {overview.slots.full}개
             </p>
+          </div>
+        </div>
+      ) : null}
+
+      {trendState.status === "error" ? (
+        <p
+          className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
+          role="alert"
+        >
+          {trendState.message}
+        </p>
+      ) : null}
+
+      {trend ? (
+        <div className="mt-5">
+          <h3 className="text-xs font-semibold text-slate-500">
+            최근 {TREND_DAYS}일 예약 추이 ({shiftDate(submittedDate, -(TREND_DAYS - 1))} ~ {submittedDate})
+          </h3>
+          <div className="mt-2">
+            <ReservationTrendChart trend={trend} />
           </div>
         </div>
       ) : null}

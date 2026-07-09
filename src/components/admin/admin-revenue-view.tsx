@@ -10,12 +10,27 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import {
+  GYM_REVENUE_CHART_MAX_BARS,
+  GymRevenueBarChart,
+  MonthlyRevenueChart,
+  type GymRevenueDatum,
+  type MonthlyRevenuePoint,
+} from "@/components/admin/admin-charts";
 import { reservationStatusLabel } from "@/components/reservation-ticket";
 
 type RevenueState =
   | { status: "loading" }
   | { status: "ready"; summary: RevenueSummary }
   | { status: "error"; message: string };
+
+type TrendState =
+  | { status: "loading" }
+  | { status: "ready"; points: MonthlyRevenuePoint[] }
+  | { status: "error"; message: string };
+
+// 월별 추이 차트 범위(선택 월 포함 최근 6개월).
+const TREND_MONTHS = 6;
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
@@ -91,6 +106,9 @@ function SummaryCard({
 export function AdminRevenueView() {
   const [{ year, month }, setMonth] = useState(getCurrentMonth);
   const [state, setState] = useState<RevenueState>({ status: "loading" });
+  const [trendState, setTrendState] = useState<TrendState>({
+    status: "loading",
+  });
 
   // year/month가 바뀌면 해당 월 범위로 자동 재조회한다.
   // effect body에서 곧바로 setState 하지 않도록 setTimeout(0)로 미룬다(다른 admin view와 동일 패턴).
@@ -113,6 +131,52 @@ export function AdminRevenueView() {
           // AbortError는 다음 effect가 재요청하므로 무시한다.
         }
       })();
+
+      // 월별 추이: 선택 월 포함 최근 6개월을 병렬 조회해 합산한다(기존 API 재사용).
+      void (async () => {
+        setTrendState({ status: "loading" });
+        const months = Array.from({ length: TREND_MONTHS }, (_, index) =>
+          shiftMonth(year, month, index - (TREND_MONTHS - 1)),
+        );
+        try {
+          const results = await Promise.all(
+            months.map((target) => {
+              const range = monthRange(target.year, target.month);
+              return fetchAdminRevenue(range.from, range.to, controller.signal);
+            }),
+          );
+          if (controller.signal.aborted) return;
+
+          const ready = results.filter(
+            (result): result is Extract<typeof result, { ok: true }> =>
+              result.ok,
+          );
+          if (ready.length !== results.length) {
+            // 일부 월만 성공해도 성공처럼 그리지 않는다(No Silent Fallback).
+            const failed = results.find((result) => !result.ok);
+            setTrendState({
+              status: "error",
+              message:
+                failed && !failed.ok
+                  ? failed.message
+                  : "월별 매출 추이를 불러오지 못했습니다.",
+            });
+            return;
+          }
+
+          const points: MonthlyRevenuePoint[] = ready.map((result, index) => {
+            const target = months[index];
+            return {
+              month: `${target.year}-${pad(target.month)}`,
+              used: result.summary.revenue.used,
+              expected: result.summary.revenue.expected,
+            };
+          });
+          setTrendState({ status: "ready", points });
+        } catch {
+          // AbortError는 다음 effect가 재요청하므로 무시한다.
+        }
+      })();
     }, 0);
 
     return () => {
@@ -122,6 +186,28 @@ export function AdminRevenueView() {
   }, [year, month]);
 
   const summary = state.status === "ready" ? state.summary : null;
+  const trendPoints = trendState.status === "ready" ? trendState.points : null;
+
+  // 시설별 차트 데이터: 확정 매출 내림차순 상위 N개 + 나머지 "기타" 합산(범주 과다 방지).
+  const gymChartData: GymRevenueDatum[] | null =
+    summary && summary.gyms.length > 0
+      ? (() => {
+          const sorted = [...summary.gyms].sort(
+            (a, b) => b.revenue.used - a.revenue.used,
+          );
+          const top = sorted
+            .slice(0, GYM_REVENUE_CHART_MAX_BARS)
+            .map((gym) => ({ gymName: gym.gymName, used: gym.revenue.used }));
+          const rest = sorted.slice(GYM_REVENUE_CHART_MAX_BARS);
+          if (rest.length > 0) {
+            top.push({
+              gymName: `기타 ${rest.length}개`,
+              used: rest.reduce((sum, gym) => sum + gym.revenue.used, 0),
+            });
+          }
+          return top;
+        })()
+      : null;
 
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
@@ -214,6 +300,39 @@ export function AdminRevenueView() {
         ) : null}
       </div>
 
+      <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-bold text-slate-950">
+          월별 매출 추이 (최근 {TREND_MONTHS}개월)
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          막대는 {REVENUE_BASIS_LABEL.used}, 선은 {REVENUE_BASIS_LABEL.expected}
+          입니다.
+        </p>
+
+        {trendState.status === "loading" ? (
+          <AdminLoadingRow message="월별 매출 추이를 불러오는 중입니다." />
+        ) : null}
+
+        {trendState.status === "error" ? (
+          <p
+            className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
+            role="alert"
+          >
+            {trendState.message}
+          </p>
+        ) : null}
+
+        {trendPoints ? (
+          <div className="mt-4">
+            <MonthlyRevenueChart
+              points={trendPoints}
+              usedLabel={REVENUE_BASIS_LABEL.used}
+              expectedLabel={REVENUE_BASIS_LABEL.expected}
+            />
+          </div>
+        ) : null}
+      </div>
+
       {summary ? (
         <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
@@ -233,6 +352,12 @@ export function AdminRevenueView() {
               </button>
             ) : null}
           </div>
+
+          {gymChartData ? (
+            <div className="mt-4">
+              <GymRevenueBarChart data={gymChartData} />
+            </div>
+          ) : null}
 
           {summary.gyms.length === 0 ? (
             <AdminEmptyState

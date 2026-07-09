@@ -18,6 +18,7 @@ import {
   isValidPeople,
 } from "@/lib/sport-capacity";
 import { ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT } from "@/lib/admin/admin-reservation-slot-policy";
+import type { AdminReservationTrendPoint } from "@/lib/admin/admin-overview-client";
 import { toDomainGym } from "@/lib/server/db-gym-mapper";
 import type {
   Gym,
@@ -703,6 +704,51 @@ export async function getAdminReservationOverview(
     },
     slots,
   };
+}
+
+// from~to(둘 다 포함)의 날짜 문자열 목록. date 컬럼이 YYYY-MM-DD 문자열이므로 UTC 기준으로 돈다.
+function enumerateDateRange(from: string, to: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+// 일별 예약 상태 추이(대시보드 차트용). 예약이 없는 날짜도 0으로 채워 반환한다.
+// 범위 길이 제한은 route에서 검증한다.
+export async function getAdminReservationDailyTrend(
+  from: string,
+  to: string,
+): Promise<AdminReservationTrendPoint[]> {
+  const rows = await prisma.reservation.groupBy({
+    by: ["date", "status"],
+    where: { date: { gte: from, lte: to } },
+    _count: { _all: true },
+  });
+
+  const byDate = new Map<string, AdminReservationTrendPoint>(
+    enumerateDateRange(from, to).map((date) => [
+      date,
+      { date, reserved: 0, cancelled: 0, used: 0 },
+    ]),
+  );
+
+  rows.forEach((row) => {
+    if (!isReservationStatus(row.status)) {
+      throw new Error(`알 수 없는 예약 상태입니다: ${row.status}`);
+    }
+    const point = byDate.get(row.date);
+    if (!point) {
+      throw new Error(`조회 범위를 벗어난 날짜입니다: ${row.date}`);
+    }
+    point[row.status] = row._count._all;
+  });
+
+  return [...byDate.values()];
 }
 
 export type CreateReservationInput = {

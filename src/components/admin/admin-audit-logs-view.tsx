@@ -27,42 +27,52 @@ const TARGET_TYPE_OPTIONS = [
   { value: "user", label: "고객" },
 ];
 
+// 한 번에 불러오는 건수와 서버 상한(서버 limit 1~200과 일치).
+const LIST_LIMIT_STEP = 100;
+const LIST_LIMIT_MAX = 200;
+
 export function AdminAuditLogsView() {
   const [targetType, setTargetType] = useState("");
+  const [limit, setLimit] = useState(LIST_LIMIT_STEP);
   const [state, setState] = useState<AuditState>({ status: "loading" });
 
-  const load = useCallback(async (filterType: string, signal: AbortSignal) => {
-    setState({ status: "loading" });
-    try {
-      const result = await fetchAdminAuditLogs(
-        { targetType: filterType || undefined },
-        signal,
-      );
-      if (signal.aborted) return;
-      if (result.ok) {
-        setState({ status: "ready", auditLogs: result.auditLogs });
-      } else {
-        setState({ status: "error", message: result.message });
+  const load = useCallback(
+    async (filterType: string, listLimit: number, signal: AbortSignal) => {
+      setState({ status: "loading" });
+      try {
+        const result = await fetchAdminAuditLogs(
+          { targetType: filterType || undefined, limit: listLimit },
+          signal,
+        );
+        if (signal.aborted) return;
+        if (result.ok) {
+          setState({ status: "ready", auditLogs: result.auditLogs });
+        } else {
+          setState({ status: "error", message: result.message });
+        }
+      } catch {
+        // AbortError 무시.
       }
-    } catch {
-      // AbortError 무시.
-    }
-  }, []);
+    },
+    [],
+  );
 
   // effect body에서 곧바로 setState(loading)를 호출하지 않도록 setTimeout(0)로 미뤄
   // cascading render 경고를 피한다(admin-gyms-view와 동일 패턴).
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void load(targetType, controller.signal);
+      void load(targetType, limit, controller.signal);
     }, 0);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [load, targetType]);
+  }, [load, targetType, limit]);
 
   const auditLogs = state.status === "ready" ? state.auditLogs : null;
+  // 결과가 limit만큼 꽉 찼으면 더 있을 수 있다고 본다(정확한 total은 API가 주지 않는다).
+  const mayHaveMore = auditLogs !== null && auditLogs.length >= limit;
 
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
@@ -91,7 +101,11 @@ export function AdminAuditLogsView() {
           <select
             id="audit-target-type"
             value={targetType}
-            onChange={(event) => setTargetType(event.target.value)}
+            onChange={(event) => {
+              setTargetType(event.target.value);
+              // 필터가 바뀌면 목록 크기를 처음부터 다시 늘린다.
+              setLimit(LIST_LIMIT_STEP);
+            }}
             className="h-9 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             {TARGET_TYPE_OPTIONS.map((option) => (
@@ -150,6 +164,31 @@ export function AdminAuditLogsView() {
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {auditLogs && auditLogs.length > 0 ? (
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-xs text-slate-500">{auditLogs.length}건 표시 중</p>
+            {mayHaveMore && limit < LIST_LIMIT_MAX ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setLimit((current) =>
+                    Math.min(current + LIST_LIMIT_STEP, LIST_LIMIT_MAX),
+                  )
+                }
+                className="h-9 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                더 보기
+              </button>
+            ) : null}
+            {mayHaveMore && limit >= LIST_LIMIT_MAX ? (
+              <p className="text-xs font-semibold text-slate-500">
+                최대 {LIST_LIMIT_MAX}건까지 표시합니다. 대상 필터로 범위를 좁혀
+                주세요.
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </section>
     </main>

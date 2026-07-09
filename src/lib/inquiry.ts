@@ -11,6 +11,15 @@ export const INQUIRY_ANSWER_MAX = 2000;
 // 같은 uid가 동일 title+body를 이 시간(ms) 내 재전송하면 기존 건을 반환한다(중복 생성 방지).
 export const INQUIRY_DEDUP_WINDOW_MS = 60_000;
 
+// 목록 페이지 크기(서버 repository·클라이언트 페이지네이션 공용 SSOT).
+export const INQUIRY_PAGE_SIZE = 10;
+
+// 문의 상태 라벨 SSOT(사용자·관리자 화면 공용).
+export const inquiryStatusLabel: Record<"open" | "answered", string> = {
+  open: "답변 대기",
+  answered: "답변 완료",
+};
+
 export type InquiryInput = {
   title: string;
   body: string;

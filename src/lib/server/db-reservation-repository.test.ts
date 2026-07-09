@@ -3,6 +3,7 @@ import {
   cancelReservationAsAdminInDb,
   cancelReservationInDb,
   createReservationInDb,
+  getAdminReservationDailyTrend,
   getAdminReservationOverview,
   getAdminReservationById,
   getUserReservationDetailById,
@@ -1131,6 +1132,50 @@ describe("getAdminReservationOverview", () => {
       reservedCount: 2,
       capacity: 14,
     });
+  });
+});
+
+describe("getAdminReservationDailyTrend", () => {
+  it("범위 내 일별 예약 상태를 집계하고 예약 없는 날짜는 0으로 채운다", async () => {
+    const date = futureDate();
+    const prevDate = new Date(`${date}T00:00:00Z`);
+    prevDate.setUTCDate(prevDate.getUTCDate() - 1);
+    const from = prevDate.toISOString().slice(0, 10);
+
+    const reserved = await createReservationInDb({
+      userId: userA,
+      draft: { ...draftFor("10:00"), date },
+      gym: TEST_GYM,
+    });
+    const cancelled = await createReservationInDb({
+      userId: userB,
+      draft: { ...draftFor("11:00"), date },
+      gym: TEST_GYM,
+    });
+    expect(reserved.ok).toBe(true);
+    expect(cancelled.ok).toBe(true);
+    if (!cancelled.ok) return;
+    await cancelReservationAsAdminInDb(cancelled.reservation.id);
+
+    const trend = await getAdminReservationDailyTrend(from, date);
+
+    expect(trend).toEqual([
+      { date: from, reserved: 0, cancelled: 0, used: 0 },
+      { date, reserved: 1, cancelled: 1, used: 0 },
+    ]);
+  });
+
+  it("예약이 전혀 없는 범위도 날짜마다 0으로 채운 배열을 반환한다", async () => {
+    const trend = await getAdminReservationDailyTrend(
+      "2099-01-01",
+      "2099-01-03",
+    );
+
+    expect(trend).toEqual([
+      { date: "2099-01-01", reserved: 0, cancelled: 0, used: 0 },
+      { date: "2099-01-02", reserved: 0, cancelled: 0, used: 0 },
+      { date: "2099-01-03", reserved: 0, cancelled: 0, used: 0 },
+    ]);
   });
 });
 

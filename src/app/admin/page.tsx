@@ -27,6 +27,12 @@ const adminLinks = [
     meta: "고객 조회 및 메모",
   },
   {
+    href: "/admin/inquiries",
+    title: "문의 관리",
+    description: "고객 1:1 문의를 확인하고 답변을 등록·수정합니다.",
+    meta: "문의 답변",
+  },
+  {
     href: "/admin/audit-logs",
     title: "운영 이력",
     description: "관리자 액션 기록을 조회해 운영 변경 내역을 추적합니다.",

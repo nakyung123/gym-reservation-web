@@ -16,43 +16,56 @@ type CustomersState =
   | { status: "ready"; customers: CustomerSummary[] }
   | { status: "error"; message: string };
 
+// 한 번에 불러오는 건수와 서버 상한(서버 limit 1~200과 일치).
+const LIST_LIMIT_STEP = 50;
+const LIST_LIMIT_MAX = 200;
+
 export function AdminCustomersView() {
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
+  const [limit, setLimit] = useState(LIST_LIMIT_STEP);
   // 같은 검색어로 다시 조회해도 effect가 재실행되도록 하는 nonce.
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<CustomersState>({ status: "loading" });
 
-  const load = useCallback(async (q: string, signal: AbortSignal) => {
-    setState({ status: "loading" });
-    try {
-      const result = await fetchAdminCustomers({ q: q || undefined }, signal);
-      if (signal.aborted) return;
-      if (result.ok) {
-        setState({ status: "ready", customers: result.customers });
-      } else {
-        setState({ status: "error", message: result.message });
+  const load = useCallback(
+    async (q: string, listLimit: number, signal: AbortSignal) => {
+      setState({ status: "loading" });
+      try {
+        const result = await fetchAdminCustomers(
+          { q: q || undefined, limit: listLimit },
+          signal,
+        );
+        if (signal.aborted) return;
+        if (result.ok) {
+          setState({ status: "ready", customers: result.customers });
+        } else {
+          setState({ status: "error", message: result.message });
+        }
+      } catch {
+        // AbortError(언마운트/재요청)는 무시한다.
       }
-    } catch {
-      // AbortError(언마운트/재요청)는 무시한다.
-    }
-  }, []);
+    },
+    [],
+  );
 
   // 마운트/검색 변경 시 자동 로드. effect body에서 곧바로 setState(loading)를 호출하지
   // 않도록 setTimeout(0)로 미뤄 cascading render 경고를 피한다(admin-gyms-view와 동일 패턴).
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void load(submittedQuery, controller.signal);
+      void load(submittedQuery, limit, controller.signal);
     }, 0);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [load, submittedQuery, reloadKey]);
+  }, [load, submittedQuery, limit, reloadKey]);
 
   const handleSubmit = useCallback(() => {
     const trimmed = query.trim();
+    // 새 검색은 목록 크기를 처음부터 다시 늘린다.
+    setLimit(LIST_LIMIT_STEP);
     if (trimmed === submittedQuery) {
       setReloadKey((key) => key + 1);
     } else {
@@ -61,6 +74,8 @@ export function AdminCustomersView() {
   }, [query, submittedQuery]);
 
   const customers = state.status === "ready" ? state.customers : null;
+  // 결과가 limit만큼 꽉 찼으면 더 있을 수 있다고 본다(정확한 total은 API가 주지 않는다).
+  const mayHaveMore = customers !== null && customers.length >= limit;
 
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
@@ -176,6 +191,33 @@ export function AdminCustomersView() {
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+
+        {customers && customers.length > 0 ? (
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-xs text-slate-500">
+              {customers.length}명 표시 중
+            </p>
+            {mayHaveMore && limit < LIST_LIMIT_MAX ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setLimit((current) =>
+                    Math.min(current + LIST_LIMIT_STEP, LIST_LIMIT_MAX),
+                  )
+                }
+                className="h-9 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                더 보기
+              </button>
+            ) : null}
+            {mayHaveMore && limit >= LIST_LIMIT_MAX ? (
+              <p className="text-xs font-semibold text-slate-500">
+                최대 {LIST_LIMIT_MAX}명까지 표시합니다. 닉네임 검색으로 범위를
+                좁혀 주세요.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </section>
