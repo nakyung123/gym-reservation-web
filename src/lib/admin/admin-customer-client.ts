@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin/customer";
 import { isCustomerNote, type CustomerNote } from "@/lib/admin/customer-note";
 
+import { isAbortError } from "@/lib/async-error";
 export type AdminCustomerListResult =
   | { ok: true; customers: CustomerSummary[] }
   | { ok: false; message: string; status?: number };
@@ -17,12 +18,6 @@ export type AdminCustomerDetailResult =
   | { ok: true; detail: CustomerDetail; notes: CustomerNote[] }
   | { ok: false; message: string; status?: number };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function getMessage(data: { message?: unknown }, fallback: string) {
   return typeof data.message === "string" ? data.message : fallback;

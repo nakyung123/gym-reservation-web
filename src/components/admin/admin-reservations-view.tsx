@@ -15,19 +15,14 @@ import {
 } from "@/components/admin/admin-async-state";
 import { reservationStatusLabel } from "@/components/reservation-ticket";
 import type { Gym, Reservation, ReservationStatus } from "@/types/domain";
-
+
+import { isAbortError } from "@/lib/async-error";
 type DetailState =
   | { status: "idle" }
   | { status: "loading"; reservationId: string }
   | { status: "ready"; reservation: Reservation }
   | { status: "error"; reservationId: string; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 type AdminReservationsViewProps = {
   gyms: Gym[];

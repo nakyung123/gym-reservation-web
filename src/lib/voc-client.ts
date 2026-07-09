@@ -4,6 +4,7 @@ import { getFirebaseClient } from "@/lib/firebase-client";
 import { isVocPost, type VocInput } from "@/lib/voc";
 import type { VocPost } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 // 공개 문의 게시판 client 접근 계층(작성/비밀번호 인증/내 문의 목록). throw 대신 { ok, ... } 결과를 반환한다.
 
 export type CreateVocResult =
@@ -18,12 +19,6 @@ export type FetchMyVocResult =
   | { ok: true; posts: VocPost[]; total: number }
   | { ok: false; kind: "auth-required" | "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 // 로그인 상태면 ID 토큰을 반환한다. 비로그인/실패면 null(작성은 익명으로 진행 가능).
 async function tryGetIdToken(): Promise<string | null> {

@@ -4,6 +4,7 @@ import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isInquiry, validateInquiryAnswer } from "@/lib/inquiry";
 import type { Inquiry, InquiryStatus } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 // 관리자 1:1 문의 client 접근 계층(admin fetch 패턴 재사용).
 
 export type AdminInquiry = Inquiry & { userLabel: string };
@@ -19,12 +20,6 @@ export type AdminInquiryAnswerResult =
 // 목록 필터: 상태값 또는 "all"(전체).
 export type AdminInquiryStatusFilter = InquiryStatus | "all";
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function isAdminInquiry(value: unknown): value is AdminInquiry {
   return (

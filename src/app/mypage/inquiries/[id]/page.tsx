@@ -8,6 +8,7 @@ import { useRequireAuth } from "@/lib/use-require-auth";
 import { fetchInquiry } from "@/lib/inquiry-client";
 import type { Inquiry } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 // 마이페이지 1:1 문의 상세. 공지 상세(/notice/[id]) 레이아웃을 따르되,
 // 인증 토큰이 필요해 서버 렌더가 아닌 클라이언트에서 fetchInquiry로 불러온다(본인 것만 200).
 // - 본문 아래 답변 블록: answered면 관리자 답변, open이면 '답변 준비 중' 안내.
@@ -19,12 +20,6 @@ type State =
   | { status: "not-found" }
   | { status: "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 // 등록일 표기(YYYY.MM.DD). 잘못된 ISO면 앞 10자 폴백.
 function formatDate(iso: string): string {

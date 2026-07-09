@@ -33,6 +33,7 @@ import type { UserReservationDetail } from "@/lib/reservation-detail";
 import type { Gym, Reservation } from "@/types/domain";
 import type { UserProfile } from "@/lib/user-profile";
 
+import { isAbortError } from "@/lib/async-error";
 type ReservationReceiptViewProps = {
   gyms: Gym[];
   reservationId: string;
@@ -64,12 +65,6 @@ type CancelState =
   | { kind: "done" }
   | { kind: "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 // 예약 생성일 표기(예약 일시와 동일한 YYYY-MM-DD HH:MM). 잘못된 ISO면 앞 10자 폴백.
 function formatCreatedDateTime(iso: string): string {

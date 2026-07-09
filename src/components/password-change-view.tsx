@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { getFirebaseClient } from "@/lib/firebase-client";
+import { useAuthUser } from "@/hooks/use-auth-user";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import {
   updateMyPassword,
@@ -16,11 +15,6 @@ import {
   validatePasswordPolicy,
 } from "@/lib/password-policy";
 import { PasswordField } from "@/components/form-fields";
-
-type AuthUserState =
-  | { status: "loading" }
-  | { status: "ready"; user: User }
-  | { status: "signed-out" };
 
 type SubmitState =
   | { kind: "idle" }
@@ -36,24 +30,26 @@ export function PasswordChangeView() {
   const t = useTranslations("Password");
   const router = useRouter();
   // signed-out 감지 + redirect는 useRequireAuth가 처리. 본 컴포넌트는 user 객체 자체가
-  // 필요해서 onAuthStateChanged로 직접 구독한다 (providerData 확인용).
+  // 필요해서 useAuthUser로 로그인 상태를 구독한다 (providerData 확인용).
   useRequireAuth({ from: "/mypage/password" });
+  const authState = useAuthUser();
 
-  const [authState, setAuthState] = useState<AuthUserState>({
-    status: "loading",
-  });
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
 
-  useEffect(() => {
-    const { auth } = getFirebaseClient();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setAuthState(user ? { status: "ready", user } : { status: "signed-out" });
-    });
-    return unsubscribe;
-  }, []);
+  // 인증 확인 실패는 숨기지 않고 명시한다(No Silent Fallback).
+  if (authState.status === "error") {
+    return (
+      <section
+        className="w-full rounded-lg border border-error/30 bg-error/10 p-6 text-sm text-error shadow-sm"
+        role="alert"
+      >
+        {authState.message}
+      </section>
+    );
+  }
 
   if (authState.status === "loading" || authState.status === "signed-out") {
     return (

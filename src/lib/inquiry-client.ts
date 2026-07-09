@@ -4,6 +4,7 @@ import { getFirebaseClient } from "@/lib/firebase-client";
 import { isInquiry, validateInquiryInput, type InquiryInput } from "@/lib/inquiry";
 import type { Inquiry } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 // 마이페이지 1:1 문의 client 접근 계층. reactive repository가 아니라 fetch 헬퍼.
 // user-profile-client.ts와 동일하게 throw 대신 { ok, ... } 결과 객체를 반환한다.
 
@@ -30,12 +31,6 @@ type IdTokenResult =
   | { ok: true; idToken: string }
   | { ok: false; kind: "auth-required" | "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 async function getIdToken(): Promise<IdTokenResult> {
   try {

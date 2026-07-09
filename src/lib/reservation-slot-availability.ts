@@ -2,6 +2,7 @@
 
 import type { ReservationSlotAvailability, Sport } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 export type ReservationSlotsFetchResult =
   | { ok: true; slots: ReservationSlotAvailability[] }
   | { ok: false; message: string };
@@ -33,12 +34,6 @@ export function isReservationSlotAvailability(
   );
 }
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 export async function fetchReservationSlots(input: {
   gymId: string;

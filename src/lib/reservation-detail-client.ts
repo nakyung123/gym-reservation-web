@@ -9,6 +9,7 @@ import {
 import { isReservation } from "@/lib/reservation-repository";
 import type { Gym, Reservation } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 export type FetchUserReservationFailureKind =
   | "not-found"
   | "auth-required"
@@ -32,12 +33,6 @@ type IdTokenResult =
   | { ok: true; idToken: string }
   | { ok: false; kind: "auth-required" | "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 async function getIdToken(): Promise<IdTokenResult> {
   try {

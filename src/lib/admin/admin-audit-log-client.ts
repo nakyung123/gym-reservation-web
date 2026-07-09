@@ -3,6 +3,7 @@
 import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isAuditLogEntry, type AuditLogEntry } from "@/lib/admin/audit-log";
 
+import { isAbortError } from "@/lib/async-error";
 export type AdminAuditLogFilters = {
   action?: string;
   targetType?: string;
@@ -15,12 +16,6 @@ export type AdminAuditLogListResult =
   | { ok: true; auditLogs: AuditLogEntry[] }
   | { ok: false; message: string; status?: number };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function getMessage(data: { message?: unknown }, fallback: string) {
   return typeof data.message === "string" ? data.message : fallback;

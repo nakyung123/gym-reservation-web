@@ -23,7 +23,8 @@ import {
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
 import type { Gym, ReservationSlotAvailability, Sport } from "@/types/domain";
-
+
+import { isAbortError } from "@/lib/async-error";
 const BULK_DEFAULT_CAPACITY = 10;
 const BULK_MIN_CAPACITY = 1;
 const BULK_MAX_CAPACITY = 999;
@@ -86,12 +87,6 @@ function getTodayValue(): string {
 
 const BULK_DATE_WEEK_PRESETS = [1, 2, 3, 4] as const;
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function isValidCapacity(value: number): boolean {
   return (

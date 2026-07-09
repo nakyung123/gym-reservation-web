@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin/admin-gym-schema";
 import type { AdminGym } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 export type AdminGymMutationPayload = AdminGym | AdminGymUpdateInput;
 
 export type AdminGymListResult =
@@ -17,12 +18,6 @@ export type AdminGymMutationResult =
   | { ok: true; gym: AdminGym; message: string }
   | { ok: false; message: string; status?: number };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 async function readJsonResponse(
   response: Response,

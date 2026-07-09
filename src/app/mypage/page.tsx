@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-import { MypageView } from "@/components/mypage-view";
+import { MypageView } from "@/components/mypage/mypage-view";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
 export async function generateMetadata(): Promise<Metadata> {

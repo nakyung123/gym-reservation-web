@@ -4,6 +4,7 @@ import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isReservation } from "@/lib/reservation-repository";
 import type { Reservation, ReservationStatus } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 export type AdminReservationFilters = {
   status?: ReservationStatus;
   gymId?: string;
@@ -39,12 +40,6 @@ export type AdminReservationActionResult =
       reservation?: Reservation;
     };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function getMessage(data: { message?: unknown }, fallback: string) {
   return typeof data.message === "string" ? data.message : fallback;

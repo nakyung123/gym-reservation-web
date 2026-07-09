@@ -3,16 +3,11 @@
 import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isRevenueSummary, type RevenueSummary } from "@/lib/admin/revenue";
 
+import { isAbortError } from "@/lib/async-error";
 export type AdminRevenueResult =
   | { ok: true; summary: RevenueSummary }
   | { ok: false; message: string; status?: number };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 export async function fetchAdminRevenue(
   from: string,

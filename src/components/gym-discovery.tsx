@@ -10,6 +10,8 @@ import { SelectMenu } from "@/components/select-menu";
 import { BoardPagination } from "@/components/board-pagination";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useUserLocation } from "@/hooks/use-user-location";
+import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
+import { usePagination } from "@/hooks/use-pagination";
 import { calculateGymDistanceKm } from "@/lib/distance";
 import { SPORTS } from "@/lib/domain-constants";
 import { getAvailableRegions, getGymLowestPrice } from "@/lib/gym-utils";
@@ -113,6 +115,7 @@ function FavoriteStar({ className, filled }: { className: string; filled: boolea
 
 export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   const t = useTranslations("Gyms");
+  const paginationLabels = useBoardPaginationLabels("Gyms");
   const router = useRouter();
   const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("전체");
   // 종목: 검색바 select. 기본 전체, 메가메뉴에서 ?sport=로 들어오면 그 종목.
@@ -211,13 +214,12 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   const hasNonFavoritesFilter =
     selectedRegion !== "전체" || selectedSport !== "전체";
 
-  // 페이지네이션(클라이언트 state). 필터로 결과가 줄면 safePage로 clamp한다.
-  const totalPages = Math.max(1, Math.ceil(filteredGyms.length / PER_PAGE));
-  const safePage = Math.min(page, totalPages);
-  const pagedGyms = filteredGyms.slice(
-    (safePage - 1) * PER_PAGE,
-    safePage * PER_PAGE,
-  );
+  // 페이지네이션(클라이언트 state). 필터로 결과가 줄면 currentPage로 clamp한다. 산식은 usePagination SSOT.
+  const {
+    totalPages,
+    currentPage: safePage,
+    pageItems: pagedGyms,
+  } = usePagination(filteredGyms, page, PER_PAGE);
 
   // 필터·정렬이 바뀌면 보던 페이지가 사라지는 혼란을 막기 위해 1페이지로 되돌린다.
   const resetPage = () => setPage(1);
@@ -519,13 +521,7 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }
               }}
-              labels={{
-                pagination: t("pagination"),
-                firstPage: t("firstPage"),
-                prevPage: t("prevPage"),
-                nextPage: t("nextPage"),
-                lastPage: t("lastPage"),
-              }}
+              labels={paginationLabels}
             />
           ) : null}
         </>

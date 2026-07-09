@@ -8,6 +8,7 @@ import {
   type UserProfileInput,
 } from "@/lib/user-profile";
 
+import { isAbortError } from "@/lib/async-error";
 export type FetchUserProfileResult =
   | { ok: true; user: { uid: string }; profile: UserProfile | null }
   | UserProfileClientFailure;
@@ -32,12 +33,6 @@ type IdTokenResult =
   | { ok: true; idToken: string }
   | { ok: false; kind: "auth-required" | "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function isUser(value: unknown): value is { uid: string } {
   return (

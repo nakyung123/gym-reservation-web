@@ -4,6 +4,7 @@ import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isReservationSlotAvailability } from "@/lib/reservation-slot-availability";
 import type { ReservationSlotAvailability, Sport } from "@/types/domain";
 
+import { isAbortError } from "@/lib/async-error";
 export type AdminUpdateSlotInput = {
   gymId: string;
   sport: Sport;
@@ -37,12 +38,6 @@ export type AdminBulkUpdateSlotResult =
     }
   | { ok: false; kind: "error"; message: string; status?: number };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function isValidUpdatedCount(value: unknown, slots: unknown[]): value is number {
   return (

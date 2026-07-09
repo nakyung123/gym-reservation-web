@@ -3,6 +3,7 @@
 import { getFirebaseClient } from "@/lib/firebase-client";
 import { isUserSummary, type UserSummary } from "@/lib/user-summary";
 
+import { isAbortError } from "@/lib/async-error";
 export type FetchUserSummaryResult =
   | { ok: true; user: { uid: string }; summary: UserSummary }
   | {
@@ -16,12 +17,6 @@ type IdTokenResult =
   | { ok: true; idToken: string }
   | { ok: false; kind: "auth-required" | "error"; message: string };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function isUser(value: unknown): value is { uid: string } {
   if (!value || typeof value !== "object") {

@@ -3,6 +3,7 @@
 import { getAdminAuthHeader } from "@/lib/admin/admin-auth-headers";
 import { isCustomerNote, type CustomerNote } from "@/lib/admin/customer-note";
 
+import { isAbortError } from "@/lib/async-error";
 export type CreateNoteResult =
   | { ok: true; note: CustomerNote }
   | { ok: false; message: string; status?: number };
@@ -11,12 +12,6 @@ export type DeleteNoteResult =
   | { ok: true }
   | { ok: false; message: string; status?: number };
 
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === "AbortError") ||
-    (error instanceof Error && error.name === "AbortError")
-  );
-}
 
 function getMessage(data: { message?: unknown }, fallback: string) {
   return typeof data.message === "string" ? data.message : fallback;
