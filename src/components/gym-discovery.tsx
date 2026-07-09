@@ -496,12 +496,14 @@ export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
       {filteredGyms.length > 0 ? (
         <>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {pagedGyms.map((gym) => (
+            {pagedGyms.map((gym, index) => (
               <GymCard
                 key={gym.id}
                 gym={gym}
                 isFavorite={isFavorite(gym.id)}
                 onToggleFavorite={() => toggleFavorite(gym.id)}
+                // 첫 줄(3장) 썸네일은 첫 화면(LCP)이라 미리 로드한다.
+                priorityImage={index < 3}
               />
             ))}
           </div>

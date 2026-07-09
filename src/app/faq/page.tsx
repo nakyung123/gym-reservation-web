@@ -95,17 +95,29 @@ export default async function FaqPage({
       : Number.parseInt(pageParam ?? "1", 10),
   );
 
-  // 활성 탭의 카테고리에 속한 Q&A를 모으고, 검색 범위(전체/제목/내용)로 필터한다.
-  const groupEntries = FAQ_KNOWLEDGE.filter((category) =>
-    activeGroup.categories.includes(category.title),
-  ).flatMap((category) => category.entries);
-  const matched = query
-    ? groupEntries.filter((entry) => {
-        if (field === "title") return entry.q.includes(query);
-        if (field === "content") return entry.a.includes(query);
-        return entry.q.includes(query) || entry.a.includes(query);
-      })
-    : groupEntries;
+  // 검색어가 없으면 활성 탭의 카테고리만, 검색어가 있으면 FAQ 전체에서 찾는다
+  // (다른 탭에 있는 답을 0건으로 놓치지 않게). 전체 검색 결과에는 탭 라벨 배지를 붙인다.
+  const entryMatches = (entry: { q: string; a: string }) => {
+    if (field === "title") return entry.q.includes(query);
+    if (field === "content") return entry.a.includes(query);
+    return entry.q.includes(query) || entry.a.includes(query);
+  };
+  const matched: { entry: { q: string; a: string }; groupLabel: string | null }[] =
+    query
+      ? TAB_GROUPS.flatMap((group) =>
+          FAQ_KNOWLEDGE.filter((category) =>
+            group.categories.includes(category.title),
+          ).flatMap((category) =>
+            category.entries
+              .filter(entryMatches)
+              .map((entry) => ({ entry, groupLabel: group.label })),
+          ),
+        )
+      : FAQ_KNOWLEDGE.filter((category) =>
+          activeGroup.categories.includes(category.title),
+        )
+          .flatMap((category) => category.entries)
+          .map((entry) => ({ entry, groupLabel: null }));
 
   const totalPages = Math.max(1, Math.ceil(matched.length / PER_PAGE));
   const requested = Number.parseInt(pageParam ?? "1", 10);
@@ -218,7 +230,7 @@ export default async function FaqPage({
           </p>
         ) : (
           <ul>
-            {pageItems.map((entry) => (
+            {pageItems.map(({ entry, groupLabel }) => (
               <li key={entry.q} className="border-b border-line">
                 <details className="group">
                   <summary className="flex cursor-pointer list-none items-center gap-4 px-2 py-6 sm:gap-5 sm:px-10 sm:py-7">
@@ -227,6 +239,11 @@ export default async function FaqPage({
                     </span>
                     <span className="flex-1 text-[18px] font-medium text-foreground sm:text-[22px]">
                       {entry.q}
+                      {groupLabel ? (
+                        <span className="ml-3 inline-block align-middle rounded-full bg-accent-tint px-3 py-0.5 text-[13px] font-semibold text-accent-strong">
+                          {groupLabel}
+                        </span>
+                      ) : null}
                     </span>
                     <svg
                       viewBox="0 0 24 24"

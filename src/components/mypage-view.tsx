@@ -92,7 +92,8 @@ type ProfileFormState = {
 type ProfileState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "ready"; form: ProfileFormState }
+  // loginId: 가입 시 정한 로그인 아이디(불변, 표시 전용). 미설정 계정은 null.
+  | { status: "ready"; form: ProfileFormState; loginId: string | null }
   | { status: "error"; message: string; responseStatus?: number };
 
 type SaveState =
@@ -368,6 +369,7 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
           setProfileState({
             status: "ready",
             form: profileToForm(result.profile),
+            loginId: result.profile?.loginId ?? null,
           });
           return;
         }
@@ -409,7 +411,7 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
   ) => {
     setProfileState((prev) => {
       if (prev.status !== "ready") return prev;
-      return { status: "ready", form: updater(prev.form) };
+      return { status: "ready", form: updater(prev.form), loginId: prev.loginId };
     });
     setSaveState((prev) => (prev.status === "idle" ? prev : { status: "idle" }));
   };
@@ -444,6 +446,7 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
         setProfileState({
           status: "ready",
           form: profileToForm(result.profile),
+          loginId: result.profile?.loginId ?? null,
         });
         setSaveState({ status: "success", message: result.message });
         return;
@@ -1091,13 +1094,31 @@ function AccountPanel({
             />
           </div>
 
-          {/* 아이디(이메일) - 읽기 전용 */}
+          {/* 아이디(로그인 식별자) - 읽기 전용. 아이디 미설정 계정(레거시/미완성)은 행을 숨긴다. */}
+          {profileState.loginId ? (
+            <div className="flex flex-col gap-2">
+              <FieldLabel htmlFor="account-id" required>
+                {t("accountIdLabel")}
+              </FieldLabel>
+              <input
+                id="account-id"
+                type="text"
+                value={profileState.loginId}
+                readOnly
+                disabled
+                className={READONLY_INPUT_CLASS}
+              />
+              <p className="text-xs text-slate-500">{t("loginIdReadonlyHint")}</p>
+            </div>
+          ) : null}
+
+          {/* 이메일 - 읽기 전용 */}
           <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor="account-id" required>
-              {t("accountIdLabel")}
+            <FieldLabel htmlFor="account-email" required>
+              {t("accountEmailLabel")}
             </FieldLabel>
             <input
-              id="account-id"
+              id="account-email"
               type="email"
               value={email}
               readOnly

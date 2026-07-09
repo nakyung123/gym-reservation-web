@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { Gym } from "@/types/domain";
-import { formatGymPrice, getGymSportPrice } from "@/lib/gym-utils";
+import {
+  formatGymPrice,
+  getGymLowestPrice,
+  getGymSportPrice,
+} from "@/lib/gym-utils";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
   getFirebaseAuthSessionServerSnapshot,
@@ -133,9 +137,10 @@ export function GymDetailView({
           <SummaryRow label="장소" value={gym.address} />
           <SummaryRow label="시설 사용 시간" value={gym.openHours} />
           <SummaryRow label="휴무일" value={closed} />
+          {/* 최저가는 종목별 요금(SSOT)에서 파생 — 목록 카드(getGymLowestPrice)와 항상 일치한다. */}
           <SummaryRow
             label="이용요금"
-            value={isPaid ? `${formatGymPrice(gym.basePrice)}부터` : "무료"}
+            value={isPaid ? `${formatGymPrice(getGymLowestPrice(gym))}부터` : "무료"}
           />
           {gym.facilities.length > 0 ? (
             <SummaryRow label="편의시설" value={gym.facilities.join(", ")} />

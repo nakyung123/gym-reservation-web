@@ -93,6 +93,7 @@ export function SignupAuthStep({
           alt="서울체육예약 캐릭터"
           width={200}
           height={200}
+          priority
           className="h-[200px] w-[200px] object-contain"
         />
       </div>

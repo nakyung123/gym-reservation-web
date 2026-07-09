@@ -80,6 +80,8 @@ export default async function GuidePage() {
                       fill
                       quality={90}
                       sizes="(max-width: 1024px) 100vw, 600px"
+                      // 첫 블록 이미지는 첫 화면(LCP)이라 미리 로드한다.
+                      priority={index === 0}
                       className="object-cover"
                     />
                   </div>

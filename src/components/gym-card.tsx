@@ -20,12 +20,15 @@ type GymCardProps = {
   gym: Gym;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  // 첫 화면에 보이는 카드(LCP 후보)만 true — 썸네일을 미리 로드한다.
+  priorityImage?: boolean;
 };
 
 export function GymCard({
   gym,
   isFavorite = false,
   onToggleFavorite,
+  priorityImage = false,
 }: GymCardProps) {
   const t = useTranslations("Gyms");
   const tFavorite = useTranslations("Favorite");
@@ -54,6 +57,7 @@ export function GymCard({
             fill
             quality={90}
             sizes="(max-width: 768px) 100vw, 360px"
+            priority={priorityImage}
             className="object-cover"
           />
         ) : null}
