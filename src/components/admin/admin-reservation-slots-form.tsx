@@ -25,6 +25,7 @@ import {
 import type { Gym, ReservationSlotAvailability, Sport } from "@/types/domain";
 
 import { isAbortError } from "@/lib/async-error";
+import { getTodayValue } from "@/lib/admin/admin-date-format";
 const BULK_DEFAULT_CAPACITY = 10;
 const BULK_MIN_CAPACITY = 1;
 const BULK_MAX_CAPACITY = 999;
@@ -75,15 +76,6 @@ const STATUS_BADGE_STYLES: Record<
   full: "bg-warning/10 text-warning border-warning/30",
   closed: "bg-slate-100 text-slate-700 border-line-strong",
 };
-
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function getTodayValue(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
 
 const BULK_DATE_WEEK_PRESETS = [1, 2, 3, 4] as const;
 

@@ -14,101 +14,26 @@ import {
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
 import { reservationStatusLabel } from "@/components/reservation-ticket";
-import type { Gym, Reservation, ReservationStatus } from "@/types/domain";
-
 import { isAbortError } from "@/lib/async-error";
-type DetailState =
-  | { status: "idle" }
-  | { status: "loading"; reservationId: string }
-  | { status: "ready"; reservation: Reservation }
-  | { status: "error"; reservationId: string; message: string };
-
+import { formatCreatedAt, getTodayValue } from "@/lib/admin/admin-date-format";
+import {
+  countByStatus,
+  EMPTY_RESERVATIONS,
+  filterLabels,
+  getShortId,
+  noticeStyles,
+  statusBadgeStyles,
+  type ActionState,
+  type DetailState,
+  type Notice,
+  type ReservationFilter,
+  type ReservationsState,
+} from "@/components/admin/admin-reservations-shared";
+import type { Gym, Reservation } from "@/types/domain";
 
 type AdminReservationsViewProps = {
   gyms: Gym[];
 };
-
-type ReservationFilter = ReservationStatus | "all";
-
-type ReservationsState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ready"; reservations: Reservation[] }
-  | { status: "error"; message: string };
-
-type Notice = {
-  tone: "success" | "error";
-  message: string;
-};
-
-type ActionState = {
-  reservationId: string;
-  nextStatus: "used" | "cancelled";
-};
-
-// 상태 레이블은 reservation-ticket의 SSOT(reservationStatusLabel)를 그대로 따른다.
-// 관리자 필터는 "전체"만 별도 정의.
-const filterLabels: Record<ReservationFilter, string> = {
-  all: "전체",
-  reserved: reservationStatusLabel.reserved,
-  cancelled: reservationStatusLabel.cancelled,
-  used: reservationStatusLabel.used,
-};
-
-// 관리자 테이블은 사용자 화면(borderless rounded-md)과 달리 의도적으로
-// border 있는 pill 스타일을 쓰므로 별도 정의를 유지한다.
-// 색 의미는 사용자 화면 SSOT(reservation-ticket의 reservationStatusBadgeStyles)와 맞춘다.
-// 예약중=accent 틴트, 취소=error, 사용완료=중립. 단 관리자 테이블은 bordered pill 포맷을 유지한다.
-const statusBadgeStyles: Record<ReservationStatus, string> = {
-  reserved: "border-accent/20 bg-accent-tint text-accent-strong",
-  cancelled: "border-error/30 bg-error/10 text-error",
-  used: "border-line bg-surface-2 text-muted",
-};
-
-const noticeStyles: Record<Notice["tone"], string> = {
-  success: "border-success/30 bg-success/10 text-success",
-  error: "border-error/30 bg-error/10 text-error",
-};
-
-const EMPTY_RESERVATIONS: Reservation[] = [];
-
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function getTodayValue(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function formatCreatedAt(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString("ko-KR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
-
-function getShortId(value: string) {
-  return value.slice(0, 8);
-}
-
-function countByStatus(reservations: Reservation[]) {
-  return reservations.reduce(
-    (counts, reservation) => ({
-      ...counts,
-      [reservation.status]: counts[reservation.status] + 1,
-    }),
-    {
-      reserved: 0,
-      cancelled: 0,
-      used: 0,
-    } satisfies Record<ReservationStatus, number>,
-  );
-}
 
 export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
   const [selectedStatus, setSelectedStatus] =
