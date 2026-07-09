@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/app-button";
 import { useFaqChat } from "@/hooks/use-faq-chat";
 
@@ -20,6 +21,7 @@ const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), [href], textarea:not([disabled])';
 
 export function FaqChatWidget() {
+  const t = useTranslations("Faq");
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -110,16 +112,16 @@ export function FaqChatWidget() {
         onClick={() => setOpen(true)}
         aria-expanded={false}
         aria-controls={panelId}
-        aria-label="채팅 상담 열기"
+        aria-label={t("chatOpenAria")}
         className="fixed bottom-5 right-5 z-50 h-[100px] w-[100px] rounded-full border-[3px] border-accent shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
       >
         {/* 원형으로 클립한 로그인 캐릭터(원형 배경 포함) */}
         <span className="absolute inset-0 overflow-hidden rounded-full">
-          <Image src="/login-character.png" alt="" fill className="object-cover" />
+          <Image src="/login-character.png" alt="" fill sizes="100px" className="object-cover" />
         </span>
         {/* 하단에 흰 타원 배지 + 네이비 텍스트 */}
         <span className="absolute bottom-[9px] left-1/2 -translate-x-1/2 rounded-full bg-white px-2.5 py-[3px] text-[11px] font-bold text-accent-strong shadow-[0_1px_4px_rgba(15,23,42,0.25)]">
-          채팅상담
+          {t("chatBadge")}
         </span>
       </button>
     );
@@ -148,14 +150,14 @@ export function FaqChatWidget() {
         </span>
         <div className="min-w-0 flex-1">
           <p id={titleId} className="text-[15px] font-bold text-white">
-            채팅 상담
+            {t("chatTitle")}
           </p>
-          <p className="text-[12.5px] text-white/80">FAQ를 바탕으로 안내해 드려요</p>
+          <p className="text-[12.5px] text-white/80">{t("chatSubtitle")}</p>
         </div>
         <button
           type="button"
           onClick={closePanel}
-          aria-label="채팅 상담 닫기"
+          aria-label={t("chatCloseAria")}
           className="inline-flex size-8 items-center justify-center rounded-md text-white/80 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
         >
           <span aria-hidden="true">✕</span>
@@ -166,14 +168,13 @@ export function FaqChatWidget() {
       <div
         role="log"
         aria-live="polite"
-        aria-label="대화 내용"
+        aria-label={t("chatLogAria")}
         className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
       >
         {isEmpty ? (
           <div className="space-y-3">
             <p className="text-[14px] leading-relaxed text-muted">
-              안녕하세요! 가입·예약·취소 등 자주 묻는 질문에 답해 드려요. 아래
-              질문을 눌러보거나 직접 입력해 주세요.
+              {t("chatGreeting")}
             </p>
             <ul className="space-y-2">
               {EXAMPLE_QUESTIONS.map((question) => (
@@ -209,8 +210,10 @@ export function FaqChatWidget() {
           className="border-t border-line bg-surface-2 px-4 py-2 text-[13px] text-foreground"
         >
           {error.kind === "rate-limit"
-            ? `문의가 많아 잠시 제한되었어요. ${error.retryAfterSeconds > 0 ? `${error.retryAfterSeconds}초 후 ` : ""}다시 시도해 주세요.`
-            : "일시적인 오류가 발생했어요. 다시 시도해 주세요."}
+            ? error.retryAfterSeconds > 0
+              ? t("chatErrorRateLimitedWait", { seconds: error.retryAfterSeconds })
+              : t("chatErrorRateLimited")
+            : t("chatErrorGeneric")}
         </div>
       ) : null}
 
@@ -224,12 +227,12 @@ export function FaqChatWidget() {
           value={input}
           onChange={(event) => setInput(event.target.value)}
           disabled={streaming}
-          aria-label="질문 입력"
-          placeholder={streaming ? "답변을 작성하고 있어요…" : "질문을 입력하세요"}
+          aria-label={t("chatInputAria")}
+          placeholder={streaming ? t("chatPlaceholderStreaming") : t("chatPlaceholder")}
           className="h-10 flex-1 rounded-lg border border-line bg-white px-3 text-[14.5px] text-foreground outline-none transition focus:border-accent disabled:bg-surface-2"
         />
         <Button type="submit" size="sm" disabled={streaming || !input.trim()}>
-          전송
+          {t("chatSend")}
         </Button>
       </form>
     </div>

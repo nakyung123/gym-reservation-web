@@ -67,7 +67,23 @@
     "cardWon": "KRW",
     "cardSportsLabel": "Available sports",
     "cardDetailAria": "View {name} details",
-    "cardBookAria": "Book {name}"
+    "cardBookAria": "Book {name}",
+    "heroCtaSearch": "Search Facilities",
+    "heroCtaGuide": "How It Works",
+    "quickSectionTitle": "How to Use",
+    "quickSectionSubtitle": "From finding a facility to checking your reservation — all in one flow.",
+    "eventsEyebrow": "Event News",
+    "eventsTitle": "Bringing you <em>sports event & competition news</em><br2></br2> from across the country.",
+    "eventsTabsAria": "Event categories",
+    "eventsCategoryCompetition": "Competitions",
+    "eventsCategoryNotice": "Notices",
+    "eventsCategoryCommunity": "Community Sports",
+    "eventsCategoryCourse": "Classes",
+    "eventsReadMore": "Read more",
+    "eventsPrevAria": "Previous events",
+    "eventsNextAria": "Next events",
+    "eventsPauseAria": "Pause autoplay",
+    "eventsPlayAria": "Start autoplay"
   },
   "Faq": {
     "title": "FAQ",
@@ -79,7 +95,21 @@
     "fieldTitle": "Title",
     "fieldContent": "Content",
     "empty": "No data found.",
-    "contact": "For more questions, use the chat assistant at the bottom right, or contact our customer center at 1599-0000 (weekdays 09:00–18:00)."
+    "contact": "For more questions, use the chat assistant at the bottom right, or contact our customer center at 1599-0000 (weekdays 09:00–18:00).",
+    "chatOpenAria": "Open chat support",
+    "chatBadge": "Chat",
+    "chatTitle": "Chat Support",
+    "chatSubtitle": "Answers based on our FAQ",
+    "chatCloseAria": "Close chat support",
+    "chatLogAria": "Conversation",
+    "chatGreeting": "Hello! I can answer common questions about sign-up, reservations, and cancellations. Tap a question below or type your own.",
+    "chatErrorRateLimitedWait": "We're receiving many questions right now. Please try again in {seconds} seconds.",
+    "chatErrorRateLimited": "We're receiving many questions right now. Please try again.",
+    "chatErrorGeneric": "Something went wrong. Please try again.",
+    "chatInputAria": "Type your question",
+    "chatPlaceholder": "Type your question",
+    "chatPlaceholderStreaming": "Writing a reply…",
+    "chatSend": "Send"
   },
   "Guide": {
     "title": "How It Works",
@@ -533,7 +563,7 @@
     "wdAgree": "I agree to delete my account.",
     "wdPwLabel": "Please enter your password.",
     "memberInfoTitle": "Member information",
-    "emailReadonlyHint": "Your email (login ID) cannot be changed.",
+    "emailReadonlyHint": "Your email cannot be changed.",
     "nameLabel": "Name",
     "namePlaceholder": "Enter your name",
     "phoneLabel": "Phone",
@@ -657,7 +687,9 @@
     "profileSaveErrorTitle": "Couldn't save profile settings",
     "save": "Save",
     "saving": "Saving",
-    "savingHint": "Saving to the server."
+    "savingHint": "Saving to the server.",
+    "accountEmailLabel": "Email",
+    "loginIdReadonlyHint": "Your ID cannot be changed."
   },
   "Password": {
     "metaTitle": "Change Password | Seoul Sports Reservation",
@@ -707,5 +739,11 @@
     "retry": "Try again",
     "activeReservationTitle": "You have active reservations",
     "viewMyReservations": "View my reservations"
+  },
+  "NotFound": {
+    "title": "Page not found.",
+    "description": "The address may be incorrect or the page has been removed. Use the buttons below to continue.",
+    "homeCta": "Go Home",
+    "gymsCta": "Find Facilities"
   }
 }

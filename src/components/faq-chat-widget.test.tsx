@@ -2,6 +2,8 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import koMessages from "../../messages/ko.json";
 import { FaqChatWidget } from "@/components/faq-chat-widget";
 
 // fetch를 모킹해 네트워크 없이 위젯 상태 전이(닫힘/열림·웰컴·스트림 렌더·429 안내)를 검증한다.
@@ -10,6 +12,15 @@ import { FaqChatWidget } from "@/components/faq-chat-widget";
 // 위젯은 홈("/")에서만 렌더된다(pathname !== "/"면 null). jsdom에는 next 라우터 컨텍스트가 없어
 // usePathname()이 null을 반환하므로, 홈에 있는 상황을 시뮬레이션하려면 "/"로 모킹해야 한다.
 vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+
+// 위젯 문구는 next-intl(Faq 네임스페이스)에서 오므로 ko 메시지로 감싸 렌더한다.
+function renderWidget() {
+  return render(
+    <NextIntlClientProvider locale="ko" messages={koMessages}>
+      <FaqChatWidget />
+    </NextIntlClientProvider>,
+  );
+}
 
 function streamOk(text: string): Response {
   const body = new ReadableStream<Uint8Array>({
@@ -36,10 +47,10 @@ describe("FaqChatWidget", () => {
   });
 
   it("닫힘 상태에서 토글 버튼을 보여주고, 열면 웰컴과 예시 질문을 보여준다", () => {
-    render(<FaqChatWidget />);
+    renderWidget();
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "문의 도우미 열기" }));
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
 
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(screen.getByText(/자주 묻는 질문/)).toBeTruthy();
@@ -52,8 +63,8 @@ describe("FaqChatWidget", () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       streamOk("이메일로 가입할 수 있습니다."),
     );
-    render(<FaqChatWidget />);
-    fireEvent.click(screen.getByRole("button", { name: "문의 도우미 열기" }));
+    renderWidget();
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
     fireEvent.click(
       screen.getByRole("button", { name: "가입은 어떻게 하나요?" }),
     );
@@ -69,8 +80,8 @@ describe("FaqChatWidget", () => {
 
   it("429 응답이면 제한 안내 배너를 보여준다", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(rateLimited());
-    render(<FaqChatWidget />);
-    fireEvent.click(screen.getByRole("button", { name: "문의 도우미 열기" }));
+    renderWidget();
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
     fireEvent.click(
       screen.getByRole("button", { name: "예약은 언제까지 취소할 수 있나요?" }),
     );

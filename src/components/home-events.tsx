@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { type TransitionEvent, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { listNotices } from "@/lib/notices";
 
 // 홈 "전국 스포츠 행사·대회" 영역 — KMI 메인 'KMI 소식' 섹션을 실측값 그대로 재현.
@@ -22,6 +23,14 @@ type EventCategory = "대회" | "공지사항" | "생활체육" | "강좌";
 type EventPost = { category: EventCategory; title: string; date: string; href: string; image?: string };
 
 const TABS: EventCategory[] = ["대회", "공지사항", "생활체육", "강좌"];
+
+// 카테고리 값(데이터, 한국어 유지) → 표시용 메시지 키. 탭 라벨과 카드 배지에서 공유한다.
+const CATEGORY_KEYS: Record<EventCategory, string> = {
+  대회: "eventsCategoryCompetition",
+  공지사항: "eventsCategoryNotice",
+  생활체육: "eventsCategoryCommunity",
+  강좌: "eventsCategoryCourse",
+};
 
 // 공지사항 카드: 공지 SSOT(src/lib/notices.ts)에서 최신 6개를 그대로 가져와
 //   각 카드를 해당 게시글(/notice/{id})로 연결한다(공지 추가/삭제가 자동 반영).
@@ -76,9 +85,10 @@ const Arrow = ({ dir }: { dir: 1 | -1 }) => (
 );
 
 function EventCard({ event }: { event: EventPost }) {
+  const t = useTranslations("Home");
   const badge = (
     <span className="w-fit rounded-[25px] bg-[#d3e1fb] px-[33px] py-[2px] text-[14px] font-medium text-[#1d1d1d]">
-      {event.category}
+      {t(CATEGORY_KEYS[event.category])}
     </span>
   );
 
@@ -103,7 +113,7 @@ function EventCard({ event }: { event: EventPost }) {
         <div className="mt-auto">
           <span className="mb-4 block text-[14px] text-[#555]">{event.date}</span>
           <div className="flex items-center justify-between border-t border-line pt-4">
-            <span className="text-[15px] text-[#1d1d1d]">자세히보기</span>
+            <span className="text-[15px] text-[#1d1d1d]">{t("eventsReadMore")}</span>
             <span
               aria-hidden="true"
               className="grid size-[52px] place-items-center rounded-full bg-[#f8f8f8] text-[#1d1d1d] transition group-hover:bg-accent group-hover:text-white"
@@ -156,6 +166,7 @@ function EventCard({ event }: { event: EventPost }) {
 }
 
 export function HomeEvents() {
+  const t = useTranslations("Home");
   const viewportRef = useRef<HTMLDivElement>(null);
   const slidingRef = useRef(false); // 슬라이드 진행 중 잠금(빠른 연타·백그라운드 누적 방지)
   const [activeTab, setActiveTab] = useState<EventCategory>("대회");
@@ -266,14 +277,17 @@ export function HomeEvents() {
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 -z-10 bg-[#15235c]/40"
           />
-          <p className="text-[18px] font-semibold text-white/90">행사 소식</p>
+          <p className="text-[18px] font-semibold text-white/90">{t("eventsEyebrow")}</p>
           <h2 className="mt-3 text-[27px] font-semibold leading-[1.35] tracking-[-0.01em] sm:text-[34px]">
-            전국의 스포츠
-            <br className="hidden sm:block" /> <span className="text-[#9db4ff]">행사·대회 소식</span>을
-            <br className="hidden xl:block" /> 알려드립니다.
+            {/* 줄바꿈(sm/xl 반응형)과 강조 span을 메시지 안 태그로 유지한다. */}
+            {t.rich("eventsTitle", {
+              em: (chunks) => <span className="text-[#9db4ff]">{chunks}</span>,
+              br1: () => <br className="hidden sm:block" />,
+              br2: () => <br className="hidden xl:block" />,
+            })}
           </h2>
 
-          <ul role="tablist" aria-label="행사 카테고리" className="mt-7 flex gap-1 overflow-x-auto xl:mt-[125px] xl:w-[280px] xl:flex-col xl:gap-0 xl:overflow-visible">
+          <ul role="tablist" aria-label={t("eventsTabsAria")} className="mt-7 flex gap-1 overflow-x-auto xl:mt-[125px] xl:w-[280px] xl:flex-col xl:gap-0 xl:overflow-visible">
             {TABS.map((tab) => {
               const active = tab === activeTab;
               return (
@@ -287,7 +301,7 @@ export function HomeEvents() {
                       active ? "bg-white/15 text-white xl:bg-transparent" : "text-white/60 hover:text-white/90"
                     }`}
                   >
-                    <span>{tab}</span>
+                    <span>{t(CATEGORY_KEYS[tab])}</span>
                     <span
                       aria-hidden="true"
                       className={`hidden size-7 shrink-0 place-items-center rounded-full bg-white text-accent-strong transition-opacity xl:grid ${
@@ -310,13 +324,13 @@ export function HomeEvents() {
             우측은 컨테이너 우측 여백선(right-8). justify-end + pb-[90px]로 컨트롤·카드를 함께 내려 카드 하단이 패널 바닥에서 90px. */}
         <div className="mt-7 min-w-0 flex-1 xl:absolute xl:inset-y-0 xl:left-[398px] xl:right-8 xl:z-10 xl:mt-0 xl:flex xl:flex-col xl:justify-end xl:pb-[90px]">
           <div className="mb-10 flex items-center justify-end gap-2.5">
-            <button type="button" onClick={goPrev} aria-label="이전 행사 보기" className={CTRL_CLASS}>
+            <button type="button" onClick={goPrev} aria-label={t("eventsPrevAria")} className={CTRL_CLASS}>
               <Arrow dir={-1} />
             </button>
-            <button type="button" onClick={goNext} aria-label="다음 행사 보기" className={CTRL_CLASS}>
+            <button type="button" onClick={goNext} aria-label={t("eventsNextAria")} className={CTRL_CLASS}>
               <Arrow dir={1} />
             </button>
-            <button type="button" onClick={() => setPlaying((p) => !p)} aria-label={playing ? "자동 재생 멈춤" : "자동 재생 시작"} className={playing ? CTRL_CLASS : CTRL_FILLED}>
+            <button type="button" onClick={() => setPlaying((p) => !p)} aria-label={playing ? t("eventsPauseAria") : t("eventsPlayAria")} className={playing ? CTRL_CLASS : CTRL_FILLED}>
               {playing ? (
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="size-[15px]">
                   <rect x="6" y="5" width="4" height="14" rx="1" />

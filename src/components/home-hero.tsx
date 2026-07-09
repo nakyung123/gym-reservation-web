@@ -44,14 +44,14 @@ export async function HomeHero() {
             href="/gyms"
             className="inline-flex h-14 items-center gap-2 rounded-[10px] bg-accent px-6 text-[15px] font-bold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            시설 검색하기
+            {t("heroCtaSearch")}
             <span aria-hidden="true">→</span>
           </Link>
           <Link
             href="/guide"
             className="inline-flex h-14 items-center gap-2 rounded-[10px] border border-accent bg-white/90 px-6 text-[15px] font-bold text-accent-strong backdrop-blur-sm transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            이용 방법 안내
+            {t("heroCtaGuide")}
             <span aria-hidden="true">→</span>
           </Link>
         </div>

@@ -67,7 +67,23 @@
     "cardWon": "원",
     "cardSportsLabel": "예약 가능 종목",
     "cardDetailAria": "{name} 상세 보기",
-    "cardBookAria": "{name} 예약하기"
+    "cardBookAria": "{name} 예약하기",
+    "heroCtaSearch": "시설 검색하기",
+    "heroCtaGuide": "이용 방법 안내",
+    "quickSectionTitle": "이렇게 이용하세요",
+    "quickSectionSubtitle": "시설 찾기부터 예약 조회까지 한 흐름으로 이용하세요.",
+    "eventsEyebrow": "행사 소식",
+    "eventsTitle": "전국의 스포츠<br1></br1> <em>행사·대회 소식</em>을<br2></br2> 알려드립니다.",
+    "eventsTabsAria": "행사 카테고리",
+    "eventsCategoryCompetition": "대회",
+    "eventsCategoryNotice": "공지사항",
+    "eventsCategoryCommunity": "생활체육",
+    "eventsCategoryCourse": "강좌",
+    "eventsReadMore": "자세히보기",
+    "eventsPrevAria": "이전 행사 보기",
+    "eventsNextAria": "다음 행사 보기",
+    "eventsPauseAria": "자동 재생 멈춤",
+    "eventsPlayAria": "자동 재생 시작"
   },
   "Faq": {
     "title": "문의·FAQ",
@@ -79,7 +95,21 @@
     "fieldTitle": "제목",
     "fieldContent": "내용",
     "empty": "조회된 데이터가 없습니다.",
-    "contact": "더 궁금한 점은 화면 우측 하단의 문의 도우미를 이용하시거나, 고객센터 1599-0000(평일 09:00~18:00)으로 연락해 주세요."
+    "contact": "더 궁금한 점은 화면 우측 하단의 문의 도우미를 이용하시거나, 고객센터 1599-0000(평일 09:00~18:00)으로 연락해 주세요.",
+    "chatOpenAria": "채팅 상담 열기",
+    "chatBadge": "채팅상담",
+    "chatTitle": "채팅 상담",
+    "chatSubtitle": "FAQ를 바탕으로 안내해 드려요",
+    "chatCloseAria": "채팅 상담 닫기",
+    "chatLogAria": "대화 내용",
+    "chatGreeting": "안녕하세요! 가입·예약·취소 등 자주 묻는 질문에 답해 드려요. 아래 질문을 눌러보거나 직접 입력해 주세요.",
+    "chatErrorRateLimitedWait": "문의가 많아 잠시 제한되었어요. {seconds}초 후 다시 시도해 주세요.",
+    "chatErrorRateLimited": "문의가 많아 잠시 제한되었어요. 다시 시도해 주세요.",
+    "chatErrorGeneric": "일시적인 오류가 발생했어요. 다시 시도해 주세요.",
+    "chatInputAria": "질문 입력",
+    "chatPlaceholder": "질문을 입력하세요",
+    "chatPlaceholderStreaming": "답변을 작성하고 있어요…",
+    "chatSend": "전송"
   },
   "Guide": {
     "title": "이용 방법",
@@ -533,7 +563,7 @@
     "wdAgree": "탈퇴에 동의합니다.",
     "wdPwLabel": "비밀번호를 입력해주세요.",
     "memberInfoTitle": "회원정보",
-    "emailReadonlyHint": "이메일(아이디)은 변경할 수 없습니다.",
+    "emailReadonlyHint": "이메일은 변경할 수 없습니다.",
     "nameLabel": "이름",
     "namePlaceholder": "이름을 입력하세요",
     "phoneLabel": "연락처",
@@ -657,7 +687,9 @@
     "profileSaveErrorTitle": "프로필 설정을 저장하지 못했습니다",
     "save": "저장",
     "saving": "저장 중",
-    "savingHint": "서버에 저장하고 있습니다."
+    "savingHint": "서버에 저장하고 있습니다.",
+    "accountEmailLabel": "이메일",
+    "loginIdReadonlyHint": "아이디는 변경할 수 없습니다."
   },
   "Password": {
     "metaTitle": "비밀번호 변경 | 서울체육예약",
@@ -707,5 +739,11 @@
     "retry": "다시 시도",
     "activeReservationTitle": "진행 중인 예약이 있습니다",
     "viewMyReservations": "내 예약 보기"
+  },
+  "NotFound": {
+    "title": "페이지를 찾을 수 없습니다.",
+    "description": "주소가 잘못되었거나 삭제된 페이지입니다. 아래 버튼으로 이동해 주세요.",
+    "homeCta": "홈으로",
+    "gymsCta": "시설 찾기"
   }
 }

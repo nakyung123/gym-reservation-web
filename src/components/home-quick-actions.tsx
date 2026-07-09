@@ -124,10 +124,10 @@ export async function HomeQuickActions() {
             GUIDE
           </p>
           <h2 className="mt-1.5 text-[31px] font-extrabold tracking-[-0.02em] text-slate-950">
-            이렇게 이용하세요
+            {t("quickSectionTitle")}
           </h2>
           <p className="mt-[9px] text-[16.5px] text-muted">
-            시설 찾기부터 예약 조회까지 한 흐름으로 이용하세요.
+            {t("quickSectionSubtitle")}
           </p>
         </div>
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
