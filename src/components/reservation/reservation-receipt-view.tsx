@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { AlertModal } from "@/components/alert-modal";
+import { AlertModal } from "@/components/ui/alert-modal";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/firebase-auth-session";
 import { formatGymPrice } from "@/lib/gym-utils";
 import { PAYMENT_METHOD_LABELS } from "@/lib/domain-constants";
-import { CollapsibleSection } from "@/components/collapsible-section";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
   fetchUserReservation,
   type FetchUserReservationFailureKind,
@@ -28,7 +28,7 @@ import {
   getReservationGymSummary,
   reservationDisplayNumber,
   reservationStatusLabel,
-} from "@/components/reservation-ticket";
+} from "@/components/reservation/reservation-ticket";
 import type { UserReservationDetail } from "@/lib/reservation-detail";
 import type { Gym, Reservation } from "@/types/domain";
 import type { UserProfile } from "@/lib/user-profile";

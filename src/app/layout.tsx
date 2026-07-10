@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { SiteChrome } from "@/components/site-chrome";
+import { SiteHeader } from "@/components/layout/site-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteChrome } from "@/components/layout/site-chrome";
 import { UserLocationProvider } from "@/hooks/use-user-location";
-import { LocationPermissionModal } from "@/components/location-permission-modal";
-import { FaqChatWidget } from "@/components/faq-chat-widget";
+import { LocationPermissionModal } from "@/components/layout/location-permission-modal";
+import { FaqChatWidget } from "@/components/faq/faq-chat-widget";
 import "./globals.css";
 
 // 한국어 본문 폰트(공공·신뢰형). 한글 글리프가 커 preload는 끄고 swap 사용.

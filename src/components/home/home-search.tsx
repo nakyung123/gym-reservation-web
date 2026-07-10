@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/app-button";
-import { SelectMenu } from "@/components/select-menu";
+import { Button } from "@/components/ui/app-button";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { SPORTS } from "@/lib/domain-constants";
 import type { Gym, Sport } from "@/types/domain";
 

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ButtonLink } from "@/components/app-button";
+import { ButtonLink } from "@/components/ui/app-button";
 import { getGymLowestPrice, getGymThumbnail } from "@/lib/gym-utils";
 import { calculateGymDistanceKm, formatDistanceKm } from "@/lib/distance";
 import { useUserLocation } from "@/hooks/use-user-location";

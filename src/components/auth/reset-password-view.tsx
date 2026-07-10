@@ -4,8 +4,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { sendPasswordReset } from "@/lib/firebase-email-auth";
-import { FindAccountHeader } from "@/components/find-account-header";
-import { AlertModal } from "@/components/alert-modal";
+import { FindAccountHeader } from "@/components/auth/find-account-header";
+import { AlertModal } from "@/components/ui/alert-modal";
 
 // 간단한 이메일 형식 검사(로컬@도메인.tld). 서버 검증 이전 사용자 안내용.
 function isEmailFormat(value: string): boolean {

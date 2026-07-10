@@ -3,18 +3,18 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/app-button";
-import { AlertModal } from "@/components/alert-modal";
-import { GymCard } from "@/components/gym-card";
-import { SelectMenu } from "@/components/select-menu";
-import { BoardPagination } from "@/components/board-pagination";
+import { Button } from "@/components/ui/app-button";
+import { AlertModal } from "@/components/ui/alert-modal";
+import { GymCard } from "@/components/gym/gym-card";
+import { SelectMenu } from "@/components/ui/select-menu";
+import { BoardPagination } from "@/components/ui/board-pagination";
 import {
   createGymFilterInitialState,
   gymFilterReducer,
   isValidSport,
   type GymSort,
   type SortDir,
-} from "@/components/gym-filters-reducer";
+} from "@/components/gym/gym-filters-reducer";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useUserLocation } from "@/hooks/use-user-location";
 import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
@@ -109,7 +109,7 @@ function FavoriteStar({ className, filled }: { className: string; filled: boolea
 
 export function GymDiscovery({ gyms, initialSport }: GymDiscoveryProps) {
   const t = useTranslations("Gyms");
-  const paginationLabels = useBoardPaginationLabels("Gyms");
+  const paginationLabels = useBoardPaginationLabels();
   const router = useRouter();
   // 필터·정렬·페이지 상태는 gym-filters-reducer가 SSOT. resetPage/cascade 전이를
   // 리듀서에 모아 "필터가 바뀌면 1페이지로" 불변식을 한곳에서 보장한다.

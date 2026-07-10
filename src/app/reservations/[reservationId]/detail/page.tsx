@@ -1,4 +1,4 @@
-import { ReservationReceiptView } from "@/components/reservation-receipt-view";
+import { ReservationReceiptView } from "@/components/reservation/reservation-receipt-view";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
 type ReservationReceiptPageProps = {

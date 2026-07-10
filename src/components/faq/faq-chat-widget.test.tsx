@@ -3,8 +3,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import koMessages from "../../messages/ko.json";
-import { FaqChatWidget } from "@/components/faq-chat-widget";
+import koMessages from "../../../messages/ko.json";
+import { FaqChatWidget } from "@/components/faq/faq-chat-widget";
 
 // fetch를 모킹해 네트워크 없이 위젯 상태 전이(닫힘/열림·웰컴·스트림 렌더·429 안내)를 검증한다.
 // vitest.unit.config.ts include 대상(파일 상단 @vitest-environment jsdom로 DOM 활성화).

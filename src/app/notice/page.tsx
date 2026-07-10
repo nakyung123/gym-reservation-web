@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
-import { BoardPagination } from "@/components/board-pagination";
-import { SearchBar } from "@/components/search-bar";
+import { BoardPagination } from "@/components/ui/board-pagination";
+import { SearchBar } from "@/components/home/search-bar";
 import {
   listNormalNotices,
   listNotices,
@@ -50,6 +50,8 @@ export default async function NoticePage({
   searchParams: SearchParams;
 }) {
   const t = await getTranslations("Notice");
+  // 페이지네이션 5키는 Common 네임스페이스 SSOT를 쓴다(서버 컴포넌트라 훅 대신 직접 조회).
+  const tCommon = await getTranslations("Common");
   const {
     page: pageParam,
     q: qParam,
@@ -190,11 +192,11 @@ export default async function NoticePage({
           totalPages={totalPages}
           buildHref={(p) => listHref(p, query, field)}
           labels={{
-            pagination: t("pagination"),
-            firstPage: t("firstPage"),
-            prevPage: t("prevPage"),
-            nextPage: t("nextPage"),
-            lastPage: t("lastPage"),
+            pagination: tCommon("pagination"),
+            firstPage: tCommon("firstPage"),
+            prevPage: tCommon("prevPage"),
+            nextPage: tCommon("nextPage"),
+            lastPage: tCommon("lastPage"),
           }}
         />
       ) : null}

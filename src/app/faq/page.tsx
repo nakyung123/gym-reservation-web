@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { BoardPagination } from "@/components/board-pagination";
-import { SearchBar } from "@/components/search-bar";
-import { VocBoard } from "@/components/voc-board";
+import { BoardPagination } from "@/components/ui/board-pagination";
+import { SearchBar } from "@/components/home/search-bar";
+import { VocBoard } from "@/components/voc/voc-board";
 import { FAQ_KNOWLEDGE } from "@/lib/server/faq-knowledge";
 import { listVocPosts } from "@/lib/server/db-voc-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
@@ -66,7 +66,7 @@ export default async function FaqPage({
 }) {
   const t = await getTranslations("Faq");
   // 페이지네이션 라벨은 게시판 공용이라 Notice 네임스페이스를 재사용한다.
-  const tNav = await getTranslations("Notice");
+  const tCommon = await getTranslations("Common");
   const {
     cat: catParam,
     field: fieldParam,
@@ -133,11 +133,11 @@ export default async function FaqPage({
     : { posts: [], total: 0 };
   const vocGyms = isSupport ? await gymRepository.list() : [];
   const paginationLabels = {
-    pagination: tNav("pagination"),
-    firstPage: tNav("firstPage"),
-    prevPage: tNav("prevPage"),
-    nextPage: tNav("nextPage"),
-    lastPage: tNav("lastPage"),
+    pagination: tCommon("pagination"),
+    firstPage: tCommon("firstPage"),
+    prevPage: tCommon("prevPage"),
+    nextPage: tCommon("nextPage"),
+    lastPage: tCommon("lastPage"),
   };
 
   return (
@@ -281,11 +281,11 @@ export default async function FaqPage({
             faqHref({ cat: activeKey, field, q: query, page: p })
           }
           labels={{
-            pagination: tNav("pagination"),
-            firstPage: tNav("firstPage"),
-            prevPage: tNav("prevPage"),
-            nextPage: tNav("nextPage"),
-            lastPage: tNav("lastPage"),
+            pagination: tCommon("pagination"),
+            firstPage: tCommon("firstPage"),
+            prevPage: tCommon("prevPage"),
+            nextPage: tCommon("nextPage"),
+            lastPage: tCommon("lastPage"),
           }}
         />
       ) : null}

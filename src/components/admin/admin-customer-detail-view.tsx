@@ -28,7 +28,7 @@ import {
 import {
   reservationStatusBadgeStyles,
   reservationStatusLabel,
-} from "@/components/reservation-ticket";
+} from "@/components/reservation/reservation-ticket";
 
 type DetailState =
   | { status: "loading" }

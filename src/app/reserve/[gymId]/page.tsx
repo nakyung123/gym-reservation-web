@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
-import { ReservationForm } from "@/components/reservation-form";
+import { ReservationForm } from "@/components/reservation/reservation-form";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
 type ReservePageProps = {

@@ -4,7 +4,7 @@ import {
   gymFilterReducer,
   isValidSport,
   type GymFilterState,
-} from "@/components/gym-filters-reducer";
+} from "@/components/gym/gym-filters-reducer";
 import type { Gym, Sport } from "@/types/domain";
 
 // 리듀서는 gym.region / gym.sports만 참조한다. 나머지 필드는 형식만 채운 픽스처.

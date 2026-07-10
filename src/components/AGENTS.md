@@ -4,6 +4,23 @@
 
 `src/components`는 화면 컴포넌트와 사용자 인터랙션 단위가 모이는 영역이다. 페이지(`src/app/*/page.tsx`)에서 호출되며, 데이터 표시·입력·상태 전환·문구 일관성을 담당한다.
 
+컴포넌트는 도메인별 하위 폴더로 나눈다. 새 파일은 아래 기준에 맞는 폴더에 둔다(최상위 직접 배치 금지).
+
+| 폴더 | 담당 |
+|---|---|
+| `ui/` | 도메인 무관 재사용 프리미티브(button, modal, board-pagination, select-menu, form-fields, brand-logo, social-icons 등) |
+| `layout/` | 사이트 크롬(site-header/footer/chrome, nav, locale-switcher, location-permission-modal) |
+| `home/` | 홈 화면 섹션(home-*, search-bar) |
+| `gym/` | 시설 찾기·상세(gym-*, facility-card, favorite-button) |
+| `reservation/` | 예약 흐름(reservation-*, reserve-cta-button, 위저드 리듀서) |
+| `auth/` | 로그인·회원가입·계정 흐름(login/signup/reset/withdraw/handover 등) |
+| `mypage/` | 마이페이지 패널·계정 폼 |
+| `voc/` | 공개 문의 게시판 |
+| `faq/` | FAQ 안내봇 위젯 |
+| `admin/` | 관리자 뷰(예약/슬롯/시설/고객/매출/감사) |
+
+import는 절대경로 `@/components/<폴더>/<파일>`을 쓴다.
+
 이 파일은 root [`AGENTS.md`](../../AGENTS.md)를 약화할 수 없다.
 
 ## Local Tech Stack & Constraints
@@ -38,7 +55,7 @@
 ### 상태 표현 일관성
 
 - 같은 의미의 상태는 같은 문구·색상·뱃지로 표현한다.
-- 예약 상태 라벨/색상은 `reservation-ticket.tsx` 의 `reservationStatusLabel`, `reservationStatusBadgeStyles`를 재사용한다.
+- 예약 상태 라벨/색상은 `reservation/reservation-ticket.tsx` 의 `reservationStatusLabel`, `reservationStatusBadgeStyles`를 재사용한다.
 - 로딩 상태는 `aria-live="polite"`, `aria-busy="true"`를 함께 부여한다.
 - 오류 상태는 `role="alert"` + 메시지 + 가능한 경우 status code를 함께 표시한다(No Silent Fallback).
 - 빈 상태는 "왜 비어 있는지 + 다음 행동"을 함께 안내한다.
@@ -48,7 +65,7 @@
 - 색상은 [`DESIGN.md`](../../DESIGN.md) + `src/app/globals.css`의 디자인 토큰을 SSOT로 따른다. accent(네이비)는 `bg-accent`/`hover:bg-accent-hover`/`text-accent-strong`/`bg-accent-tint`, 보더는 `border-line`/`border-line-strong`, 상태색은 `text-success`/`text-warning`/`text-error`(+ `/10`,`/30` 틴트). 중립 텍스트 스케일은 `text-slate-*`(950/600/500 등)를 그대로 유지한다.
 - 새 색상/spacing 토큰을 임의로 도입하지 않는다. 색을 바꿔야 하면 `globals.css`의 `--accent*` 등 CSS 변수에서 바꾼다(앱 전체가 따라온다).
 - 버튼은 동일한 높이(`h-10`, `h-11`)·radius(`rounded-md`)·포커스 링(`focus-visible:ring-2 focus-visible:ring-accent`) 규칙을 유지한다. primary 액션은 `bg-accent`, destructive는 `bg-error`/`hover:bg-error/90`.
-- 예약 상태 색은 `reservation-ticket.tsx`의 `reservationStatusBadgeStyles` SSOT를 따른다(예약중=accent 틴트, 취소=error, 사용완료=중립). 관리자 테이블은 같은 색 의미에 bordered-pill 포맷만 달리한다.
+- 예약 상태 색은 `reservation/reservation-ticket.tsx`의 `reservationStatusBadgeStyles` SSOT를 따른다(예약중=accent 틴트, 취소=error, 사용완료=중립). 관리자 테이블은 같은 색 의미에 bordered-pill 포맷만 달리한다.
 - 의미적 예외(네이비로 바꾸지 않음): 소셜 로그인 브랜드색(카카오 옐로·네이버 그린), 즐겨찾기 하트(rose), QR 코드 모듈(검정).
 
 ### 폼

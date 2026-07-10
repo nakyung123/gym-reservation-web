@@ -44,13 +44,13 @@ export default defineConfig({
       // 위젯 상태 전이(jsdom). SDK·rate-limit·fetch 모킹으로 DB/네트워크 없이 검증.
       "src/lib/server/faq-bot.test.ts",
       "src/app/api/faq-chat/route.test.ts",
-      "src/components/faq-chat-widget.test.tsx",
+      "src/components/faq/faq-chat-widget.test.tsx",
       // 공지사항 SSOT(정적 데이터) 정렬/조회.
       "src/lib/notices.test.ts",
       // 종목별 인원(정원) SSOT: clamp/검증/합산가 — 순수 함수, DB 무관.
       "src/lib/sport-capacity.test.ts",
       // 시설 찾기 필터 리듀서: cascade·resetPage 불변식·정렬 순환 — 순수 함수, DB 무관.
-      "src/components/gym-filters-reducer.test.ts",
+      "src/components/gym/gym-filters-reducer.test.ts",
       // 공개 문의 게시판(VOC): rate limit(create per-IP / verify per-IP·per-post)·fail-closed·
       // dedup 통과·검증. checkRateLimit·repository 모킹으로 DB/네트워크 없이 검증.
       "src/app/api/voc/route.test.ts",

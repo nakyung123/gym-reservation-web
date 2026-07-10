@@ -16,8 +16,8 @@ import {
 } from "@/lib/user-profile";
 import { formatBirthDate } from "@/lib/input-format";
 import { useAvailabilityCheck } from "@/hooks/use-availability-check";
-import { SignupStepIndicator } from "@/components/signup-step-indicator";
-import { AlertModal } from "@/components/alert-modal";
+import { SignupStepIndicator } from "@/components/auth/signup-step-indicator";
+import { AlertModal } from "@/components/ui/alert-modal";
 
 // 회원가입 3단계: 정보 입력. email(이메일 링크 인증 후)·social(소셜 후 완성) 두 모드를
 // 공통 처리한다. 두 모드 모두 이 시점에 이미 로그인된 계정이 있고(이메일=링크 인증,
@@ -32,6 +32,21 @@ type SubmitState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "error"; message: string };
+
+// 순수 입력 필드(표시 토글·제출 상태·알림 제외)를 한 객체로 묶는다.
+type SignupFormFields = {
+  loginId: string;
+  password: string;
+  passwordConfirm: string;
+  name: string;
+  birthDate: string;
+  phoneA: string;
+  phoneB: string;
+  phoneC: string;
+  emailLocal: string;
+  emailDomain: string;
+  domainPreset: string;
+};
 
 const DOMAIN_PRESETS = [
   "직접입력",
@@ -61,19 +76,42 @@ export function SignupInfoForm({
   const initialLocal = initialEmail.includes("@") ? initialEmail.split("@")[0] : "";
   const initialDomain = initialEmail.includes("@") ? initialEmail.split("@")[1] : "";
 
-  const [loginId, setLoginIdValue] = useState("");
-  const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
+  // 순수 입력 필드는 하나의 form 객체로 묶어 useState 산개를 줄인다. 읽기는 구조분해로
+  // 기존 이름을 유지하고, 쓰기는 updateField로 통일한다.
+  const [form, setForm] = useState<SignupFormFields>(() => ({
+    loginId: "",
+    password: "",
+    passwordConfirm: "",
+    name: "",
+    birthDate: "",
+    phoneA: "010",
+    phoneB: "",
+    phoneC: "",
+    emailLocal: initialLocal,
+    emailDomain: initialDomain,
+    domainPreset: "직접입력",
+  }));
+  const {
+    loginId,
+    password,
+    passwordConfirm,
+    name,
+    birthDate,
+    phoneA,
+    phoneB,
+    phoneC,
+    emailLocal,
+    emailDomain,
+    domainPreset,
+  } = form;
+  const updateField = <K extends keyof SignupFormFields>(
+    key: K,
+    value: SignupFormFields[K],
+  ) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  // 표시 토글·제출 상태·알림은 폼 데이터가 아니라 별도 상태로 둔다.
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
-  const [name, setName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [phoneA, setPhoneA] = useState("010");
-  const [phoneB, setPhoneB] = useState("");
-  const [phoneC, setPhoneC] = useState("");
-  const [emailLocal, setEmailLocal] = useState(initialLocal);
-  const [emailDomain, setEmailDomain] = useState(initialDomain);
-  const [domainPreset, setDomainPreset] = useState("직접입력");
   // 아이디·이메일 중복 확인은 동일한 상태머신이라 공통 훅으로 처리한다.
   const idCheck = useAvailabilityCheck();
   const emailCheck = useAvailabilityCheck();
@@ -132,7 +170,7 @@ export function SignupInfoForm({
     (emailLocked || emailCheck.state.status === "available");
 
   function handleLoginIdChange(value: string) {
-    setLoginIdValue(value);
+    updateField("loginId", value);
     idCheck.reset();
   }
 
@@ -146,18 +184,21 @@ export function SignupInfoForm({
 
   // 이메일 입력이 바뀌면 직전 중복확인 결과를 무효화한다.
   function handleEmailLocalChange(value: string) {
-    setEmailLocal(value);
+    updateField("emailLocal", value);
     emailCheck.reset();
   }
 
   function handleDomainPresetChange(value: string) {
-    setDomainPreset(value);
-    setEmailDomain(value === "직접입력" ? "" : value);
+    setForm((prev) => ({
+      ...prev,
+      domainPreset: value,
+      emailDomain: value === "직접입력" ? "" : value,
+    }));
     emailCheck.reset();
   }
 
   function handleEmailDomainChange(value: string) {
-    setEmailDomain(value);
+    updateField("emailDomain", value);
     emailCheck.reset();
   }
 
@@ -309,7 +350,7 @@ export function SignupInfoForm({
               autoComplete="new-password"
               placeholder="비밀번호 (영문 소문자·숫자·특수문자 8자 이상)"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => updateField("password", e.target.value)}
               className={`${INPUT_CLASS} pr-12`}
             />
             <PasswordToggle
@@ -342,7 +383,7 @@ export function SignupInfoForm({
               autoComplete="new-password"
               placeholder="비밀번호를 확인해 주세요."
               value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
+              onChange={(e) => updateField("passwordConfirm", e.target.value)}
               className={`${INPUT_CLASS} pr-12`}
             />
             <PasswordToggle
@@ -360,7 +401,7 @@ export function SignupInfoForm({
             autoComplete="name"
             placeholder="성명을 입력해 주세요."
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => updateField("name", e.target.value)}
             className={INPUT_CLASS}
           />
         </Field>
@@ -372,7 +413,9 @@ export function SignupInfoForm({
             inputMode="numeric"
             placeholder="YYYY-MM-DD"
             value={birthDate}
-            onChange={(e) => setBirthDate(formatBirthDate(e.target.value))}
+            onChange={(e) =>
+              updateField("birthDate", formatBirthDate(e.target.value))
+            }
             maxLength={10}
             className={INPUT_CLASS}
           />
@@ -386,7 +429,7 @@ export function SignupInfoForm({
               type="text"
               inputMode="numeric"
               value={phoneA}
-              onChange={(e) => setPhoneA(e.target.value)}
+              onChange={(e) => updateField("phoneA", e.target.value)}
               className={`${INPUT_CLASS} flex-1 text-center`}
             />
             <span className="text-[#9b9b9b]">-</span>
@@ -395,7 +438,7 @@ export function SignupInfoForm({
               inputMode="numeric"
               maxLength={4}
               value={phoneB}
-              onChange={(e) => setPhoneB(e.target.value)}
+              onChange={(e) => updateField("phoneB", e.target.value)}
               className={`${INPUT_CLASS} flex-1 text-center`}
             />
             <span className="text-[#9b9b9b]">-</span>
@@ -404,7 +447,7 @@ export function SignupInfoForm({
               inputMode="numeric"
               maxLength={4}
               value={phoneC}
-              onChange={(e) => setPhoneC(e.target.value)}
+              onChange={(e) => updateField("phoneC", e.target.value)}
               className={`${INPUT_CLASS} flex-1 text-center`}
             />
           </div>

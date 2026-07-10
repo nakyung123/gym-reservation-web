@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button } from "@/components/app-button";
+import { Button } from "@/components/ui/app-button";
 import { useFaqChat } from "@/hooks/use-faq-chat";
 
 // 전역 FAQ 안내봇 위젯. 우하단 플로팅 버튼 → 패널 토글.

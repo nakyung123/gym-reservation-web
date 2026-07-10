@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { getGymThumbnail } from "@/lib/gym-utils";
-import { GymDetailView } from "@/components/gym-detail-view";
+import { GymDetailView } from "@/components/gym/gym-detail-view";
 
 type GymDetailPageProps = {
   params: Promise<{

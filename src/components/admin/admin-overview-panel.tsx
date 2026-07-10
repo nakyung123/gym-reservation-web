@@ -13,7 +13,7 @@ import {
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
 import { ReservationTrendChart } from "@/components/admin/admin-charts";
-import { reservationStatusLabel } from "@/components/reservation-ticket";
+import { reservationStatusLabel } from "@/components/reservation/reservation-ticket";
 
 type OverviewState =
   | { status: "loading" }

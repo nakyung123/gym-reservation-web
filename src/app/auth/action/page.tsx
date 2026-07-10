@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { AuthActionView } from "@/components/auth-action-view";
+import { AuthActionView } from "@/components/auth/auth-action-view";
 
 export const dynamic = "force-dynamic";
 

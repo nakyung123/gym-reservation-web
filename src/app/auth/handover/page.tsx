@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { HandoverFlow } from "@/components/handover-flow";
+import { HandoverFlow } from "@/components/auth/handover-flow";
 
 export const dynamic = "force-dynamic";
 

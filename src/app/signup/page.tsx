@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { SignupView } from "@/components/signup-view";
+import { SignupView } from "@/components/auth/signup-view";
 
 export const dynamic = "force-dynamic";
 

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { ButtonLink } from "@/components/app-button";
+import { ButtonLink } from "@/components/ui/app-button";
 import { getGymLowestPrice, getGymThumbnail } from "@/lib/gym-utils";
 import type { Gym } from "@/types/domain";
 

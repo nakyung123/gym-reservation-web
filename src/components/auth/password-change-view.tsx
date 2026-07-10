@@ -14,7 +14,7 @@ import {
   PASSWORD_POLICY_HINT,
   validatePasswordPolicy,
 } from "@/lib/password-policy";
-import { PasswordField } from "@/components/form-fields";
+import { PasswordField } from "@/components/ui/form-fields";
 
 type SubmitState =
   | { kind: "idle" }

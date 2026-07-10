@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { BoardPagination } from "@/components/board-pagination";
-import { VocBoardTable } from "@/components/voc-board-table";
+import { BoardPagination } from "@/components/ui/board-pagination";
+import { VocBoardTable } from "@/components/voc/voc-board-table";
 import type { Gym, VocPost } from "@/types/domain";
 
 // 공개 문의 게시판(고객의 소리식) 목록. 문의·FAQ '문의' 탭에서 렌더한다.

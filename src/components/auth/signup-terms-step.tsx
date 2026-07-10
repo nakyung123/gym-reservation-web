@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { SignupStepIndicator } from "@/components/signup-step-indicator";
+import { SignupStepIndicator } from "@/components/auth/signup-step-indicator";
 
 // 회원가입 약관 동의 단계. 필수 항목에 모두 동의해야 다음 단계로 넘어간다.
 // 약관 본문(body)은 법적 placeholder라 한국어 유지(데이터성). 선택 동의 항목은

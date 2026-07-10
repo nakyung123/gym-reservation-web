@@ -1,8 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { BoardPagination } from "@/components/board-pagination";
-import { MypageInquiriesTable } from "@/components/mypage-inquiries-table";
+import { BoardPagination } from "@/components/ui/board-pagination";
+import { MypageInquiriesTable } from "@/components/mypage/mypage-inquiries-table";
 import { fetchMyVocPosts } from "@/lib/voc-client";
 import { useAbortableFetch } from "@/hooks/use-abortable-fetch";
 import { DEFAULT_PER_PAGE } from "@/hooks/use-pagination";

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { KakaoIcon, NaverIcon, GoogleIcon, FacebookIcon, MailIcon } from "@/components/social-icons";
+import { KakaoIcon, NaverIcon, GoogleIcon, FacebookIcon, MailIcon } from "@/components/ui/social-icons";
 import { signInWithGoogle } from "@/lib/firebase-google-auth";
 import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
 import { startNaverLogin } from "@/lib/firebase-naver-auth";

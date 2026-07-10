@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AlertModal } from "@/components/alert-modal";
+import { AlertModal } from "@/components/ui/alert-modal";
 import { checkEmailAvailability } from "@/lib/email-availability-client";
 import { sendSignupEmailLink } from "@/lib/firebase-email-auth";
 

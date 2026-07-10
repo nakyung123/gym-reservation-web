@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { GymDiscovery } from "@/components/gym-discovery";
+import { GymDiscovery } from "@/components/gym/gym-discovery";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
 export default async function GymsPage({

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { VocDetailView } from "@/components/voc-detail-view";
+import { VocDetailView } from "@/components/voc/voc-detail-view";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
 export const metadata: Metadata = {

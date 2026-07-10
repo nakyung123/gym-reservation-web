@@ -1,4 +1,4 @@
-import { reservationStatusLabel } from "@/components/reservation-ticket";
+import { reservationStatusLabel } from "@/components/reservation/reservation-ticket";
 import type { Reservation, ReservationStatus } from "@/types/domain";
 
 /**

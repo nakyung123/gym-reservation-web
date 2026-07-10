@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AppHeaderNav } from "@/components/app-header-nav";
-import { BrandLogo } from "@/components/brand-logo";
+import { AppHeaderNav } from "@/components/layout/app-header-nav";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 // 전역 GNB 헤더.
 // - 홈(/)에서는 풀스크린 히어로 위에 얹히도록 fixed 투명으로 시작하고, 히어로를 지나

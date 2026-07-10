@@ -12,7 +12,7 @@ import {
   subscribeFirebaseAuthSession,
 } from "@/lib/firebase-auth-session";
 import { getFirebaseClient } from "@/lib/firebase-client";
-import { LocaleSwitcher } from "@/components/locale-switcher";
+import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 
 // 메인 GNB + 우측 유틸. layout.tsx의 헤더 nav 안에서 로고 다음에 렌더된다.
 // 라벨은 i18n 메시지 키(Nav 네임스페이스)로 관리하고 useTranslations로 렌더한다.

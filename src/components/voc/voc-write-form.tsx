@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { SelectMenu } from "@/components/select-menu";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { createVocPost } from "@/lib/voc-client";
 import { formatPhone } from "@/lib/input-format";
 import { VOC_CATEGORIES, VOC_CATEGORY_LABELS } from "@/lib/domain-constants";

@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import type { AdminReservationTrendPoint } from "@/lib/admin/admin-overview-client";
 import { formatGymPrice } from "@/lib/gym-utils";
-import { reservationStatusLabel } from "@/components/reservation-ticket";
+import { reservationStatusLabel } from "@/components/reservation/reservation-ticket";
 
 // 관리자 차트 색 SSOT. 앱 상태색 의미(예약중=accent 네이비, 사용완료=중립, 취소=error)를
 // 그대로 따른다. dataviz 검증: 대비 3:1 이상·CVD 분리 통과, 회색은 의도적 de-emphasis

@@ -1,7 +1,7 @@
-import { FacilityCard } from "@/components/facility-card";
-import { HomeEvents } from "@/components/home-events";
-import { HomeHero } from "@/components/home-hero";
-import { HomeQuickActions } from "@/components/home-quick-actions";
+import { FacilityCard } from "@/components/gym/facility-card";
+import { HomeEvents } from "@/components/home/home-events";
+import { HomeHero } from "@/components/home/home-hero";
+import { HomeQuickActions } from "@/components/home/home-quick-actions";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { getTranslations } from "next-intl/server";
 

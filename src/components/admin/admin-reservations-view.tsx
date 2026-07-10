@@ -7,22 +7,21 @@ import {
   fetchAdminReservations,
   updateAdminReservationStatus,
 } from "@/lib/admin/admin-reservation-client";
-import { formatGymPrice } from "@/lib/gym-utils";
 import {
-  AdminButtonSpinner,
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
-import { reservationStatusLabel } from "@/components/reservation-ticket";
+import { reservationStatusLabel } from "@/components/reservation/reservation-ticket";
 import { isAbortError } from "@/lib/async-error";
-import { formatCreatedAt, getTodayValue } from "@/lib/admin/admin-date-format";
+import { getTodayValue } from "@/lib/admin/admin-date-format";
+import { AdminReservationActions } from "@/components/admin/admin-reservation-actions";
+import { AdminReservationFilters } from "@/components/admin/admin-reservation-filters";
+import { AdminReservationDetailPanel } from "@/components/admin/admin-reservation-detail-panel";
+import { AdminReservationTable } from "@/components/admin/admin-reservation-table";
 import {
   countByStatus,
   EMPTY_RESERVATIONS,
-  filterLabels,
-  getShortId,
   noticeStyles,
-  statusBadgeStyles,
   type ActionState,
   type DetailState,
   type Notice,
@@ -379,80 +378,29 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     setActionState(null);
   };
 
-  // 행 액션과 상세 액션이 같은 표현을 쓰도록 한 곳에서 렌더링한다.
-  const renderReservationActions = (reservation: Reservation) => {
-    const actionIsPending = actionState?.reservationId === reservation.id;
-    const isCancelling =
-      actionIsPending && actionState.nextStatus === "cancelled";
-    const isMarkingUsed =
-      actionIsPending && actionState.nextStatus === "used";
-    const canAct = reservation.status === "reserved" && !actionState;
-
-    if (reservation.status !== "reserved") {
-      return (
-        <span className="text-xs font-semibold text-slate-400">
-          처리 완료
-        </span>
-      );
-    }
-
-    if (confirmCancelId === reservation.id) {
-      return (
-        <div className="flex flex-col gap-2">
-          <p className="text-xs font-semibold text-error">
-            이 예약을 취소할까요?
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => handleUpdateStatus(reservation, "cancelled")}
-              disabled={!canAct}
-              className="h-8 rounded-md bg-error px-3 text-xs font-semibold text-white transition hover:bg-error/90 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              {isCancelling ? "취소 중" : "취소 확정"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmCancelId(null)}
-              disabled={Boolean(actionState)}
-              className="h-8 rounded-md border border-line-strong px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              유지
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => handleUpdateStatus(reservation, "used")}
-          disabled={!canAct}
-          className="h-8 rounded-md bg-accent px-3 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-        >
-          {isMarkingUsed ? "처리 중" : "이용 완료"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setConfirmCancelId(reservation.id)}
-          disabled={!canAct}
-          className="h-8 rounded-md border border-error/30 px-3 text-xs font-semibold text-error transition hover:bg-error/10 disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-        >
-          관리자 취소
-        </button>
-      </div>
-    );
-  };
+  // 행 액션과 상세 액션이 같은 표현을 쓰도록 한 컴포넌트로 렌더한다.
+  // action-state 결합(actionState/confirmCancelId)은 컨테이너가 소유하고,
+  // 테이블/상세 패널에는 이 렌더 함수만 내려보내 prop 표면을 좁게 유지한다.
+  const renderReservationActions = (reservation: Reservation) => (
+    <AdminReservationActions
+      reservation={reservation}
+      actionState={actionState}
+      confirmCancelId={confirmCancelId}
+      onMarkUsed={(target) => handleUpdateStatus(target, "used")}
+      onRequestCancel={setConfirmCancelId}
+      onConfirmCancel={(target) => handleUpdateStatus(target, "cancelled")}
+      onKeep={() => setConfirmCancelId(null)}
+    />
+  );
 
   const selectedDetailId =
-    detailState.status === "loading" ||
-    detailState.status === "error"
+    detailState.status === "loading" || detailState.status === "error"
       ? detailState.reservationId
       : detailState.status === "ready"
         ? detailState.reservation.id
         : null;
+  const detailLoadingId =
+    detailState.status === "loading" ? detailState.reservationId : null;
 
   return (
     <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
@@ -483,135 +431,25 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           </div>
         </header>
 
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">조회 조건</h2>
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_1.2fr_1fr_1.3fr_90px_auto]">
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              상태
-              <select
-                value={selectedStatus}
-                onChange={(event) =>
-                  setSelectedStatus(event.target.value as ReservationFilter)
-                }
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {(Object.keys(filterLabels) as ReservationFilter[]).map(
-                  (status) => (
-                    <option key={status} value={status}>
-                      {filterLabels[status]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              체육관
-              <select
-                value={selectedGymId}
-                onChange={(event) => setSelectedGymId(event.target.value)}
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <option value="">전체</option>
-                {gyms.map((gym) => (
-                  <option key={gym.id} value={gym.id}>
-                    {gym.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              날짜
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              사용자 ID
-              <input
-                type="text"
-                value={userIdInput}
-                onChange={(event) => setUserIdInput(event.target.value)}
-                placeholder="전체"
-                className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              limit
-              <input
-                type="number"
-                min={1}
-                max={200}
-                step={1}
-                value={limitInput}
-                onChange={(event) => setLimitInput(event.target.value)}
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={handleQuery}
-              disabled={!canQuery}
-              className="h-10 self-end rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              {reservationsState.status === "loading" ? (
-                <span className="inline-flex items-center gap-2">
-                  <AdminButtonSpinner />
-                  조회 중
-                </span>
-              ) : (
-                "조회"
-              )}
-            </button>
-          </div>
-          {!isLimitValid ? (
-            <p className="mt-2 text-xs font-semibold text-error" role="alert">
-              limit은 1 이상 200 이하의 정수여야 합니다.
-            </p>
-          ) : null}
-
-          {/* 빠른 검색은 서버 재조회 없이 현재 목록에 즉시 적용된다.
-              데이터가 커지면 서버 검색 API로 분리해 같은 입력란을 재사용한다. */}
-          <div className="mt-3 flex flex-col gap-1">
-            <label
-              htmlFor="admin-reservation-search"
-              className="text-xs font-semibold text-slate-700"
-            >
-              빠른 검색
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="admin-reservation-search"
-                type="text"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="예약번호·시설명·사용자 ID 부분 검색"
-                className="h-10 flex-1 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-              {searchInput.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setSearchInput("")}
-                  aria-label="검색어 지우기"
-                  className="h-10 shrink-0 rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                >
-                  지우기
-                </button>
-              ) : null}
-            </div>
-            <p className="text-[11px] text-slate-500">
-              현재 조회된 목록에서 즉시 적용됩니다. 서버 조건을 바꾸려면 위의
-              조회 조건을 변경한 뒤 조회를 누르세요.
-            </p>
-          </div>
-        </section>
+        <AdminReservationFilters
+          gyms={gyms}
+          selectedStatus={selectedStatus}
+          onStatusChange={setSelectedStatus}
+          selectedGymId={selectedGymId}
+          onGymIdChange={setSelectedGymId}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          userIdInput={userIdInput}
+          onUserIdChange={setUserIdInput}
+          limitInput={limitInput}
+          onLimitChange={setLimitInput}
+          searchInput={searchInput}
+          onSearchChange={setSearchInput}
+          isLimitValid={isLimitValid}
+          canQuery={canQuery}
+          isLoading={reservationsState.status === "loading"}
+          onQuery={handleQuery}
+        />
 
         {notice ? (
           <div
@@ -630,167 +468,16 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           </div>
         ) : null}
 
-        {detailState.status !== "idle" ? (
-          <section className="rounded-lg border border-accent/20 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-slate-950">
-                  선택된 예약 상세
-                </h2>
-                {detailState.status === "loading" ? (
-                  <p
-                    className="mt-1 flex items-center gap-2 text-xs text-slate-500"
-                    aria-live="polite"
-                    aria-busy="true"
-                  >
-                    <span
-                      className="size-3.5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent"
-                      aria-hidden="true"
-                    />
-                    페이지를 불러오는 중입니다.
-                  </p>
-                ) : null}
-                {detailState.status === "error" ? (
-                  <p
-                    className="mt-1 break-all font-mono text-xs text-slate-500"
-                    aria-label="요청한 예약 ID"
-                  >
-                    {detailState.reservationId}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseDetail}
-                disabled={Boolean(actionState)}
-                className="h-8 rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-              >
-                닫기
-              </button>
-            </div>
-
-            {detailState.status === "error" ? (
-              <p
-                className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
-                role="alert"
-              >
-                {detailState.message}
-              </p>
-            ) : null}
-
-            {/* 검색어가 적용된 상태에서 상세에 떠 있는 예약이 목록(visibleReservations)에
-                포함되지 않으면 사용자가 행을 못 보고 상세만 떠 있는 상황이 된다. 데이터는
-                안전하게 유지하되, 그 사실을 명시하고 검색어를 한 번에 풀 수 있는 CTA를
-                같이 둔다. detailState가 ready 상태에서만 의미. */}
-            {detailState.status === "ready" &&
-            searchInput.trim() &&
-            !visibleReservations.some(
-              (reservation) =>
-                reservation.id === detailState.reservation.id,
-            ) ? (
-              <div
-                className="mt-4 rounded-md border border-warning/30 bg-warning/10 p-3 text-xs font-semibold text-warning"
-                role="status"
-              >
-                <p>
-                  이 예약은 현재 검색어에 일치하지 않아 아래 표에서 숨겨졌습니다.
-                  상세 정보는 그대로 유지됩니다.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setSearchInput("")}
-                  aria-label="검색어 지우기"
-                  className="mt-2 inline-flex h-7 items-center rounded-md border border-warning/40 bg-white px-2 text-xs font-semibold text-warning transition hover:border-warning hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                >
-                  검색어 지우기
-                </button>
-              </div>
-            ) : null}
-
-            {detailState.status === "ready" ? (
-              <>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      예약번호
-                    </p>
-                    <p className="mt-1 break-all font-mono text-sm text-slate-900">
-                      {detailState.reservation.id}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      사용자 ID
-                    </p>
-                    <p className="mt-1 break-all font-mono text-sm text-slate-900">
-                      {detailState.reservation.userId}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      시설
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {gymsById.get(detailState.reservation.gymId)?.name ??
-                        "시설 정보 없음"}
-                    </p>
-                    <p className="mt-1 font-mono text-xs text-slate-500">
-                      {detailState.reservation.gymId}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      종목
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {detailState.reservation.sport}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      이용 일시
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {detailState.reservation.date}{" "}
-                      {detailState.reservation.time}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      금액
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {formatGymPrice(detailState.reservation.price)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      상태
-                    </p>
-                    <p className="mt-1">
-                      <span
-                        className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-semibold ${statusBadgeStyles[detailState.reservation.status]}`}
-                      >
-                        {reservationStatusLabel[detailState.reservation.status]}
-                      </span>
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-600">
-                      생성일
-                    </p>
-                    <p className="mt-1 text-sm text-slate-900">
-                      {formatCreatedAt(detailState.reservation.createdAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 border-t border-line pt-4">
-                  {renderReservationActions(detailState.reservation)}
-                </div>
-              </>
-            ) : null}
-          </section>
-        ) : null}
+        <AdminReservationDetailPanel
+          detailState={detailState}
+          gymsById={gymsById}
+          searchInput={searchInput}
+          visibleReservations={visibleReservations}
+          closeDisabled={Boolean(actionState)}
+          onClose={handleCloseDetail}
+          onClearSearch={() => setSearchInput("")}
+          renderActions={renderReservationActions}
+        />
 
         <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -865,109 +552,14 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
                 ) : null}
               </>
             ) : (
-              <div className="mt-4 overflow-x-auto">
-                {/* 모바일에서는 폭이 좁아 break-all이 사용자 ID를 1자씩 세로로 떨어뜨린다.
-                    min-w로 좁은 viewport는 가로 스크롤로 풀리게 하고, w-full로 넓은
-                    viewport에서는 카드 폭을 그대로 채운다. */}
-                <table className="w-full min-w-[800px] border-collapse text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                    <tr>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        예약
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        시설
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        이용 일시
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        사용자
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        결제
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        상태
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        처리
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleReservations.map((reservation) => {
-                      const gym = gymsById.get(reservation.gymId);
-                      const isSelectedDetail =
-                        selectedDetailId === reservation.id;
-                      const isDetailLoading =
-                        detailState.status === "loading" &&
-                        detailState.reservationId === reservation.id;
-
-                      return (
-                        <tr
-                          key={reservation.id}
-                          className={`border-b border-line align-top ${
-                            isSelectedDetail ? "bg-accent-tint" : ""
-                          }`}
-                        >
-                          <td className="px-3 py-3">
-                            <p className="font-mono text-xs font-bold text-slate-950">
-                              {getShortId(reservation.id)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-500">
-                              {formatCreatedAt(reservation.createdAt)}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenDetail(reservation.id)}
-                              disabled={isDetailLoading}
-                              className="mt-2 inline-flex h-7 items-center rounded-md border border-line-strong bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                              aria-pressed={isSelectedDetail}
-                            >
-                              {isDetailLoading ? "여는 중" : "상세"}
-                            </button>
-                          </td>
-                          <td className="px-3 py-3">
-                            <p className="font-semibold text-slate-950">
-                              {gym?.name ?? "시설 정보 없음"}
-                            </p>
-                            <p className="mt-1 font-mono text-xs text-slate-400">
-                              {reservation.gymId}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3">
-                            <p className="font-semibold text-slate-950">
-                              {reservation.date} {reservation.time}
-                            </p>
-                            <p className="mt-1 text-xs font-semibold text-slate-500">
-                              {reservation.sport}
-                            </p>
-                          </td>
-                          <td className="max-w-52 px-3 py-3">
-                            <p className="break-all font-mono text-xs text-slate-700">
-                              {reservation.userId}
-                            </p>
-                          </td>
-                          <td className="px-3 py-3 font-semibold text-slate-950">
-                            {formatGymPrice(reservation.price)}
-                          </td>
-                          <td className="px-3 py-3">
-                            <span
-                              className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-semibold ${statusBadgeStyles[reservation.status]}`}
-                            >
-                              {reservationStatusLabel[reservation.status]}
-                            </span>
-                          </td>
-                          <td className="min-w-44 px-3 py-3">
-                            {renderReservationActions(reservation)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <AdminReservationTable
+                reservations={visibleReservations}
+                gymsById={gymsById}
+                selectedDetailId={selectedDetailId}
+                detailLoadingId={detailLoadingId}
+                onOpenDetail={handleOpenDetail}
+                renderActions={renderReservationActions}
+              />
             )
           ) : null}
         </section>

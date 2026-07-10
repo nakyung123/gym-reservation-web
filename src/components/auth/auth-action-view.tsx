@@ -10,7 +10,7 @@ import {
 import { getFirebaseClient } from "@/lib/firebase-client";
 import { fetchLoginIdByResetCode } from "@/lib/find-account-client";
 import { validatePasswordPolicy } from "@/lib/password-policy";
-import { FindAccountHeader } from "@/components/find-account-header";
+import { FindAccountHeader } from "@/components/auth/find-account-header";
 
 // Firebase 이메일 작업(action) 핸들러. 비밀번호 재설정·이메일 인증·가입 인증 링크가
 // 모두 이 페이지로 온다(Firebase 콘솔에서 작업 URL을 이 경로로 지정해야 활성화됨).

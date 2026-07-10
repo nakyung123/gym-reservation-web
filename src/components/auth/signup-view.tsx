@@ -25,12 +25,12 @@ import {
 } from "@/lib/firebase-email-auth";
 import { sanitizeFromPath } from "@/lib/use-require-auth";
 import { fetchUserProfile } from "@/lib/user-profile-client";
-import { SignupAuthStep } from "@/components/signup-auth-step";
-import { SignupEmailStep } from "@/components/signup-email-step";
-import { SignupTermsStep } from "@/components/signup-terms-step";
-import { SignupInfoForm } from "@/components/signup-info-form";
-import { SignupStepIndicator } from "@/components/signup-step-indicator";
-import { AlertModal } from "@/components/alert-modal";
+import { SignupAuthStep } from "@/components/auth/signup-auth-step";
+import { SignupEmailStep } from "@/components/auth/signup-email-step";
+import { SignupTermsStep } from "@/components/auth/signup-terms-step";
+import { SignupInfoForm } from "@/components/auth/signup-info-form";
+import { SignupStepIndicator } from "@/components/auth/signup-step-indicator";
+import { AlertModal } from "@/components/ui/alert-modal";
 
 // 회원가입 4단계 위저드: 본인 인증 → 약관 동의 → 정보 입력 → 가입 완료.
 // 이메일 가입(가입 전 인증): auth(이메일 선택) → email(인증 링크 발송·대기) →

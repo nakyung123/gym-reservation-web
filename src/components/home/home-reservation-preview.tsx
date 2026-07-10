@@ -1,4 +1,4 @@
-import { Button, ButtonLink } from "@/components/app-button";
+import { Button, ButtonLink } from "@/components/ui/app-button";
 import { getTranslations } from "next-intl/server";
 
 /**

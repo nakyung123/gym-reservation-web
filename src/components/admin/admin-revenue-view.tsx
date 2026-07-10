@@ -17,7 +17,7 @@ import {
   type GymRevenueDatum,
   type MonthlyRevenuePoint,
 } from "@/components/admin/admin-charts";
-import { reservationStatusLabel } from "@/components/reservation-ticket";
+import { reservationStatusLabel } from "@/components/reservation/reservation-ticket";
 
 type RevenueState =
   | { status: "loading" }

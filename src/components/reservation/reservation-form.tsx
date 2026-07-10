@@ -18,7 +18,7 @@ import { useReservationProfile } from "@/hooks/use-reservation-profile";
 import {
   createWizardInitialState,
   wizardReducer,
-} from "@/components/reservation-wizard-reducer";
+} from "@/components/reservation/reservation-wizard-reducer";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -40,9 +40,9 @@ import {
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { useRequireAuth } from "@/lib/use-require-auth";
-import { ReservationCalendar } from "@/components/reservation-calendar";
-import { CollapsibleSection } from "@/components/collapsible-section";
-import { AlertModal } from "@/components/alert-modal";
+import { ReservationCalendar } from "@/components/reservation/reservation-calendar";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { AlertModal } from "@/components/ui/alert-modal";
 import {
   CheckDot,
   CircleCheck,
@@ -57,7 +57,7 @@ import {
   pad2,
   unavailableTimeLabelKeys,
   type TermId,
-} from "@/components/reservation-form-parts";
+} from "@/components/reservation/reservation-form-parts";
 import type { Gym, PaymentMethod, Reservation, Sport } from "@/types/domain";
 
 type ReservationFormProps = {

@@ -7,11 +7,11 @@ import {
   MypageBoard,
   type BoardColumn,
   type BoardRow,
-} from "@/components/mypage-board";
-import { BoardPagination } from "@/components/board-pagination";
-import { ReservationQrModal } from "@/components/reservation-qr-modal";
-import { AlertModal } from "@/components/alert-modal";
-import { reservationDisplayNumber } from "@/components/reservation-ticket";
+} from "@/components/mypage/mypage-board";
+import { BoardPagination } from "@/components/ui/board-pagination";
+import { ReservationQrModal } from "@/components/reservation/reservation-qr-modal";
+import { AlertModal } from "@/components/ui/alert-modal";
+import { reservationDisplayNumber } from "@/components/reservation/reservation-ticket";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { usePagination } from "@/hooks/use-pagination";
