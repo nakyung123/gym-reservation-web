@@ -1,4 +1,11 @@
 {
+  "Common": {
+    "pagination": "Pagination",
+    "firstPage": "First page",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "lastPage": "Last page"
+  },
   "Nav": {
     "facilities": "Find Facilities",
     "about": "About",
@@ -161,11 +168,6 @@
     "next": "Next",
     "noPrev": "No previous post",
     "noNext": "No next post",
-    "pagination": "Pagination",
-    "firstPage": "First page",
-    "prevPage": "Previous page",
-    "nextPage": "Next page",
-    "lastPage": "Last page",
     "backToList": "Back to list"
   },
   "Auth": {
@@ -275,11 +277,6 @@
     "ascending": "Ascending",
     "descending": "Descending",
     "clearFilters": "Reset filters",
-    "pagination": "Pagination",
-    "firstPage": "First page",
-    "prevPage": "Previous page",
-    "nextPage": "Next page",
-    "lastPage": "Last page",
     "locationDenied": "Location is blocked, so Nearest is unavailable. Allow it, then refresh.",
     "favoritesEmpty": "You have no favorite gyms yet.",
     "locationMissing": "No location info, so the default order is shown. Tap ‘Nearest’ again to allow permission.",
@@ -613,11 +610,6 @@
     "inqNotFound": "Inquiry not found.",
     "inqLoadErrorTitle": "Failed to load inquiry.",
     "inquiriesCta": "Go to FAQ & inquiries",
-    "pagination": "Pagination",
-    "firstPage": "First page",
-    "prevPage": "Previous page",
-    "nextPage": "Next page",
-    "lastPage": "Last page",
     "gateTitle": "Please enter your password",
     "gatePlaceholder": "Enter your current password",
     "gateConfirm": "Confirm",
