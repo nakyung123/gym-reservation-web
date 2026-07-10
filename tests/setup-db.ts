@@ -38,6 +38,7 @@ beforeEach(async () => {
   // oauth_attempts, auth_handover_tickets, rate_limit_buckets, audit_logs, user_notes는
   // 다른 테이블과 FK 관계가 없는 독립 store.
   await prisma.auditLog.deleteMany({});
+  await prisma.adminAccessLog.deleteMany({});
   await prisma.userNote.deleteMany({});
   await prisma.banner.deleteMany({});
   await prisma.noticeView.deleteMany({});

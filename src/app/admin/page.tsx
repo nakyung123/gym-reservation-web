@@ -39,6 +39,12 @@ const adminLinks = [
     meta: "감사 로그",
   },
   {
+    href: "/admin/access-logs",
+    title: "접속 기록",
+    description: "관리자 콘솔 접속 이력(계정·시각·IP·기기)을 확인합니다.",
+    meta: "접속 로그",
+  },
+  {
     href: "/admin/revenue",
     title: "매출/정산",
     description: "월별 매출과 시설별 정산 기초를 확인합니다. 장부상 예약가치 기준입니다.",

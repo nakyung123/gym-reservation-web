@@ -225,6 +225,24 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// 관리자 콘솔 접속(로그인/세션 시작) 기록.
+// audit_logs가 "무엇을 바꿨나(운영 액션)"를 담는다면, 이 테이블은
+// "누가 언제 어디서 접속했나"만 담는다. adminUid = Firebase uid.
+// IP/userAgent는 접속 추적의 본질이라 여기 그대로 보관한다
+// (audit_logs의 PII-원문-금지 정책과 섞지 않으려 별도 테이블로 분리).
+model AdminAccessLog {
+  id        String   @id @default(cuid())
+  adminUid  String   @map("admin_uid") @db.VarChar(64)
+  ip        String   @db.VarChar(64)
+  userAgent String   @map("user_agent") @db.VarChar(256)
+  path      String   @db.VarChar(128)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(3)
+
+  @@index([createdAt(sort: Desc)], map: "idx_admin_access_created")
+  @@index([adminUid], map: "idx_admin_access_admin")
+  @@map("admin_access_logs")
+}
+
 // 관리자가 특정 고객(userId = Firebase uid)에 남기는 운영 메모.
 // adminUid는 작성한 관리자 uid. body는 자유 텍스트(컬럼 최대 1000자).
 model UserNote {
