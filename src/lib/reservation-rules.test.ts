@@ -49,6 +49,7 @@ function reservationFor(overrides: Partial<Reservation> = {}): Reservation {
     price: draft.price,
     status: "reserved",
     paymentMethod: null,
+    phone: null,
     createdAt: "2026-05-01T00:00:00.000Z",
     ...overrides,
   };
@@ -99,7 +100,7 @@ describe("validateReservationDraft", () => {
       gym: baseGym,
       reservations: [],
       draft: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(true);
@@ -110,7 +111,7 @@ describe("validateReservationDraft", () => {
       gym: baseGym,
       reservations: [],
       draft: { ...draftFor("2026-05-20"), gymId: "another-gym" },
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(false);
@@ -123,7 +124,7 @@ describe("validateReservationDraft", () => {
       gym: { ...baseGym, sports: [] },
       reservations: [],
       draft: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(false);
@@ -136,7 +137,7 @@ describe("validateReservationDraft", () => {
       gym: baseGym,
       reservations: [],
       draft: { ...draftFor("2026-05-20"), time: "09:00" },
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(false);
@@ -149,13 +150,13 @@ describe("validateReservationDraft", () => {
       gym: baseGym,
       reservations: [],
       draft: draftFor("2026-02-30"),
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
     const past = validateReservationDraft({
       gym: baseGym,
       reservations: [],
       draft: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 20, 10, 0, 0),
+      now: new Date("2026-05-20T10:00:00+09:00"),
     });
 
     expect(invalid.ok).toBe(false);
@@ -175,7 +176,7 @@ describe("validateReservationDraft", () => {
       gym,
       reservations: [],
       draft: draftFor("2026-05-17"),
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(false);
@@ -194,7 +195,7 @@ describe("validateReservationDraft", () => {
         duplicate,
       ],
       draft: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(false);
@@ -208,7 +209,7 @@ describe("validateReservationDraft", () => {
       gym: baseGym,
       reservations: [reservationFor({ status: "cancelled" })],
       draft: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 1, 0, 0, 0),
+      now: new Date("2026-05-01T00:00:00+09:00"),
     });
 
     expect(result.ok).toBe(true);
@@ -221,17 +222,14 @@ describe("validateUserReservationCancellation", () => {
       draftFor("2026-05-20"),
     );
 
-    expect(deadline?.getFullYear()).toBe(2026);
-    expect(deadline?.getMonth()).toBe(4);
-    expect(deadline?.getDate()).toBe(20);
-    expect(deadline?.getHours()).toBe(8);
-    expect(deadline?.getMinutes()).toBe(0);
+    // KST 2026-05-20 10:00 시작 → 마감 = KST 08:00 = UTC 2026-05-19 23:00.
+    expect(deadline?.toISOString()).toBe("2026-05-19T23:00:00.000Z");
   });
 
   it("이용 시작 2시간 전까지는 취소를 허용한다", () => {
     const result = validateUserReservationCancellation({
       reservation: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 20, 8, 0, 0),
+      now: new Date("2026-05-20T08:00:00+09:00"),
     });
 
     expect(result.ok).toBe(true);
@@ -240,7 +238,7 @@ describe("validateUserReservationCancellation", () => {
   it("이용 시작 2시간이 지난 뒤에는 취소를 차단한다", () => {
     const result = validateUserReservationCancellation({
       reservation: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 20, 8, 1, 0),
+      now: new Date("2026-05-20T08:01:00+09:00"),
     });
 
     expect(result.ok).toBe(false);
@@ -252,7 +250,7 @@ describe("validateUserReservationCancellation", () => {
   it("이미 시작된 예약은 취소를 차단한다", () => {
     const result = validateUserReservationCancellation({
       reservation: draftFor("2026-05-20"),
-      now: new Date(2026, 4, 20, 10, 0, 0),
+      now: new Date("2026-05-20T10:00:00+09:00"),
     });
 
     expect(result.ok).toBe(false);

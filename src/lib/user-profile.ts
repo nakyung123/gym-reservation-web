@@ -119,7 +119,9 @@ export function validateLoginId(value: unknown): LoginIdValidationResult {
 }
 
 // 연락처: 숫자와 하이픈만 허용하고 하이픈을 뺀 숫자가 9자리 이상이어야 한다.
-function parsePhone(
+// 연락처 형식 규칙의 SSOT — 프로필 저장(validateUserProfileInput)과 예약 생성
+// (/api/reservations, 예약 폼 사전 검증)이 같은 규칙을 공유한다.
+export function parsePhone(
   value: unknown,
 ): { ok: true; value: string | null } | { ok: false; message: string } {
   if (value === null) {

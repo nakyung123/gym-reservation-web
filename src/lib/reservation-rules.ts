@@ -100,7 +100,32 @@ function cancelFail(
   };
 }
 
-function parseReservationDateTime(dateValue: string, timeValue: string) {
+// 예약 date/time 문자열은 시설 운영 기준인 KST 벽시계로 해석한다.
+// 이 모듈은 브라우저(임의 타임존)와 서버(Vercel=UTC) 양쪽에서 실행되므로,
+// 로컬 타임존 기반 new Date(y, m, d, ...)를 쓰면 환경마다 판정이 달라진다
+// (예: UTC 서버에서 취소 마감이 9시간 늦게 적용). 일일 리포트
+// (src/lib/server/daily-report-format.ts)와 동일하게 KST 오프셋을 명시 적용한다.
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+type ParsedReservationDateTime = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  // KST 벽시계 (date, time)이 가리키는 절대 시각(UTC instant).
+  instant: Date;
+};
+
+// (연, 1-indexed 월)의 마지막 날. Date.UTC(y, m, 0) = 다음 달 0일 = 이번 달 말일.
+function daysInMonth(year: number, monthOneIndexed: number): number {
+  return new Date(Date.UTC(year, monthOneIndexed, 0)).getUTCDate();
+}
+
+function parseReservationDateTime(
+  dateValue: string,
+  timeValue: string,
+): ParsedReservationDateTime | null {
   const dateMatch = dateValue.match(datePattern);
   const timeMatch = timeValue.match(timePattern);
 
@@ -115,19 +140,29 @@ function parseReservationDateTime(dateValue: string, timeValue: string) {
   const day = Number(dayValue);
   const hour = Number(hourValue);
   const minute = Number(minuteValue);
-  const parsed = new Date(year, month - 1, day, hour, minute, 0, 0);
 
+  // 달력 실재성 검증(예: 2026-02-30, 25:00 거부). 타임존 비의존 산술로만 판정한다.
   if (
-    parsed.getFullYear() !== year ||
-    parsed.getMonth() !== month - 1 ||
-    parsed.getDate() !== day ||
-    parsed.getHours() !== hour ||
-    parsed.getMinutes() !== minute
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth(year, month) ||
+    hour > 23 ||
+    minute > 59
   ) {
     return null;
   }
 
-  return parsed;
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    instant: new Date(
+      Date.UTC(year, month - 1, day, hour, minute) - KST_OFFSET_MS,
+    ),
+  };
 }
 
 export function isValidReservationDateValue(dateValue: string) {
@@ -151,15 +186,21 @@ const ordinalLabels = [
   "다섯째",
 ] as const;
 
-function getWeekdayOrdinalInMonth(date: Date) {
-  return Math.floor((date.getDate() - 1) / 7) + 1;
+function getWeekdayOrdinalInMonth(dayOfMonth: number) {
+  return Math.floor((dayOfMonth - 1) / 7) + 1;
 }
 
-function isClosedDayRuleMatch(date: Date, rule: string) {
+// 요일/순번은 달력 날짜만으로 결정되므로 타임존과 무관하게 UTC getter로 계산한다.
+function isClosedDayRuleMatch(
+  parsed: Pick<ParsedReservationDateTime, "year" | "month" | "day">,
+  rule: string,
+) {
   const normalizedRule = rule.trim();
-  const day = date.getDay();
+  const day = new Date(
+    Date.UTC(parsed.year, parsed.month - 1, parsed.day),
+  ).getUTCDay();
   const weekdayLabel = weekdayLabels[day];
-  const ordinal = getWeekdayOrdinalInMonth(date);
+  const ordinal = getWeekdayOrdinalInMonth(parsed.day);
   const hasOrdinal = ordinalLabels.some((label) =>
     normalizedRule.includes(label),
   );
@@ -181,13 +222,13 @@ function isClosedDayRuleMatch(date: Date, rule: string) {
 }
 
 export function isGymClosedOnDate(gym: Gym, dateValue: string) {
-  const parsedDate = parseReservationDateTime(dateValue, "00:00");
+  const parsed = parseReservationDateTime(dateValue, "00:00");
 
-  if (!parsedDate) {
+  if (!parsed) {
     return false;
   }
 
-  return gym.closedDays.some((rule) => isClosedDayRuleMatch(parsedDate, rule));
+  return gym.closedDays.some((rule) => isClosedDayRuleMatch(parsed, rule));
 }
 
 export function validateUserReservationCancellation({
@@ -212,7 +253,7 @@ export function validateUserReservationCancellation({
     return cancelFail("invalid-date-time");
   }
 
-  if (reservationDateTime.getTime() <= now.getTime()) {
+  if (reservationDateTime.instant.getTime() <= now.getTime()) {
     return cancelFail("past-time");
   }
 
@@ -235,12 +276,10 @@ export function getUserReservationCancellationDeadline(
     return null;
   }
 
-  const cancelDeadline = new Date(reservationDateTime);
-  cancelDeadline.setMinutes(
-    cancelDeadline.getMinutes() - USER_CANCEL_CUTOFF_MINUTES,
+  return new Date(
+    reservationDateTime.instant.getTime() -
+      USER_CANCEL_CUTOFF_MINUTES * 60 * 1000,
   );
-
-  return cancelDeadline;
 }
 
 function findActiveDuplicate(
@@ -287,7 +326,7 @@ export function validateReservationDraft({
     return fail("invalid-date-time");
   }
 
-  if (reservationDateTime.getTime() <= now.getTime()) {
+  if (reservationDateTime.instant.getTime() <= now.getTime()) {
     return fail("past-time");
   }
 

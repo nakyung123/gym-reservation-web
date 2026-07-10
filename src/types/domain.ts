@@ -44,16 +44,22 @@ export type Reservation = {
   status: ReservationStatus;
   // 예약 시 고른 결제 수단. 결제 수단 도입 이전 예약은 null.
   paymentMethod: PaymentMethod | null;
+  // 예약 시 입력한 이 예약 건의 연락처. 도입 이전 예약과 미입력은 null.
+  phone: string | null;
   createdAt: string;
 };
 
 // people은 전송용 transient 필드다. DB에 별도 컬럼으로 저장하지 않으며,
 // 서버가 price를 단가 × clamp(people)로 재계산해 기존 price 컬럼에 합산가로 저장한다.
-// paymentMethod도 선택적으로 실어 보낸다(미전송 시 서버가 null로 저장).
+// paymentMethod/phone도 선택적으로 실어 보낸다(미전송 시 서버가 null로 저장).
 export type ReservationDraft = Omit<
   Reservation,
-  "id" | "status" | "createdAt" | "paymentMethod"
-> & { people?: number; paymentMethod?: PaymentMethod | null };
+  "id" | "status" | "createdAt" | "paymentMethod" | "phone"
+> & {
+  people?: number;
+  paymentMethod?: PaymentMethod | null;
+  phone?: string | null;
+};
 
 // 공개 문의 게시판(문의·FAQ '문의' 탭). 분류(카테고리).
 export type VocCategory = "inquiry" | "praise" | "complaint" | "suggestion";

@@ -17,48 +17,52 @@ export type WithdrawAccountResult =
   | { ok: false; reason: "auth-delete-failed"; message: string }
   | { ok: false; reason: "error"; message: string };
 
+// 트랜잭션 내부에서 진행 중 예약을 발견했을 때 전체 롤백을 위해 던지는 sentinel.
+class ActiveReservationExistsError extends Error {
+  constructor() {
+    super("active-reservation-exists");
+  }
+}
+
 export async function withdrawAccount(
   userId: string,
   input: WithdrawalInput,
 ): Promise<WithdrawAccountResult> {
-  // 1. 진행 중 예약 검사. status === "reserved" 이면 차단.
-  let activeReservationCount: number;
-  try {
-    activeReservationCount = await prisma.reservation.count({
-      where: { userId, status: "reserved" },
-    });
-  } catch {
-    console.error("[withdraw] active reservation check failed");
-    return {
-      ok: false,
-      reason: "error",
-      message: "회원 정보 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-    };
-  }
-  if (activeReservationCount > 0) {
-    return {
-      ok: false,
-      reason: "active-reservation",
-      message:
-        "취소되지 않은 예약이 있어 탈퇴할 수 없습니다. 내 예약에서 모두 취소한 뒤 다시 시도해 주세요.",
-    };
-  }
-
-  // 2. DB 데이터 삭제. Reservation 삭제 시 ReservationLock도 cascade.
+  // 1+2. 진행 중 예약 검사와 데이터 삭제를 한 트랜잭션으로 묶는다.
+  // 예약 삭제는 status !== "reserved"로 조건을 걸어, 검사~삭제 사이에 새 예약이
+  // 끼어들어도 reserved 예약이 hard delete되며 슬롯 reservedCount가 누수되는 일이
+  // 없게 한다. 삭제 후에도 reserved가 남아 있으면 전체 롤백 + 탈퇴 차단.
+  // Reservation 삭제 시 ReservationLock은 cascade.
   // 1:1 문의(Inquiry)와 본인이 로그인 상태로 작성한 공개 게시판 글(VocPost, userId 연결)도 예약·즐겨찾기·
   // 프로필과 동일하게 hard delete한다(uid 미보관 원칙 일관 + 탈퇴자 연락처/이메일 PII 잔존 방지).
   // userId 스코프라 익명(userId=null) 글은 영향받지 않는다.
   // 사유 기록은 일부러 이 트랜잭션에 포함하지 않는다 — Auth 삭제 실패 후 재시도 시
   // 같은 사유가 중복 기록되지 않도록 Auth 성공 후에 1회만 기록한다(아래 4번).
   try {
-    await prisma.$transaction([
-      prisma.reservation.deleteMany({ where: { userId } }),
-      prisma.favorite.deleteMany({ where: { userId } }),
-      prisma.inquiry.deleteMany({ where: { userId } }),
-      prisma.vocPost.deleteMany({ where: { userId } }),
-      prisma.userProfile.deleteMany({ where: { userId } }),
-    ]);
-  } catch {
+    await prisma.$transaction(async (tx) => {
+      await tx.reservation.deleteMany({
+        where: { userId, status: { not: "reserved" } },
+      });
+      const activeReservationCount = await tx.reservation.count({
+        where: { userId, status: "reserved" },
+      });
+      if (activeReservationCount > 0) {
+        throw new ActiveReservationExistsError();
+      }
+      await tx.favorite.deleteMany({ where: { userId } });
+      await tx.inquiry.deleteMany({ where: { userId } });
+      await tx.vocPost.deleteMany({ where: { userId } });
+      await tx.userProfile.deleteMany({ where: { userId } });
+    });
+  } catch (error) {
+    if (error instanceof ActiveReservationExistsError) {
+      return {
+        ok: false,
+        reason: "active-reservation",
+        message:
+          "취소되지 않은 예약이 있어 탈퇴할 수 없습니다. 내 예약에서 모두 취소한 뒤 다시 시도해 주세요.",
+      };
+    }
     console.error("[withdraw] DB user data delete failed");
     return {
       ok: false,

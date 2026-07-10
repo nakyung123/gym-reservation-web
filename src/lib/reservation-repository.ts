@@ -225,6 +225,10 @@ export function isReservation(value: unknown): value is Reservation {
     (candidate.paymentMethod === undefined ||
       candidate.paymentMethod === null ||
       typeof candidate.paymentMethod === "string") &&
+    // phone도 연락처 도입 이전 데이터를 위해 미전송(undefined)/null을 허용한다.
+    (candidate.phone === undefined ||
+      candidate.phone === null ||
+      typeof candidate.phone === "string") &&
     typeof candidate.createdAt === "string"
   );
 }

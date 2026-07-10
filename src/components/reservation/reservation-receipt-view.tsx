@@ -274,7 +274,11 @@ export function ReservationReceiptView({
   const dash = "—";
   const profileName = profile?.name?.trim() ? profile.name : dash;
   const profileBirth = profile?.birthDate?.trim() ? profile.birthDate : dash;
-  const profilePhone = profile?.phone?.trim() ? profile.phone : dash;
+  // 연락처는 예약 시 입력한 이 예약 건의 값을 우선 표시하고,
+  // 연락처 저장 도입 이전 예약은 회원 프로필 연락처로 폴백한다.
+  const contactPhone =
+    reservation.phone?.trim() ||
+    (profile?.phone?.trim() ? profile.phone : dash);
   // 취소 성공 후 reservation.status는 갱신되지만 detail은 최초 조회값이므로,
   // 현재 상태가 '예약 완료(reserved)'인지도 함께 확인해 재취소를 막는다.
   const canCancel =
@@ -328,7 +332,7 @@ export function ReservationReceiptView({
           <dl>
             <Row label="예약자명">{profileName}</Row>
             <Row label="생년월일">{profileBirth}</Row>
-            <Row label="연락처">{profilePhone}</Row>
+            <Row label="연락처">{contactPhone}</Row>
           </dl>
         </CollapsibleSection>
 

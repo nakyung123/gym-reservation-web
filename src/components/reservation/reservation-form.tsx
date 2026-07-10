@@ -31,10 +31,12 @@ import {
   computeReservationPrice,
 } from "@/lib/sport-capacity";
 import { createReservation } from "@/lib/reservation-service";
+import { parsePhone } from "@/lib/user-profile";
 import { resolveReservationFormInitial } from "@/lib/reservation-form-initial";
 import {
   getReservationTimeState,
   isGymClosedOnDate,
+  USER_CANCEL_CUTOFF_MINUTES,
   type ReservationTimeState,
 } from "@/lib/reservation-rules";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
@@ -157,8 +159,16 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const maxDateValue = useMemo(() => {
     if (!todayValue) return "";
     const [year, month, day] = todayValue.split("-").map(Number);
-    const max = new Date(year, month - 1 + 2, day);
-    return `${max.getFullYear()}-${pad2(max.getMonth() + 1)}-${pad2(max.getDate())}`;
+    // +2개월. 대상 월에 같은 일자가 없으면(예: 12/31 → 2월) 말일로 clamp해
+    // 달력 범위(monthsAhead=2)를 벗어나는 오버플로(2/31→3/3)를 막는다.
+    let targetYear = year;
+    let targetMonth = month + 2;
+    if (targetMonth > 12) {
+      targetMonth -= 12;
+      targetYear += 1;
+    }
+    const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+    return `${targetYear}-${pad2(targetMonth)}-${pad2(Math.min(day, lastDay))}`;
   }, [todayValue]);
 
   const isDateReady = todayValue.length > 0;
@@ -181,11 +191,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       selectedDate >= todayValue && selectedDate <= maxDateValue;
     if (!inRange || isGymClosedOnDate(gym, selectedDate)) {
       setSelectedDate(todayValue);
-      setAlertMessage(
-        "선택하신 날짜가 예약 가능 기간이 아니어서 오늘 날짜로 변경했습니다.",
-      );
+      setAlertMessage(t("dateChangedAlert"));
     }
-  }, [isDateReady, selectedDate, todayValue, maxDateValue, gym]);
+  }, [isDateReady, selectedDate, todayValue, maxDateValue, gym, t]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // 예약자 정보(프로필) 로드. 연락처는 회원 정보를 기본값으로 채우되 편집 가능.
@@ -290,12 +298,12 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     ? (timeStates.get(selectedTime) ?? {
         available: false as const,
         reason: "time-unavailable" as const,
-        message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
+        message: t("timeNotInList"),
       })
     : {
         available: false as const,
         reason: "invalid-date-time" as const,
-        message: "예약 날짜를 준비하고 있습니다.",
+        message: t("datePreparing"),
       };
   const effectiveSelectedTime =
     !hasReservationNotice &&
@@ -308,7 +316,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     ? (timeStates.get(effectiveSelectedTime) ?? {
         available: false as const,
         reason: "time-unavailable" as const,
-        message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
+        message: t("timeNotInList"),
       })
     : selectedTimeStateCandidate;
   const selectedSlot = slotsLookup?.get(effectiveSelectedTime) ?? null;
@@ -366,7 +374,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     timeSelectionDisabledReason,
     timeStates,
   ]);
-  const reserveButtonLabel = isSubmitting ? "처리 중…" : t("reserveButton");
+  const reserveButtonLabel = isSubmitting
+    ? t("processingShort")
+    : t("reserveButton");
   // 예약 버튼 비활성: 기존 차단 사유 + 약관 미동의 + 종목/날짜/결제수단 미선택 + 처리 중.
   // 종목·날짜·결제수단 미선택은 별도 안내 텍스트 없이 버튼 비활성만으로 처리한다.
   const reserveButtonDisabled =
@@ -389,6 +399,13 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     if (!selectedSport || !selectedDate || !paymentMethod) {
       return;
     }
+    // 연락처는 선택 입력(빈칸 = 미기재)이지만, 입력한 경우 서버와 같은 규칙으로
+    // 사전 검증해 400 왕복 없이 바로 안내한다(SSOT: user-profile parsePhone).
+    const phoneParsed = parsePhone(phoneInput.trim() === "" ? null : phoneInput);
+    if (!phoneParsed.ok) {
+      setSubmitError(phoneParsed.message);
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -404,6 +421,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           price: computeReservationPrice(gym, selectedSport, people),
           people,
           paymentMethod,
+          phone: phoneParsed.value,
         },
       });
 
@@ -414,9 +432,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
       setSubmitError(result.message);
     } catch {
-      setSubmitError(
-        "예약 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
-      );
+      setSubmitError(t("submitFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -454,7 +470,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       <div className="mx-auto -my-8 w-[1200px] max-w-full pb-[116px] pt-[60px] sm:-my-12">
         {/* 제목 36px bold */}
         <h1 className="text-center text-[36px] font-bold text-slate-900">
-          예약 신청 완료
+          {t("completedTitle")}
         </h1>
 
         {/* 흰 박스 720×410, 제목과 32px */}
@@ -478,19 +494,19 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           </span>
           {/* 24px, 위 32px / 아래 12px */}
           <p className="mt-8 text-[24px] font-bold text-slate-900">
-            예약 신청이 완료되었습니다.
+            {t("completedMessage")}
           </p>
           <p className="mt-3 text-[18px] leading-relaxed text-slate-500">
-            마이페이지에서 QR 입장권과
+            {t("completedSub1")}
             <br />
-            상세 내역을 확인할 수 있습니다.
+            {t("completedSub2")}
           </p>
           {/* 예약내역 보기 150.88×60 / 16px, 위 40px */}
           <Link
             href={`/reservations/${completed.id}/detail`}
             className="mt-10 inline-flex h-[60px] w-[150.88px] items-center justify-center rounded-full bg-accent text-[16px] font-medium text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            예약내역 보기
+            {t("completedViewLink")}
           </Link>
         </div>
       </div>
@@ -509,7 +525,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <button
                 type="button"
                 onClick={() => router.back()}
-                aria-label="뒤로 가기"
+                aria-label={t("backAria")}
                 className="grid size-9 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
               >
                 <svg
@@ -532,15 +548,15 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
             {/* 예약 종목 — 라디오형 리스트(단일 선택) */}
             <CollapsibleSection
-              title="예약 종목"
-              description="원하는 종목을 선택해 주세요."
+              title={t("sportSectionTitle")}
+              description={t("sportSectionDesc")}
               open={wizard.openSections.sport}
               onOpenChange={(v) =>
                 dispatchWizard({ type: "TOGGLE_SECTION", section: "sport", open: v })
               }
               summary={
                 <SummaryPeek
-                  label={selectedSport ?? "예약 종목"}
+                  label={selectedSport ?? t("sportSectionTitle")}
                   value={formatGymPrice(price)}
                 />
               }
@@ -587,10 +603,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             </ul>
             <StepConfirm
               error={wizard.sportError}
+              label={t("confirmSelect")}
               onClick={() => {
                 if (!selectedSport) {
                   dispatchWizard({ type: "SPORT_ERROR" });
-                  setAlertMessage("예약 종목을 선택 완료해주세요.");
+                  setAlertMessage(t("sportConfirmAlert"));
                   return;
                 }
                 // 종목 확정: 빨간 강조 해제 + 섹션 접어 요약 표시.
@@ -608,7 +625,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   onClick={() => {
                     if (!wizard.sportConfirmed) {
                       dispatchWizard({ type: "SPORT_ERROR" });
-                      setAlertMessage("예약 종목을 선택 완료해주세요.");
+                      setAlertMessage(t("sportConfirmAlert"));
                       return;
                     }
                     // 캘린더를 열면서 오늘을 기본 선택 → 캘린더+시간대가 함께 노출된다.
@@ -619,14 +636,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   }}
                   className="h-[52px] w-[150.88px] rounded-full bg-accent text-[16px] font-medium text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
-                  달력 조회하기
+                  {t("calendarReveal")}
                 </button>
               </div>
             ) : (
               // 달력 조회에 성공한 뒤에만 예약 일자 섹션이 나타난다.
               <CollapsibleSection
-                title="예약 일자"
-              description="원하는 날짜를 선택하면 해당 날짜의 예약 가능 시간을 확인할 수 있습니다."
+                title={t("dateSectionTitle")}
+              description={t("dateSectionDesc")}
               open={wizard.openSections.date}
               onOpenChange={(v) =>
                 dispatchWizard({ type: "TOGGLE_SECTION", section: "date", open: v })
@@ -634,7 +651,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               summary={
                 selectedDate ? (
                   <SummaryPeek
-                    label="예약 일시"
+                    label={t("dateTimeSummaryLabel")}
                     value={`${selectedDate} ${effectiveSelectedTime}`}
                   />
                 ) : undefined
@@ -645,12 +662,12 @@ export function ReservationForm({ gym }: ReservationFormProps) {
           <ReservationCalendar
             selectedDate={selectedDate}
             todayValue={todayValue}
-            monthsAhead={2}
+            maxDateValue={maxDateValue}
             isDateDisabled={(value) => isGymClosedOnDate(gym, value)}
             closedDaysText={
               gym.closedDays.length > 0
                 ? gym.closedDays.join(", ")
-                : "연중무휴"
+                : t("closedDaysNone")
             }
             onSelect={(value) => {
               setSelectedDate(value);
@@ -674,11 +691,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <div className="mt-2 flex items-center gap-4 text-[13px]">
                 <span className="flex items-center gap-1.5 font-semibold text-slate-800">
                   <span className="size-2 rounded-full bg-slate-800" />
-                  선택 가능
+                  {t("legendAvailable")}
                 </span>
                 <span className="flex items-center gap-1.5 text-slate-400">
                   <span className="size-2 rounded-full bg-slate-300" />
-                  예약 마감
+                  {t("legendClosed")}
                 </span>
               </div>
               <div className="mt-4 grid min-w-0 grid-cols-4 gap-4">
@@ -686,7 +703,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                   const timeState = timeStates.get(time) ?? {
                     available: false as const,
                     reason: "time-unavailable" as const,
-                    message: "선택한 시간이 예약 가능 시간 목록에 없습니다.",
+                    message: t("timeNotInList"),
                   };
                   const isSelected = effectiveSelectedTime === time;
                   const slot = slotsLookup?.get(time) ?? null;
@@ -806,6 +823,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             {/* 시간대 아래 구분선(박스 끝까지) + 선택완료(→ 이용 인원) */}
             <StepConfirm
               divider="full"
+              label={t("confirmSelect")}
               onClick={() => dispatchWizard({ type: "CONFIRM_DATE" })}
             />
             </CollapsibleSection>
@@ -813,20 +831,25 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
             {/* 이용 인원 */}
             <CollapsibleSection
-              title="이용 인원"
+              title={t("peopleSectionTitle")}
               open={wizard.openSections.people}
               onOpenChange={(v) =>
                 dispatchWizard({ type: "TOGGLE_SECTION", section: "people", open: v })
               }
               summary={
                 wizard.peopleConfirmed ? (
-                  <SummaryPeek label="이용 인원" value={`${people}명`} />
+                  <SummaryPeek
+                    label={t("peopleSectionTitle")}
+                    value={t("peopleValue", { count: people })}
+                  />
                 ) : undefined
               }
             >
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[16px] text-slate-900">
-                  {selectedSport} 정원 {maxPeople}명
+                  {selectedSport
+                    ? t("peopleCapacity", { sport: selectedSport, max: maxPeople })
+                    : null}
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -836,13 +859,13 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       resetNotice();
                     }}
                     disabled={people <= 1}
-                    aria-label="인원 감소"
+                    aria-label={t("peopleDecreaseAria")}
                     className="grid size-10 place-items-center rounded-md border border-slate-300 text-[20px] leading-none text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     −
                   </button>
                   <span className="w-14 text-center text-[16px] text-slate-800">
-                    {people}명
+                    {t("peopleValue", { count: people })}
                   </span>
                   <button
                     type="button"
@@ -851,7 +874,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                       resetNotice();
                     }}
                     disabled={people >= maxPeople}
-                    aria-label="인원 증가"
+                    aria-label={t("peopleIncreaseAria")}
                     className="grid size-10 place-items-center rounded-md border border-slate-300 text-[20px] leading-none text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     +
@@ -859,13 +882,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 </div>
               </div>
               <StepConfirm
+                label={t("confirmSelect")}
                 onClick={() => dispatchWizard({ type: "CONFIRM_PEOPLE" })}
               />
             </CollapsibleSection>
 
             {/* 예약자 정보 */}
             <CollapsibleSection
-              title="예약자 정보"
+              title={t("profileSectionTitle")}
               open={wizard.openSections.profile}
               onOpenChange={(v) =>
                 dispatchWizard({ type: "TOGGLE_SECTION", section: "profile", open: v })
@@ -873,39 +897,47 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               summary={
                 wizard.profileConfirmed ? (
                   <div className="flex flex-col gap-2">
-                    <SummaryPeek label="예약자명" value={profileText.name} />
                     <SummaryPeek
-                      label="생년월일"
+                      label={t("profileNameLabel")}
+                      value={profileText.name}
+                    />
+                    <SummaryPeek
+                      label={t("profileBirthLabel")}
                       value={profileText.birthDate}
                     />
-                    <SummaryPeek label="연락처" value={phoneInput || "-"} />
+                    <SummaryPeek
+                      label={t("profilePhoneLabel")}
+                      value={phoneInput || "-"}
+                    />
                   </div>
                 ) : undefined
               }
             >
             {profileState === "loading" || profileState === "idle" ? (
-              <p className="text-sm text-slate-500">
-                페이지를 불러오는 중입니다.
-              </p>
+              <p className="text-sm text-slate-500">{t("profileLoading")}</p>
             ) : profileState === "error" ? (
               <p className="text-sm font-semibold text-error" role="alert">
-                예약자 정보를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.
+                {t("profileError")}
               </p>
             ) : (
               <>
                 <dl>
-                  <Row label="예약자명">{profileText.name}</Row>
-                  <Row label="생년월일">{profileText.birthDate}</Row>
+                  <Row label={t("profileNameLabel")}>{profileText.name}</Row>
+                  <Row label={t("profileBirthLabel")}>
+                    {profileText.birthDate}
+                  </Row>
                   {/* 연락처: 회원 연락처를 기본값으로 채우되 이 예약 건에서 수정 가능 */}
                   <div className="grid grid-cols-[160px_1fr] items-center gap-4 py-2.5">
-                    <dt className="text-[16px] text-slate-900">연락처</dt>
+                    <dt className="text-[16px] text-slate-900">
+                      {t("profilePhoneLabel")}
+                    </dt>
                     <dd>
                       <input
                         type="tel"
                         inputMode="tel"
                         value={phoneInput}
                         onChange={(event) => setPhoneInput(event.target.value)}
-                        placeholder="연락처를 입력해 주세요"
+                        placeholder={t("phonePlaceholder")}
                         className="h-11 w-full rounded-lg border border-slate-300 px-3 text-[16px] text-slate-900 transition focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       />
                     </dd>
@@ -913,7 +945,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                 </dl>
                 {/* 입력완료 → 약관 동의 단계로 진행(위 구분선 포함) */}
                 <StepConfirm
-                  label="입력완료"
+                  label={t("confirmInput")}
                   divider="full"
                   onClick={() => dispatchWizard({ type: "CONFIRM_PROFILE" })}
                 />
@@ -921,10 +953,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             )}
             </CollapsibleSection>
 
-            {/* 약관 동의 — 원형 체크 + 펼침 본문 (이미지 패턴) */}
+            {/* 약관 동의 — 원형 체크 + 펼침 본문 (이미지 패턴).
+                약관 항목명·본문은 법적 고지라 번역하지 않고 국문을 유지한다. */}
             <CollapsibleSection
-              title="약관 동의"
-              description="아래의 약관에 동의해 주세요."
+              title={t("termsSectionTitle")}
+              description={t("termsSectionDesc")}
               open={wizard.openSections.terms}
               onOpenChange={(v) =>
                 dispatchWizard({ type: "TOGGLE_SECTION", section: "terms", open: v })
@@ -934,10 +967,10 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <CircleCheck
                 checked={allAgreed}
                 onClick={toggleAllTerms}
-                label="약관 전체 동의"
+                label={t("termsAllAria")}
               />
               <span className="text-[14px] font-bold text-slate-900">
-                예약 내용을 확인하였고, 모두 동의합니다.
+                {t("termsAllAgree")}
               </span>
             </div>
             <ul className="mt-3 flex flex-col gap-2">
@@ -948,6 +981,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     content={term.content}
                     checked={agreed[term.id]}
                     onToggle={() => toggleTerm(term.id)}
+                    expandAriaLabel={t("termsExpandAria")}
                   />
                 </li>
               ))}
@@ -956,7 +990,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
 
             {/* 결제 수단 — 이 페이지에서 바로 결제(포트폴리오용 목업, 실 PG 없음) */}
             <CollapsibleSection
-              title="결제 수단"
+              title={t("paymentSectionTitle")}
               open={wizard.openSections.payment}
               onOpenChange={(v) =>
                 dispatchWizard({ type: "TOGGLE_SECTION", section: "payment", open: v })
@@ -965,14 +999,14 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               {/* 결제 금액 박스 (네이비) */}
               <div className="flex h-[54px] items-center justify-between rounded-lg bg-accent-tint px-4">
                 <span className="text-[16px] font-bold text-accent-strong">
-                  결제 금액
+                  {t("paymentAmountLabel")}
                 </span>
                 <span className="text-[16px] font-bold text-accent-strong">
                   {formatGymPrice(totalPrice)}
                 </span>
               </div>
               <p className="mt-4 text-[14px] text-slate-500">
-                결제를 위한 수단을 선택해주세요.
+                {t("paymentChoose")}
               </p>
               <ul className="mt-3 flex flex-col gap-2">
                 {PAYMENT_METHODS.map((option) => {
@@ -998,7 +1032,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                           }`}
                         />
                         <span className="text-[16px] text-slate-900">
-                          {option.label}
+                          {t(option.labelKey)}
                         </span>
                       </button>
                     </li>
@@ -1045,33 +1079,49 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             {/* 나의 예약 정보 */}
             <div className="rounded-2xl bg-white p-6">
               <h2 className="text-[24px] font-bold text-slate-900">
-                나의 예약 정보
+                {t("sidebarTitle")}
               </h2>
               {/* 내용 줄 간격 8px(gap-2) */}
               <dl className="mt-4 flex flex-col gap-2">
-                <SummaryLine label="체육관 이름" value={gym.name} />
-                <SummaryLine label="이용일자" value={selectedDate || "-"} />
+                <SummaryLine label={t("sidebarGymLabel")} value={gym.name} />
                 <SummaryLine
-                  label="이용회차"
+                  label={t("sidebarDateLabel")}
+                  value={selectedDate || "-"}
+                />
+                <SummaryLine
+                  label={t("sidebarTimeLabel")}
                   value={selectedDate ? effectiveSelectedTime : "-"}
                 />
-                <SummaryLine label="취소기간" value="예약 전 2시간까지" />
+                <SummaryLine
+                  label={t("sidebarCancelLabel")}
+                  value={t("cancelWindowValue", {
+                    hours: USER_CANCEL_CUTOFF_MINUTES / 60,
+                  })}
+                />
               </dl>
             </div>
 
             {/* 결제 금액 */}
             <div className="rounded-2xl bg-white p-6">
-              <h2 className="text-[24px] font-bold text-slate-900">결제 금액</h2>
+              <h2 className="text-[24px] font-bold text-slate-900">
+                {t("paySummaryTitle")}
+              </h2>
               <dl className="mt-4 flex flex-col gap-2">
-                <SummaryLine label="이용인원" value={`${people}명`} />
-                <SummaryLine label="이용요금" value={formatGymPrice(price)} />
+                <SummaryLine
+                  label={t("payPeopleLabel")}
+                  value={t("peopleValue", { count: people })}
+                />
+                <SummaryLine
+                  label={t("payFeeLabel")}
+                  value={formatGymPrice(price)}
+                />
               </dl>
               {/* 이용요금 밑 구분선 (위·아래 간격 16px) */}
               <div className="mt-4 border-t border-slate-200" />
               {/* 총 결제 금액 — 연한 파랑 박스, 높이 54 */}
               <div className="mt-4 flex h-[54px] items-center justify-between rounded-lg bg-accent-tint px-4">
                 <span className="text-[16px] font-bold text-accent-strong">
-                  총 결제 금액
+                  {t("payTotalLabel")}
                 </span>
                 <span className="text-[16px] font-bold text-accent-strong">
                   {formatGymPrice(totalPrice)}

@@ -34,7 +34,7 @@ function parseCapacity(value: unknown): number | undefined {
     value < 1 ||
     value > 999
   ) {
-    throw new Error("정원은 1명 이상 999명 이하의 정수여야 합니다.");
+    throw new Error("정원은 1팀 이상 999팀 이하의 정수여야 합니다.");
   }
   return value;
 }

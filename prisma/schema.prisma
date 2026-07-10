@@ -96,6 +96,8 @@ model Reservation {
   price     Int
   status    String           @db.VarChar(16)
   paymentMethod String?      @map("payment_method") @db.VarChar(20)
+  // 예약 시 입력한 이 예약 건의 연락처. 도입 이전 예약과 미입력은 null(표시 시 프로필 연락처 폴백).
+  phone     String?          @db.VarChar(20)
   createdAt DateTime         @default(now()) @map("created_at") @db.Timestamp(3)
   activeKey String           @map("active_key") @db.VarChar(255)
   gym       Gym              @relation(fields: [gymId], references: [id])

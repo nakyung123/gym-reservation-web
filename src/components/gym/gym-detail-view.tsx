@@ -11,6 +11,7 @@ import {
   getGymSportPrice,
 } from "@/lib/gym-utils";
 import { useFavorites } from "@/hooks/use-favorites";
+import { USER_CANCEL_CUTOFF_MINUTES } from "@/lib/reservation-rules";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -146,7 +147,10 @@ export function GymDetailView({
             <SummaryRow label="편의시설" value={gym.facilities.join(", ")} />
           ) : null}
           <SummaryRow label="예약방법" value="인터넷" />
-          <SummaryRow label="취소 기간" value="예약 전 2시간까지" />
+          <SummaryRow
+            label="취소 기간"
+            value={`이용 시작 ${USER_CANCEL_CUTOFF_MINUTES / 60}시간 전까지`}
+          />
         </dl>
       </div>
 

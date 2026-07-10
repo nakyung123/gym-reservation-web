@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { ReservationTimeState } from "@/lib/reservation-rules";
+import {
+  USER_CANCEL_CUTOFF_MINUTES,
+  type ReservationTimeState,
+} from "@/lib/reservation-rules";
 
 /**
  * 예약 폼(reservation-form.tsx)의 프레젠테이션 소품·상수 모음.
@@ -15,6 +18,7 @@ import type { ReservationTimeState } from "@/lib/reservation-rules";
 
 // 약관 동의 항목(모두 필수). 가입 단계에서 이미 동의받지만, 예약 시점 재확인용.
 // content: 펼쳤을 때 노출되는 약관 본문(문단 배열).
+// 항목명·본문은 법적 고지라 i18n 대상에서 제외하고 국문을 유지한다(2026-07-10 결정).
 export const REQUIRED_TERMS = [
   {
     id: "privacy",
@@ -32,7 +36,7 @@ export const REQUIRED_TERMS = [
     label: "[필수] 시설 이용 규정 및 취소·환불 정책 동의",
     content: [
       "예약하신 시간과 용도 범위 안에서만 시설을 이용해야 하며, 시설·비품을 훼손한 경우 원상 복구 또는 그에 따른 비용이 부과될 수 있습니다.",
-      "취소·환불 기준은 각 시설의 운영 정책을 따릅니다. 예약 전 2시간까지 마이페이지 예약 내역에서 취소할 수 있으며, 이후에는 취소가 제한될 수 있습니다.",
+      `취소·환불 기준은 각 시설의 운영 정책을 따릅니다. 이용 시작 ${USER_CANCEL_CUTOFF_MINUTES / 60}시간 전까지 마이페이지 예약 내역에서 취소할 수 있으며, 이후에는 취소가 제한될 수 있습니다.`,
       "예약은 예약자 본인만 이용할 수 있으며 타인에게 양도·재판매할 수 없습니다. 현장에서 예약자 본인 확인을 요청할 수 있습니다.",
     ],
   },
@@ -52,10 +56,11 @@ export const unavailableTimeLabelKeys = {
 } as const;
 
 // 결제 수단(포트폴리오용 목업 — 실제 PG 연동 없음). 하나를 골라야 예약 신청이 활성화된다.
+// 표시명은 messages의 Reserve.<labelKey>를 폼에서 t()로 해석한다.
 export const PAYMENT_METHODS = [
-  { id: "card", label: "카드결제" },
-  { id: "easy-pay", label: "간편결제" },
-  { id: "virtual-account", label: "가상계좌(무통장 입금)" },
+  { id: "card", labelKey: "paymentMethodCard" },
+  { id: "easy-pay", labelKey: "paymentMethodEasyPay" },
+  { id: "virtual-account", labelKey: "paymentMethodVirtualAccount" },
 ] as const;
 
 // ── 순수 헬퍼 ─────────────────────────────────────────────────────────
@@ -170,13 +175,14 @@ export function StepConfirm({
   onClick,
   divider = "none",
   error = false,
-  label = "선택완료",
+  label,
 }: {
   onClick: () => void;
   divider?: "none" | "full";
   // 미확정 상태로 다음 단계를 시도했을 때 빨간 강조로 바꾼다.
   error?: boolean;
-  label?: string;
+  // 버튼 문구(예: t("confirmSelect")). i18n을 위해 호출부가 항상 넘긴다.
+  label: string;
 }) {
   const dividerClass =
     divider === "full" ? "-mx-8 border-t border-slate-200 px-8 pt-6" : "";
@@ -229,11 +235,14 @@ export function TermItem({
   content,
   checked,
   onToggle,
+  expandAriaLabel,
 }: {
   label: string;
   content: readonly string[];
   checked: boolean;
   onToggle: () => void;
+  // 펼침 토글의 aria-label(예: t("termsExpandAria")). i18n을 위해 호출부가 넘긴다.
+  expandAriaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -252,7 +261,7 @@ export function TermItem({
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
-          aria-label="약관 내용 펼치기"
+          aria-label={expandAriaLabel}
           className="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {/* CollapsibleSection과 동일한 ^ 아이콘·회전 규칙 */}

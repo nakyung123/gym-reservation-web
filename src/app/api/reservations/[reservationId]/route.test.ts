@@ -406,7 +406,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
     const fixedDate = "2026-12-01";
     vi.useFakeTimers();
     try {
-      vi.setSystemTime(new Date(2026, 11, 1, 6, 0));
+      vi.setSystemTime(new Date("2026-12-01T06:00:00+09:00"));
       verifyIdToken.mockResolvedValue({ uid: "deadline-cancel-route-user" });
       const created = await createReservationInDb({
         userId: "deadline-cancel-route-user",
@@ -422,7 +422,7 @@ describe("DELETE /api/reservations/[reservationId]", () => {
       if (!created.ok) return;
 
       // 예약 시작(10:00) 약 1시간 59분 전 → 2시간 컷오프 내라 취소 불가.
-      vi.setSystemTime(new Date(2026, 11, 1, 8, 1));
+      vi.setSystemTime(new Date("2026-12-01T08:01:00+09:00"));
 
       const response = await DELETE(
         requestFor(created.reservation.id, "test-id-token", "DELETE"),

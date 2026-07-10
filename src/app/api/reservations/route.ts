@@ -10,6 +10,7 @@ import {
   isReservationStatus,
   isSport,
 } from "@/lib/domain-constants";
+import { parsePhone } from "@/lib/user-profile";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { notifyReservationEvent } from "@/lib/server/reservation-notify";
 
@@ -51,6 +52,7 @@ type CreateBody = {
   time?: unknown;
   people?: unknown;
   paymentMethod?: unknown;
+  phone?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -102,6 +104,14 @@ export async function POST(request: NextRequest) {
     ? body.paymentMethod
     : null;
 
+  // phone은 선택적(미전송/빈 문자열은 null 저장). 보낸 경우 프로필 연락처와 같은
+  // 형식 규칙(parsePhone SSOT)으로 검증한다.
+  const phoneParsed = parsePhone(body.phone ?? null);
+  if (!phoneParsed.ok) {
+    return Response.json({ message: phoneParsed.message }, { status: 400 });
+  }
+  const phone = phoneParsed.value;
+
   let gym: Awaited<ReturnType<typeof gymRepository.findById>>;
   try {
     gym = await gymRepository.findById(body.gymId);
@@ -130,6 +140,7 @@ export async function POST(request: NextRequest) {
         time: body.time,
         people,
         paymentMethod,
+        phone,
       },
       gym,
     });

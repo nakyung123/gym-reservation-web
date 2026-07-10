@@ -45,6 +45,7 @@ const reservation: Reservation = {
   price: 12000,
   status: "reserved",
   paymentMethod: null,
+  phone: null,
   createdAt: "2026-05-01T00:00:00.000Z",
 };
 
@@ -252,8 +253,9 @@ describe("apiReservationRepository", () => {
         sport: reservation.sport,
         date: reservation.date,
         time: reservation.time,
-        // repository가 미지정 paymentMethod를 null로 정규화해 전송한다.
+        // repository가 미지정 paymentMethod/phone을 null로 정규화해 전송한다.
         paymentMethod: reservation.paymentMethod ?? null,
+        phone: reservation.phone ?? null,
       }),
     });
   });

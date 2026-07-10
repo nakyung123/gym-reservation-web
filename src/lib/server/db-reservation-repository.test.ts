@@ -49,10 +49,10 @@ function futureDateForWeekday(weekday: number) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// 예약 (date, time)은 KST 벽시계이므로 테스트 now도 +09:00 명시 instant로 만든다
+// (reservation-rules의 KST 명시 해석과 동일 — 러너 타임존과 무관하게 동작).
 function dateTimeFor(date: string, time: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
+  return new Date(`${date}T${time}:00+09:00`);
 }
 
 describe("createReservationInDb", () => {

@@ -244,6 +244,79 @@ describe("POST /api/reservations", () => {
     expect(stored.price).toBe(36000);
   });
 
+  it("phone을 보내면 이 예약 건의 연락처로 저장된다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "phone-route-user" });
+    const date = futureDate(4);
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "12:00",
+        phone: "010-1234-5678",
+      }),
+    );
+    const body = (await response.json()) as {
+      reservation?: { id?: unknown; phone?: unknown };
+    };
+
+    expect(response.status).toBe(201);
+    expect(body.reservation?.phone).toBe("010-1234-5678");
+
+    const stored = await prisma.reservation.findUniqueOrThrow({
+      where: { id: String(body.reservation?.id) },
+    });
+    expect(stored.phone).toBe("010-1234-5678");
+  });
+
+  it("phone 미전송 시 null로 저장된다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "phone-null-route-user" });
+    const date = futureDate(4);
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date,
+        time: "14:00",
+      }),
+    );
+    const body = (await response.json()) as {
+      reservation?: { id?: unknown; phone?: unknown };
+    };
+
+    expect(response.status).toBe(201);
+    expect(body.reservation?.phone).toBeNull();
+
+    const stored = await prisma.reservation.findUniqueOrThrow({
+      where: { id: String(body.reservation?.id) },
+    });
+    expect(stored.phone).toBeNull();
+  });
+
+  it("형식이 잘못된 phone은 400으로 거부하고 예약을 만들지 않는다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "phone-invalid-route-user" });
+
+    const response = await POST(
+      postRequest({
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: futureDate(4),
+        time: "12:00",
+        phone: "abc-123",
+      }),
+    );
+    const body = (await response.json()) as { message?: unknown };
+
+    expect(response.status).toBe(400);
+    expect(body.message).toBe(
+      "연락처는 숫자와 하이픈(-)만, 숫자 9자리 이상이어야 합니다.",
+    );
+    expect(await prisma.reservation.count()).toBe(0);
+    expect(await prisma.reservationLock.count()).toBe(0);
+  });
+
   it("정원을 초과한 people은 422 rejected로 응답하고 예약을 만들지 않는다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "people-over-route-user" });
     const date = futureDate(3);

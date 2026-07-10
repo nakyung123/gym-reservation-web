@@ -23,7 +23,7 @@ import {
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
 import type { Gym, ReservationSlotAvailability, Sport } from "@/types/domain";
-
+
 import { isAbortError } from "@/lib/async-error";
 import { getTodayValue } from "@/lib/admin/admin-date-format";
 const BULK_DEFAULT_CAPACITY = 10;
@@ -316,7 +316,7 @@ export function AdminReservationSlotsForm({
         const next = new Map(prev);
         next.set(slot.time, {
           status: "error",
-          message: "정원은 1명 이상 999명 이하의 정수여야 합니다.",
+          message: "정원은 1팀 이상 999팀 이하의 정수여야 합니다.",
         });
         return next;
       });
@@ -996,8 +996,8 @@ export function AdminReservationSlotsForm({
                       className="mt-2 text-xs font-semibold text-error"
                       role="alert"
                     >
-                      정원은 {BULK_MIN_CAPACITY}명 이상 {BULK_MAX_CAPACITY}
-                      명 이하의 정수여야 합니다.
+                      정원은 {BULK_MIN_CAPACITY}팀 이상 {BULK_MAX_CAPACITY}
+                      팀 이하의 정수여야 합니다.
                     </p>
                   ) : null}
                   {isOverBulkLimit ? (
@@ -1216,7 +1216,7 @@ export function AdminReservationSlotsForm({
                                   className="text-xs font-semibold text-error"
                                   role="alert"
                                 >
-                                  정원은 1~999명이어야 합니다.
+                                  정원은 1~999팀이어야 합니다.
                                 </p>
                               ) : null}
                             </div>

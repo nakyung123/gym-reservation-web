@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 // 예약 일자 선택용 월간 캘린더 (PC). 시안(검진 예약 캘린더)을 예약에 맞춰 픽셀 재현한다.
-// - 예약 가능 범위: 오늘 ~ monthsAhead개월 뒤(기본 2개월). 그 밖/과거/휴관일은 비활성.
+// - 예약 가능 범위: 오늘 ~ maxDateValue(포함). 계산은 호출 측(예약 폼)이 SSOT로 담당하고
+//   여기서는 받은 범위만 사용한다. 그 밖/과거/휴관일은 비활성.
 // - 날짜만 고른다. 시간 선택과 실시간 잔여는 호출 측(예약 폼)의 시간 그리드가 담당한다.
 // - 날짜 비교는 YYYY-MM-DD 문자열 사전식 비교로 타임존 영향 없이 처리한다.
 // 스펙: 폭 752 / padding 16 / 타이틀 28px / 이전·다음 28×28 / 요일·일자 16px /
 //       선택 셀 98×56 / 예약 가능 기간 박스 367×80 / 선택완료 92×44.
-
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -38,23 +38,24 @@ function buildMonthCells(year: number, month: number): (number | null)[] {
 export function ReservationCalendar({
   selectedDate,
   todayValue,
-  monthsAhead = 2,
+  maxDateValue,
   isDateDisabled,
   onSelect,
-  closedDaysText = "연중무휴",
+  closedDaysText,
 }: {
   selectedDate: string | null;
   todayValue: string;
-  monthsAhead?: number;
+  // 예약 가능 마지막 날짜(YYYY-MM-DD, 포함). 산출은 호출 측이 담당한다(SSOT).
+  maxDateValue: string;
   isDateDisabled?: (value: string) => boolean;
   onSelect: (value: string) => void;
-  closedDaysText?: string;
+  closedDaysText: string;
 }) {
-  const [ty, tm, td] = todayValue.split("-").map(Number);
-  const maxObj = new Date(ty, tm - 1 + monthsAhead, td);
-  const maxYear = maxObj.getFullYear();
-  const maxMonth = maxObj.getMonth() + 1;
-  const maxValue = toValue(maxYear, maxMonth, maxObj.getDate());
+  const t = useTranslations("Reserve");
+  const weekdays = t("calWeekdays").split(",");
+  const [ty, tm] = todayValue.split("-").map(Number);
+  const [maxYear, maxMonth] = maxDateValue.split("-").map(Number);
+  const maxValue = maxDateValue;
 
   // 처음 보이는 달: 선택된 날짜가 있으면 그 달, 없으면 오늘 달.
   const [iy, im] = (selectedDate ?? todayValue).split("-").map(Number);
@@ -92,13 +93,13 @@ export function ReservationCalendar({
       {/* 안내 박스 2개: 제목은 검정, 값은 네이비. 자체 좌우 패딩 없이 섹션 그리드에 맞춤. 사이 20px */}
       <div className="flex gap-5">
         <div className="flex-1 rounded-xl bg-slate-50 px-4 py-4 text-center">
-          <p className="text-[14px] text-slate-900">예약 가능 기간</p>
+          <p className="text-[14px] text-slate-900">{t("calRangeLabel")}</p>
           <p className="mt-1 text-[16px] font-bold text-accent-strong">
             {toDot(todayValue)} ~ {toDot(maxValue)}
           </p>
         </div>
         <div className="flex-1 rounded-xl bg-slate-50 px-4 py-4 text-center">
-          <p className="text-[14px] text-slate-900">휴무일</p>
+          <p className="text-[14px] text-slate-900">{t("calClosedLabel")}</p>
           <p className="mt-1 text-[16px] font-bold text-accent-strong">
             {closedDaysText}
           </p>
@@ -111,7 +112,7 @@ export function ReservationCalendar({
           type="button"
           onClick={goPrev}
           disabled={atMinMonth}
-          aria-label="이전 달"
+          aria-label={t("calPrevAria")}
           className={navButtonClass}
         >
           <svg
@@ -134,7 +135,7 @@ export function ReservationCalendar({
           type="button"
           onClick={goNext}
           disabled={atMaxMonth}
-          aria-label="다음 달"
+          aria-label={t("calNextAria")}
           className={navButtonClass}
         >
           <svg
@@ -154,7 +155,7 @@ export function ReservationCalendar({
 
       {/* 요일 헤더 16px */}
       <div className="mt-6 grid grid-cols-7 text-center text-[16px]">
-        {WEEKDAYS.map((weekday, index) => (
+        {weekdays.map((weekday, index) => (
           <span
             key={weekday}
             className={
@@ -201,10 +202,12 @@ export function ReservationCalendar({
               type="button"
               disabled={disabled}
               aria-pressed={isSelected}
-              aria-label={`${view.year}년 ${view.month}월 ${day}일${
-                isClosed ? " 휴관일" : ""
-              }`}
-              title={isClosed ? "휴관일" : undefined}
+              aria-label={`${t("calDayAria", {
+                year: view.year,
+                month: view.month,
+                day,
+              })}${isClosed ? ` ${t("calClosedDay")}` : ""}`}
+              title={isClosed ? t("calClosedDay") : undefined}
               onClick={() => onSelect(value)}
               className={`relative mx-auto flex h-14 w-full max-w-[98px] items-center justify-center rounded-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                 isSelected
@@ -222,7 +225,7 @@ export function ReservationCalendar({
                     isSelected ? "text-white" : "text-accent-strong"
                   }`}
                 >
-                  오늘
+                  {t("calToday")}
                 </span>
               ) : null}
             </button>
@@ -234,7 +237,7 @@ export function ReservationCalendar({
       <div className="mt-4 flex justify-end">
         <span className="flex items-center gap-1.5 text-[13px] text-slate-400">
           <span className="size-1.5 rounded-full bg-slate-300" />
-          예약불가
+          {t("calUnavailable")}
         </span>
       </div>
     </div>

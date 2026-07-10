@@ -297,8 +297,9 @@ function buildReservation(draft: ReservationDraft): Reservation {
         ? crypto.randomUUID()
         : `pending-${Date.now()}`,
     status: "reserved",
-    // draft.paymentMethod는 선택적이므로 미전송 시 null로 정규화한다.
+    // draft.paymentMethod/phone은 선택적이므로 미전송 시 null로 정규화한다.
     paymentMethod: draft.paymentMethod ?? null,
+    phone: draft.phone ?? null,
     createdAt: new Date().toISOString(),
   };
 }
@@ -343,6 +344,7 @@ async function createReservation(
         time: reservation.time,
         people,
         paymentMethod: reservation.paymentMethod,
+        phone: reservation.phone,
       }),
     });
   } catch {

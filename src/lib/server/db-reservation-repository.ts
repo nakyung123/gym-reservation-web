@@ -56,6 +56,14 @@ class ReservationSlotFullError extends Error {
   }
 }
 
+// 벌크 슬롯 정책 변경 중 조건부 UPDATE가 거부된 경우(동시 예약 유입으로 정원 축소 불가).
+// 트랜잭션 전체를 롤백하기 위해 throw로 전파하고, 호출부가 conflict 응답으로 변환한다.
+class ReservationSlotPolicyConflictError extends Error {
+  constructor(readonly conflicts: ReservationSlotAvailability[]) {
+    super("reservation-slot-policy-conflict");
+  }
+}
+
 function toDomainReservation(row: ReservationRow): Reservation {
   if (!isReservationStatus(row.status)) {
     throw new Error(
@@ -79,6 +87,7 @@ function toDomainReservation(row: ReservationRow): Reservation {
     status: row.status,
     // 알 수 없는 값은 null로 정규화(결제수단 도입 이전/손상 데이터 방어).
     paymentMethod: isPaymentMethod(row.paymentMethod) ? row.paymentMethod : null,
+    phone: row.phone ?? null,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -264,7 +273,7 @@ function validateSlotPolicyChange({
     return {
       ok: false,
       status: "rejected",
-      message: `정원은 1명 이상 ${MAX_SLOT_CAPACITY}명 이하의 정수여야 합니다.`,
+      message: `정원은 1팀 이상 ${MAX_SLOT_CAPACITY}팀 이하의 정수여야 합니다.`,
     };
   }
 
@@ -313,23 +322,45 @@ export async function updateReservationSlotPolicy({
       return {
         ok: false,
         status: "conflict",
-        message: `이미 ${reservedCount}명이 예약한 시간대라 정원을 ${nextCapacity}명으로 줄일 수 없습니다.`,
+        message: `이미 ${reservedCount}팀이 예약한 시간대라 정원을 ${nextCapacity}팀으로 줄일 수 없습니다.`,
       };
     }
 
-    const slot = await tx.reservationSlot.upsert({
-      where: {
-        gymId_sport_date_time: key,
-      },
+    // 행이 없으면 먼저 생성해 둔다(신규 행은 reservedCount=0이라 아래 조건을 항상 통과).
+    await tx.reservationSlot.upsert({
+      where: { gymId_sport_date_time: key },
       create: {
         ...key,
         capacity: nextCapacity,
         isClosed: isClosed ?? false,
       },
-      update: {
+      update: {},
+    });
+
+    // 경합 방어: 위의 read-check 이후 동시 예약이 reservedCount를 올렸을 수 있으므로
+    // reservedCount <= nextCapacity 조건을 UPDATE 자체에 포함한다. 행 잠금 후 조건이
+    // 재평가되어, 검사~쓰기 사이에 끼어든 예약이 있으면 저장이 거부된다(초과예약 방지).
+    const changed = await tx.reservationSlot.updateMany({
+      where: { ...key, reservedCount: { lte: nextCapacity } },
+      data: {
         capacity: nextCapacity,
         ...(isClosed === undefined ? {} : { isClosed }),
       },
+    });
+
+    if (changed.count === 0) {
+      const latest = await tx.reservationSlot.findUnique({
+        where: { gymId_sport_date_time: key },
+      });
+      return {
+        ok: false,
+        status: "conflict",
+        message: `이미 ${latest?.reservedCount ?? reservedCount}팀이 예약한 시간대라 정원을 ${nextCapacity}팀으로 줄일 수 없습니다.`,
+      };
+    }
+
+    const slot = await tx.reservationSlot.findUniqueOrThrow({
+      where: { gymId_sport_date_time: key },
     });
 
     return {
@@ -426,75 +457,108 @@ export async function updateReservationSlotPolicies({
     })),
   );
 
-  return prisma.$transaction(async (tx) => {
-    const currentRows = await tx.reservationSlot.findMany({
-      where: {
-        gymId,
-        sport,
-        date: { in: uniqueDates },
-        time: { in: uniqueTimes },
-      },
-    });
-    const currentByKey = new Map(
-      currentRows.map((row) => [
-        slotKeyId({
-          gymId: row.gymId,
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const currentRows = await tx.reservationSlot.findMany({
+        where: {
+          gymId,
           sport,
-          date: row.date,
-          time: row.time,
-        }),
-        row,
-      ]),
-    );
+          date: { in: uniqueDates },
+          time: { in: uniqueTimes },
+        },
+      });
+      const currentByKey = new Map(
+        currentRows.map((row) => [
+          slotKeyId({
+            gymId: row.gymId,
+            sport,
+            date: row.date,
+            time: row.time,
+          }),
+          row,
+        ]),
+      );
 
-    const conflicts = keys.flatMap((key) => {
-      const current = currentByKey.get(slotKeyId(key));
-      const reservedCount = current?.reservedCount ?? 0;
-      const nextCapacity =
-        capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
+      const conflicts = keys.flatMap((key) => {
+        const current = currentByKey.get(slotKeyId(key));
+        const reservedCount = current?.reservedCount ?? 0;
+        const nextCapacity =
+          capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
 
-      if (nextCapacity >= reservedCount) return [];
-      return [toSlotAvailability(key, current)];
+        if (nextCapacity >= reservedCount) return [];
+        return [toSlotAvailability(key, current)];
+      });
+
+      if (conflicts.length > 0) {
+        return {
+          ok: false,
+          status: "conflict",
+          message: `이미 예약된 팀 수보다 낮은 정원으로 줄일 수 없는 슬롯이 ${conflicts.length}개 있습니다.`,
+          conflicts,
+        };
+      }
+
+      const slots: ReservationSlotAvailability[] = [];
+      for (const key of keys) {
+        const current = currentByKey.get(slotKeyId(key));
+        const nextCapacity =
+          capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
+
+        // 행이 없으면 먼저 생성(신규 행은 reservedCount=0이라 아래 조건을 항상 통과).
+        await tx.reservationSlot.upsert({
+          where: { gymId_sport_date_time: key },
+          create: {
+            ...key,
+            capacity: nextCapacity,
+            isClosed: isClosed ?? false,
+          },
+          update: {},
+        });
+
+        // 경합 방어: 위의 conflict 사전 검사 이후 동시 예약이 reservedCount를 올렸을 수
+        // 있으므로 reservedCount <= nextCapacity 조건을 UPDATE 자체에 포함한다.
+        // 거부되면 throw로 트랜잭션 전체를 롤백해 all-or-nothing을 유지한다.
+        const changed = await tx.reservationSlot.updateMany({
+          where: { ...key, reservedCount: { lte: nextCapacity } },
+          data: {
+            capacity: nextCapacity,
+            ...(isClosed === undefined ? {} : { isClosed }),
+          },
+        });
+
+        if (changed.count === 0) {
+          const latest = await tx.reservationSlot.findUnique({
+            where: { gymId_sport_date_time: key },
+          });
+          throw new ReservationSlotPolicyConflictError([
+            toSlotAvailability(key, latest),
+          ]);
+        }
+
+        const slot = await tx.reservationSlot.findUniqueOrThrow({
+          where: { gymId_sport_date_time: key },
+        });
+
+        slots.push(toSlotAvailability(key, slot));
+      }
+
+      return {
+        ok: true,
+        slots,
+        updatedCount: slots.length,
+      };
     });
-
-    if (conflicts.length > 0) {
+  } catch (error) {
+    if (error instanceof ReservationSlotPolicyConflictError) {
       return {
         ok: false,
         status: "conflict",
-        message: `이미 예약된 인원보다 낮은 정원으로 줄일 수 없는 슬롯이 ${conflicts.length}개 있습니다.`,
-        conflicts,
+        message: `이미 예약된 팀 수보다 낮은 정원으로 줄일 수 없는 슬롯이 ${error.conflicts.length}개 있습니다.`,
+        conflicts: error.conflicts,
       };
     }
-
-    const slots: ReservationSlotAvailability[] = [];
-    for (const key of keys) {
-      const current = currentByKey.get(slotKeyId(key));
-      const nextCapacity =
-        capacity ?? current?.capacity ?? DEFAULT_SLOT_CAPACITY;
-      const slot = await tx.reservationSlot.upsert({
-        where: {
-          gymId_sport_date_time: key,
-        },
-        create: {
-          ...key,
-          capacity: nextCapacity,
-          isClosed: isClosed ?? false,
-        },
-        update: {
-          capacity: nextCapacity,
-          ...(isClosed === undefined ? {} : { isClosed }),
-        },
-      });
-
-      slots.push(toSlotAvailability(key, slot));
-    }
-
-    return {
-      ok: true,
-      slots,
-      updatedCount: slots.length,
-    };
-  });
+    throw error;
+  }
 }
 
 export async function listUserReservations(
@@ -761,6 +825,8 @@ export type CreateReservationInput = {
     time: string;
     people?: number;
     paymentMethod?: PaymentMethod | null;
+    // 이 예약 건의 연락처. 형식 검증은 route(parsePhoneValue)가 담당한다.
+    phone?: string | null;
   };
   gym: Gym;
 };
@@ -852,6 +918,7 @@ export async function createReservationInDb(
           price: fullDraft.price,
           status: "reserved",
           paymentMethod: draft.paymentMethod ?? null,
+          phone: draft.phone ?? null,
           activeKey,
         },
       });

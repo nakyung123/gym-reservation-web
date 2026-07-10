@@ -16,13 +16,14 @@ const reservation: Reservation = {
   price: 12000,
   status: "reserved",
   paymentMethod: null,
+  phone: null,
   createdAt: "2026-05-01T00:00:00.000Z",
 };
 
 describe("reservation detail helpers", () => {
   it("creates cancellable metadata for a future reservation", () => {
     const detail = createUserReservationDetail(reservation, {
-      now: new Date(2026, 4, 20, 6, 0),
+      now: new Date("2026-05-20T06:00:00+09:00"),
     });
 
     expect(detail.cancellation).toMatchObject({
@@ -30,14 +31,15 @@ describe("reservation detail helpers", () => {
       reason: null,
       message: null,
     });
+    // 마감 = KST 2026-05-20 08:00 (이용 시작 2시간 전) = UTC 2026-05-19 23:00.
     expect(new Date(detail.cancellation.deadline ?? "").getTime()).toBe(
-      new Date(2026, 4, 20, 8, 0).getTime(),
+      new Date("2026-05-20T08:00:00+09:00").getTime(),
     );
   });
 
   it("marks reservation as not cancellable after the cancellation deadline", () => {
     const detail = createUserReservationDetail(reservation, {
-      now: new Date(2026, 4, 20, 8, 1),
+      now: new Date("2026-05-20T08:01:00+09:00"),
     });
 
     expect(detail.cancellation).toMatchObject({

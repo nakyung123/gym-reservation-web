@@ -55,8 +55,10 @@ export function derivePeople(
  */
 const QR_LEAD_MS = 30 * 60 * 1000;
 export function isQrTooEarly(reservation: Reservation): boolean {
+  // 예약 시각은 KST 벽시계 기준이므로 브라우저 타임존과 무관하게 +09:00으로 해석한다
+  // (reservation-rules의 KST 명시 해석과 동일 전제).
   const startMs = new Date(
-    `${reservation.date}T${reservation.time}:00`,
+    `${reservation.date}T${reservation.time}:00+09:00`,
   ).getTime();
   return !Number.isNaN(startMs) && Date.now() < startMs - QR_LEAD_MS;
 }

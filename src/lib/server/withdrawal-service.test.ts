@@ -171,32 +171,36 @@ describe("withdrawAccount", () => {
     }
   });
 
-  it("진행 중 예약 검사 DB 오류도 안전한 error 결과로 반환한다", async () => {
-    const userId = "withdraw-user-count-fail";
+  // 진행 중 예약 검사는 삭제와 같은 트랜잭션 안에서 수행되므로,
+  // 검사에 걸리면 이미 실행된 삭제(취소된 예약 등)까지 전부 롤백되어야 한다.
+  it("진행 중 예약이 있으면 전체 롤백되어 프로필·즐겨찾기도 보존된다", async () => {
+    const userId = "withdraw-user-rollback";
     await ensureUserProfile(userId, "local");
-    const countSpy = vi
-      .spyOn(prisma.reservation, "count")
-      .mockRejectedValueOnce(new Error("database offline"));
-    const errorSpy = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+    await prisma.favorite.create({ data: { userId, gymId: TEST_GYM.id } });
+    const created = await createReservationInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "11:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(created.ok).toBe(true);
 
-    try {
-      await expect(
-        withdrawAccount(userId, { category: "기타", detail: null }),
-      ).resolves.toEqual({
-        ok: false,
-        reason: "error",
-        message: "회원 정보 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.",
-      });
-      expect(deleteUser).not.toHaveBeenCalled();
-      await expect(
-        prisma.userProfile.count({ where: { userId } }),
-      ).resolves.toBe(1);
-    } finally {
-      countSpy.mockRestore();
-      errorSpy.mockRestore();
-    }
+    await expect(
+      withdrawAccount(userId, { category: "기타", detail: null }),
+    ).resolves.toMatchObject({ ok: false, reason: "active-reservation" });
+
+    expect(deleteUser).not.toHaveBeenCalled();
+    await expect(
+      prisma.userProfile.count({ where: { userId } }),
+    ).resolves.toBe(1);
+    await expect(prisma.favorite.count({ where: { userId } })).resolves.toBe(1);
+    await expect(
+      prisma.reservation.count({ where: { userId } }),
+    ).resolves.toBe(1);
   });
 
   it("Auth fail 후 재시도가 성공하면 사유가 1회만 기록된다 (idempotency)", async () => {
