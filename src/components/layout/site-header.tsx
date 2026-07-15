@@ -24,8 +24,8 @@ export function SiteHeader() {
   useEffect(() => {
     if (!isHome) return;
     const onScroll = () => {
-      // 히어로(약 1뷰포트)를 거의 지났을 때 솔리드로 전환.
-      setScrolled(window.scrollY > window.innerHeight * 0.6);
+      // 스크롤을 내리기 시작하면 곧바로 솔리드(흰 배경)로 전환한다.
+      setScrolled(window.scrollY > 10);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);

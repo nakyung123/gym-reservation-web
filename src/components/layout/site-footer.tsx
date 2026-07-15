@@ -70,7 +70,9 @@ export async function SiteFooter() {
   return (
     <footer className="mt-6 bg-slate-900 text-[14.5px] text-slate-400">
       <div className="mx-auto w-full max-w-[1440px] px-5 pb-[30px] pt-[44px] sm:px-8">
-        <div className="flex flex-wrap justify-between gap-[30px]">
+        {/* 모바일은 2열 grid로 컬럼을 가지런히 정렬하고, sm 이상에서 시안 flex 분배로 복귀한다.
+            (flex-wrap + justify-between이 좁은 화면에서 컬럼 간격을 벌려 깨져 보이던 문제 해결) */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:flex sm:flex-wrap sm:justify-between sm:gap-[30px]">
           {/* 고객센터 */}
           <div>
             <p className="mb-[9px] text-[15.5px] font-bold text-slate-200">
@@ -98,8 +100,8 @@ export async function SiteFooter() {
             </nav>
           ))}
 
-          {/* 소개 */}
-          <div className="max-w-[280px]">
+          {/* 소개 — 모바일에서는 설명문이 답답하지 않게 전체 폭(2열 span), sm 이상 시안 폭 복귀 */}
+          <div className="col-span-2 max-w-none sm:col-span-1 sm:max-w-[280px]">
             <p className="mb-[9px] text-[15.5px] font-bold text-slate-200">
               {t("brand")}
             </p>
