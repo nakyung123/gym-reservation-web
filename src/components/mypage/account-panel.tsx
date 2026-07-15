@@ -7,16 +7,21 @@ import type {
   ProfileTextField,
   SaveState,
 } from "@/hooks/use-user-profile-form";
+import { formatBirthDate, formatPhone } from "@/lib/input-format";
+import { AlertModal } from "@/components/ui/alert-modal";
 import { FieldLabel, INPUT_CLASS, READONLY_INPUT_CLASS } from "./account-fields";
 import { PasswordChangeInline } from "./password-change-inline";
-import { WithdrawModal } from "./withdraw-modal";
+import { AccountWithdrawSection } from "./account-withdraw-section";
 
 /**
- * 회원정보변경 패널: KMI 폼
- * (성명 / 아이디 / 이메일 / 생년월일 / 비밀번호 변경 / 연락처 / 주소 + 정보수정·회원탈퇴).
+ * 회원정보변경 패널.
+ *
+ * 필드 순서: 성명 / 아이디 / 생년월일 / 비밀번호·비밀번호 확인·비밀번호 변경 / 연락처 / 이메일.
+ * (주소·성별은 제공하지 않는다.) 이메일은 로그인 식별자라 읽기 전용으로 표시만 한다.
  *
  * 데이터 수명주기(로드/저장)는 use-user-profile-form 훅이 담당하고,
- * 이 컴포넌트는 상태 표현과 입력만 담당한다(SRP).
+ * 이 컴포넌트는 상태 표현과 입력만 담당한다(SRP). 회원탈퇴는 팝업 대신
+ * 이 탭 안에서 인라인 섹션(AccountWithdrawSection)으로 전환해 노출한다.
  */
 export function AccountPanel({
   email,
@@ -37,12 +42,22 @@ export function AccountPanel({
   onRelock: () => void;
 }) {
   const t = useTranslations("Mypage");
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // 회원정보 폼 ↔ 회원탈퇴 인라인 섹션 전환.
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  // 저장 성공 시 "수정되었습니다" 알림창.
+  const [savedAlertOpen, setSavedAlertOpen] = useState(false);
+  // 저장 상태가 success로 '바뀌는' 순간을 렌더 중 감지해 알림을 연다(effect 없이,
+  // React 공식 "렌더 중 상태 보정" 패턴 — mypage-view의 게이트 리셋과 동일).
+  const [prevSaveStatus, setPrevSaveStatus] = useState(saveState.status);
+  if (prevSaveStatus !== saveState.status) {
+    setPrevSaveStatus(saveState.status);
+    if (saveState.status === "success") setSavedAlertOpen(true);
+  }
 
   // ── 프로필 로드 상태별 얼리 리턴 ──
   if (profileState.status === "loading" || profileState.status === "idle") {
     return (
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="mx-auto w-[800px] max-w-full">
         <div
           className="rounded-md border border-line bg-slate-50 px-4 py-10 text-center text-sm font-semibold text-slate-600"
           aria-live="polite"
@@ -56,7 +71,7 @@ export function AccountPanel({
 
   if (profileState.status === "error") {
     return (
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="mx-auto w-[800px] max-w-full">
         <div
           className="rounded-md border border-error/30 bg-error/10 px-4 py-4 text-sm leading-6 text-error"
           role="alert"
@@ -68,14 +83,36 @@ export function AccountPanel({
     );
   }
 
+  // 회원탈퇴 인라인 섹션(폼 대체).
+  if (showWithdraw) {
+    return (
+      <AccountWithdrawSection
+        isPasswordProvider={isPasswordProvider}
+        onCancel={() => setShowWithdraw(false)}
+      />
+    );
+  }
+
   const { form } = profileState;
   const isSaving = saveState.status === "saving";
 
+  // 이메일은 로그인 식별자라 읽기 전용. VOC 문의 폼과 동일한 3칸(로컬 @ 도메인) 레이아웃으로 표시만 한다.
+  const [emailLocal, emailDomain] = email.includes("@")
+    ? [email.slice(0, email.indexOf("@")), email.slice(email.indexOf("@") + 1)]
+    : [email, ""];
+  const readonlyEmailBox =
+    "h-[56px] max-w-full cursor-not-allowed rounded-md border border-line bg-[#e4e4e4] px-4 text-[16px] text-slate-600";
+
   return (
-    <div className="mx-auto w-full max-w-2xl">
-      <p className="mb-3 text-right text-xs text-error">{t("accountRequired")}</p>
-      <section className="rounded-2xl border border-line bg-surface-2/40 p-6 sm:p-8">
-        <form className="flex flex-col gap-5" onSubmit={onSubmit} noValidate>
+    <div className="mx-auto w-[800px] max-w-full">
+      {/* 필수 안내: 검은 16px, 별표만 빨강 */}
+      <p className="mb-3 text-right text-[16px] text-slate-900">
+        <span className="text-error">*</span> {t("accountRequired")}
+      </p>
+
+      {/* 정보 박스: 800 폭, padding 60, 테두리 없이 옅은 회색 */}
+      <section className="rounded-2xl bg-surface-2 p-[60px]">
+        <form className="flex flex-col gap-6" onSubmit={onSubmit} noValidate>
           {/* 성명 */}
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor="account-name">{t("accountNameLabel")}</FieldLabel>
@@ -91,7 +128,7 @@ export function AccountPanel({
             />
           </div>
 
-          {/* 아이디(로그인 식별자) - 읽기 전용. 아이디 미설정 계정(레거시/미완성)은 행을 숨긴다. */}
+          {/* 아이디(로그인 식별자) - 읽기 전용. 미설정 계정(레거시)은 행을 숨긴다. */}
           {profileState.loginId ? (
             <div className="flex flex-col gap-2">
               <FieldLabel htmlFor="account-id" required>
@@ -105,45 +142,33 @@ export function AccountPanel({
                 disabled
                 className={READONLY_INPUT_CLASS}
               />
-              <p className="text-xs text-slate-500">{t("loginIdReadonlyHint")}</p>
             </div>
           ) : null}
 
-          {/* 이메일 - 읽기 전용 */}
-          <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor="account-email" required>
-              {t("accountEmailLabel")}
-            </FieldLabel>
-            <input
-              id="account-email"
-              type="email"
-              value={email}
-              readOnly
-              disabled
-              className={READONLY_INPUT_CLASS}
-            />
-            <p className="text-xs text-slate-500">{t("emailReadonlyHint")}</p>
-          </div>
-
-          {/* 생년월일 */}
+          {/* 생년월일 — 직접 입력(YYYY-MM-DD), 숫자 입력 시 자동 하이픈 */}
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor="account-birth">{t("birthDateLabel")}</FieldLabel>
             <input
               id="account-birth"
-              type="date"
+              type="text"
+              inputMode="numeric"
               value={form.birthDate}
-              onChange={(e) => onFieldChange("birthDate", e.target.value)}
+              onChange={(e) =>
+                onFieldChange("birthDate", formatBirthDate(e.target.value))
+              }
+              maxLength={10}
+              placeholder="YYYY-MM-DD"
               disabled={isSaving}
-              className={`${INPUT_CLASS} sm:w-[220px]`}
+              className={INPUT_CLASS}
             />
           </div>
 
-          {/* 비밀번호 변경 (비번 회원만, KMI: 현재 비번 없이 새 비번+확인) */}
+          {/* 비밀번호 · 비밀번호 확인 · 비밀번호 변경 (비번 회원만) */}
           {isPasswordProvider ? (
             <PasswordChangeInline onRelock={onRelock} disabled={isSaving} />
           ) : null}
 
-          {/* 연락처 */}
+          {/* 연락처 — 숫자 입력 시 자동 하이픈 */}
           <div className="flex flex-col gap-2">
             <FieldLabel htmlFor="account-phone">{t("phoneLabel")}</FieldLabel>
             <input
@@ -151,41 +176,69 @@ export function AccountPanel({
               type="tel"
               inputMode="numeric"
               value={form.phone}
-              onChange={(e) => onFieldChange("phone", e.target.value)}
-              maxLength={20}
+              onChange={(e) => onFieldChange("phone", formatPhone(e.target.value))}
+              maxLength={13}
               placeholder={t("phonePlaceholder")}
               disabled={isSaving}
               className={INPUT_CLASS}
             />
           </div>
 
-          {/* 주소 */}
+          {/* 이메일 — 읽기 전용(로그인 식별자). VOC 문의 폼과 동일한 3칸 레이아웃. */}
           <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor="account-address">{t("addressLabel")}</FieldLabel>
-            <input
-              id="account-address"
-              type="text"
-              value={form.address}
-              onChange={(e) => onFieldChange("address", e.target.value)}
-              maxLength={200}
-              placeholder={t("addressPlaceholder")}
-              disabled={isSaving}
-              className={INPUT_CLASS}
-            />
+            <FieldLabel htmlFor="account-email" required>
+              {t("accountEmailLabel")}
+            </FieldLabel>
+            <div className="flex items-center gap-2">
+              <input
+                id="account-email"
+                type="text"
+                value={emailLocal}
+                readOnly
+                disabled
+                aria-label={t("accountEmailLabel")}
+                className={`${readonlyEmailBox} w-[214.84px] flex-1`}
+              />
+              <span aria-hidden="true" className="text-[16px] text-slate-900">
+                @
+              </span>
+              <input
+                type="text"
+                value={emailDomain}
+                readOnly
+                disabled
+                aria-label={`${t("accountEmailLabel")} 도메인`}
+                className={`${readonlyEmailBox} w-[214.83px] flex-1`}
+              />
+              <div className="relative w-[212.75px] max-w-full shrink-0">
+                <select
+                  disabled
+                  value="direct"
+                  aria-label={`${t("accountEmailLabel")} 도메인 선택`}
+                  className={`${readonlyEmailBox} w-full appearance-none pr-10`}
+                >
+                  <option value="direct">직접입력</option>
+                </select>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+            </div>
           </div>
 
-          {/* 저장 결과: 성공/실패를 같은 자리에 모아 표시한다 */}
-          {saveState.status === "success" ? (
-            <div
-              className="rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm font-semibold text-success"
-              role="status"
-            >
-              {saveState.message}
-            </div>
-          ) : null}
+          {/* 저장 실패는 인라인으로 유지(성공은 알림창으로 안내). */}
           {saveState.status === "error" ? (
             <div
-              className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm leading-6 text-error"
+              className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-[16px] leading-6 text-error"
               role="alert"
             >
               <p className="font-bold">{t("profileSaveErrorTitle")}</p>
@@ -193,19 +246,20 @@ export function AccountPanel({
             </div>
           ) : null}
 
-          {/* 하단 버튼: 회원탈퇴 · 정보수정 */}
-          <div className="mt-2 flex justify-center gap-3">
+          {/* 하단 버튼: 회원탈퇴 · 정보수정 (각 160×60, 18px, radius 30).
+              위 간격 68px = 폼 gap-6(24px) + mt-[44px]. 회원탈퇴는 hover 시 네이비. */}
+          <div className="mt-[44px] flex justify-center gap-3">
             <button
               type="button"
-              onClick={() => setWithdrawOpen(true)}
-              className="inline-flex h-11 items-center justify-center rounded-md border border-line-strong bg-white px-6 text-sm font-semibold text-slate-700 transition hover:border-error/40 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              onClick={() => setShowWithdraw(true)}
+              className="inline-flex h-[60px] w-[160px] items-center justify-center rounded-[30px] border border-line-strong bg-white text-[18px] font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {t("withdrawButton")}
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex h-11 items-center justify-center rounded-md bg-accent px-6 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+              className="inline-flex h-[60px] w-[160px] items-center justify-center rounded-[30px] bg-accent text-[18px] font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {isSaving ? t("saving") : t("saveProfile")}
             </button>
@@ -213,10 +267,11 @@ export function AccountPanel({
         </form>
       </section>
 
-      {withdrawOpen ? (
-        <WithdrawModal
-          isPasswordProvider={isPasswordProvider}
-          onClose={() => setWithdrawOpen(false)}
+      {/* 저장 성공 알림창 */}
+      {savedAlertOpen ? (
+        <AlertModal
+          message={t("profileSavedAlert")}
+          onClose={() => setSavedAlertOpen(false)}
         />
       ) : null}
     </div>

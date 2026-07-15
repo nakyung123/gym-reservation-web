@@ -16,7 +16,7 @@ import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
 import type { Gym } from "@/types/domain";
 
 /**
- * 즐겨찾기 탭: 즐겨찾기한 시설을 KMI 보드 표로 보여준다. 없으면 빈 표.
+ * 즐겨찾기 탭: 즐겨찾기한 시설을 보드 표로 보여준다. 없으면 빈 표.
  * 즐겨찾기 로드 실패(loadError)는 표 위 alert 배너로 명시한다(No Silent Fallback).
  */
 export function FavoritesPanel({

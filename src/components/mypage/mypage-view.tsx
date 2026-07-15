@@ -8,8 +8,6 @@ import { useAuthUser } from "@/hooks/use-auth-user";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { useUserProfileForm } from "@/hooks/use-user-profile-form";
 import { useFavorites } from "@/hooks/use-favorites";
-import { resendEmailVerification } from "@/lib/firebase-email-auth";
-import { NoticeBanner } from "@/components/ui/notice-banner";
 import { MypageShell } from "./mypage-shell";
 import {
   LoadingPanel,
@@ -54,14 +52,8 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
     setGateUnlocked(false);
   }
 
-  // 이메일 인증 재전송 배너 상태
-  const [verificationNotice, setVerificationNotice] = useState<{
-    tone: "success" | "error";
-    message: string;
-  } | null>(null);
-  const [isResending, setIsResending] = useState(false);
-
-  // 파생값: 계정 요약(이메일·비번 회원 여부·미인증 배너 노출 여부). useState가 아닌 useMemo.
+  // 파생값: 계정 요약(이메일·비번 회원 여부). useState가 아닌 useMemo.
+  // (이메일 인증은 가입 시 매직링크로 이미 완료되므로 별도 미인증 배너를 두지 않는다.)
   const account = useMemo(() => {
     if (auth.status !== "ready") return null;
     const isPasswordProvider = auth.user.providerData.some(
@@ -70,27 +62,8 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
     return {
       email: auth.user.email ?? t("noEmail"),
       isPasswordProvider,
-      showVerificationBanner:
-        Boolean(auth.user.email) &&
-        !auth.user.emailVerified &&
-        isPasswordProvider,
     };
   }, [auth, t]);
-
-  const handleResendVerification = async () => {
-    setVerificationNotice(null);
-    setIsResending(true);
-    try {
-      const result = await resendEmailVerification();
-      setVerificationNotice(
-        result.ok
-          ? { tone: "success", message: t("resendSuccess") }
-          : { tone: "error", message: result.message },
-      );
-    } finally {
-      setIsResending(false);
-    }
-  };
 
   // ── 인증 상태별 얼리 리턴 ──
   if (auth.status === "loading") {
@@ -142,7 +115,7 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
           />
         );
       case "info":
-        // 비밀번호 회원은 본인 확인 게이트를 먼저 통과해야 한다(KMI 정책).
+        // 비밀번호 회원은 본인 확인 게이트를 먼저 통과해야 한다.
         if (account.isPasswordProvider && !gateUnlocked) {
           return <AccountGate onUnlock={() => setGateUnlocked(true)} />;
         }
@@ -162,30 +135,6 @@ export function MypageView({ gyms }: { gyms: Gym[] }) {
 
   return (
     <MypageShell>
-      {/* 이메일 미인증 배너(비번 회원 한정) + 재전송 버튼 */}
-      {account.showVerificationBanner ? (
-        <div
-          className="mb-5 flex flex-col gap-3 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning sm:flex-row sm:items-center sm:justify-between"
-          role="status"
-        >
-          <p className="font-semibold">{t("verificationBanner")}</p>
-          <button
-            type="button"
-            onClick={handleResendVerification}
-            disabled={isResending}
-            className="inline-flex h-9 w-fit shrink-0 items-center justify-center rounded-md border border-warning/50 bg-white px-3 text-xs font-semibold text-warning transition hover:border-warning hover:bg-warning/15 disabled:cursor-not-allowed disabled:border-warning/20 disabled:text-warning/50"
-          >
-            {isResending ? t("resending") : t("resendVerification")}
-          </button>
-        </div>
-      ) : null}
-
-      {verificationNotice ? (
-        <NoticeBanner tone={verificationNotice.tone} className="mb-5">
-          {verificationNotice.message}
-        </NoticeBanner>
-      ) : null}
-
       {/* 탭: 문의·FAQ 탭과 동일(grid 4등분, 비활성 muted, 활성 네이비 볼드+밑줄).
           하단 구분선은 양쪽 화면 끝까지(full-bleed) 깔고, 활성 탭 밑줄이 그 위에 얹힌다. */}
       <div className="relative isolate">

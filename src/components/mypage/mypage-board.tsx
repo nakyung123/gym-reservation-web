@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
 /**
- * 마이페이지 즐겨찾기·문의 탭이 공유하는 KMI식 게시판 표.
+ * 마이페이지 즐겨찾기·문의 탭이 공유하는 게시판 표.
  *  - 상단 굵은 라인 + 회색 헤더 행(번호/제목 등) + 행 hover.
- *  - 내역이 없으면 KMI VOC와 동일하게 ⚠ 아이콘 + 안내 문구를 가운데 표시한다.
+ *  - 내역이 없으면 ⚠ 아이콘 + 안내 문구를 가운데 표시한다.
  * 페이지네이션은 공용 BoardPagination을 부모에서 별도로 렌더한다(공지·FAQ와 공유).
  */
 export type BoardColumn = {
@@ -73,7 +73,7 @@ export function MypageBoard({
           ))}
         </colgroup>
         <thead>
-          {/* KMI VOC 실측: th bg #F8F8F8, near-black, 600 weight, 가운데. 높이·폰트는 prop. */}
+          {/* th bg #F8F8F8, near-black, 600 weight, 가운데. 높이·폰트는 prop. */}
           <tr className="border-b border-line bg-surface-2">
             {columns.map((column, index) => (
               <th

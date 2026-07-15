@@ -10,13 +10,12 @@ import {
 } from "@/components/mypage/mypage-board";
 import { BoardPagination } from "@/components/ui/board-pagination";
 import { ReservationQrModal } from "@/components/reservation/reservation-qr-modal";
-import { AlertModal } from "@/components/ui/alert-modal";
 import { reservationDisplayNumber } from "@/components/reservation/reservation-ticket";
 import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { reservationRepository } from "@/lib/reservation-repository-provider";
 import { usePagination } from "@/hooks/use-pagination";
 import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
-import { derivePeople, isQrTooEarly } from "./mypage-utils";
+import { derivePeople } from "./mypage-utils";
 import type { Gym, Reservation } from "@/types/domain";
 
 // 예약내역 표의 타원 버튼(예약 상세·QR 보기 공용). 기본 흰 배경, hover 시 네이비 채움. 117.92×40.
@@ -24,7 +23,7 @@ const RSV_PILL_CLASS =
   "inline-flex h-[40px] w-[117.92px] max-w-full items-center justify-center rounded-full border border-line-strong text-[14px] font-semibold text-foreground transition hover:border-accent hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
 
 /**
- * 예약내역 탭: KMI 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
+ * 예약내역 탭: 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
  * 예약 데이터는 reservationRepository 스냅샷을 구독해 표시한다.
  * 예약 취소는 예약 상세 페이지에서만 제공한다(목록 상태 칸은 텍스트만).
  */
@@ -61,15 +60,10 @@ export function ReservationsPanel({
   );
 
   // QR 보기 클릭 시 페이지 이동 없이 띄울 QR 체크인 팝업의 대상 예약.
+  // 시간 제한 없이 즉시 열고, 팝업이 10초 카운트다운 후 자동으로 닫힌다(입장 순간 노출).
   const [qrReservation, setQrReservation] = useState<Reservation | null>(null);
-  // 이용 30분 전 이전에 QR 보기를 누르면 팝업 대신 안내 알림창을 띄운다.
-  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   const handleQrClick = (reservation: Reservation) => {
-    if (isQrTooEarly(reservation)) {
-      setAlertMessage("예약 시간 30분 전부터 QR 코드를 확인할 수 있습니다.");
-      return;
-    }
     setQrReservation(reservation);
   };
 
@@ -161,12 +155,6 @@ export function ReservationsPanel({
           }
           people={derivePeople(gymsById.get(qrReservation.gymId), qrReservation)}
           onClose={() => setQrReservation(null)}
-        />
-      ) : null}
-      {alertMessage ? (
-        <AlertModal
-          message={alertMessage}
-          onClose={() => setAlertMessage(null)}
         />
       ) : null}
     </section>
