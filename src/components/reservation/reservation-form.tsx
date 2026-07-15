@@ -32,6 +32,7 @@ import {
 } from "@/lib/sport-capacity";
 import { createReservation } from "@/lib/reservation-service";
 import { parsePhone } from "@/lib/user-profile";
+import { formatPhone } from "@/lib/input-format";
 import { resolveReservationFormInitial } from "@/lib/reservation-form-initial";
 import {
   getReservationTimeState,
@@ -377,16 +378,18 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const reserveButtonLabel = isSubmitting
     ? t("processingShort")
     : t("reserveButton");
-  // 예약 버튼 비활성: 기존 차단 사유 + 약관 미동의 + 종목/날짜/결제수단 미선택 + 처리 중.
-  // 종목·날짜·결제수단 미선택은 별도 안내 텍스트 없이 버튼 비활성만으로 처리한다.
-  const reserveButtonDisabled =
-    Boolean(submitDisabledReason) ||
-    hasReservationNotice ||
-    !allAgreed ||
-    !selectedSport ||
-    !selectedDate ||
-    !paymentMethod ||
-    isSubmitting;
+  // 예약 버튼은 항상 활성화하고(처리 중 제외), 미완료 항목이 있으면 클릭 시 알림창으로 안내한다.
+  const reserveButtonDisabled = isSubmitting;
+
+  // 미완료 항목을 위에서부터 찾아 첫 안내 문구를 돌려준다(예약하기 클릭 시 알림창용).
+  function firstReserveInvalidMessage(): string | null {
+    if (!selectedSport) return t("sportConfirmAlert");
+    if (!selectedDate) return t("reserveSelectDateAlert");
+    if (submitDisabledReason) return submitDisabledReason;
+    if (!allAgreed) return t("reserveAgreeTermsAlert");
+    if (!paymentMethod) return t("paymentChoose");
+    return null;
+  }
 
   // 예약 신청하기 → 이 페이지에서 바로 예약 확정(생성). 포트폴리오용 데모라 실제 결제(PG)는 없다.
   // 성공 시 완료 화면으로 전환하고, 중복/마감/거절은 성공처럼 넘기지 않고 사유를 명시한다.
@@ -394,6 +397,13 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     if (isSubmitting) return;
     if (!authSession.ok) {
       setSubmitError(authSession.message);
+      return;
+    }
+    // 버튼은 항상 활성이므로, 미완료 항목이 있으면 알림창으로 안내하고 진행하지 않는다.
+    if (hasReservationNotice) return;
+    const invalidMessage = firstReserveInvalidMessage();
+    if (invalidMessage) {
+      setAlertMessage(invalidMessage);
       return;
     }
     if (!selectedSport || !selectedDate || !paymentMethod) {
@@ -569,13 +579,16 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     <button
                       type="button"
                       onClick={() => {
+                        const sportChanged = selectedSport !== sport;
                         setSelectedSport(sport);
-                        // 종목을 바꾸면 선택완료를 다시 눌러야 달력 조회 가능.
+                        // 종목을 바꾸면 선택완료를 다시 눌러야 달력 조회 가능(리듀서가 이후 단계도 초기화).
                         dispatchWizard({ type: "SELECT_SPORT" });
-                        // 종목 변경 시 새 정원을 넘는 인원은 정원으로 내린다.
-                        setPeople((prev) =>
-                          Math.min(prev, SPORT_MAX_PEOPLE[sport] ?? 1),
-                        );
+                        // 종목이 실제로 바뀌면 일자·인원·결제수단을 초기화해 다시 선택하게 한다.
+                        if (sportChanged) {
+                          setSelectedDate(null);
+                          setPeople(1);
+                          setPaymentMethod(null);
+                        }
                         resetNotice();
                       }}
                       aria-pressed={active}
@@ -748,12 +761,9 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     if (slotsFetchError) return slotsFetchError;
                     if (isClosed) return t("titleClosed");
                     if (isFull) return t("titleFull");
-                    if (slot)
-                      return t("titleSlot", {
-                        capacity: slot.capacity,
-                        remaining: slot.remaining,
-                      });
-                    return t("titleAvailable");
+                    // 예약 가능 슬롯은 hover 툴팁(정원 몇 팀 중 몇 팀)을 노출하지 않는다.
+                    // 정원/잔여 정보는 사용자에게 보이지 않게 하고 시각만 표시한다.
+                    return undefined;
                   })();
 
                   return (
@@ -934,20 +944,37 @@ export function ReservationForm({ gym }: ReservationFormProps) {
                     <dd>
                       <input
                         type="tel"
-                        inputMode="tel"
+                        inputMode="numeric"
                         value={phoneInput}
-                        onChange={(event) => setPhoneInput(event.target.value)}
+                        onChange={(event) =>
+                          setPhoneInput(formatPhone(event.target.value))
+                        }
+                        maxLength={13}
                         placeholder={t("phonePlaceholder")}
-                        className="h-11 w-full rounded-lg border border-slate-300 px-3 text-[16px] text-slate-900 transition focus:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        className="h-11 w-full rounded-lg border border-slate-300 px-3 text-[16px] text-slate-900 transition focus:border-accent focus:outline-none"
                       />
                     </dd>
                   </div>
                 </dl>
-                {/* 입력완료 → 약관 동의 단계로 진행(위 구분선 포함) */}
+                {/* 입력완료 → 약관 동의 단계로 진행(위 구분선 포함).
+                    연락처를 올바르게 입력하지 않으면 알림창으로 안내하고 다음 단계로 넘기지 않는다.
+                    (전화번호 검증 문구는 데이터성이라 국문을 유지한다.) */}
                 <StepConfirm
                   label={t("confirmInput")}
                   divider="full"
-                  onClick={() => dispatchWizard({ type: "CONFIRM_PROFILE" })}
+                  onClick={() => {
+                    const trimmedPhone = phoneInput.trim();
+                    if (trimmedPhone === "") {
+                      setAlertMessage("연락처를 입력해 주세요.");
+                      return;
+                    }
+                    const phoneParsed = parsePhone(trimmedPhone);
+                    if (!phoneParsed.ok) {
+                      setAlertMessage(phoneParsed.message);
+                      return;
+                    }
+                    dispatchWizard({ type: "CONFIRM_PROFILE" });
+                  }}
                 />
               </>
             )}

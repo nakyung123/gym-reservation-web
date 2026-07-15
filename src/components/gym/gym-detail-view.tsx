@@ -193,7 +193,7 @@ export function GymDetailView({
         <button
           type="button"
           onClick={handleReserve}
-          className="mx-auto block h-14 w-full max-w-[320px] rounded-full bg-accent text-[18px] font-bold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+          className="mx-auto block h-14 w-full max-w-[160px] rounded-full bg-accent text-[18px] font-bold text-white transition hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
         >
           예약하기
         </button>

@@ -83,7 +83,23 @@ export function wizardReducer(
 ): WizardState {
   switch (action.type) {
     case "SELECT_SPORT":
-      return { ...state, sportConfirmed: false };
+      // 종목을 바꾸면 이후 단계(달력 조회·일자·인원·정보·약관·결제)를 모두 초기화한다.
+      // 종목별 정원·가격·시간대가 달라지므로, 다시 종목 확정 → 달력 조회부터 진행하게 한다.
+      return {
+        ...state,
+        sportConfirmed: false,
+        calendarRevealed: false,
+        peopleConfirmed: false,
+        profileConfirmed: false,
+        openSections: {
+          ...state.openSections,
+          date: false,
+          people: false,
+          profile: false,
+          terms: false,
+          payment: false,
+        },
+      };
     case "SPORT_ERROR":
       return { ...state, sportError: true };
     case "CONFIRM_SPORT":

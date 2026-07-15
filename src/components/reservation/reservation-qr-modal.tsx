@@ -8,6 +8,9 @@ import type { Reservation } from "@/types/domain";
 
 // 이용 시간은 슬롯 길이 데이터가 없어 시작+1시간으로 고정 표기한다(사용자 확정값).
 const RESERVATION_DURATION_MS = 60 * 60 * 1000;
+// QR은 'QR 보기'를 누른 순간부터 이 초 동안만 노출되고, 다 되면 창이 자동으로 닫힌다.
+// (예약 시간 전부터 미리 여는 대신, 입장 순간에만 잠깐 띄워 오남용을 줄인다.)
+const ENTRY_WINDOW_SECONDS = 10;
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 function pad(value: number) {
@@ -20,15 +23,6 @@ function formatDateTime(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
     date.getDate(),
   )} (${weekday}) ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-// 남은 시간(이용 시작까지)을 H:MM:SS로. 시작이 지났으면 0:00:00.
-function formatCountdown(remainingMs: number) {
-  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours}:${pad(minutes)}:${pad(seconds)}`;
 }
 
 type ReservationQrModalProps = {
@@ -46,7 +40,8 @@ export function ReservationQrModal({
   onClose,
 }: ReservationQrModalProps) {
   const [name, setName] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  // 입장 노출 카운트다운(10초 → 0). 0이 되면 창을 자동으로 닫는다.
+  const [secondsLeft, setSecondsLeft] = useState(ENTRY_WINDOW_SECONDS);
 
   // 이용 시작 시각(로컬). reservation.time은 "HH:MM" 형식.
   const startDate = new Date(`${reservation.date}T${reservation.time}:00`);
@@ -74,11 +69,26 @@ export function ReservationQrModal({
     };
   }, []);
 
-  // 남은 시간 초단위 갱신.
+  // 1초마다 카운트다운. 0에 도달하면 인터벌을 멈춘다(닫기는 아래 별도 effect).
   useEffect(() => {
-    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    const timer = window.setInterval(() => {
+      setSecondsLeft((prev) => {
+        if (prev <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // 카운트다운이 끝나면(0초) 창을 자동으로 닫는다. 다시 보려면 'QR 보기'를 재클릭.
+  useEffect(() => {
+    if (secondsLeft === 0) {
+      onClose();
+    }
+  }, [secondsLeft, onClose]);
 
   // Esc로 닫기.
   useEffect(() => {
@@ -90,10 +100,6 @@ export function ReservationQrModal({
   }, [onClose]);
 
   const entryCode = getReservationEntryCode(reservation);
-  const remainingMs = startMs - nowMs;
-  // 이용 시작 시각이 지나면(남은 시간 0) 만료된 코드로 본다(사용자 확정).
-  const isExpired = isValidStart && remainingMs <= 0;
-  const countdown = isValidStart ? formatCountdown(remainingMs) : "—";
 
   return (
     <div
@@ -147,40 +153,21 @@ export function ReservationQrModal({
                 value={entryCode}
                 level="M"
                 size={185}
-                className={`h-auto w-full max-w-[185px] ${isExpired ? "opacity-30" : ""}`}
+                className="h-auto w-full max-w-[185px]"
                 role="img"
                 aria-label="입장 QR 코드"
               />
-              {isExpired ? (
-                <p className="text-center text-[18px] font-semibold text-error">
-                  시간이 지나 만료된 코드입니다.
-                </p>
-              ) : (
-                <div className="flex items-center gap-2 text-[18px] text-slate-500">
-                  <svg viewBox="0 0 20 20" className="h-5 w-5" aria-hidden="true">
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="7.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M10 6v4l2.5 2"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <span>남은 시간</span>
-                  <span className="font-mono text-[18px] font-bold tabular-nums text-accent-strong">
-                    {countdown}
-                  </span>
-                </div>
-              )}
+              {/* 입장 안내 + 남은 노출 시간(초). 0초가 되면 창이 자동으로 닫힌다. */}
+              <div
+                className="flex items-center gap-2 text-[18px] text-slate-500"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="font-semibold text-slate-700">입장해주세요</span>
+                <span className="font-mono text-[18px] font-bold tabular-nums text-accent-strong">
+                  {secondsLeft}초
+                </span>
+              </div>
             </div>
           </div>
 
