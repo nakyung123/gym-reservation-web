@@ -7,7 +7,7 @@ import { VOC_CATEGORY_LABELS } from "@/lib/domain-constants";
 import type { Gym, VocPost } from "@/types/domain";
 
 // 공개 문의 게시판 상세: 글별 임시 비밀번호를 입력해 인증해야 본문을 볼 수 있다.
-// 인증 성공 시 센터/분류/문의(본문)를 표 형태로 보여준다(KMI 고객의 소리 상세).
+// 인증 성공 시 센터/분류/문의(본문)를 표 형태로 보여준다(고객의 소리 상세).
 
 type State =
   | { kind: "gate" }

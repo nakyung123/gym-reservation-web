@@ -12,8 +12,8 @@ import { USER_CANCEL_CUTOFF_MINUTES } from "@/lib/reservation-rules";
 // - 가입 약관 2건(만14세/이용약관): signup-terms-step.tsx TERMS
 // - 예약 제한 사유: reservation-rules.ts reservationRuleMessages
 // - 취소(변경 기능 없음, 취소만): reservations [reservationId] route.ts DELETE
-// - QR 체크인(이용 30분 전부터): mypage-view.tsx isQrTooEarly + reservation-qr-modal.tsx
-// - 고객센터 1599-0000 / 평일 09:00–18:00: site-footer.tsx (데모 번호)
+// - QR 체크인('QR 보기' 클릭 시 10초간 노출 후 자동 종료): reservation-qr-modal.tsx
+// - 고객센터 / 평일 09:00–18:00: site-footer.tsx (데모 번호)
 
 const CANCEL_CUTOFF_HOURS = USER_CANCEL_CUTOFF_MINUTES / 60;
 
@@ -73,7 +73,7 @@ export const FAQ_KNOWLEDGE: FaqCategory[] = [
     entries: [
       {
         q: "현장에서 어떻게 입장하나요?",
-        a: "마이페이지 예약 내역의 'QR코드' 버튼으로 QR 체크인 화면을 열 수 있습니다. QR 코드는 예약 시간 30분 전부터 확인할 수 있으며, 방문 시 이 QR 코드로 체크인합니다.",
+        a: "마이페이지 예약 내역의 'QR코드' 버튼을 누르면 QR 체크인 화면이 열립니다. QR 코드는 약 10초 동안 표시된 뒤 자동으로 닫히며, 다시 보려면 'QR 보기'를 다시 눌러 주세요. 방문 시 이 QR 코드로 체크인합니다.",
       },
     ],
   },
@@ -100,7 +100,7 @@ export const FAQ_KNOWLEDGE: FaqCategory[] = [
     entries: [
       {
         q: "문의는 어디로 하나요?",
-        a: "고객센터 1599-0000(평일 09:00–18:00, 주말·공휴일 휴무)으로 문의해 주세요.",
+        a: "고객센터 1234-5678(평일 09:00–18:00, 주말·공휴일 휴무)으로 문의해 주세요.",
       },
     ],
   },

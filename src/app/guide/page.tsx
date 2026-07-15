@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 // 이용 방법 = "현장에서 이렇게 이용합니다"를 보여주는 4단계 안내.
-//   KMI 'KMI 특별함'(INTDS/SPECIAL)의 01~04 교차 블록을 실측해 그대로 옮긴다:
+//   01~04 교차 블록 레이아웃:
 //   이미지 박스 3:2(599×419)·radius 20, 좌우 ~50/50, 01 이미지 좌측 시작으로 블록마다 교차,
 //   번호 라벨(18/700·accent) + 굵은 제목 + 설명. 색만 우리 네이비 토큰.
 // 이미지 자리는 단계별 실제 일러스트(public/guide/step{n}.jpg)를 쓴다.
@@ -63,7 +63,7 @@ export default async function GuidePage() {
           {t("intro")}
         </p>
 
-        {/* 01~04 교차 블록 (KMI 특별함 실측: 3:2 radius20, ~50/50, 좌우 교차) */}
+        {/* 01~04 교차 블록 (3:2 radius20, ~50/50, 좌우 교차) */}
         <ol className="mt-14 space-y-16 sm:mt-20 sm:space-y-24">
           {STEPS.map((step, index) => {
             const imageLeft = index % 2 === 0; // 01 이미지 좌측 시작 → 블록마다 교차

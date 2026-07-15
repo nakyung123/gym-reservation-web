@@ -93,6 +93,22 @@ a {
   text-decoration: none;
 }
 
+/* 브라우저 자동완성 배경(연한 파랑/노랑) 제거. 자동완성으로 채워져도 칸 색을
+   흰 배경·본문 글자색으로 유지해 다른 입력칸과 일관되게 보이도록 한다(SSOT: 여기서 한 번에).
+   inset box-shadow로 실제 배경을 덮고, transition 지연으로 배경색 재적용을 막는다. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--foreground);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+  caret-color: var(--foreground);
+  transition: background-color 100000s ease-in-out 0s;
+}
+
 /* Tailwind v4 preflight는 버튼 커서를 default로 바꾼다. 비활성이 아닌
    클릭 가능한 컨트롤은 포인터로 표시한다(SSOT: 여기서 한 번에). */
 button:not(:disabled),

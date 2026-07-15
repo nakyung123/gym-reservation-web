@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   description: "서울체육예약 서비스의 공지·점검·안내 사항을 확인하세요.",
 };
 
-// KMI 'KMI 소식' 게시판을 우리 톤으로 옮긴 공지 목록.
+// 공지 목록 게시판.
 //  - 상단: 우리식 심플 헤더(breadcrumb + h1 + 설명) + 공용 검색바(SearchBar, FAQ와 공유).
 //  - 게시판: 주요공지(pinned)를 상단에 배경색으로 구분해 고정, 일반 공지는 최신순 순번 부여.
 //  - 컬럼: [번호/주요공지] · 제목 · 작성자 · 등록일. 페이지네이션은 공용 BoardPagination(FAQ와 공유).
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 const PER_PAGE = 10;
 
-// 발행일 표기: KMI와 동일하게 점 구분(YYYY.MM.DD).
+// 발행일 표기: 점 구분(YYYY.MM.DD).
 function formatDate(iso: string): string {
   return iso.replaceAll("-", ".");
 }
@@ -144,7 +144,7 @@ export default async function NoticePage({
               <col className="hidden sm:table-column sm:w-[150px]" />
               <col className="w-[92px] sm:w-[140px]" />
             </colgroup>
-            {/* 화면엔 안 보이지만 스크린리더용 컬럼 헤더(KMI도 헤더 행 없음) */}
+            {/* 화면엔 안 보이지만 스크린리더용 컬럼 헤더(화면엔 헤더 행 없음) */}
             <thead className="sr-only">
               <tr>
                 <th scope="col">번호</th>
@@ -204,7 +204,7 @@ export default async function NoticePage({
   );
 }
 
-// 게시판 한 행. KMI td 실측(padding 좌12/우36, 행높이, 제목 18·작성자/날짜 16, 가운데 정렬).
+// 게시판 한 행. td 실측(padding 좌12/우36, 행높이, 제목 18·작성자/날짜 16, 가운데 정렬).
 function NoticeRow({
   notice,
   author,

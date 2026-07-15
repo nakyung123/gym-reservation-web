@@ -176,29 +176,26 @@ export function FaqChatWidget() {
             <p className="text-[14px] leading-relaxed text-muted">
               {t("chatGreeting")}
             </p>
-            <ul className="space-y-2">
-              {EXAMPLE_QUESTIONS.map((question) => (
-                <li key={question}>
-                  <button
-                    type="button"
-                    onClick={() => askExample(question)}
-                    className="w-full rounded-lg border border-line bg-white px-3 py-2 text-left text-[14px] text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    {question}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <ExampleQuestionList onPick={askExample} disabled={streaming} />
           </div>
         ) : (
-          messages.map((message) => (
-            <ChatBubble
-              key={message.id}
-              role={message.role}
-              content={message.content}
-              streaming={streaming}
-            />
-          ))
+          <>
+            {messages.map((message) => (
+              <ChatBubble
+                key={message.id}
+                role={message.role}
+                content={message.content}
+                streaming={streaming}
+              />
+            ))}
+            {/* 답변이 끝나면(스트리밍 아님) 처음 메뉴를 다시 띄워 다음 질문을 바로 고르게 한다. */}
+            {!streaming ? (
+              <div className="space-y-2 pt-1">
+                <p className="text-[13px] text-muted">{t("chatMoreQuestions")}</p>
+                <ExampleQuestionList onPick={askExample} disabled={streaming} />
+              </div>
+            ) : null}
+          </>
         )}
         <div ref={logEndRef} />
       </div>
@@ -236,6 +233,32 @@ export function FaqChatWidget() {
         </Button>
       </form>
     </div>
+  );
+}
+
+// 예시 질문 목록(빈 화면 + 답변 후 재노출 공용). 클릭하면 바로 그 질문을 보낸다.
+function ExampleQuestionList({
+  onPick,
+  disabled,
+}: {
+  onPick: (question: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <ul className="space-y-2">
+      {EXAMPLE_QUESTIONS.map((question) => (
+        <li key={question}>
+          <button
+            type="button"
+            onClick={() => onPick(question)}
+            disabled={disabled}
+            className="w-full rounded-lg border border-line bg-white px-3 py-2 text-left text-[14px] text-foreground transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {question}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

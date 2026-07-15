@@ -8,8 +8,8 @@ import { FAQ_KNOWLEDGE } from "@/lib/server/faq-knowledge";
 import { listVocPosts } from "@/lib/server/db-voc-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
-// 문의·FAQ = FAQ 지식 SSOT(faq-knowledge.ts)를 KMI FAQ(INFO/FAQ)처럼 보여준다.
-//  - 상단 카테고리 탭(가입·계정/예약·취소/결제·환불/문의) — KMI 탭 톤(활성 네이비 밑줄).
+// 문의·FAQ = FAQ 지식 SSOT(faq-knowledge.ts)를 아코디언 FAQ로 보여준다.
+//  - 상단 카테고리 탭(가입·계정/예약·취소/결제·환불/문의) — 활성 네이비 밑줄.
 //  - 검색바: 공용 SearchBar([전체/제목/내용] 드롭다운 + 키워드). 활성 탭은 hidden cat으로 보존.
 //  - 본문: Q 배지 아코디언(질문 22px, 펼치면 A + 답변, 배경 accent-tint). 토글은 JS 없이 <details>.
 //  - 페이지네이션은 공용 BoardPagination(공지와 공유). 필터/페이지는 URL 쿼리(?cat=&field=&q=&page=).
@@ -163,7 +163,7 @@ export default async function FaqPage({
       </h1>
       <p className="mt-2 text-[15px] leading-relaxed text-muted">{t("intro")}</p>
 
-      {/* 카테고리 탭 (KMI: 활성 네이비 + 밑줄). 하단 구분선은 양쪽 화면 끝까지(full-bleed). */}
+      {/* 카테고리 탭 (활성 네이비 + 밑줄). 하단 구분선은 양쪽 화면 끝까지(full-bleed). */}
       <div className="relative isolate mt-8">
         <nav
           aria-label={t("title")}
@@ -222,7 +222,7 @@ export default async function FaqPage({
         />
       </div>
 
-      {/* 아코디언 (KMI: Q 배지 + 질문 22px, 펼치면 A + 답변) */}
+      {/* 아코디언 (Q 배지 + 질문 22px, 펼치면 A + 답변) */}
       <div className="mt-[60px] border-t border-foreground">
         {pageItems.length === 0 ? (
           <p className="pt-[50px] pb-20 text-center text-[15px] text-foreground">

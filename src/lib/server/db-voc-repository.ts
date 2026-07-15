@@ -9,7 +9,7 @@ import type { VocPost } from "@/types/domain";
 // 공개 문의 게시판(고객의 소리) 저장소. 목록/상세 공개 응답은 마스킹된 성명만 노출하고
 // 연락처/이메일/비밀번호 해시는 절대 반환하지 않는다. 본문은 비밀번호 인증 후에만 채운다.
 
-// 마이페이지 목록·KMI와 동일하게 페이지당 10개.
+// 마이페이지 목록과 동일하게 페이지당 10개.
 export const VOC_PAGE_SIZE = 10;
 
 type VocPostRow = Prisma.VocPostGetPayload<Prisma.VocPostDefaultArgs>;
@@ -65,7 +65,7 @@ export async function createVocPost(
       authorName: input.authorName,
       phone: input.phone,
       email: input.email,
-      // 제목은 별도로 받지 않고 분류 라벨을 저장한다(KMI 고객의 소리와 동일: 목록 제목=분류).
+      // 제목은 별도로 받지 않고 분류 라벨을 저장한다(고객의 소리와 동일: 목록 제목=분류).
       title: VOC_CATEGORY_LABELS[input.category],
       body: input.body,
       passwordHash: hashVocPassword(input.password),

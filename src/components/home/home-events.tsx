@@ -6,11 +6,11 @@ import { type TransitionEvent, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { listNotices } from "@/lib/notices";
 
-// 홈 "전국 스포츠 행사·대회" 영역 — KMI 메인 'KMI 소식' 섹션을 실측값 그대로 재현.
+// 홈 "전국 스포츠 행사·대회" 영역.
 // 우리 페이지에 맞춘 건 컬러 + 좌우 여백(검색바·예약흐름과 같은 컨테이너 그리드에 정렬).
 //   사이트 표준 컨테이너(max-w-1440 + px-5/px-8) 안에서 좌패널 42% + 우측 카드 flex(3개 노출).
 //   → 패널 좌측은 검색바/예약흐름 좌측선과, 카드 우측은 그 우측선과 정렬된다.
-// KMI 실측: 패널 padding 100·radius 0/40/40/0 / 탭 h68·구분선 1px흰28%·활성 흰원+우화살표
+// 실측: 패널 padding 100·radius 0/40/40/0 / 탭 h68·구분선 1px흰28%·활성 흰원+우화살표
 //   이미지 카드: 245x339(이미지 139 + 본문 200, padding 20·24) / 배지 #d3e1fb·14/500
 //     제목 22/600 line33 #1d1d1d / 날짜 14 #555
 //   공지사항 카드: 이미지 없이 245x360, 본문 padding 30·20·20 + 자세히보기 푸터

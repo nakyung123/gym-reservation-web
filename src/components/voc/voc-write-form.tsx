@@ -8,7 +8,7 @@ import { formatPhone } from "@/lib/input-format";
 import { VOC_CATEGORIES, VOC_CATEGORY_LABELS } from "@/lib/domain-constants";
 import type { Gym, VocCategory } from "@/types/domain";
 
-// 공개 문의 게시판 글쓰기 폼(KMI 고객의 소리 글쓰기 화면 기반). 로그인 없이 익명 작성.
+// 공개 문의 게시판 글쓰기 폼(고객의 소리 글쓰기 화면). 로그인 없이 익명 작성.
 // 리치 에디터는 범위상 큰 textarea로 대체한다. 제목은 별도로 받지 않고 분류를 제목으로 쓴다.
 // 셀렉트(카테고리·체육관·이메일 도메인)는 시설 찾기 검색바와 동일한 SelectMenu로 통일한다.
 
@@ -117,6 +117,7 @@ export function VocWriteForm({ gyms }: { gyms: Gym[] }) {
           <input
             id="voc-name"
             type="text"
+            autoComplete="off"
             value={authorName}
             onChange={(e) => setAuthorName(e.target.value)}
             maxLength={50}
@@ -152,6 +153,7 @@ export function VocWriteForm({ gyms }: { gyms: Gym[] }) {
             id="voc-phone"
             type="tel"
             inputMode="numeric"
+            autoComplete="off"
             value={phone}
             onChange={(e) => setPhone(formatPhone(e.target.value))}
             maxLength={13}
@@ -167,6 +169,7 @@ export function VocWriteForm({ gyms }: { gyms: Gym[] }) {
           <div className="flex items-center gap-2">
             <input
               type="text"
+              autoComplete="off"
               value={emailLocal}
               onChange={(e) => setEmailLocal(e.target.value)}
               placeholder="abcd"
@@ -177,13 +180,16 @@ export function VocWriteForm({ gyms }: { gyms: Gym[] }) {
             <span aria-hidden="true" className="text-[16px] text-slate-900">
               @
             </span>
+            {/* 도메인은 프리셋에서 골라도 잠그지 않고 직접 수정할 수 있게 둔다.
+                autoComplete=off로 브라우저가 아이디를 도메인 칸에 자동 채우는 것도 막는다. */}
             <input
               type="text"
+              autoComplete="off"
               value={emailDomain}
               onChange={(e) => setEmailDomain(e.target.value)}
               placeholder="naver.com"
               aria-label="이메일 도메인"
-              disabled={disabled || domainSelect !== "direct"}
+              disabled={disabled}
               className={`${FIELD_CLASS} w-[209.59px] max-w-full flex-1`}
             />
             <div className="w-[215px] max-w-full shrink-0">
@@ -235,6 +241,7 @@ export function VocWriteForm({ gyms }: { gyms: Gym[] }) {
           id="voc-password"
           type="password"
           inputMode="numeric"
+          autoComplete="new-password"
           value={password}
           onChange={(e) =>
             setPassword(e.target.value.replace(/\D/g, "").slice(0, 4))

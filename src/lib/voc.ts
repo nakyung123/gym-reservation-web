@@ -6,14 +6,14 @@ import type { VocCategory, VocPost } from "@/types/domain";
 
 export const VOC_BODY_MAX = 5000;
 export const VOC_NAME_MAX = 50;
-// 임시 비밀번호는 KMI와 동일하게 숫자 4자리.
+// 임시 비밀번호는 숫자 4자리.
 export const VOC_PASSWORD_PATTERN = /^\d{4}$/;
 
 // 같은 성명+분류+본문을 이 시간(ms) 내 재전송하면 기존 글을 반환한다(익명 게시판 중복 생성 방지).
 // 익명이라 uid가 없으므로 inquiry(INQUIRY_DEDUP_WINDOW_MS, title+body 키)와 달리 성명을 키에 포함한다.
 export const VOC_DEDUP_WINDOW_MS = 60_000;
 
-// 제목 필드는 별도로 받지 않는다(KMI 고객의 소리와 동일). 목록 제목은 분류 라벨을 쓴다.
+// 제목 필드는 별도로 받지 않는다. 목록 제목은 분류 라벨을 쓴다.
 export type VocInput = {
   category: unknown;
   gymId?: unknown;

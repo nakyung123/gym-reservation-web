@@ -14,11 +14,11 @@ type Params = { params: Promise<{ id: string }> };
 // 목록 행 Link는 prefetch={false}라 프리페치로 인한 중복 증가가 없다.
 export const dynamic = "force-dynamic";
 
-// KMI 공지 상세(원문)를 실측대로 옮긴 PC 우선 레이아웃.
+// 공지 상세 PC 우선 레이아웃.
 // 실측: 제목 36px/700 mb32 / header pb36 border-b mb40 / 메타 16px #555 '날짜 | 조회'
 //   본문 18px line-height1.8 / post-nav border-t flex space-between(이전 글 좌·다음 글 우)
 //   목록 버튼 160x60 radius30 네이비 18px 가운데. breadcrumb 없음, 컨테이너는 사이트 표준 폭.
-// 색만 우리 토큰(네이비=accent)으로. 작성자(서울체육예약)는 유지하되 KMI식 파이프 메타에 포함.
+// 색만 우리 토큰(네이비=accent)으로. 작성자(서울체육예약)는 파이프 메타에 포함.
 
 // 발행일 표기: 목록과 동일하게 점 구분(YYYY.MM.DD).
 function formatDate(iso: string): string {
@@ -64,7 +64,7 @@ export default async function NoticeDetailPage({ params }: Params) {
 
   return (
     <main className="mx-auto w-full max-w-[1440px] px-5 py-12 sm:px-8 sm:py-16">
-      {/* 제목 + 메타 (KMI page-header: pb36 + 하단 구분선 + mb40) */}
+      {/* 제목 + 메타 (page-header: pb36 + 하단 구분선 + mb40) */}
       <header className="border-b border-line pb-8 sm:pb-9">
         <h1 className="text-[26px] font-bold leading-snug text-[#1d1d1d] sm:text-[36px]">
           {notice.title}
@@ -87,7 +87,7 @@ export default async function NoticeDetailPage({ params }: Params) {
         </div>
       </header>
 
-      {/* 본문 (KMI: 18px / line-height 1.8) */}
+      {/* 본문 (18px / line-height 1.8) */}
       <div className="mt-10 space-y-6 text-[16px] leading-[1.8] text-[#1d1d1d] sm:text-[18px]">
         {notice.body.split("\n\n").map((paragraph, index) => (
           <p key={index} className="whitespace-pre-line">
@@ -96,7 +96,7 @@ export default async function NoticeDetailPage({ params }: Params) {
         ))}
       </div>
 
-      {/* 이전/다음 글 (KMI post-nav: border-top + flex space-between) */}
+      {/* 이전/다음 글 (post-nav: border-top + flex space-between) */}
       <nav
         aria-label={`${t("prev")} / ${t("next")}`}
         className="mt-12 border-y border-line sm:mt-16"
@@ -117,7 +117,7 @@ export default async function NoticeDetailPage({ params }: Params) {
         </div>
       </nav>
 
-      {/* 목록 버튼 (KMI btn lg fill primary: 160x60 radius30 네이비 가운데) */}
+      {/* 목록 버튼 (btn lg fill primary: 160x60 radius30 네이비 가운데) */}
       <div className="mt-8 flex justify-center sm:mt-10">
         <Link
           href="/notice"
@@ -130,7 +130,7 @@ export default async function NoticeDetailPage({ params }: Params) {
   );
 }
 
-// 이전/다음 글 한 칸. KMI식: 이전 글 = [← 이전 글 제목](좌), 다음 글 = [제목 다음 글 →](우).
+// 이전/다음 글 한 칸. 이전 글 = [← 이전 글 제목](좌), 다음 글 = [제목 다음 글 →](우).
 function PostNavItem({
   side,
   label,
