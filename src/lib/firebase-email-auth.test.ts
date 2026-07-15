@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   getFirebaseClient,
   isSignInWithEmailLink,
-  sendEmailVerification,
   sendPasswordResetEmail,
   sendSignInLinkToEmail,
   signInWithEmailAndPassword,
@@ -14,7 +13,6 @@ const {
 } = vi.hoisted(() => ({
   getFirebaseClient: vi.fn(),
   isSignInWithEmailLink: vi.fn(),
-  sendEmailVerification: vi.fn(),
   sendPasswordResetEmail: vi.fn(),
   sendSignInLinkToEmail: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
@@ -28,7 +26,6 @@ vi.mock("@/lib/firebase-client", () => ({
 
 vi.mock("firebase/auth", () => ({
   isSignInWithEmailLink,
-  sendEmailVerification,
   sendPasswordResetEmail,
   sendSignInLinkToEmail,
   signInWithEmailAndPassword,
@@ -39,7 +36,6 @@ vi.mock("firebase/auth", () => ({
 import {
   completeSignupEmailLink,
   getStoredSignupEmail,
-  resendEmailVerification,
   sendPasswordReset,
   sendSignupEmailLink,
   setSignupPassword,
@@ -58,7 +54,6 @@ describe("firebase email auth helpers", () => {
   beforeEach(() => {
     getFirebaseClient.mockReset();
     isSignInWithEmailLink.mockReset();
-    sendEmailVerification.mockReset();
     sendPasswordResetEmail.mockReset();
     sendSignInLinkToEmail.mockReset();
     signInWithEmailAndPassword.mockReset();
@@ -256,34 +251,6 @@ describe("firebase email auth helpers", () => {
     expect(result).toEqual({
       ok: false,
       message: "비밀번호 재설정 이메일을 보내지 못했습니다.",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.message).not.toContain("Firebase raw");
-    }
-  });
-
-  it("resend verification requires a current user", async () => {
-    await expect(resendEmailVerification()).resolves.toEqual({
-      ok: false,
-      message: "로그인 후 이메일 인증을 재전송할 수 있습니다.",
-    });
-    expect(sendEmailVerification).not.toHaveBeenCalled();
-  });
-
-  it("resend verification unknown Firebase errors do not expose the raw error message", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const user = { uid: "email-verification-user" };
-    getFirebaseClient.mockReturnValue({ auth: { currentUser: user } });
-    sendEmailVerification.mockRejectedValue(
-      makeAuthError("auth/internal-error", "Firebase raw verification error"),
-    );
-
-    const result = await resendEmailVerification();
-
-    expect(result).toEqual({
-      ok: false,
-      message: "이메일 인증 메일을 다시 보내지 못했습니다.",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {

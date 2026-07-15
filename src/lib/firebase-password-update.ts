@@ -51,7 +51,7 @@ export async function reauthenticateMyPassword(
 }
 
 // 게이트(reauthenticateMyPassword)에서 이미 본인 확인을 마친 직후, 현재 비밀번호를
-// 다시 받지 않고 새 비밀번호로 바로 갱신한다. KMI 회원정보변경 폼(현재 비번 입력 없이
+// 다시 받지 않고 새 비밀번호로 바로 갱신한다. 회원정보변경 폼(현재 비번 입력 없이
 // 새 비번+확인)과 동일한 UX. 재인증 시한이 지나 updatePassword가 requires-recent-login을
 // 던지면 mapError가 그 사유로 매핑하므로, 호출 측에서 게이트를 다시 잠그면 된다.
 export async function updateMyPasswordDirect(

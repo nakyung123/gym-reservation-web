@@ -473,35 +473,36 @@ export function SignupInfoForm({
               className={`${INPUT_CLASS} flex-1`}
             />
           </div>
-          <div className="mt-2 flex gap-2">
-            {/* 도메인 선택: 네이티브 화살표 대신 앱 공통 톤의 커스텀 셰브론 사용(일관성) */}
-            <div className="relative flex-1">
-              <select
-                value={domainPreset}
-                onChange={(e) => handleDomainPresetChange(e.target.value)}
-                disabled={emailLocked}
-                className={`${INPUT_CLASS} w-full appearance-none pr-10`}
-              >
-                {DOMAIN_PRESETS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#252525]"
-              >
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-            {!emailLocked ? (
+          {/* 이메일 잠금 상태(본인 인증 완료·소셜)에서는 도메인 프리셋/중복확인을 숨긴다.
+              이미 확정된 주소라 직접입력·도메인 선택이 의미가 없다. */}
+          {!emailLocked ? (
+            <div className="mt-2 flex gap-2">
+              {/* 도메인 선택: 네이티브 화살표 대신 앱 공통 톤의 커스텀 셰브론 사용(일관성) */}
+              <div className="relative flex-1">
+                <select
+                  value={domainPreset}
+                  onChange={(e) => handleDomainPresetChange(e.target.value)}
+                  className={`${INPUT_CLASS} w-full appearance-none pr-10`}
+                >
+                  {DOMAIN_PRESETS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#252525]"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
               <button
                 type="button"
                 onClick={handleCheckEmail}
@@ -510,14 +511,11 @@ export function SignupInfoForm({
               >
                 {emailCheck.state.status === "checking" ? "확인 중" : "중복 확인"}
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           {emailLocked ? (
-            <Hint tone="muted">
-              {mode === "social"
-                ? "소셜 계정에서 가져온 이메일입니다."
-                : "인증을 완료한 이메일입니다."}
-            </Hint>
+            // 잠금 상태(본인 인증 완료·소셜)에서는 이메일 아래 안내 문구를 두지 않는다.
+            null
           ) : emailCheck.state.status === "available" ? (
             <Hint tone="ok">사용할 수 있는 이메일입니다.</Hint>
           ) : emailCheck.state.status === "taken" ? (

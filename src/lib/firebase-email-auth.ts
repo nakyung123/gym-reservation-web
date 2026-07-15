@@ -1,6 +1,5 @@
 import {
   isSignInWithEmailLink,
-  sendEmailVerification,
   sendPasswordResetEmail,
   sendSignInLinkToEmail,
   signInWithEmailAndPassword,
@@ -29,10 +28,6 @@ export type SignInFailureReason =
   | "other";
 
 export type SendPasswordResetResult = { ok: true } | { ok: false; message: string };
-
-export type SendEmailVerificationResult =
-  | { ok: true }
-  | { ok: false; message: string };
 
 export type SendSignupEmailLinkResult =
   | { ok: true }
@@ -77,8 +72,6 @@ const WEAK_PASSWORD_MESSAGE =
   "비밀번호가 약합니다. 8자 이상이며 영문 소문자·숫자·특수문자를 포함해 주세요.";
 const GENERIC_PASSWORD_RESET_ERROR =
   "비밀번호 재설정 이메일을 보내지 못했습니다.";
-const GENERIC_EMAIL_VERIFICATION_ERROR =
-  "이메일 인증 메일을 다시 보내지 못했습니다.";
 
 // 가입 전 인증: 입력한 이메일로 로그인 링크를 발송한다. 성공 시 이메일을 localStorage에
 // 보관해 링크 복귀 시 재입력 없이 검증한다(저장 실패는 다른 기기 복귀와 같은 경로로 처리).
@@ -189,21 +182,6 @@ export async function sendPasswordReset(
     // email enumeration 방어를 위해 generic 메시지로 응답을 통일하는 건 호출자가 결정.
     console.warn("[email reset] sendPasswordResetEmail failed");
     return { ok: false, message: GENERIC_PASSWORD_RESET_ERROR };
-  }
-}
-
-export async function resendEmailVerification(): Promise<SendEmailVerificationResult> {
-  const { auth } = getFirebaseClient();
-  const user = auth.currentUser;
-  if (!user) {
-    return { ok: false, message: "로그인 후 이메일 인증을 재전송할 수 있습니다." };
-  }
-  try {
-    await sendEmailVerification(user);
-    return { ok: true };
-  } catch {
-    console.warn("[email verification] sendEmailVerification failed");
-    return { ok: false, message: GENERIC_EMAIL_VERIFICATION_ERROR };
   }
 }
 

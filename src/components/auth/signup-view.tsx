@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslations } from "next-intl";
-import { signOut } from "firebase/auth";
+import { deleteUser, signOut } from "firebase/auth";
 import { getFirebaseClient } from "@/lib/firebase-client";
 import {
   getFirebaseAuthSessionServerSnapshot,
@@ -75,6 +75,8 @@ export function SignupView() {
   const [completedLoginId, setCompletedLoginId] = useState("");
   // 헤더 X: 진행 중 단계(auth/terms/info)에서는 이탈 확인 알림창을 띄운다.
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // 이미 가입된 소셜 계정으로 재가입을 시도했을 때의 안내(확인 시 로그인 화면으로).
+  const [existingAccountAlert, setExistingAccountAlert] = useState(false);
   // 이메일 인증 링크 복귀 처리 상태. linkHrefRef는 검증에 쓸 원본 링크 URL,
   // linkAlert는 만료/불일치 등 명시적 실패 안내(next: 닫은 뒤 이동할 단계).
   const linkHrefRef = useRef<string | null>(null);
@@ -287,8 +289,27 @@ export function SignupView() {
     }
   }
 
-  function handleSocialAuthenticated() {
+  async function handleSocialAuthenticated() {
     startedRef.current = true;
+    // 이미 아이디까지 설정된 계정이면 '재가입'이 아니라 기존 회원이다.
+    // 소셜 로그인으로 방금 세션이 생겼더라도, 가입을 유지하지 않고 로그아웃 후
+    // 로그인 화면으로 안내한다(일반적인 사이트 동작: 재가입 대신 로그인).
+    let profile: Awaited<ReturnType<typeof fetchUserProfile>> | null = null;
+    try {
+      profile = await fetchUserProfile();
+    } catch {
+      profile = null;
+    }
+    if (profile && profile.ok && profile.profile && profile.profile.loginId) {
+      try {
+        const { auth } = getFirebaseClient();
+        await signOut(auth);
+      } catch {
+        // 세션 정리 실패는 무시(로그인 화면에서 다시 로그인하면 세션이 교체된다).
+      }
+      setExistingAccountAlert(true);
+      return;
+    }
     try {
       const { auth } = getFirebaseClient();
       setSocialEmail(auth.currentUser?.email ?? "");
@@ -297,6 +318,40 @@ export function SignupView() {
     }
     setMethod("social");
     setStep("terms");
+  }
+
+  // 이탈 확인('홈으로'): 미완성 가입(loginId 없음) 상태면 이메일 인증만으로 생성된
+  // 고아 Firebase 계정을 삭제해 정보/약관 미완료 계정이 남지 않게 한다.
+  // 삭제가 불가하면(재인증 필요 등) 최소한 로그아웃해 세션을 남기지 않는다.
+  async function handleExitConfirm() {
+    setShowExitConfirm(false);
+    try {
+      const { auth } = getFirebaseClient();
+      const user = auth.currentUser;
+      if (user) {
+        let complete = false;
+        try {
+          const profile = await fetchUserProfile();
+          complete = Boolean(profile.ok && profile.profile?.loginId);
+        } catch {
+          complete = false;
+        }
+        if (!complete) {
+          try {
+            await deleteUser(user);
+          } catch {
+            try {
+              await signOut(auth);
+            } catch {
+              // 세션 정리 실패도 무시하고 홈으로 이동한다.
+            }
+          }
+        }
+      }
+    } catch {
+      // Firebase 클라이언트 획득 실패 등은 무시하고 홈으로 이동한다.
+    }
+    router.push("/");
   }
 
   // 단계별 본문. 공통 헤더(로고 + 통합 회원가입 + 닫기)를 가진 풀스크린 셸 안에 렌더된다.
@@ -471,14 +526,25 @@ export function SignupView() {
         <AlertModal message={linkAlert.message} onClose={handleLinkAlertClose} />
       ) : null}
 
-      {/* 이탈 확인 알림창 — 확인 시 홈으로 이동 */}
+      {/* 이탈 확인 알림창 — 확인 시 미완성 계정 정리 후 홈으로 이동 */}
       {showExitConfirm ? (
         <AlertModal
           message="회원가입을 멈추고 홈으로 돌아가시겠습니까?"
           onClose={() => setShowExitConfirm(false)}
           confirm={{
             confirmLabel: "홈으로",
-            onConfirm: () => router.push("/"),
+            onConfirm: () => void handleExitConfirm(),
+          }}
+        />
+      ) : null}
+
+      {/* 이미 가입된 소셜 계정 안내 — 확인 시 로그인 화면으로 */}
+      {existingAccountAlert ? (
+        <AlertModal
+          message="이미 가입된 계정입니다. 로그인 화면으로 이동합니다."
+          onClose={() => {
+            setExistingAccountAlert(false);
+            router.replace("/login");
           }}
         />
       ) : null}

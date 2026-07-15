@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AlertModal } from "@/components/ui/alert-modal";
 import { KakaoIcon, NaverIcon, GoogleIcon, FacebookIcon } from "@/components/ui/social-icons";
 import { signInWithEmail } from "@/lib/firebase-email-auth";
@@ -13,7 +13,9 @@ import { startKakaoLogin } from "@/lib/firebase-kakao-auth";
 import { startNaverLogin } from "@/lib/firebase-naver-auth";
 import { signInWithFacebook } from "@/lib/firebase-facebook-auth";
 import { OAUTH_FROM_STORAGE_KEY, sanitizeFromPath } from "@/lib/use-require-auth";
-import { ensureUserProfile } from "@/lib/user-profile-client";
+import { fetchUserProfile } from "@/lib/user-profile-client";
+import { getFirebaseClient } from "@/lib/firebase-client";
+import { signOut } from "firebase/auth";
 import {
   getFirebaseAuthSessionServerSnapshot,
   getFirebaseAuthSessionSnapshot,
@@ -52,14 +54,44 @@ export function LoginView() {
   // 통일 알림창 메시지(빈 입력·로그인 실패 안내). null이면 닫힘.
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
-  // 이미 로그인되어 있으면 from으로 즉시 redirect.
+  // 소셜/이메일 로그인 처리 중에는 이 effect의 자동 redirect를 막는다.
+  // (인증 성공으로 session.ok가 되는 순간, 가입여부 확인 전에 effect가 먼저 redirect하면
+  //  미가입 계정이 그대로 로그인되어 버리는 경합을 방지.)
+  const verifyingRef = useRef(false);
+
+  // 이미 로그인되어 있으면 from으로 즉시 redirect(처리 중이 아닐 때만).
   useEffect(() => {
-    if (session.ok) {
+    if (session.ok && !verifyingRef.current) {
       router.replace(fromPath);
     }
   }, [session, fromPath, router]);
 
   const isFormValid = identifier.length > 0 && password.length > 0;
+
+  // 로그인은 계정을 '생성'하지 않는다. 인증에 성공해도 가입이 완료된 계정(loginId 설정됨)이
+  // 아니면 로그아웃하고 회원가입을 먼저 하도록 안내한다. (탈퇴 후 재로그인이나 미가입 소셜
+  // 계정이 빈 상태로 로그인되던 문제 방지 — 프로필을 여기서 새로 만들지 않는다.)
+  async function verifyRegisteredOrBlock(): Promise<boolean> {
+    let profile: Awaited<ReturnType<typeof fetchUserProfile>> | null = null;
+    try {
+      profile = await fetchUserProfile();
+    } catch {
+      profile = null;
+    }
+    if (profile && profile.ok && profile.profile && profile.profile.loginId) {
+      return true;
+    }
+    try {
+      const { auth } = getFirebaseClient();
+      await signOut(auth);
+    } catch {
+      // 세션 정리 실패는 무시(다시 로그인/가입 시 세션이 교체된다).
+    }
+    verifyingRef.current = false;
+    setSubmitState({ kind: "idle" });
+    setAlertMessage("가입된 계정이 아닙니다. 회원가입을 먼저 진행해 주세요.");
+    return false;
+  }
 
   async function handleEmailSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -68,6 +100,7 @@ export function LoginView() {
       setAlertMessage("아이디 또는 비밀번호를 입력하세요.");
       return;
     }
+    verifyingRef.current = true;
     setSubmitState({ kind: "loading" });
     const trimmed = identifier.trim();
     // '@' 포함 = 이메일 로그인, 그 외 = 아이디 로그인(서버에서 이메일로 변환).
@@ -75,31 +108,31 @@ export function LoginView() {
       ? await signInWithEmail({ email: trimmed, password })
       : await signInWithLoginId({ loginId: trimmed, password });
     if (result.ok) {
-      await ensureUserProfile().catch((error) => {
-        console.warn("[login] ensureUserProfile failed:", error);
-      });
+      if (!(await verifyRegisteredOrBlock())) return;
       router.replace(fromPath);
       return;
     }
     // 계정/비밀번호 오류는 어떤 필드가 틀렸는지 노출하지 않고 통일 문구로 안내한다.
+    verifyingRef.current = false;
     setSubmitState({ kind: "idle" });
     setAlertMessage("아이디 또는 비밀번호가 올바르지 않습니다.");
   }
 
   async function handleGoogle() {
+    verifyingRef.current = true;
     setSubmitState({ kind: "loading" });
     const result = await signInWithGoogle();
     if (result.ok) {
-      await ensureUserProfile().catch((error) => {
-        console.warn("[login] ensureUserProfile failed:", error);
-      });
+      if (!(await verifyRegisteredOrBlock())) return;
       router.replace(fromPath);
       return;
     }
     if (result.cancelled) {
+      verifyingRef.current = false;
       setSubmitState({ kind: "idle" });
       return;
     }
+    verifyingRef.current = false;
     setSubmitState({ kind: "idle" });
     setAlertMessage(result.message);
   }
@@ -139,19 +172,20 @@ export function LoginView() {
   }
 
   async function handleFacebook() {
+    verifyingRef.current = true;
     setSubmitState({ kind: "loading" });
     const result = await signInWithFacebook();
     if (result.ok) {
-      await ensureUserProfile().catch((error) => {
-        console.warn("[login] ensureUserProfile failed:", error);
-      });
+      if (!(await verifyRegisteredOrBlock())) return;
       router.replace(fromPath);
       return;
     }
     if (result.cancelled) {
+      verifyingRef.current = false;
       setSubmitState({ kind: "idle" });
       return;
     }
+    verifyingRef.current = false;
     setSubmitState({ kind: "idle" });
     setAlertMessage(result.message);
   }
