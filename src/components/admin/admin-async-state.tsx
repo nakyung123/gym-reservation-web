@@ -1,19 +1,18 @@
 "use client";
 
-// 관리자 화면(예약/시설/슬롯/운영 요약)의 비동기 상태 표현을 한 곳에서 통일한다.
-// 로딩/빈 상태가 화면마다 다른 plain text로 흩어져 있던 것을 같은 컴포넌트로 모은다.
-// 오류 상태는 화면별 문맥(notice 등)이 달라 각 화면의 rose 박스를 그대로 둔다.
+// 관리자 콘솔의 비동기 상태 표현을 한 곳에서 통일한다.
+// 밀도는 콘솔 규격(admin-ui)을 따른다. 고객 화면보다 한 단계 작다.
 
 // 비동기 로딩 중 표시. 스피너 + 안내 문구를 함께 둔다.
 export function AdminLoadingRow({ message }: { message: string }) {
   return (
     <div
-      className="mt-4 flex items-center gap-3 rounded-md border border-line bg-slate-50 px-4 py-6 text-sm font-semibold text-slate-600"
+      className="flex items-center gap-2.5 rounded-xl border border-line bg-white px-4 py-4 text-[13.5px] font-semibold text-muted"
       aria-live="polite"
       aria-busy="true"
     >
       <span
-        className="size-5 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent"
+        className="size-4 shrink-0 animate-spin rounded-full border-2 border-line border-t-accent"
         aria-hidden="true"
       />
       {message}
@@ -30,10 +29,12 @@ export function AdminEmptyState({
   description?: string;
 }) {
   return (
-    <div className="mt-4 rounded-md border border-dashed border-line-strong bg-slate-50 px-4 py-8 text-center">
-      <p className="text-sm font-semibold text-slate-700">{title}</p>
+    <div className="rounded-xl border border-dashed border-line-strong bg-white p-8 text-center">
+      <p className="text-[14px] font-bold text-foreground">{title}</p>
       {description ? (
-        <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+          {description}
+        </p>
       ) : null}
     </div>
   );

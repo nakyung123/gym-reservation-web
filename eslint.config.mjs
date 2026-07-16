@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 에이전트 스킬 로컬 툴링(앱 코드 아님). 린트·커밋 대상에서 제외한다.
+    ".claude/**",
   ]),
 ]);
 

@@ -37,7 +37,8 @@ function parseStringArray(value: Prisma.JsonValue): string[] {
 
 function toProfileInfo(row: UserProfileRow): CustomerProfileInfo {
   return {
-    nickname: row.nickname,
+    name: row.name,
+    loginId: row.loginId,
     provider: normalizeProvider(row.provider),
     preferredRegion: row.preferredRegion,
     preferredSports: parseStringArray(row.preferredSports),
@@ -55,7 +56,11 @@ export async function listCustomers(
   const where: Prisma.UserProfileWhereInput = {};
   const q = input.q?.trim();
   if (q) {
-    where.nickname = { contains: q, mode: "insensitive" };
+    // 이름 또는 로그인 아이디로 검색한다(닉네임은 자동 생성값이라 검색 대상에서 제외).
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { loginId: { contains: q, mode: "insensitive" } },
+    ];
   }
 
   const profiles = await prisma.userProfile.findMany({
@@ -94,7 +99,8 @@ export async function listCustomers(
 
   return profiles.map((profile) => ({
     userId: profile.userId,
-    nickname: profile.nickname,
+    name: profile.name,
+    loginId: profile.loginId,
     provider: normalizeProvider(profile.provider),
     createdAt: profile.createdAt.toISOString(),
     reservationCount: reservationMap.get(profile.userId) ?? 0,

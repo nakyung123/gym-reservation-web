@@ -58,7 +58,7 @@ describe("GET /api/admin/customers/[userId]", () => {
     await prisma.userProfile.create({
       data: {
         userId: "detail-route-user",
-        nickname: "상세고객",
+        name: "상세고객",
         provider: "naver",
         preferredSports: [],
       },
@@ -86,7 +86,7 @@ describe("GET /api/admin/customers/[userId]", () => {
     );
     const body = (await response.json()) as {
       detail?: {
-        profile?: { nickname?: unknown };
+        profile?: { name?: unknown };
         reservations?: { total?: unknown };
         firebase?: { email?: unknown };
         firebaseError?: unknown;
@@ -95,7 +95,7 @@ describe("GET /api/admin/customers/[userId]", () => {
     };
 
     expect(response.status).toBe(200);
-    expect(body.detail?.profile?.nickname).toBe("상세고객");
+    expect(body.detail?.profile?.name).toBe("상세고객");
     expect(body.detail?.reservations?.total).toBe(1);
     expect(body.detail?.firebase?.email).toBe("customer@example.com");
     expect(body.detail?.firebaseError).toBe(false);
@@ -110,7 +110,7 @@ describe("GET /api/admin/customers/[userId]", () => {
     await prisma.userProfile.create({
       data: {
         userId: "fb-error-user",
-        nickname: "파이어",
+        name: "파이어",
         provider: "google",
         preferredSports: [],
       },

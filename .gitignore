@@ -40,6 +40,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# 에이전트 로컬 툴링(앱 코드 아님)
+.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

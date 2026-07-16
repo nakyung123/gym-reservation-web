@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { fetchAdminCustomerDetail } from "@/lib/admin/admin-customer-client";
 import {
@@ -25,6 +24,8 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import { AdminErrorNotice } from "@/components/admin/admin-ui";
+import { Button, ButtonLink } from "@/components/ui/app-button";
 import {
   reservationStatusBadgeStyles,
   reservationStatusLabel,
@@ -37,9 +38,9 @@ type DetailState =
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1.5">
-      <dt className="text-xs font-semibold text-slate-500">{label}</dt>
-      <dd className="text-sm text-slate-800">{value}</dd>
+    <div className="flex items-baseline justify-between gap-3 py-2.5">
+      <dt className="text-[12.5px] font-bold text-muted">{label}</dt>
+      <dd className="text-[13.5px] text-foreground">{value}</dd>
     </div>
   );
 }
@@ -144,49 +145,40 @@ export function AdminCustomerDetailView({ userId }: { userId: string }) {
   );
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <Link
-            href="/admin/customers"
-            className="text-xs font-semibold text-accent-strong hover:underline"
-          >
-            ← 고객 관리
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-950">고객 상세</h1>
-          <p className="break-all text-xs text-slate-500">UID {userId}</p>
-        </header>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="break-all text-[13px] tabular-nums text-muted">
+          UID {userId}
+        </p>
+        <ButtonLink href="/admin/customers" variant="outline" size="xs">
+          목록으로
+        </ButtonLink>
+      </div>
 
-        {detailState.status === "loading" ? (
-          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
-        ) : null}
+      {detailState.status === "loading" ? (
+        <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+      ) : null}
 
-        {detailState.status === "error" ? (
-          <p
-            className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-            role="alert"
-          >
-            {detailState.message}
-          </p>
-        ) : null}
+      {detailState.status === "error" ? (
+        <AdminErrorNotice message={detailState.message} />
+      ) : null}
 
-        {detailState.status === "ready" ? (
-          <DetailBody
-            detail={detailState.detail}
-            reservations={reservations}
-            reservationError={reservationError}
-            notes={notes}
-            noteBody={noteBody}
-            onNoteBodyChange={setNoteBody}
-            noteSubmitting={noteSubmitting}
-            noteError={noteError}
-            onAddNote={handleAddNote}
-            onDeleteNote={handleDeleteNote}
-            deletingNoteId={deletingNoteId}
-          />
-        ) : null}
-      </section>
-    </main>
+      {detailState.status === "ready" ? (
+        <DetailBody
+          detail={detailState.detail}
+          reservations={reservations}
+          reservationError={reservationError}
+          notes={notes}
+          noteBody={noteBody}
+          onNoteBodyChange={setNoteBody}
+          noteSubmitting={noteSubmitting}
+          noteError={noteError}
+          onAddNote={handleAddNote}
+          onDeleteNote={handleDeleteNote}
+          deletingNoteId={deletingNoteId}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -221,11 +213,12 @@ function DetailBody({
     <>
       <div className="grid gap-4 sm:grid-cols-2">
         {/* 프로필 */}
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">프로필</h2>
+        <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+          <h2 className="text-[15px] font-bold text-foreground">프로필</h2>
           {profile ? (
             <dl className="mt-3 divide-y divide-line">
-              <InfoRow label="닉네임" value={profile.nickname ?? "(없음)"} />
+              <InfoRow label="이름" value={profile.name ?? "(없음)"} />
+              <InfoRow label="아이디" value={profile.loginId ?? "(없음)"} />
               <InfoRow label="로그인" value={providerLabel(profile.provider)} />
               <InfoRow
                 label="가입일"
@@ -249,22 +242,19 @@ function DetailBody({
               />
             </dl>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-muted">
               앱 프로필이 없는 고객입니다(예약/Firebase 기록만 존재).
             </p>
           )}
         </section>
 
         {/* Firebase 계정 */}
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">계정 정보</h2>
+        <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+          <h2 className="text-[15px] font-bold text-foreground">계정 정보</h2>
           {firebaseError ? (
-            <p
-              className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-xs font-semibold text-error"
-              role="alert"
-            >
-              계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
-            </p>
+            <div className="mt-4">
+              <AdminErrorNotice message="계정 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." />
+            </div>
           ) : firebase ? (
             <dl className="mt-3 divide-y divide-line">
               <InfoRow label="이메일" value={firebase.email ?? "-"} />
@@ -294,7 +284,7 @@ function DetailBody({
               />
             </dl>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-muted">
               Firebase 계정 정보가 없습니다.
             </p>
           )}
@@ -302,8 +292,8 @@ function DetailBody({
       </div>
 
       {/* 지표 */}
-      <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-950">예약 지표</h2>
+      <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <h2 className="text-[15px] font-bold text-foreground">예약 지표</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <MetricCard label="전체 예약" value={`${summary.total}건`} />
           <MetricCard
@@ -319,42 +309,37 @@ function DetailBody({
             value={`${summary.cancelled}건`}
           />
         </div>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-4 text-[13px] tabular-nums text-muted">
           활성 즐겨찾기 {detail.activeFavoriteCount}개
         </p>
       </section>
 
       {/* 예약 이력 */}
-      <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-950">예약 이력</h2>
+      <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <h2 className="mb-4 text-[15px] font-bold text-foreground">예약 이력</h2>
         {reservationError ? (
-          <p
-            className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-xs font-semibold text-error"
-            role="alert"
-          >
-            {reservationError}
-          </p>
+          <AdminErrorNotice message={reservationError} />
         ) : reservations === null ? (
           <AdminLoadingRow message="페이지를 불러오는 중입니다." />
         ) : reservations.length === 0 ? (
           <AdminEmptyState title="예약 이력이 없습니다" />
         ) : (
-          <ul className="mt-3 divide-y divide-line">
+          <ul className="divide-y divide-line">
             {reservations.map((reservation) => (
               <li
                 key={reservation.id}
-                className="flex items-center justify-between gap-3 py-2.5"
+                className="flex items-center justify-between gap-3 py-3.5"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-[13.5px] font-semibold tabular-nums text-foreground">
                     {reservation.sport} · {reservation.date} {reservation.time}
                   </p>
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="truncate text-[13px] text-muted">
                     {reservation.gymId} · {formatGymPrice(reservation.price)}
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${reservationStatusBadgeStyles[reservation.status]}`}
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[12.5px] font-bold ${reservationStatusBadgeStyles[reservation.status]}`}
                 >
                   {reservationStatusLabel[reservation.status]}
                 </span>
@@ -365,77 +350,78 @@ function DetailBody({
       </section>
 
       {/* 고객 메모 */}
-      <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-950">고객 메모</h2>
-        <p className="mt-1 text-xs text-slate-500">
+      <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <h2 className="text-[15px] font-bold text-foreground">고객 메모</h2>
+        <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
           운영 참고용 메모입니다. 추가·삭제는 운영 이력에 기록됩니다.
         </p>
 
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="mt-4 flex flex-col gap-2">
           <textarea
             value={noteBody}
             onChange={(event) => onNoteBodyChange(event.target.value)}
             rows={3}
             maxLength={CUSTOMER_NOTE_MAX_LENGTH}
             placeholder="메모를 입력하세요"
-            className="w-full resize-y rounded-md border border-line-strong px-3 py-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            aria-label="고객 메모"
+            className="w-full resize-y rounded-[10px] border border-line-strong bg-white px-3.5 py-3 text-[13.5px] leading-relaxed text-foreground transition placeholder:text-subtle focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
           />
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-slate-400">
+            <span className="text-[13px] tabular-nums text-subtle">
               {noteBody.length}/{CUSTOMER_NOTE_MAX_LENGTH}
             </span>
-            <button
-              type="button"
+            <Button
               onClick={onAddNote}
               disabled={noteSubmitting || noteBody.trim().length === 0}
-              className="h-9 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {noteSubmitting ? (
-                <span className="inline-flex items-center gap-2">
+                <>
                   <AdminButtonSpinner />
                   저장 중
-                </span>
+                </>
               ) : (
                 "메모 추가"
               )}
-            </button>
+            </Button>
           </div>
           {noteError ? (
-            <p className="text-xs font-semibold text-error" role="alert">
+            <p className="text-[13px] font-semibold text-error" role="alert">
               {noteError}
             </p>
           ) : null}
         </div>
 
-        {notes.length === 0 ? (
-          <AdminEmptyState title="등록된 메모가 없습니다" />
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {notes.map((note) => (
-              <li
-                key={note.id}
-                className="rounded-md border border-line bg-slate-50 px-3 py-2.5"
-              >
-                <p className="whitespace-pre-wrap break-words text-sm text-slate-800">
-                  {note.body}
-                </p>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <span className="text-xs text-slate-400">
-                    {formatAdminDateTime(note.createdAt)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteNote(note.id)}
-                    disabled={deletingNoteId === note.id}
-                    className="text-xs font-semibold text-error transition hover:underline disabled:cursor-not-allowed disabled:text-slate-400"
-                  >
-                    {deletingNoteId === note.id ? "삭제 중" : "삭제"}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="mt-5">
+          {notes.length === 0 ? (
+            <AdminEmptyState title="등록된 메모가 없습니다" />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {notes.map((note) => (
+                <li
+                  key={note.id}
+                  className="rounded-xl border border-line bg-surface-2 px-4 py-3"
+                >
+                  <p className="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed text-foreground">
+                    {note.body}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <span className="text-[13px] tabular-nums text-subtle">
+                      {formatAdminDateTime(note.createdAt)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteNote(note.id)}
+                      disabled={deletingNoteId === note.id}
+                      className="text-[13px] font-semibold text-error transition hover:underline disabled:cursor-not-allowed disabled:text-subtle"
+                    >
+                      {deletingNoteId === note.id ? "삭제 중" : "삭제"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
     </>
   );
@@ -443,9 +429,11 @@ function DetailBody({
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-line bg-slate-50 p-4">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-xl font-bold text-slate-950">{value}</p>
+    <div className="rounded-xl border border-line bg-surface-2 p-5">
+      <p className="text-[12.5px] font-bold text-muted">{label}</p>
+      <p className="mt-2 text-[24px] font-bold tabular-nums text-foreground">
+        {value}
+      </p>
     </div>
   );
 }

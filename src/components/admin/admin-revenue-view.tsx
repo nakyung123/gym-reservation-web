@@ -1,8 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchAdminRevenue } from "@/lib/admin/admin-revenue-client";
+import {
+  AdminErrorNotice,
+  AdminTable,
+  AdminTd,
+  AdminTr,
+} from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
 import { REVENUE_BASIS_LABEL, type RevenueSummary } from "@/lib/admin/revenue";
 import { revenueCsvFilename, toRevenueCsv } from "@/lib/admin/revenue-csv";
 import { formatGymPrice } from "@/lib/gym-utils";
@@ -84,21 +90,21 @@ function SummaryCard({
 }) {
   return (
     <div
-      className={`rounded-lg border p-4 ${
-        emphasis
-          ? "border-accent/30 bg-accent-tint"
-          : "border-line bg-slate-50"
+      className={`rounded-xl border p-5 ${
+        emphasis ? "border-accent/30 bg-accent-tint" : "border-line bg-surface-2"
       }`}
     >
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="text-[12.5px] font-bold text-muted">{label}</p>
       <p
-        className={`mt-2 text-2xl font-bold ${
-          emphasis ? "text-accent-strong" : "text-slate-950"
+        className={`admin-num mt-2 text-[22px] font-bold ${
+          emphasis ? "text-accent-strong" : "text-foreground"
         }`}
       >
         {value}
       </p>
-      {sub ? <p className="mt-1 text-xs text-slate-500">{sub}</p> : null}
+      {sub ? (
+        <p className="admin-num mt-1 text-[13px] text-muted">{sub}</p>
+      ) : null}
     </div>
   );
 }
@@ -210,72 +216,58 @@ export function AdminRevenueView() {
       : null;
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <Link
-            href="/admin"
-            className="text-xs font-semibold text-accent-strong hover:underline"
-          >
-            ← 운영 관리
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-950">매출/정산</h1>
-          <p className="text-sm text-slate-600">
-            월별 매출과 시설별 정산 기초를 확인합니다. 결제 연동 전이라 장부상
-            예약가치(예약 시점 가격) 기준입니다.
-          </p>
-        </header>
-
-        <div className="flex flex-col gap-5">
-          <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
+    <div className="flex flex-col gap-6">
+      <div className="rounded-xl border border-line bg-white p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-sm font-bold text-slate-950">매출/정산 요약</h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <h2 className="text-[15px] font-bold text-foreground">
+              매출/정산 요약
+            </h2>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
               결제 연동 전이므로 실제 수금액이 아닌 <strong>장부상 예약가치</strong>
               (예약 시점 가격) 기준입니다.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* 월 이동은 사이트 표준 chevron(페이지네이션과 동일 SVG·크기)을 쓴다. */}
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setMonth(shiftMonth(year, month, -1))}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-line-strong text-slate-600 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={MONTH_NAV_CLASS}
               aria-label="이전 달"
             >
-              ◀
+              <ChevronIcon direction="prev" />
             </button>
-            <span className="min-w-[110px] text-center text-sm font-bold text-slate-950">
+            <span className="min-w-[110px] text-center text-[13.5px] font-bold tabular-nums text-foreground">
               {year}년 {month}월
             </span>
             <button
               type="button"
               onClick={() => setMonth(shiftMonth(year, month, 1))}
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-line-strong text-slate-600 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className={MONTH_NAV_CLASS}
               aria-label="다음 달"
             >
-              ▶
+              <ChevronIcon direction="next" />
             </button>
           </div>
         </div>
 
         {state.status === "loading" ? (
-          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+          <div className="mt-5">
+            <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+          </div>
         ) : null}
 
         {state.status === "error" ? (
-          <p
-            className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-            role="alert"
-          >
-            {state.message}
-          </p>
+          <div className="mt-5">
+            <AdminErrorNotice message={state.message} />
+          </div>
         ) : null}
 
         {summary ? (
           <>
-            <p className="mt-4 text-xs font-semibold text-slate-500">
+            <p className="mt-5 text-[13px] font-semibold tabular-nums text-muted">
               집계 기간 {summary.from} ~ {summary.to}
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -300,26 +292,25 @@ export function AdminRevenueView() {
         ) : null}
       </div>
 
-      <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-bold text-slate-950">
+      <div className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <h2 className="text-[15px] font-bold text-foreground">
           월별 매출 추이 (최근 {TREND_MONTHS}개월)
         </h2>
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
           막대는 {REVENUE_BASIS_LABEL.used}, 선은 {REVENUE_BASIS_LABEL.expected}
           입니다.
         </p>
 
         {trendState.status === "loading" ? (
-          <AdminLoadingRow message="월별 매출 추이를 불러오는 중입니다." />
+          <div className="mt-5">
+            <AdminLoadingRow message="월별 매출 추이를 불러오는 중입니다." />
+          </div>
         ) : null}
 
         {trendState.status === "error" ? (
-          <p
-            className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-            role="alert"
-          >
-            {trendState.message}
-          </p>
+          <div className="mt-5">
+            <AdminErrorNotice message={trendState.message} />
+          </div>
         ) : null}
 
         {trendPoints ? (
@@ -334,113 +325,153 @@ export function AdminRevenueView() {
       </div>
 
       {summary ? (
-        <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-line bg-white p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-950">시설별 정산</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <h2 className="text-[15px] font-bold text-foreground">
+                시설별 정산
+              </h2>
+              <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
                 {REVENUE_BASIS_LABEL.used} 매출 기준 내림차순입니다.
               </p>
             </div>
             {summary.gyms.length > 0 ? (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="xs"
                 onClick={() => downloadRevenueCsv(summary)}
-                className="shrink-0 rounded-md border border-line-strong px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="shrink-0"
               >
                 CSV 내보내기
-              </button>
+              </Button>
             ) : null}
           </div>
 
           {gymChartData ? (
-            <div className="mt-4">
+            <div className="mt-5">
               <GymRevenueBarChart data={gymChartData} />
             </div>
           ) : null}
 
-          {summary.gyms.length === 0 ? (
-            <AdminEmptyState
-              title="이 기간에 예약이 없습니다"
-              description="다른 달을 선택하면 매출이 표시됩니다."
-            />
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left text-xs font-semibold text-slate-500">
-                    <th className="py-2 pr-3">시설</th>
-                    <th className="py-2 px-3 text-right">
-                      {reservationStatusLabel.reserved}
-                    </th>
-                    <th className="py-2 px-3 text-right">
-                      {reservationStatusLabel.used}
-                    </th>
-                    <th className="py-2 px-3 text-right">
-                      {reservationStatusLabel.cancelled}
-                    </th>
-                    <th className="py-2 px-3 text-right">
-                      {REVENUE_BASIS_LABEL.expected}
-                    </th>
-                    <th className="py-2 pl-3 text-right">
-                      {REVENUE_BASIS_LABEL.used}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {summary.gyms.map((gym) => (
-                    <tr
-                      key={gym.gymId}
-                      className="border-b border-line/60 text-slate-800"
+          <div className="mt-5">
+            {summary.gyms.length === 0 ? (
+              <AdminEmptyState
+                title="이 기간에 예약이 없습니다"
+                description="다른 달을 선택하면 매출이 표시됩니다."
+              />
+            ) : (
+              // 콘솔 표 SSOT(AdminTable). 합계는 tfoot 대신 표 아래 footer 행으로 둔다.
+              <AdminTable
+                minWidth="min-w-[760px]"
+                columns={[
+                  { label: "시설" },
+                  { label: reservationStatusLabel.reserved, align: "right" },
+                  { label: reservationStatusLabel.used, align: "right" },
+                  { label: reservationStatusLabel.cancelled, align: "right" },
+                  { label: REVENUE_BASIS_LABEL.expected, align: "right" },
+                  { label: REVENUE_BASIS_LABEL.used, align: "right" },
+                ]}
+                footer={
+                  <div className="flex items-center justify-between gap-4 bg-surface-2 px-3.5 py-3 text-[13.5px]">
+                    <span className="font-bold text-foreground">합계</span>
+                    <span className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1 tabular-nums">
+                      <SummaryStat
+                        label={reservationStatusLabel.reserved}
+                        value={String(summary.counts.reserved)}
+                      />
+                      <SummaryStat
+                        label={reservationStatusLabel.used}
+                        value={String(summary.counts.used)}
+                      />
+                      <SummaryStat
+                        label={reservationStatusLabel.cancelled}
+                        value={String(summary.counts.cancelled)}
+                      />
+                      <SummaryStat
+                        label={REVENUE_BASIS_LABEL.expected}
+                        value={formatGymPrice(summary.revenue.expected)}
+                      />
+                      <SummaryStat
+                        label={REVENUE_BASIS_LABEL.used}
+                        value={formatGymPrice(summary.revenue.used)}
+                        emphasis
+                      />
+                    </span>
+                  </div>
+                }
+              >
+                {summary.gyms.map((gym) => (
+                  <AdminTr key={gym.gymId}>
+                    <AdminTd className="font-semibold">{gym.gymName}</AdminTd>
+                    <AdminTd align="right" className="tabular-nums">
+                      {gym.counts.reserved}
+                    </AdminTd>
+                    <AdminTd align="right" className="tabular-nums">
+                      {gym.counts.used}
+                    </AdminTd>
+                    <AdminTd align="right" className="tabular-nums text-muted">
+                      {gym.counts.cancelled}
+                    </AdminTd>
+                    <AdminTd align="right" className="tabular-nums">
+                      {formatGymPrice(gym.revenue.expected)}
+                    </AdminTd>
+                    <AdminTd
+                      align="right"
+                      className="font-bold tabular-nums text-accent-strong"
                     >
-                      <td className="py-2.5 pr-3 font-semibold text-slate-950">
-                        {gym.gymName}
-                      </td>
-                      <td className="py-2.5 px-3 text-right tabular-nums">
-                        {gym.counts.reserved}
-                      </td>
-                      <td className="py-2.5 px-3 text-right tabular-nums">
-                        {gym.counts.used}
-                      </td>
-                      <td className="py-2.5 px-3 text-right tabular-nums text-slate-500">
-                        {gym.counts.cancelled}
-                      </td>
-                      <td className="py-2.5 px-3 text-right tabular-nums">
-                        {formatGymPrice(gym.revenue.expected)}
-                      </td>
-                      <td className="py-2.5 pl-3 text-right font-bold tabular-nums text-accent-strong">
-                        {formatGymPrice(gym.revenue.used)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="text-slate-950">
-                    <td className="py-2.5 pr-3 font-bold">합계</td>
-                    <td className="py-2.5 px-3 text-right font-semibold tabular-nums">
-                      {summary.counts.reserved}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-semibold tabular-nums">
-                      {summary.counts.used}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-semibold tabular-nums text-slate-500">
-                      {summary.counts.cancelled}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-semibold tabular-nums">
-                      {formatGymPrice(summary.revenue.expected)}
-                    </td>
-                    <td className="py-2.5 pl-3 text-right font-bold tabular-nums text-accent-strong">
-                      {formatGymPrice(summary.revenue.used)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
+                      {formatGymPrice(gym.revenue.used)}
+                    </AdminTd>
+                  </AdminTr>
+                ))}
+              </AdminTable>
+            )}
+          </div>
         </div>
       ) : null}
-        </div>
-      </section>
-    </main>
+    </div>
+  );
+}
+
+// 합계 행의 항목 하나. 라벨을 붙여 열 위치에 기대지 않게 한다(footer는 표 밖이라 열이 없다).
+function SummaryStat({
+  label,
+  value,
+  emphasis = false,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="text-[12px] font-semibold text-muted">{label}</span>
+      <span
+        className={`font-bold ${emphasis ? "text-accent-strong" : "text-foreground"}`}
+      >
+        {value}
+      </span>
+    </span>
+  );
+}
+
+// 월 이동 버튼(콘솔 컨트롤과 같은 높이: size-9, rounded-lg, line 보더).
+const MONTH_NAV_CLASS =
+  "grid size-9 place-items-center rounded-lg border border-line-strong text-muted transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent";
+
+// 사이트 표준 chevron. BoardPagination의 PagerIcon과 같은 형태·굵기를 쓴다.
+function ChevronIcon({ direction }: { direction: "prev" | "next" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="size-[18px]"
+    >
+      <path d={direction === "prev" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+    </svg>
   );
 }

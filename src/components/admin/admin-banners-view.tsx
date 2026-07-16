@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   createBannerRequest,
@@ -16,6 +15,12 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import {
+  ADMIN_CONTROL_CLASS,
+  ADMIN_FIELD_LABEL_CLASS,
+  AdminErrorNotice,
+} from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
 
 type ListState =
   | { status: "loading" }
@@ -197,257 +202,241 @@ export function AdminBannersView() {
   );
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <Link
-            href="/admin"
-            className="text-xs font-semibold text-accent-strong hover:underline"
-          >
-            ← 운영 관리
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-950">배너 관리</h1>
-          <p className="text-sm text-slate-600">
-            홈에 노출되는 운영 배너를 등록·교체합니다. 이미지는 외부 스토리지에
-            저장되고, 노출 조건(활성·기간·순서)으로 제어합니다.
-          </p>
-        </header>
-
-        {/* 생성/수정 폼 */}
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void handleSubmit();
-          }}
-          className="flex flex-col gap-4 rounded-lg border border-line bg-white p-5 shadow-sm"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-950">
-              {editingId ? "배너 수정" : "새 배너 등록"}
-            </h2>
-            {editingId ? (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="text-xs font-semibold text-slate-500 hover:underline"
-              >
-                새 배너로 전환
-              </button>
-            ) : null}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600 sm:col-span-2">
-              이미지 {editingId ? "(변경 시에만 선택)" : "(필수)"}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) =>
-                  setImageFile(event.target.files?.[0] ?? null)
-                }
-                className="rounded-md border border-line-strong px-3 py-2 text-sm font-normal text-slate-800 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-xs file:font-semibold"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-              제목
-              <input
-                type="text"
-                value={form.title}
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, title: event.target.value }))
-                }
-                placeholder="예: 신규 시설 오픈"
-                className="h-10 rounded-md border border-line-strong px-3 text-sm font-normal text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-              링크 URL (http/https)
-              <input
-                type="url"
-                value={form.linkUrl}
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, linkUrl: event.target.value }))
-                }
-                placeholder="https://..."
-                className="h-10 rounded-md border border-line-strong px-3 text-sm font-normal text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-              정렬 순서 (작을수록 먼저)
-              <input
-                type="number"
-                value={form.sortOrder}
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, sortOrder: event.target.value }))
-                }
-                className="h-10 rounded-md border border-line-strong px-3 text-sm font-normal text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <label className="flex items-center gap-2 self-end pb-2 text-xs font-semibold text-slate-600">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, isActive: event.target.checked }))
-                }
-                className="size-4"
-              />
-              노출 활성
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-              노출 시작 (선택)
-              <input
-                type="datetime-local"
-                value={form.startsAt}
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, startsAt: event.target.value }))
-                }
-                className="h-10 rounded-md border border-line-strong px-3 text-sm font-normal text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
-              노출 종료 (선택)
-              <input
-                type="datetime-local"
-                value={form.endsAt}
-                onChange={(event) =>
-                  setForm((f) => ({ ...f, endsAt: event.target.value }))
-                }
-                className="h-10 rounded-md border border-line-strong px-3 text-sm font-normal text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              />
-            </label>
-          </div>
-
-          {formError ? (
-            <p
-              className="rounded-md border border-error/30 bg-error/10 px-3 py-2 text-sm font-semibold text-error"
-              role="alert"
-            >
-              {formError}
-            </p>
-          ) : null}
-
-          <div>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              {submitting ? <AdminButtonSpinner /> : null}
-              {editingId ? "수정 저장" : "배너 등록"}
-            </button>
-          </div>
-        </form>
-
-        {/* 목록 */}
-        <div className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">등록된 배너</h2>
-
-          {listState.status === "loading" ? (
-            <AdminLoadingRow message="페이지를 불러오는 중입니다." />
-          ) : null}
-
-          {listState.status === "error" ? (
-            <p
-              className="mt-5 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-              role="alert"
-            >
-              {listState.message}
-            </p>
-          ) : null}
-
-          {listState.status === "ready" && listState.banners.length === 0 ? (
-            <AdminEmptyState
-              title="등록된 배너가 없습니다"
-              description="위 폼에서 첫 배너를 등록해 보세요."
-            />
-          ) : null}
-
-          {listState.status === "ready" && listState.banners.length > 0 ? (
-            <ul className="mt-4 flex flex-col gap-3">
-              {listState.banners.map((banner) => (
-                <li
-                  key={banner.id}
-                  className="flex flex-col gap-3 rounded-lg border border-line p-3 sm:flex-row sm:items-center"
-                >
-                  <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-md border border-line bg-slate-50">
-                    <Image
-                      src={banner.imageUrl}
-                      alt={banner.title ?? "배너 이미지"}
-                      fill
-                      sizes="144px"
-                      className="object-cover"
-                    />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          banner.isActive
-                            ? "bg-success/10 text-success"
-                            : "bg-surface-2 text-muted"
-                        }`}
-                      >
-                        {banner.isActive ? "활성" : "비활성"}
-                      </span>
-                      <span className="truncate text-sm font-bold text-slate-950">
-                        {banner.title ?? "(제목 없음)"}
-                      </span>
-                      <span className="shrink-0 text-xs text-slate-400">
-                        순서 {banner.sortOrder}
-                      </span>
-                    </div>
-                    {banner.linkUrl ? (
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {banner.linkUrl}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-slate-400">
-                      {banner.startsAt
-                        ? formatAdminDateTime(banner.startsAt)
-                        : "상시"}{" "}
-                      ~ {banner.endsAt ? formatAdminDateTime(banner.endsAt) : "상시"}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleToggleActive(banner)}
-                      disabled={pendingId === banner.id}
-                      className="rounded-md border border-line-strong px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {banner.isActive ? "비활성화" : "활성화"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => startEdit(banner)}
-                      className="rounded-md border border-line-strong px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong"
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(banner)}
-                      disabled={pendingId === banner.id}
-                      className="rounded-md border border-error/30 px-2.5 py-1.5 text-xs font-semibold text-error transition hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+    <div className="flex flex-col gap-6">
+      {/* 생성/수정 폼 */}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSubmit();
+        }}
+        className="flex flex-col gap-5 rounded-xl border border-line bg-white p-4 sm:p-5"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[15px] font-bold text-foreground">
+            {editingId ? "배너 수정" : "새 배너 등록"}
+          </h2>
+          {editingId ? (
+            <Button variant="ghost" size="xs" onClick={resetForm}>
+              새 배너로 전환
+            </Button>
           ) : null}
         </div>
-      </section>
-    </main>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <label htmlFor="banner-image" className={ADMIN_FIELD_LABEL_CLASS}>
+              이미지 {editingId ? "(변경 시에만 선택)" : "(필수)"}
+            </label>
+            <input
+              id="banner-image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) =>
+                setImageFile(event.target.files?.[0] ?? null)
+              }
+              className="rounded-[10px] border border-line-strong bg-white px-3.5 py-3 text-[13.5px] text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-2.5 file:py-1 file:text-[13px] file:font-bold file:text-muted focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="banner-title" className={ADMIN_FIELD_LABEL_CLASS}>
+              제목
+            </label>
+            <input
+              id="banner-title"
+              type="text"
+              value={form.title}
+              onChange={(event) =>
+                setForm((f) => ({ ...f, title: event.target.value }))
+              }
+              placeholder="예: 신규 시설 오픈"
+              className={`${ADMIN_CONTROL_CLASS} placeholder:text-subtle`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="banner-link" className={ADMIN_FIELD_LABEL_CLASS}>
+              링크 URL (http/https)
+            </label>
+            <input
+              id="banner-link"
+              type="url"
+              value={form.linkUrl}
+              onChange={(event) =>
+                setForm((f) => ({ ...f, linkUrl: event.target.value }))
+              }
+              placeholder="https://..."
+              className={`${ADMIN_CONTROL_CLASS} placeholder:text-subtle`}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="banner-sort" className={ADMIN_FIELD_LABEL_CLASS}>
+              정렬 순서 (작을수록 먼저)
+            </label>
+            <input
+              id="banner-sort"
+              type="number"
+              value={form.sortOrder}
+              onChange={(event) =>
+                setForm((f) => ({ ...f, sortOrder: event.target.value }))
+              }
+              className={`${ADMIN_CONTROL_CLASS} tabular-nums`}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 self-end pb-3.5 text-[13.5px] font-semibold text-foreground">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(event) =>
+                setForm((f) => ({ ...f, isActive: event.target.checked }))
+              }
+              className="size-4 accent-[--color-accent]"
+            />
+            노출 활성
+          </label>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="banner-starts" className={ADMIN_FIELD_LABEL_CLASS}>
+              노출 시작 (선택)
+            </label>
+            <input
+              id="banner-starts"
+              type="datetime-local"
+              value={form.startsAt}
+              onChange={(event) =>
+                setForm((f) => ({ ...f, startsAt: event.target.value }))
+              }
+              className={ADMIN_CONTROL_CLASS}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="banner-ends" className={ADMIN_FIELD_LABEL_CLASS}>
+              노출 종료 (선택)
+            </label>
+            <input
+              id="banner-ends"
+              type="datetime-local"
+              value={form.endsAt}
+              onChange={(event) =>
+                setForm((f) => ({ ...f, endsAt: event.target.value }))
+              }
+              className={ADMIN_CONTROL_CLASS}
+            />
+          </div>
+        </div>
+
+        {formError ? <AdminErrorNotice message={formError} /> : null}
+
+        <div>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? <AdminButtonSpinner /> : null}
+            {editingId ? "수정 저장" : "배너 등록"}
+          </Button>
+        </div>
+      </form>
+
+      {/* 목록 */}
+      <div className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <h2 className="mb-4 text-[15px] font-bold text-foreground">
+          등록된 배너
+        </h2>
+
+        {listState.status === "loading" ? (
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+        ) : null}
+
+        {listState.status === "error" ? (
+          <AdminErrorNotice message={listState.message} />
+        ) : null}
+
+        {listState.status === "ready" && listState.banners.length === 0 ? (
+          <AdminEmptyState
+            title="등록된 배너가 없습니다"
+            description="위 폼에서 첫 배너를 등록해 보세요."
+          />
+        ) : null}
+
+        {listState.status === "ready" && listState.banners.length > 0 ? (
+          <ul className="flex flex-col gap-3">
+            {listState.banners.map((banner) => (
+              <li
+                key={banner.id}
+                className="flex flex-col gap-4 rounded-xl border border-line p-4 sm:flex-row sm:items-center"
+              >
+                <div className="relative h-20 w-36 shrink-0 overflow-hidden rounded-lg border border-line bg-surface-2">
+                  <Image
+                    src={banner.imageUrl}
+                    alt={banner.title ?? "배너 이미지"}
+                    fill
+                    sizes="144px"
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[12.5px] font-bold ${
+                        banner.isActive
+                          ? "bg-success/10 text-success"
+                          : "bg-surface-2 text-muted"
+                      }`}
+                    >
+                      {banner.isActive ? "활성" : "비활성"}
+                    </span>
+                    <span className="truncate text-[13.5px] font-bold text-foreground">
+                      {banner.title ?? "(제목 없음)"}
+                    </span>
+                    <span className="shrink-0 text-[13px] tabular-nums text-subtle">
+                      순서 {banner.sortOrder}
+                    </span>
+                  </div>
+                  {banner.linkUrl ? (
+                    <p className="mt-1.5 truncate text-[13px] text-muted">
+                      {banner.linkUrl}
+                    </p>
+                  ) : null}
+                  <p className="mt-1 text-[13px] tabular-nums text-subtle">
+                    {banner.startsAt
+                      ? formatAdminDateTime(banner.startsAt)
+                      : "상시"}{" "}
+                    ~ {banner.endsAt ? formatAdminDateTime(banner.endsAt) : "상시"}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => void handleToggleActive(banner)}
+                    disabled={pendingId === banner.id}
+                  >
+                    {banner.isActive ? "비활성화" : "활성화"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => startEdit(banner)}
+                  >
+                    수정
+                  </Button>
+                  <Button
+                    variant="danger-outline"
+                    size="xs"
+                    onClick={() => void handleDelete(banner)}
+                    disabled={pendingId === banner.id}
+                  >
+                    삭제
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
   );
 }

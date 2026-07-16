@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchReservationSlots } from "@/lib/reservation-slot-availability";
 import {
@@ -22,6 +21,15 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import {
+  ADMIN_CONTROL_CLASS,
+  ADMIN_FIELD_LABEL_CLASS,
+  AdminTable,
+  AdminTd,
+  AdminTr,
+} from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
+import { SelectMenu } from "@/components/ui/select-menu";
 import type { Gym, ReservationSlotAvailability, Sport } from "@/types/domain";
 
 import { isAbortError } from "@/lib/async-error";
@@ -31,6 +39,13 @@ const BULK_MIN_CAPACITY = 1;
 const BULK_MAX_CAPACITY = 999;
 
 type BulkClosedMode = "none" | "close" | "open";
+
+// 일괄 적용의 마감 옵션. SelectMenu(공용 드롭다운)에 그대로 넘긴다.
+const BULK_CLOSED_MODE_OPTIONS: { value: BulkClosedMode; label: string }[] = [
+  { value: "none", label: "변경 안 함" },
+  { value: "close", label: "마감 적용" },
+  { value: "open", label: "마감 해제" },
+];
 
 type BulkSaveState =
   | { status: "idle" }
@@ -74,7 +89,7 @@ const STATUS_BADGE_STYLES: Record<
 > = {
   available: "bg-success/10 text-success border-success/30",
   full: "bg-warning/10 text-warning border-warning/30",
-  closed: "bg-slate-100 text-slate-700 border-line-strong",
+  closed: "bg-surface-2 text-foreground border-line-strong",
 };
 
 const BULK_DATE_WEEK_PRESETS = [1, 2, 3, 4] as const;
@@ -679,115 +694,85 @@ export function AdminReservationSlotsForm({
   };
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-accent-strong">관리자</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
-              슬롯 관리
-            </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              체육관·종목·날짜를 선택해 시간대별 정원과 마감 여부를 관리합니다.
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 동작합니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              관리자 홈
-            </Link>
-            <Link
-              href="/admin/reservations"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              예약 관리
-            </Link>
-          </div>
-        </header>
-
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">조회 조건</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              체육관
-              <select
+    <div className="flex flex-col gap-6">
+      <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+          <h2 className="mb-4 text-[15px] font-bold text-foreground">
+            조회 조건
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className={ADMIN_FIELD_LABEL_CLASS}>체육관</span>
+              <SelectMenu
                 value={selectedGymId}
-                onChange={(event) => handleGymChange(event.target.value)}
-                disabled={isSavingSlotChange}
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {gyms.length === 0 ? (
-                  <option value="">체육관이 없습니다</option>
-                ) : (
-                  gyms.map((gym) => (
-                    <option key={gym.id} value={gym.id}>
-                      {gym.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              종목
-              <select
+                options={gyms.map((gym) => ({
+                  value: gym.id,
+                  label: gym.name,
+                }))}
+                placeholder="체육관이 없습니다"
+                ariaLabel="체육관"
+                disabled={gyms.length === 0 || isSavingSlotChange}
+                onChange={handleGymChange}
+                triggerClassName={ADMIN_CONTROL_CLASS}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <span className={ADMIN_FIELD_LABEL_CLASS}>종목</span>
+              <SelectMenu
                 value={selectedSport}
-                onChange={(event) =>
-                  handleSportChange(event.target.value as Sport)
+                options={
+                  selectedGym
+                    ? selectedGym.sports.map((sport) => ({
+                        value: sport,
+                        label: sport,
+                      }))
+                    : []
                 }
+                placeholder="종목 없음"
+                ariaLabel="종목"
                 disabled={!selectedGym || isSavingSlotChange}
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                {selectedGym ? (
-                  selectedGym.sports.map((sport) => (
-                    <option key={sport} value={sport}>
-                      {sport}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">종목 없음</option>
-                )}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-              날짜
+                onChange={(value) => handleSportChange(value as Sport)}
+                triggerClassName={ADMIN_CONTROL_CLASS}
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="slot-date" className={ADMIN_FIELD_LABEL_CLASS}>
+                날짜
+              </label>
               <input
+                id="slot-date"
                 type="date"
                 value={selectedDate}
                 onChange={(event) => handleDateChange(event.target.value)}
                 disabled={isSavingSlotChange}
-                className="h-10 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className={ADMIN_CONTROL_CLASS}
               />
-            </label>
-            <button
-              type="button"
+            </div>
+            <Button
+              size="console"
               onClick={handleQuery}
               disabled={!canQuery || slotsState.status === "loading"}
-              className="h-10 self-end rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
             >
               {slotsState.status === "loading" ? (
-                <span className="inline-flex items-center gap-2">
+                <>
                   <AdminButtonSpinner />
                   조회 중
-                </span>
+                </>
               ) : (
                 "조회"
               )}
-            </button>
+            </Button>
           </div>
           {isSavingSlotChange ? (
-            <p className="mt-2 text-xs font-semibold text-warning">
+            <p className="mt-2 text-[13px] font-semibold text-warning">
               저장이 끝난 뒤 조회 조건을 변경할 수 있습니다.
             </p>
           ) : null}
         </section>
 
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-sm font-bold text-slate-950">시간대 슬롯</h2>
+        <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+          <h2 className="mb-4 text-[15px] font-bold text-foreground">
+            시간대 슬롯
+          </h2>
 
           {slotsState.status === "idle" ? (
             <AdminEmptyState
@@ -802,7 +787,7 @@ export function AdminReservationSlotsForm({
 
           {slotsState.status === "error" ? (
             <p
-              className="mt-3 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
+              className="mt-3 rounded-xl border border-error/30 bg-error/10 px-5 py-3.5 text-[13.5px] font-semibold text-error"
               role="alert"
             >
               {slotsState.message}
@@ -817,21 +802,21 @@ export function AdminReservationSlotsForm({
               />
             ) : (
               <>
-                <div className="mt-3 rounded-md border border-accent/20 bg-accent-tint p-4">
+                <div className="mt-3 rounded-xl border border-accent/20 bg-accent-tint p-5">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-[13.5px] font-semibold text-foreground">
                       일괄 적용
                     </p>
-                    <p className="text-xs font-semibold text-slate-600">
+                    <p className="text-[13px] font-semibold text-muted">
                       선택된 시간 {selectedTimes.size}개
                       {selectedTimes.size > 0
                         ? ` · 적용 날짜 ${bulkTargetDates.length}개 · 대상 ${bulkTargetCount}건`
                         : ""}
                     </p>
                   </div>
-                  <div className="mt-3 rounded-md border border-line bg-white p-3">
+                  <div className="mt-4 rounded-xl border border-line bg-white p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-                      <div className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                      <div className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                         추가 날짜
                         <input
                           type="date"
@@ -841,22 +826,22 @@ export function AdminReservationSlotsForm({
                             setBulkDateNotice(null);
                           }}
                           disabled={isSavingSlotChange}
-                          className="h-9 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          className={ADMIN_CONTROL_CLASS}
                         />
                       </div>
-                      <button
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="console"
                         onClick={handleAddBulkDate}
                         disabled={isSavingSlotChange}
-                        className="h-9 rounded-md border border-line-strong bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         날짜 추가
-                      </button>
+                      </Button>
                     </div>
                     {/* 운영자가 매주 같은 요일에 동일 정책을 반영하는 반복 작업을 줄이기 위한 프리셋.
                         조회 날짜(selectedDate)에 7·14·21·28일을 더해 같은 헬퍼를 거쳐 추가한다. */}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-slate-500">
+                      <span className="text-[13px] font-semibold text-muted">
                         빠른 추가
                       </span>
                       {BULK_DATE_WEEK_PRESETS.map((weeks) => (
@@ -865,20 +850,20 @@ export function AdminReservationSlotsForm({
                           type="button"
                           onClick={() => handleAddBulkWeekPreset(weeks)}
                           disabled={isSavingSlotChange}
-                          className="h-7 rounded-md border border-line-strong bg-white px-2 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                          className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-[13px] font-bold text-foreground transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                         >
                           +{weeks}주 같은 요일
                         </button>
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="inline-flex h-7 items-center rounded-full border border-accent/20 bg-accent-tint px-3 text-xs font-semibold text-accent-strong">
+                      <span className="inline-flex h-7 items-center rounded-full border border-accent/20 bg-accent-tint px-3 text-[12.5px] font-bold tabular-nums text-accent-strong">
                         조회 날짜 {selectedDate}
                       </span>
                       {bulkAdditionalDates.map((date) => (
                         <span
                           key={date}
-                          className="inline-flex h-7 items-center gap-2 rounded-full border border-line bg-slate-50 px-3 text-xs font-semibold text-slate-700"
+                          className="inline-flex h-7 items-center gap-2 rounded-full border border-line bg-surface-2 px-3 text-[12.5px] font-bold tabular-nums text-foreground"
                         >
                           {date}
                           <button
@@ -886,7 +871,7 @@ export function AdminReservationSlotsForm({
                             onClick={() => handleRemoveBulkDate(date)}
                             disabled={isSavingSlotChange}
                             aria-label={`${date} 적용 날짜 제거`}
-                            className="rounded text-slate-500 transition hover:text-error disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            className="rounded text-muted transition hover:text-error disabled:cursor-not-allowed disabled:text-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           >
                             ×
                           </button>
@@ -895,7 +880,7 @@ export function AdminReservationSlotsForm({
                     </div>
                     {bulkDateNotice ? (
                       <p
-                        className={`mt-2 text-xs font-semibold ${
+                        className={`mt-2 text-[13px] font-semibold ${
                           bulkDateNotice.tone === "error"
                             ? "text-error"
                             : "text-success"
@@ -909,7 +894,7 @@ export function AdminReservationSlotsForm({
                     ) : null}
                   </div>
                   <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                    <div className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                    <div className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                       <label className="inline-flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -918,7 +903,7 @@ export function AdminReservationSlotsForm({
                             setBulkCapacityEnabled(event.target.checked)
                           }
                           disabled={isSavingSlotChange}
-                          className="h-4 w-4 rounded border-line-strong"
+                          className="size-4 rounded border-line-strong"
                         />
                         정원 변경
                       </label>
@@ -937,31 +922,28 @@ export function AdminReservationSlotsForm({
                           setBulkCapacity(parsed);
                         }}
                         disabled={!bulkCapacityEnabled || isSavingSlotChange}
-                        className="h-9 w-24 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        className={`${ADMIN_CONTROL_CLASS} w-24 tabular-nums`}
                       />
                     </div>
-                    <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
-                      마감
-                      <select
+                    <div className="flex min-w-40 flex-col gap-1.5">
+                      <span className={ADMIN_FIELD_LABEL_CLASS}>마감</span>
+                      <SelectMenu
                         value={bulkClosedMode}
-                        onChange={(event) =>
-                          setBulkClosedMode(
-                            event.target.value as BulkClosedMode,
-                          )
-                        }
+                        options={BULK_CLOSED_MODE_OPTIONS}
+                        placeholder="변경 안 함"
+                        ariaLabel="마감"
                         disabled={isSavingSlotChange}
-                        className="h-9 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                      >
-                        <option value="none">변경 안 함</option>
-                        <option value="close">마감 적용</option>
-                        <option value="open">마감 해제</option>
-                      </select>
-                    </label>
+                        onChange={(value) =>
+                          setBulkClosedMode(value as BulkClosedMode)
+                        }
+                        triggerClassName={ADMIN_CONTROL_CLASS}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={handleBulkApply}
                       disabled={!canBulkApply}
-                      className="h-9 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                      className="inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-accent px-[19px] text-[15.5px] font-bold text-accent-ink transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                     >
                       {bulkSaveState.status === "saving" ? (
                         <span className="inline-flex items-center gap-2">
@@ -974,18 +956,18 @@ export function AdminReservationSlotsForm({
                     </button>
                   </div>
                   {selectedTimes.size === 0 ? (
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-[13px] text-muted">
                       아래 표에서 일괄 적용할 시간을 선택하세요.
                     </p>
                   ) : null}
                   {!hasBulkChange && selectedTimes.size > 0 ? (
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-[13px] text-muted">
                       정원 변경 또는 마감 옵션 중 하나를 선택하세요.
                     </p>
                   ) : null}
                   {hasInvalidBulkTargetDate ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-error"
+                      className="mt-2 text-[13px] font-semibold text-error"
                       role="alert"
                     >
                       적용 날짜는 YYYY-MM-DD 형식이어야 합니다.
@@ -993,7 +975,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {!isBulkCapacityValid ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-error"
+                      className="mt-2 text-[13px] font-semibold text-error"
                       role="alert"
                     >
                       정원은 {BULK_MIN_CAPACITY}팀 이상 {BULK_MAX_CAPACITY}
@@ -1002,7 +984,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {isOverBulkLimit ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-error"
+                      className="mt-2 text-[13px] font-semibold text-error"
                       role="alert"
                     >
                       현재 대상 {bulkTargetCount}건 · 한 번에 최대{" "}
@@ -1012,7 +994,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {bulkSaveState.status === "success" ? (
                     <p
-                      className="mt-2 text-xs font-semibold text-success"
+                      className="mt-2 text-[13px] font-semibold text-success"
                       role="status"
                     >
                       {bulkSaveState.updatedCount}건이 반영되었습니다.
@@ -1020,7 +1002,7 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {bulkSaveState.status === "error" ? (
                     <p
-                      className="mt-2 rounded-md border border-error/30 bg-error/10 p-2 text-xs font-semibold text-error"
+                      className="mt-2 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-[13px] font-semibold text-error"
                       role="alert"
                     >
                       {bulkSaveState.message}
@@ -1028,13 +1010,13 @@ export function AdminReservationSlotsForm({
                   ) : null}
                   {bulkSaveState.status === "conflict" ? (
                     <div
-                      className="mt-2 rounded-md border border-error/30 bg-error/10 p-3"
+                      className="mt-2 rounded-xl border border-error/30 bg-error/10 p-4"
                       role="alert"
                     >
-                      <p className="text-xs font-semibold text-error">
+                      <p className="text-[13px] font-semibold text-error">
                         {bulkSaveState.message}
                       </p>
-                      <ul className="mt-2 flex flex-col gap-1 text-xs text-error">
+                      <ul className="mt-2 flex flex-col gap-1 text-[13px] text-error">
                         {bulkSaveState.conflicts.map((conflict) => (
                           <li key={`${conflict.date}_${conflict.time}`}>
                             {conflict.date} {conflict.time} · 예약{" "}
@@ -1042,18 +1024,21 @@ export function AdminReservationSlotsForm({
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-2 text-xs text-error">
+                      <p className="mt-2 text-[13px] text-error">
                         이번 일괄 변경은 적용되지 않았습니다. 충돌 시간을
                         제외하고 다시 적용해주세요.
                       </p>
                     </div>
                   ) : null}
                 </div>
-                <div className="mt-3 overflow-x-auto">
-                <table className="min-w-full border-collapse text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                    <tr>
-                      <th className="border-b border-line px-3 py-2 text-left">
+                <div className="mt-4">
+                <AdminTable
+                  minWidth="min-w-[860px]"
+                  columns={[
+                    {
+                      key: "select-all",
+                      width: "w-12",
+                      label: (
                         <input
                           type="checkbox"
                           checked={isAllSelected}
@@ -1062,30 +1047,18 @@ export function AdminReservationSlotsForm({
                           }
                           disabled={isSavingSlotChange}
                           aria-label="전체 선택"
-                          className="h-4 w-4 rounded border-line-strong"
+                          className="size-4 rounded border-line-strong"
                         />
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        시간
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        정원
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        마감
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        예약 / 잔여
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        상태
-                      </th>
-                      <th className="border-b border-line px-3 py-2 text-left">
-                        저장
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      ),
+                    },
+                    { label: "시간" },
+                    { label: "정원" },
+                    { label: "마감" },
+                    { label: "예약 / 잔여" },
+                    { label: "상태" },
+                    { label: "저장", align: "right" },
+                  ]}
+                >
                     {slotsState.slots.map((slot) => {
                       const draft = rowDrafts.get(slot.time) ?? {
                         capacity: slot.capacity,
@@ -1110,13 +1083,8 @@ export function AdminReservationSlotsForm({
                         !isSaving;
 
                       return (
-                        <tr
-                          key={slot.time}
-                          className={`border-b border-line align-top ${
-                            isSaving ? "bg-accent-tint" : ""
-                          }`}
-                        >
-                          <td className="px-3 py-3">
+                        <AdminTr key={slot.time} selected={isSaving} align="top">
+                          <AdminTd valign="top">
                             <input
                               type="checkbox"
                               checked={selectedTimes.has(slot.time)}
@@ -1128,13 +1096,16 @@ export function AdminReservationSlotsForm({
                               }
                               disabled={isSavingSlotChange}
                               aria-label={`${slot.time} 일괄 선택`}
-                              className="h-4 w-4 rounded border-line-strong"
+                              className="mt-1.5 size-4 rounded border-line-strong"
                             />
-                          </td>
-                          <td className="px-3 py-3 font-semibold text-slate-900">
+                          </AdminTd>
+                          <AdminTd
+                            valign="top"
+                            className="pt-4 font-semibold tabular-nums"
+                          >
                             {slot.time}
-                          </td>
-                          <td className="px-3 py-3">
+                          </AdminTd>
+                          <AdminTd valign="top">
                             <input
                               type="number"
                               min={1}
@@ -1152,11 +1123,11 @@ export function AdminReservationSlotsForm({
                                 });
                               }}
                               disabled={isSavingSlotChange}
-                              className="h-9 w-24 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                              className={`${ADMIN_CONTROL_CLASS} w-20 tabular-nums`}
                             />
-                          </td>
-                          <td className="px-3 py-3">
-                            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                          </AdminTd>
+                          <AdminTd valign="top" className="pt-4">
+                            <label className="inline-flex items-center gap-2 text-[13px] text-muted">
                               <input
                                 type="checkbox"
                                 checked={draft.isClosed}
@@ -1166,38 +1137,40 @@ export function AdminReservationSlotsForm({
                                   })
                                 }
                                 disabled={isSavingSlotChange}
-                                className="h-4 w-4 rounded border-line-strong"
+                                className="size-4 rounded border-line-strong"
                               />
                               마감
                             </label>
-                          </td>
-                          <td className="px-3 py-3 text-slate-700">
-                            {slot.reservedCount}명 / 잔여 {slot.remaining}명
-                          </td>
-                          <td className="px-3 py-3">
+                          </AdminTd>
+                          <AdminTd
+                            valign="top"
+                            className="pt-4 tabular-nums text-muted"
+                          >
+                            {slot.reservedCount}팀 / 잔여 {slot.remaining}팀
+                          </AdminTd>
+                          <AdminTd valign="top" className="pt-3.5">
                             <span
-                              className={`inline-flex h-6 items-center rounded-full border px-2 text-xs font-semibold ${STATUS_BADGE_STYLES[slot.status]}`}
+                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[11.5px] font-bold ${STATUS_BADGE_STYLES[slot.status]}`}
                             >
                               {STATUS_LABELS[slot.status]}
                             </span>
-                          </td>
-                          <td className="px-3 py-3">
-                            <div className="flex flex-col gap-1">
-                              <button
-                                type="button"
+                          </AdminTd>
+                          <AdminTd valign="top" align="right">
+                            <div className="flex flex-col items-end gap-1">
+                              <Button
+                                size="xs"
                                 onClick={() => handleSaveRow(slot)}
                                 disabled={!canSave}
-                                className="h-9 rounded-md bg-accent px-3 text-xs font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                               >
                                 {isSaving
                                   ? "저장 중"
                                   : dirty
                                     ? "저장"
                                     : "변경 없음"}
-                              </button>
+                              </Button>
                               {isSaveSuccess ? (
                                 <p
-                                  className="text-xs font-semibold text-success"
+                                  className="text-[12px] font-semibold text-success"
                                   role="status"
                                 >
                                   저장 완료
@@ -1205,7 +1178,7 @@ export function AdminReservationSlotsForm({
                               ) : null}
                               {saveError ? (
                                 <p
-                                  className="text-xs font-semibold text-error"
+                                  className="text-right text-[12px] font-semibold text-error"
                                   role="alert"
                                 >
                                   {saveError}
@@ -1213,25 +1186,23 @@ export function AdminReservationSlotsForm({
                               ) : null}
                               {!rowCapacityIsValid ? (
                                 <p
-                                  className="text-xs font-semibold text-error"
+                                  className="text-right text-[12px] font-semibold text-error"
                                   role="alert"
                                 >
                                   정원은 1~999팀이어야 합니다.
                                 </p>
                               ) : null}
                             </div>
-                          </td>
-                        </tr>
+                          </AdminTd>
+                        </AdminTr>
                       );
                     })}
-                  </tbody>
-                </table>
+                </AdminTable>
                 </div>
               </>
             )
           ) : null}
         </section>
-      </section>
-    </main>
+    </div>
   );
 }

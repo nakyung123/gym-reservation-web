@@ -73,8 +73,6 @@ function parseNullableText(
   return { ok: true, value: trimmed };
 }
 
-// 닉네임 최대 길이. nickname-availability API, random-nickname, 가입 흐름에서 공유한다.
-export const NICKNAME_MAX_LENGTH = 8;
 // 회원정보 필드 최대 길이(검증·UI maxLength·DB VarChar와 동일하게 맞춘다).
 export const NAME_MAX_LENGTH = 30;
 export const PHONE_MAX_LENGTH = 20;

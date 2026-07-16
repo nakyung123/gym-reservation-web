@@ -93,18 +93,27 @@ function PagerArrow({
   );
 }
 
+// 게시판(고객 화면)은 본문과 크게 떨어뜨리고, 콘솔 표 안에서는 붙여 쓴다.
+const SPACING_CLASS = {
+  board: "mt-20 mb-14",
+  compact: "py-3",
+} as const;
+
 export function BoardPagination({
   page,
   totalPages,
   buildHref,
   onNavigate,
   labels,
+  spacing = "board",
 }: {
   page: number;
   totalPages: number;
   buildHref?: (page: number) => string;
   onNavigate?: (page: number) => void;
   labels: PaginationLabels;
+  /** 관리자 콘솔처럼 카드 안에 넣을 때는 "compact". 기본은 게시판 여백. */
+  spacing?: keyof typeof SPACING_CLASS;
 }) {
   const atFirst = page <= 1;
   const atLast = page >= totalPages;
@@ -113,7 +122,7 @@ export function BoardPagination({
   return (
     <nav
       aria-label={labels.pagination}
-      className="mt-20 mb-14 flex items-center justify-center gap-1.5"
+      className={`flex items-center justify-center gap-1.5 ${SPACING_CLASS[spacing]}`}
     >
       <PagerArrow kind="first" disabled={atFirst} targetPage={1} href={hrefFor(1)} onNavigate={onNavigate} label={labels.firstPage} />
       <PagerArrow kind="prev" disabled={atFirst} targetPage={page - 1} href={hrefFor(page - 1)} onNavigate={onNavigate} label={labels.prevPage} />

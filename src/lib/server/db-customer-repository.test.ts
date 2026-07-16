@@ -7,9 +7,9 @@ import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
 
-async function createProfile(userId: string, nickname: string, provider: string) {
+async function createProfile(userId: string, name: string, provider: string) {
   await prisma.userProfile.create({
-    data: { userId, nickname, provider, preferredSports: [] },
+    data: { userId, name, provider, preferredSports: [] },
   });
 }
 
@@ -40,7 +40,7 @@ describe("listCustomers", () => {
     const custA = customers.find((c) => c.userId === "cust-a");
     const custB = customers.find((c) => c.userId === "cust-b");
     expect(custA).toMatchObject({
-      nickname: "고객에이",
+      name: "고객에이",
       provider: "google",
       reservationCount: 2,
       activeFavoriteCount: 1,
@@ -71,13 +71,29 @@ describe("listCustomers", () => {
     expect(target?.activeFavoriteCount).toBe(0);
   });
 
-  it("q로 닉네임을 부분 검색한다", async () => {
+  it("q로 이름을 부분 검색한다", async () => {
     await createProfile("cust-search-1", "농구왕", "google");
     await createProfile("cust-search-2", "배드민턴고수", "kakao");
 
     const result = await listCustomers({ q: "농구" });
     expect(result).toHaveLength(1);
     expect(result[0]?.userId).toBe("cust-search-1");
+  });
+
+  it("q로 로그인 아이디를 부분 검색한다", async () => {
+    await prisma.userProfile.create({
+      data: {
+        userId: "cust-loginid",
+        name: "아이디검색대상",
+        loginId: "hoopstar7",
+        provider: "local",
+        preferredSports: [],
+      },
+    });
+
+    const result = await listCustomers({ q: "hoopstar" });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.userId).toBe("cust-loginid");
   });
 
   it("프로필이 없으면 빈 목록을 반환한다", async () => {
@@ -112,7 +128,7 @@ describe("getCustomerCoreDetail", () => {
 
     const detail = await getCustomerCoreDetail("detail-user");
     expect(detail.profile).toMatchObject({
-      nickname: "상세고객",
+      name: "상세고객",
       provider: "naver",
     });
     expect(detail.reservations).toEqual({

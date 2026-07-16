@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   answerInquiry,
@@ -15,6 +14,15 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import {
+  ADMIN_FIELD_LABEL_CLASS,
+  AdminErrorNotice,
+  AdminPanel,
+  adminToggleButtonClass as filterButtonClass,
+} from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
+import { BoardPagination } from "@/components/ui/board-pagination";
+import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
 import type { InquiryStatus } from "@/types/domain";
 
 type InquiriesState =
@@ -47,6 +55,7 @@ const statusBadgeStyles: Record<InquiryStatus, string> = {
 };
 
 export function AdminInquiriesView() {
+  const paginationLabels = useBoardPaginationLabels();
   const [filter, setFilter] = useState<AdminInquiryStatusFilter>("open");
   const [page, setPage] = useState(1);
   const [state, setState] = useState<InquiriesState>({ status: "loading" });
@@ -133,22 +142,8 @@ export function AdminInquiriesView() {
   const totalPages = Math.max(1, Math.ceil(total / INQUIRY_PAGE_SIZE));
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <Link
-            href="/admin"
-            className="text-xs font-semibold text-accent-strong hover:underline"
-          >
-            ← 운영 관리
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-950">문의 관리</h1>
-          <p className="text-sm text-slate-600">
-            고객 1:1 문의를 확인하고 답변합니다. 답변을 저장하면 고객 화면에
-            바로 표시되며, 다시 저장하면 최신 답변으로 덮어씁니다.
-          </p>
-        </header>
-
+    <div className="flex flex-col gap-6">
+      <AdminPanel>
         <div
           role="tablist"
           aria-label="문의 상태 필터"
@@ -161,180 +156,159 @@ export function AdminInquiriesView() {
               role="tab"
               aria-selected={filter === option.value}
               onClick={() => handleFilterChange(option.value)}
-              className={`h-9 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                filter === option.value
-                  ? "border-accent bg-accent text-white"
-                  : "border-line-strong bg-white text-slate-600 hover:border-accent hover:text-accent-strong"
-              }`}
+              className={filterButtonClass(filter === option.value)}
             >
               {option.label}
             </button>
           ))}
         </div>
+      </AdminPanel>
 
-        {notice ? (
-          <p
-            role="alert"
-            className={`rounded-md border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
-          >
-            {notice.message}
-          </p>
-        ) : null}
+      {notice ? (
+        <p
+          role="alert"
+          className={`rounded-xl border px-5 py-3.5 text-[13.5px] font-semibold ${noticeStyles[notice.tone]}`}
+        >
+          {notice.message}
+        </p>
+      ) : null}
 
-        {state.status === "loading" ? (
-          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
-        ) : null}
+      {state.status === "loading" ? (
+        <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+      ) : null}
 
-        {state.status === "error" ? (
-          <p
-            className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-            role="alert"
-          >
-            {state.message}
-          </p>
-        ) : null}
+      {state.status === "error" ? (
+        <AdminErrorNotice message={state.message} />
+      ) : null}
 
-        {inquiries && inquiries.length === 0 ? (
-          <AdminEmptyState
-            title="해당 조건의 문의가 없습니다"
-            description="필터를 바꾸면 다른 상태의 문의를 볼 수 있습니다."
-          />
-        ) : null}
+      {inquiries && inquiries.length === 0 ? (
+        <AdminEmptyState
+          title="해당 조건의 문의가 없습니다"
+          description="필터를 바꾸면 다른 상태의 문의를 볼 수 있습니다."
+        />
+      ) : null}
 
-        {inquiries && inquiries.length > 0 ? (
-          <ul className="flex flex-col gap-3">
-            {inquiries.map((inquiry) => {
-              const isFormOpen = openFormId === inquiry.id;
-              const isSaving = savingId === inquiry.id;
-              return (
-                <li
-                  key={inquiry.id}
-                  className="rounded-lg border border-line bg-white p-4 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${statusBadgeStyles[inquiry.status]}`}
-                      >
-                        {inquiryStatusLabel[inquiry.status]}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {inquiry.userLabel}
-                      </span>
+      {inquiries && inquiries.length > 0 ? (
+        <ul className="flex flex-col gap-3">
+          {inquiries.map((inquiry) => {
+            const isFormOpen = openFormId === inquiry.id;
+            const isSaving = savingId === inquiry.id;
+            return (
+              <li
+                key={inquiry.id}
+                className="rounded-xl border border-line bg-white p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[12.5px] font-bold ${statusBadgeStyles[inquiry.status]}`}
+                    >
+                      {inquiryStatusLabel[inquiry.status]}
                     </span>
-                    <span className="text-xs text-slate-400">
-                      {formatAdminDateTime(inquiry.createdAt)}
+                    <span className="text-[13px] text-muted">
+                      {inquiry.userLabel}
                     </span>
+                  </span>
+                  <span className="text-[13px] tabular-nums text-muted">
+                    {formatAdminDateTime(inquiry.createdAt)}
+                  </span>
+                </div>
+
+                <h2 className="mt-3 text-[15px] font-bold text-foreground">
+                  {inquiry.title}
+                </h2>
+                <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] leading-relaxed text-foreground">
+                  {inquiry.body}
+                </p>
+
+                {inquiry.answer && !isFormOpen ? (
+                  <div className="mt-4 rounded-xl border border-accent/20 bg-accent-tint px-4 py-3">
+                    <p className="text-[12.5px] font-bold text-accent-strong">
+                      답변
+                      {inquiry.answeredAt
+                        ? ` · ${formatAdminDateTime(inquiry.answeredAt)}`
+                        : ""}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-[13.5px] leading-relaxed text-foreground">
+                      {inquiry.answer}
+                    </p>
                   </div>
+                ) : null}
 
-                  <h2 className="mt-2 text-sm font-bold text-slate-950">
-                    {inquiry.title}
-                  </h2>
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-800">
-                    {inquiry.body}
-                  </p>
-
-                  {inquiry.answer && !isFormOpen ? (
-                    <div className="mt-3 rounded-md border border-accent/20 bg-accent-tint px-3 py-2.5">
-                      <p className="text-xs font-semibold text-accent-strong">
-                        답변
-                        {inquiry.answeredAt
-                          ? ` · ${formatAdminDateTime(inquiry.answeredAt)}`
-                          : ""}
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-800">
-                        {inquiry.answer}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {isFormOpen ? (
-                    <div className="mt-3 flex flex-col gap-2">
-                      <label
-                        htmlFor={`inquiry-answer-${inquiry.id}`}
-                        className="text-xs font-semibold text-slate-500"
+                {isFormOpen ? (
+                  <div className="mt-4 flex flex-col gap-1.5">
+                    <label
+                      htmlFor={`inquiry-answer-${inquiry.id}`}
+                      className={ADMIN_FIELD_LABEL_CLASS}
+                    >
+                      답변 내용 ({answerDraft.trim().length}/{INQUIRY_ANSWER_MAX}자)
+                    </label>
+                    <textarea
+                      id={`inquiry-answer-${inquiry.id}`}
+                      value={answerDraft}
+                      onChange={(event) => {
+                        setAnswerDraft(event.target.value);
+                        setNotice(null);
+                      }}
+                      rows={4}
+                      maxLength={INQUIRY_ANSWER_MAX}
+                      disabled={isSaving}
+                      className="w-full rounded-[10px] border border-line-strong bg-white px-3.5 py-3 text-[13.5px] leading-relaxed text-foreground transition focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2"
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <Button
+                        onClick={() => void handleSaveAnswer(inquiry.id)}
+                        disabled={isSaving || answerDraft.trim().length === 0}
                       >
-                        답변 내용 ({answerDraft.trim().length}/{INQUIRY_ANSWER_MAX}자)
-                      </label>
-                      <textarea
-                        id={`inquiry-answer-${inquiry.id}`}
-                        value={answerDraft}
-                        onChange={(event) => {
-                          setAnswerDraft(event.target.value);
-                          setNotice(null);
-                        }}
-                        rows={4}
-                        maxLength={INQUIRY_ANSWER_MAX}
+                        {isSaving ? (
+                          <>
+                            <AdminButtonSpinner />
+                            저장 중
+                          </>
+                        ) : (
+                          "답변 저장"
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setOpenFormId(null)}
                         disabled={isSaving}
-                        className="w-full rounded-md border border-line-strong px-3 py-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:bg-slate-50"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void handleSaveAnswer(inquiry.id)}
-                          disabled={isSaving || answerDraft.trim().length === 0}
-                          className="h-9 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                        >
-                          {isSaving ? (
-                            <span className="inline-flex items-center gap-2">
-                              <AdminButtonSpinner />
-                              저장 중
-                            </span>
-                          ) : (
-                            "답변 저장"
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setOpenFormId(null)}
-                          disabled={isSaving}
-                          className="h-9 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                        >
-                          닫기
-                        </button>
-                      </div>
+                      >
+                        닫기
+                      </Button>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <Button
+                      variant="outline"
+                      size="xs"
                       onClick={() => handleToggleForm(inquiry)}
-                      className="mt-3 h-9 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       {inquiry.answer ? "답변 수정" : "답변 작성"}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
+                    </Button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
 
-        {inquiries && total > 0 ? (
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1 || state.status !== "ready"}
-              className="h-9 rounded-md border border-line-strong px-3 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              이전
-            </button>
-            <span className="text-sm font-semibold text-slate-700">
-              {page} / {totalPages} 페이지 · 총 {total}건
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setPage((current) => Math.min(totalPages, current + 1))
-              }
-              disabled={page >= totalPages || state.status !== "ready"}
-              className="h-9 rounded-md border border-line-strong px-3 text-sm font-semibold text-slate-600 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              다음
-            </button>
-          </div>
-        ) : null}
-      </section>
-    </main>
+      {inquiries && total > 0 ? (
+        <div className="flex flex-col items-center gap-1">
+          <BoardPagination
+            page={page}
+            totalPages={totalPages}
+            onNavigate={(next) => setPage(next)}
+            labels={paginationLabels}
+            spacing="compact"
+          />
+          <p className="text-[12.5px] tabular-nums text-muted">
+            총 {total}건
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }

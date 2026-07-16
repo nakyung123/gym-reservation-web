@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ADMIN_GYM_SPORTS,
@@ -17,6 +16,14 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import {
+  ADMIN_CONTROL_CLASS,
+  ADMIN_FIELD_LABEL_CLASS,
+  ADMIN_TEXTAREA_CLASS,
+  AdminErrorNotice,
+  adminToggleButtonClass,
+} from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
 import type { AdminGym, Sport } from "@/types/domain";
 
 type GymsState =
@@ -416,76 +423,39 @@ export function AdminGymsView() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-accent-strong">관리자</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
-              시설 관리
-            </h1>
-            <p className="mt-1 text-xs text-slate-500">
-              관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 동작합니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              관리자 홈
-            </Link>
-            <Link
-              href="/admin/reservations"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              예약 관리
-            </Link>
-            <Link
-              href="/admin/reservation-slots"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              슬롯 관리
-            </Link>
-          </div>
-        </header>
+    <div className="flex flex-col gap-6">
+      {notice ? (
+        <div
+          role="alert"
+          className={`rounded-xl border px-5 py-3.5 text-[13.5px] font-semibold ${noticeStyles[notice.tone]}`}
+        >
+          {notice.message}
+        </div>
+      ) : null}
 
-        {notice ? (
-          <div
-            role="alert"
-            className={`rounded-lg border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
-          >
-            {notice.message}
-          </div>
-        ) : null}
-
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
+      <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-sm font-bold text-slate-950">시설 목록</h2>
-                <p className="mt-1 text-xs text-slate-500">
+                <h2 className="text-[15px] font-bold text-foreground">
+                  시설 목록
+                </h2>
+                <p className="mt-1 text-[13px] tabular-nums text-muted">
                   전체 {counts.total}개 · 운영 중 {counts.active}개 · 비활성{" "}
                   {counts.inactive}개
                 </p>
               </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={() => void loadGyms()}
                   disabled={gymsState.status === "loading" || saving}
-                  className="h-10 rounded-md border border-line-strong px-3 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 >
                   새로고침
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  disabled={saving}
-                  className="h-10 rounded-md bg-accent px-3 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                >
+                </Button>
+                <Button onClick={handleNew} disabled={saving}>
                   신규 시설
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -495,7 +465,8 @@ export function AdminGymsView() {
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="시설명, 지역구, 주소"
-                className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                aria-label="시설 검색"
+                className={`${ADMIN_CONTROL_CLASS} placeholder:text-subtle`}
               />
               <div
                 className="flex flex-wrap gap-2"
@@ -511,11 +482,7 @@ export function AdminGymsView() {
                         type="button"
                         aria-pressed={selected}
                         onClick={() => setStatusFilter(filter)}
-                        className={`h-9 rounded-md border px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 ${
-                          selected
-                            ? "border-accent bg-accent text-white"
-                            : "border-line-strong bg-white text-slate-700 hover:border-accent hover:text-accent-strong"
-                        }`}
+                        className={adminToggleButtonClass(selected)}
                       >
                         {statusFilterLabels[filter]}
                       </button>
@@ -526,21 +493,20 @@ export function AdminGymsView() {
             </div>
 
             {gymsState.status === "loading" ? (
-              <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+              <div className="mt-5">
+                <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+              </div>
             ) : null}
 
             {gymsState.status === "error" ? (
-              <p
-                className="mt-5 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
-                role="alert"
-              >
-                {gymsState.message}
-              </p>
+              <div className="mt-5">
+                <AdminErrorNotice message={gymsState.message} />
+              </div>
             ) : null}
 
             {gymsState.status === "ready" ? (
               filteredGyms.length === 0 ? (
-                <>
+                <div className="mt-5">
                   <AdminEmptyState
                     title={
                       gyms.length === 0
@@ -557,20 +523,20 @@ export function AdminGymsView() {
                       초기화 CTA를 노출한다. 검색어와 상태 필터를 한 번에 푼다. */}
                   {gyms.length > 0 &&
                   (searchInput.trim() || statusFilter !== "all") ? (
-                    <div className="mt-3 flex justify-center">
-                      <button
-                        type="button"
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        variant="outline"
+                        size="xs"
                         onClick={() => {
                           setSearchInput("");
                           setStatusFilter("all");
                         }}
-                        className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                       >
                         조건 초기화
-                      </button>
+                      </Button>
                     </div>
                   ) : null}
-                </>
+                </div>
               ) : (
                 <div className="mt-5 divide-y divide-line border-y border-line">
                   {filteredGyms.map((gym) => {
@@ -582,36 +548,37 @@ export function AdminGymsView() {
                         type="button"
                         onClick={() => handleSelectGym(gym)}
                         disabled={saving}
-                        className={`grid w-full gap-2 border-l-4 px-2 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        className={`grid w-full gap-2 border-l-4 px-3 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
                           selected
                             ? "border-accent bg-accent-tint"
-                            : "border-transparent hover:bg-slate-50"
+                            : "border-transparent hover:bg-surface-2"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-semibold text-slate-950">
+                            <p className="text-[13.5px] font-semibold text-foreground">
                               {gym.name}
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-[13px] text-muted">
                               {gym.region} · {gym.sports.join(", ")}
                             </p>
                           </div>
                           <span
-                            className={`inline-flex h-6 shrink-0 items-center rounded-full border px-2 text-xs font-semibold ${
+                            className={`inline-flex h-7 shrink-0 items-center rounded-full border px-2.5 text-[12.5px] font-bold ${
                               gym.isActive
                                 ? "border-success/30 bg-success/10 text-success"
-                                : "border-line bg-slate-100 text-slate-600"
+                                : "border-line bg-surface-2 text-muted"
                             }`}
                           >
                             {gym.isActive ? "운영 중" : "비활성"}
                           </span>
                         </div>
-                        <p className="font-mono text-xs text-slate-400">
+                        {/* 식별자는 monospace 대신 본문 폰트 + tabular로 통일한다(DESIGN.md §3). */}
+                        <p className="text-[13px] tabular-nums text-subtle">
                           {gym.id}
                         </p>
-                        <p className="text-xs text-slate-500">{gym.address}</p>
-                        <p className="text-xs font-semibold text-slate-600">
+                        <p className="text-[13px] text-muted">{gym.address}</p>
+                        <p className="text-[13px] font-semibold tabular-nums text-muted">
                           기본 {formatGymPrice(gym.basePrice)} ·{" "}
                           {gym.availableTimes.length}개 시간대
                         </p>
@@ -623,17 +590,17 @@ export function AdminGymsView() {
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-bold text-slate-950">
+                <h2 className="text-[15px] font-bold text-foreground">
                   {formMode === "create" ? "신규 시설" : "시설 정보 수정"}
                 </h2>
-                <p className="mt-1 font-mono text-xs text-slate-400">
+                <p className="mt-1 text-[13px] tabular-nums text-subtle">
                   {formMode === "create" ? "new-gym" : draft.id}
                 </p>
               </div>
-              <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <label className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
                 <input
                   type="checkbox"
                   checked={draft.isActive}
@@ -651,7 +618,7 @@ export function AdminGymsView() {
                 영향을 줄 수 있으므로 운영자에게 한 줄로 사전 안내한다. */}
             {formMode === "edit" ? (
               <p
-                className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-semibold text-warning"
+                className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-[13.5px] font-semibold leading-relaxed text-warning"
                 role="status"
               >
                 수정 사항은 기존 예약·슬롯에 영향을 줄 수 있습니다. 운영시간·종목·시간대를 바꾸기 전에 영향 범위를 확인하세요.
@@ -663,7 +630,7 @@ export function AdminGymsView() {
                 문구가 달라지는데, 신규에는 "기존 예약" 개념이 없으므로 분기한다. */}
             {!draft.isActive ? (
               <p
-                className="mt-3 rounded-md border border-error/30 bg-error/10 px-3 py-2 text-xs font-semibold text-error"
+                className="mt-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-[13.5px] font-semibold leading-relaxed text-error"
                 role="alert"
               >
                 {formMode === "create"
@@ -679,17 +646,17 @@ export function AdminGymsView() {
               className="mt-5 grid min-w-0 gap-4 border-0 p-0"
             >
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   시설 ID
                   <input
                     type="text"
                     value={draft.id}
                     onChange={(event) => updateDraft({ id: event.target.value })}
                     disabled={formMode === "edit"}
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal disabled:text-muted`}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   시설명
                   <input
                     type="text"
@@ -697,13 +664,13 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ name: event.target.value })
                     }
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal`}
                   />
                 </label>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   지역구
                   <input
                     type="text"
@@ -711,10 +678,10 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ region: event.target.value })
                     }
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal`}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   운영시간
                   <input
                     type="text"
@@ -722,12 +689,12 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ openHours: event.target.value })
                     }
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal`}
                   />
                 </label>
               </div>
 
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+              <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                 주소
                 <input
                   type="text"
@@ -735,11 +702,11 @@ export function AdminGymsView() {
                   onChange={(event) =>
                     updateDraft({ address: event.target.value })
                   }
-                  className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`${ADMIN_CONTROL_CLASS} font-normal`}
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+              <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                 공식 URL
                 <input
                   type="url"
@@ -747,12 +714,12 @@ export function AdminGymsView() {
                   onChange={(event) =>
                     updateDraft({ officialUrl: event.target.value })
                   }
-                  className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={`${ADMIN_CONTROL_CLASS} font-normal`}
                 />
               </label>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   기본 이용료
                   <input
                     type="number"
@@ -762,13 +729,13 @@ export function AdminGymsView() {
                     onChange={(event) =>
                       updateDraft({ basePrice: event.target.value })
                     }
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal`}
                   />
                 </label>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   위도 (latitude)
                   <input
                     type="number"
@@ -780,10 +747,10 @@ export function AdminGymsView() {
                       updateDraft({ latitude: event.target.value })
                     }
                     placeholder="예: 37.5665"
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal`}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   경도 (longitude)
                   <input
                     type="number"
@@ -795,12 +762,12 @@ export function AdminGymsView() {
                       updateDraft({ longitude: event.target.value })
                     }
                     placeholder="예: 126.9780"
-                    className="h-10 rounded-md border border-line-strong px-3 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={`${ADMIN_CONTROL_CLASS} font-normal`}
                   />
                 </label>
               </div>
 
-              <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+              <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                 설명
                 <textarea
                   value={draft.description}
@@ -808,12 +775,12 @@ export function AdminGymsView() {
                     updateDraft({ description: event.target.value })
                   }
                   rows={3}
-                  className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className={ADMIN_TEXTAREA_CLASS}
                 />
               </label>
 
               <fieldset className="grid gap-2">
-                <legend className="text-xs font-semibold text-slate-700">
+                <legend className={`mb-1.5 ${ADMIN_FIELD_LABEL_CLASS}`}>
                   종목 및 이용료
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -822,14 +789,14 @@ export function AdminGymsView() {
                     return (
                       <div
                         key={sport}
-                        className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-md border border-line px-3 py-2"
+                        className="grid grid-cols-[auto_1fr] items-center gap-2 rounded-xl border border-line px-3.5 py-2.5"
                       >
-                        <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                        <label className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-foreground">
                           <input
                             type="checkbox"
                             checked={selected}
                             onChange={() => handleSportToggle(sport)}
-                            className="h-4 w-4 rounded border-line-strong"
+                            className="size-4 rounded border-line-strong"
                           />
                           {sport}
                         </label>
@@ -843,7 +810,7 @@ export function AdminGymsView() {
                           }
                           disabled={!selected}
                           aria-label={`${sport} 이용료`}
-                          className="h-9 min-w-0 rounded-md border border-line-strong px-2 text-sm text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          className="h-10 min-w-0 rounded-[10px] border border-line-strong bg-white px-3 text-[13.5px] tabular-nums text-foreground transition focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/20 disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-subtle"
                         />
                       </div>
                     );
@@ -852,7 +819,7 @@ export function AdminGymsView() {
               </fieldset>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   편의시설
                   <textarea
                     value={draft.facilitiesText}
@@ -860,10 +827,10 @@ export function AdminGymsView() {
                       updateDraft({ facilitiesText: event.target.value })
                     }
                     rows={5}
-                    className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={ADMIN_TEXTAREA_CLASS}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   예약 가능 시간
                   <textarea
                     value={draft.availableTimesText}
@@ -871,10 +838,10 @@ export function AdminGymsView() {
                       updateDraft({ availableTimesText: event.target.value })
                     }
                     rows={5}
-                    className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={ADMIN_TEXTAREA_CLASS}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-semibold text-slate-700">
+                <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-foreground">
                   휴관일
                   <textarea
                     value={draft.closedDaysText}
@@ -882,40 +849,29 @@ export function AdminGymsView() {
                       updateDraft({ closedDaysText: event.target.value })
                     }
                     rows={5}
-                    className="rounded-md border border-line-strong px-3 py-2 text-sm leading-6 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className={ADMIN_TEXTAREA_CLASS}
                   />
                 </label>
               </div>
 
               <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="h-10 rounded-md bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                >
+                <Button onClick={handleSave} disabled={saving}>
                   {saving ? (
-                    <span className="inline-flex items-center gap-2">
+                    <>
                       <AdminButtonSpinner />
                       저장 중
-                    </span>
+                    </>
                   ) : (
                     "저장"
                   )}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNew}
-                  disabled={saving}
-                  className="h-10 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong disabled:cursor-not-allowed disabled:border-line disabled:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                >
+                </Button>
+                <Button variant="outline" onClick={handleNew} disabled={saving}>
                   입력 초기화
-                </button>
+                </Button>
               </div>
             </fieldset>
           </section>
         </div>
-      </section>
-    </main>
-  );
+      </div>
+    );
 }

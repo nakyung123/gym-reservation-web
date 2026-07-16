@@ -43,7 +43,7 @@ describe("GET /api/admin/customers", () => {
     await prisma.userProfile.create({
       data: {
         userId: "list-cust",
-        nickname: "목록고객",
+        name: "목록고객",
         provider: "google",
         preferredSports: [],
       },
@@ -58,7 +58,7 @@ describe("GET /api/admin/customers", () => {
     expect(body.customers).toEqual([
       expect.objectContaining({
         userId: "list-cust",
-        nickname: "목록고객",
+        name: "목록고객",
         provider: "google",
         reservationCount: 0,
         activeFavoriteCount: 0,
@@ -68,11 +68,11 @@ describe("GET /api/admin/customers", () => {
     expect(body.customers?.[0]).not.toHaveProperty("email");
   });
 
-  it("q로 닉네임을 검색한다", async () => {
+  it("q로 이름을 검색한다", async () => {
     await prisma.userProfile.create({
       data: {
         userId: "cust-x",
-        nickname: "검색대상",
+        name: "검색대상",
         provider: "kakao",
         preferredSports: [],
       },
@@ -80,7 +80,7 @@ describe("GET /api/admin/customers", () => {
     await prisma.userProfile.create({
       data: {
         userId: "cust-y",
-        nickname: "다른닉",
+        name: "다른이름",
         provider: "kakao",
         preferredSports: [],
       },

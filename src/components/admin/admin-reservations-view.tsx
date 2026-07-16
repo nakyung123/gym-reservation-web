@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchAdminReservation,
@@ -11,6 +10,8 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import { AdminErrorNotice } from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
 import { reservationStatusLabel } from "@/components/reservation/reservation-ticket";
 import { isAbortError } from "@/lib/async-error";
 import { getTodayValue } from "@/lib/admin/admin-date-format";
@@ -403,35 +404,8 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
     detailState.status === "loading" ? detailState.reservationId : null;
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-accent-strong">관리자</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
-              예약 관리
-            </h1>
-            <p className="mt-1 text-xs text-slate-500">
-              관리자 권한이 부여된 Firebase 계정으로 로그인한 상태에서만 동작합니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              관리자 홈
-            </Link>
-            <Link
-              href="/admin/reservation-slots"
-              className="inline-flex h-10 w-fit items-center justify-center rounded-md border border-line-strong bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-            >
-              슬롯 관리
-            </Link>
-          </div>
-        </header>
-
-        <AdminReservationFilters
+    <div className="flex flex-col gap-6">
+      <AdminReservationFilters
           gyms={gyms}
           selectedStatus={selectedStatus}
           onStatusChange={setSelectedStatus}
@@ -451,119 +425,113 @@ export function AdminReservationsView({ gyms }: AdminReservationsViewProps) {
           onQuery={handleQuery}
         />
 
-        {notice ? (
-          <div
-            role="alert"
-            className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm font-semibold ${noticeStyles[notice.tone]}`}
+      {notice ? (
+        <div
+          role="alert"
+          className={`flex items-start justify-between gap-3 rounded-xl border px-5 py-3.5 text-[13.5px] font-semibold ${noticeStyles[notice.tone]}`}
+        >
+          <p className="flex-1">{notice.message}</p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="알림 닫기"
+            className="shrink-0 rounded-md border border-transparent px-2 py-0.5 text-[13px] font-semibold transition hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2"
           >
-            <p className="flex-1">{notice.message}</p>
-            <button
-              type="button"
-              onClick={() => setNotice(null)}
-              aria-label="알림 닫기"
-              className="shrink-0 rounded-md border border-transparent px-2 py-0.5 text-xs font-semibold transition hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2"
-            >
-              닫기
-            </button>
+            닫기
+          </button>
+        </div>
+      ) : null}
+
+      <AdminReservationDetailPanel
+        detailState={detailState}
+        gymsById={gymsById}
+        searchInput={searchInput}
+        visibleReservations={visibleReservations}
+        closeDisabled={Boolean(actionState)}
+        onClose={handleCloseDetail}
+        onClearSearch={() => setSearchInput("")}
+        renderActions={renderReservationActions}
+      />
+
+      <section className="rounded-xl border border-line bg-white p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-[15px] font-bold text-foreground">예약 목록</h2>
+            {reservationsState.status === "ready" ? (
+              <p className="mt-1 text-[13px] tabular-nums text-muted">
+                {reservationStatusLabel.reserved} {statusCounts.reserved}건 ·{" "}
+                {reservationStatusLabel.used} {statusCounts.used}건 ·{" "}
+                {reservationStatusLabel.cancelled} {statusCounts.cancelled}건
+              </p>
+            ) : (
+              <p className="mt-1 text-[13px] text-muted">
+                조회하면 상태별 집계가 표시됩니다.
+              </p>
+            )}
           </div>
+          {reservationsState.status === "ready" ? (
+            <span className="text-[13px] font-semibold tabular-nums text-muted">
+              {searchInput.trim()
+                ? `총 ${visibleReservations.length}건 / 조회 ${reservations.length}건`
+                : `총 ${reservations.length}건`}
+            </span>
+          ) : null}
+        </div>
+
+        {reservationsState.status === "idle" ? (
+          <AdminEmptyState
+            title="아직 예약을 조회하지 않았습니다"
+            description="상태·체육관·날짜·사용자 조건을 선택하고 조회를 누르면 예약 목록이 표시됩니다."
+          />
         ) : null}
 
-        <AdminReservationDetailPanel
-          detailState={detailState}
-          gymsById={gymsById}
-          searchInput={searchInput}
-          visibleReservations={visibleReservations}
-          closeDisabled={Boolean(actionState)}
-          onClose={handleCloseDetail}
-          onClearSearch={() => setSearchInput("")}
-          renderActions={renderReservationActions}
-        />
+        {reservationsState.status === "loading" ? (
+          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+        ) : null}
 
-        <section className="rounded-lg border border-line bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-950">예약 목록</h2>
-              {reservationsState.status === "ready" ? (
-                <p className="mt-1 text-xs text-slate-500">
-                  {reservationStatusLabel.reserved} {statusCounts.reserved}건 ·{" "}
-                  {reservationStatusLabel.used} {statusCounts.used}건 ·{" "}
-                  {reservationStatusLabel.cancelled} {statusCounts.cancelled}건
-                </p>
-              ) : (
-                <p className="mt-1 text-xs text-slate-500">
-                  조회하면 상태별 집계가 표시됩니다.
-                </p>
-              )}
-            </div>
-            {reservationsState.status === "ready" ? (
-              <span className="text-xs font-semibold text-slate-500">
-                {searchInput.trim()
-                  ? `총 ${visibleReservations.length}건 / 조회 ${reservations.length}건`
-                  : `총 ${reservations.length}건`}
-              </span>
-            ) : null}
-          </div>
+        {reservationsState.status === "error" ? (
+          <AdminErrorNotice message={reservationsState.message} />
+        ) : null}
 
-          {reservationsState.status === "idle" ? (
-            <AdminEmptyState
-              title="아직 예약을 조회하지 않았습니다"
-              description="상태·체육관·날짜·사용자 조건을 선택하고 조회를 누르면 예약 목록이 표시됩니다."
-            />
-          ) : null}
-
-          {reservationsState.status === "loading" ? (
-            <AdminLoadingRow message="페이지를 불러오는 중입니다." />
-          ) : null}
-
-          {reservationsState.status === "error" ? (
-            <p
-              className="mt-4 rounded-md border border-error/30 bg-error/10 p-3 text-sm font-semibold text-error"
-              role="alert"
-            >
-              {reservationsState.message}
-            </p>
-          ) : null}
-
-          {reservationsState.status === "ready" ? (
-            visibleReservations.length === 0 ? (
-              <>
-                <AdminEmptyState
-                  title="조건에 맞는 예약이 없습니다"
-                  description={
-                    searchInput.trim() && reservations.length > 0
-                      ? "검색어와 일치하는 예약이 없습니다. 검색어를 비우거나 다시 조회해 보세요."
-                      : "다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
-                  }
-                />
-                {/* 검색어가 적용된 상태에서 빈 결과면 사용자가 입력 영역까지 올라가지
-                    않고 바로 검색어를 풀 수 있도록 CTA를 같이 노출한다. 서버 조회
-                    조건은 그대로 두고 클라이언트 검색만 비운다. */}
-                {searchInput.trim() && reservations.length > 0 ? (
-                  <div className="mt-3 flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setSearchInput("")}
-                      aria-label="검색어 지우기"
-                      className="inline-flex h-9 items-center rounded-md border border-line-strong bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-                    >
-                      검색어 지우기
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <AdminReservationTable
-                reservations={visibleReservations}
-                gymsById={gymsById}
-                selectedDetailId={selectedDetailId}
-                detailLoadingId={detailLoadingId}
-                onOpenDetail={handleOpenDetail}
-                renderActions={renderReservationActions}
+        {reservationsState.status === "ready" ? (
+          visibleReservations.length === 0 ? (
+            <>
+              <AdminEmptyState
+                title="조건에 맞는 예약이 없습니다"
+                description={
+                  searchInput.trim() && reservations.length > 0
+                    ? "검색어와 일치하는 예약이 없습니다. 검색어를 비우거나 다시 조회해 보세요."
+                    : "다른 상태·체육관·날짜로 조건을 바꿔 다시 조회해 보세요."
+                }
               />
-            )
-          ) : null}
-        </section>
+              {/* 검색어가 적용된 상태에서 빈 결과면 사용자가 입력 영역까지 올라가지
+                  않고 바로 검색어를 풀 수 있도록 CTA를 같이 노출한다. 서버 조회
+                  조건은 그대로 두고 클라이언트 검색만 비운다. */}
+              {searchInput.trim() && reservations.length > 0 ? (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => setSearchInput("")}
+                    aria-label="검색어 지우기"
+                  >
+                    검색어 지우기
+                  </Button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <AdminReservationTable
+              reservations={visibleReservations}
+              gymsById={gymsById}
+              selectedDetailId={selectedDetailId}
+              detailLoadingId={detailLoadingId}
+              onOpenDetail={handleOpenDetail}
+              renderActions={renderReservationActions}
+            />
+          )
+        ) : null}
       </section>
-    </main>
+    </div>
   );
 }

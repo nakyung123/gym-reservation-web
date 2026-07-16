@@ -65,6 +65,49 @@
   --color-error: var(--error);
 }
 
+/* ============================================================
+   관리자 콘솔 전용 팔레트 (admin-scope override).
+   레퍼런스(유튜브 "무작정 따라하기 15강" 퍼플 SaaS 대시보드) 실측 기준:
+   **퍼플 #5F43FF 솔리드 + #F7F7F9 캔버스 + Pretendard**, 그라디언트·그림자 없음(플랫+하이라인).
+   Tailwind v4 @theme inline은 bg-accent 등을 var(--accent)로 인라인하므로,
+   이 스코프 안에서 CSS 변수만 덮어쓰면 기존 admin 유틸이 전부 새 색으로 바뀐다.
+   고객 화면은 .admin-console 밖이라 무영향(고객 네이비·Noto Sans KR 그대로).
+   값을 바꾸려면 이 블록만 교체한다(admin 디자인 SSOT). 대비는 WCAG AA 검증 완료.
+   ============================================================ */
+.admin-console {
+  /* admin 전용 폰트: Pretendard (고객 화면은 Noto Sans KR 유지) */
+  font-family: var(--font-pretendard), system-ui, -apple-system, "Malgun Gothic",
+    "Apple SD Gothic Neo", sans-serif;
+
+  /* 중립: 캔버스 #F7F7F9 + 잉크 #111 */
+  --background: #f7f7f9;
+  --foreground: #111111; /* 숫자·제목·표 강조 */
+  --surface: #ffffff;
+  --surface-2: #f3f3f7;
+  --border-base: #ececf1; /* 하이라인(그림자 대신 구분) */
+  --border-strong: #e2e2ea;
+  --muted: #505050; /* 본문 보조 */
+  --subtle: #767676; /* 캡션·플레이스홀더 (흰 위 4.5:1) */
+
+  /* 상태색 (WCAG AA) */
+  --success: #0c8800;
+  --warning: #b45309;
+  --error: #c42a2a;
+
+  /* 액센트 = 퍼플 솔리드 (활성 메뉴·버튼·포커스·선택행) */
+  --accent: #5f43ff;
+  --accent-hover: #4a2fd6;
+  --accent-strong: #5f43ff; /* 흰 위 텍스트/아이콘 (5.6:1 AA) */
+  --accent-tint: #ebeafc; /* 라벤더(선택/배지) */
+  --accent-ink: #ffffff;
+}
+
+/* 숫자·일시·예약번호 셀: Pretendard tabular로 자릿수를 정렬한다(레퍼런스는 mono 아님). */
+.admin-console .admin-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 * {
   box-sizing: border-box;
 }

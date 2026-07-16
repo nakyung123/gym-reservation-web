@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { fetchAdminAuditLogs } from "@/lib/admin/admin-audit-log-client";
 import {
   auditActionLabel,
@@ -13,6 +12,14 @@ import {
   AdminEmptyState,
   AdminLoadingRow,
 } from "@/components/admin/admin-async-state";
+import {
+  ADMIN_CONTROL_CLASS,
+  ADMIN_FIELD_LABEL_CLASS,
+  AdminErrorNotice,
+  AdminPanel,
+} from "@/components/admin/admin-ui";
+import { Button } from "@/components/ui/app-button";
+import { SelectMenu } from "@/components/ui/select-menu";
 
 type AuditState =
   | { status: "loading" }
@@ -75,122 +82,98 @@ export function AdminAuditLogsView() {
   const mayHaveMore = auditLogs !== null && auditLogs.length >= limit;
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 text-foreground sm:px-8 lg:px-10">
-      <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <header className="flex flex-col gap-1">
-          <Link
-            href="/admin"
-            className="text-xs font-semibold text-accent-strong hover:underline"
-          >
-            ← 운영 관리
-          </Link>
-          <h1 className="text-2xl font-bold text-slate-950">운영 이력</h1>
-          <p className="text-sm text-slate-600">
-            관리자 액션(예약 취소·이용 완료, 시설/슬롯 변경, 고객 메모 등)의 기록입니다.
-            개인정보 원문은 기록하지 않습니다.
-          </p>
-        </header>
-
-        <div className="flex items-center gap-2">
-          <label
-            htmlFor="audit-target-type"
-            className="text-xs font-semibold text-slate-500"
-          >
-            대상
-          </label>
-          <select
-            id="audit-target-type"
+    <div className="flex flex-col gap-6">
+      <AdminPanel>
+        <div className="flex min-w-0 max-w-xs flex-col gap-1.5">
+          <span className={ADMIN_FIELD_LABEL_CLASS}>대상</span>
+          <SelectMenu
             value={targetType}
-            onChange={(event) => {
-              setTargetType(event.target.value);
+            options={TARGET_TYPE_OPTIONS}
+            placeholder="전체"
+            ariaLabel="대상"
+            onChange={(value) => {
+              setTargetType(value);
               // 필터가 바뀌면 목록 크기를 처음부터 다시 늘린다.
               setLimit(LIST_LIMIT_STEP);
             }}
-            className="h-9 rounded-md border border-line-strong px-2 text-sm text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            {TARGET_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {state.status === "loading" ? (
-          <AdminLoadingRow message="페이지를 불러오는 중입니다." />
-        ) : null}
-
-        {state.status === "error" ? (
-          <p
-            className="rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
-            role="alert"
-          >
-            {state.message}
-          </p>
-        ) : null}
-
-        {auditLogs && auditLogs.length === 0 ? (
-          <AdminEmptyState
-            title="운영 이력이 없습니다"
-            description="선택한 조건에 해당하는 기록이 없습니다."
+            triggerClassName={ADMIN_CONTROL_CLASS}
           />
-        ) : null}
+        </div>
+      </AdminPanel>
 
-        {auditLogs && auditLogs.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {auditLogs.map((entry) => (
-              <li
-                key={entry.id}
-                className="rounded-lg border border-line bg-white p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="rounded-full bg-accent-tint px-2.5 py-1 text-xs font-semibold text-accent-strong">
-                      {auditActionLabel(entry.action)}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      {auditTargetTypeLabel(entry.targetType)}
-                    </span>
-                  </span>
-                  <span className="text-xs text-slate-400">
-                    {formatAdminDateTime(entry.createdAt)}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-slate-800">{entry.summary}</p>
-                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
-                  <span className="break-all">대상 {entry.targetId}</span>
-                  <span className="break-all">관리자 {entry.adminUid}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      {state.status === "loading" ? (
+        <AdminLoadingRow message="페이지를 불러오는 중입니다." />
+      ) : null}
 
-        {auditLogs && auditLogs.length > 0 ? (
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-xs text-slate-500">{auditLogs.length}건 표시 중</p>
-            {mayHaveMore && limit < LIST_LIMIT_MAX ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setLimit((current) =>
-                    Math.min(current + LIST_LIMIT_STEP, LIST_LIMIT_MAX),
-                  )
-                }
-                className="h-9 rounded-md border border-line-strong px-4 text-sm font-semibold text-slate-700 transition hover:border-accent hover:text-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                더 보기
-              </button>
-            ) : null}
-            {mayHaveMore && limit >= LIST_LIMIT_MAX ? (
-              <p className="text-xs font-semibold text-slate-500">
-                최대 {LIST_LIMIT_MAX}건까지 표시합니다. 대상 필터로 범위를 좁혀
-                주세요.
+      {state.status === "error" ? (
+        <AdminErrorNotice message={state.message} />
+      ) : null}
+
+      {auditLogs && auditLogs.length === 0 ? (
+        <AdminEmptyState
+          title="운영 이력이 없습니다"
+          description="선택한 조건에 해당하는 기록이 없습니다."
+        />
+      ) : null}
+
+      {auditLogs && auditLogs.length > 0 ? (
+        <ul className="flex flex-col gap-3">
+          {auditLogs.map((entry) => (
+            <li
+              key={entry.id}
+              className="rounded-xl border border-line bg-white p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-2">
+                  <span className="rounded-full bg-accent-tint px-2.5 py-1 text-[12.5px] font-bold text-accent-strong">
+                    {auditActionLabel(entry.action)}
+                  </span>
+                  <span className="text-[13px] text-muted">
+                    {auditTargetTypeLabel(entry.targetType)}
+                  </span>
+                </span>
+                <span className="text-[13px] tabular-nums text-muted">
+                  {formatAdminDateTime(entry.createdAt)}
+                </span>
+              </div>
+              <p className="mt-3 text-[13.5px] leading-relaxed text-foreground">
+                {entry.summary}
               </p>
-            ) : null}
-          </div>
-        ) : null}
-      </section>
-    </main>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[13px] text-subtle">
+                <span className="break-all">대상 {entry.targetId}</span>
+                <span className="break-all">관리자 {entry.adminUid}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {auditLogs && auditLogs.length > 0 ? (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-[13px] tabular-nums text-muted">
+            {auditLogs.length}건 표시 중
+          </p>
+          {mayHaveMore && limit < LIST_LIMIT_MAX ? (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() =>
+                setLimit((current) =>
+                  Math.min(current + LIST_LIMIT_STEP, LIST_LIMIT_MAX),
+                )
+              }
+            >
+              더 보기
+            </Button>
+          ) : null}
+          {mayHaveMore && limit >= LIST_LIMIT_MAX ? (
+            <p className="text-[13px] font-semibold text-muted">
+              최대 {LIST_LIMIT_MAX}건까지 표시합니다. 대상 필터로 범위를 좁혀
+              주세요.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }

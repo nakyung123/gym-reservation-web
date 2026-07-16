@@ -47,7 +47,7 @@ Firebase Auth uid에 연결되는 앱 전용 프로필/설정 테이블이다.
 | 필드 | 설명 |
 | --- | --- |
 | `user_id` | Firebase Auth uid |
-| `nickname` | 앱 표시 닉네임, unique |
+| `nickname` | 가입 시 자동 생성되는 내부 unique 값. 현재 사용자에게 노출·편집되지 않으며 문의 표시명 최후 폴백 등에만 쓰인다 |
 | `provider` | 표시/통계용 로그인 provider. 권한 판단에는 사용하지 않는다 |
 | `preferred_region` | 선호 지역 |
 | `preferred_sports` | 선호 종목 JSON |

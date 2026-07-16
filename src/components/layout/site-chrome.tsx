@@ -5,7 +5,14 @@ import { usePathname } from "next/navigation";
 // 전역 chrome(헤더/푸터/플로팅 위젯) 게이트.
 // 로그인처럼 자체 헤더를 가진 독립 풀스크린 화면에서는 전역 chrome을 숨긴다.
 // 숨김 대상은 정확히 일치하거나 하위 경로(`/login/...`)인 경우 모두 포함한다.
-const BARE_PREFIXES = ["/login", "/signup", "/reset-password", "/auth/action"];
+// `/admin`은 관리자 콘솔로, 고객 GNB·푸터·FAQ 위젯 대신 자체 사이드바 셸(AdminShell)을 쓴다.
+const BARE_PREFIXES = [
+  "/login",
+  "/signup",
+  "/reset-password",
+  "/auth/action",
+  "/admin",
+];
 
 function isBareRoute(pathname: string): boolean {
   return BARE_PREFIXES.some(

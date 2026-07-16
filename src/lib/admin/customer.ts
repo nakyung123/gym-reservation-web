@@ -1,7 +1,8 @@
 // 관리자 고객 관리(customers) 공유 타입·가드. 서버 전용 의존이 없어 UI 번들에도 안전하다.
 //
 // PII 노출 정책: email/최근 로그인 같은 Firebase Auth 메타는 "상세"에서만 노출한다.
-// 목록(CustomerSummary)에는 닉네임·provider·가입일·지표만 둔다.
+// 목록(CustomerSummary)에는 이름/아이디·provider·가입일·지표만 둔다.
+// (닉네임은 자동 생성값이라 운영상 의미가 없어 표시하지 않는다. 식별은 이름 우선, 없으면 아이디.)
 
 export type CustomerProvider = "local" | "google" | "kakao" | "naver" | null;
 
@@ -24,7 +25,8 @@ export function providerLabel(provider: CustomerProvider): string {
 // 목록 행. DB UserProfile + 예약/즐겨찾기 집계. email 미포함.
 export type CustomerSummary = {
   userId: string;
-  nickname: string | null;
+  name: string | null; // 실명(표시 우선)
+  loginId: string | null; // 로그인 아이디(이름 없을 때 대체 식별자)
   provider: CustomerProvider;
   createdAt: string; // 프로필 생성일(가입일 근사) ISO
   reservationCount: number; // 전체 예약 수(상태 무관)
@@ -33,7 +35,8 @@ export type CustomerSummary = {
 
 // 상세의 DB 프로필 부분.
 export type CustomerProfileInfo = {
-  nickname: string | null;
+  name: string | null;
+  loginId: string | null;
   provider: CustomerProvider;
   preferredRegion: string | null;
   preferredSports: string[];
@@ -94,7 +97,8 @@ export function isCustomerSummary(value: unknown): value is CustomerSummary {
   }
   return (
     typeof value.userId === "string" &&
-    (value.nickname === null || typeof value.nickname === "string") &&
+    (value.name === null || typeof value.name === "string") &&
+    (value.loginId === null || typeof value.loginId === "string") &&
     isProvider(value.provider) &&
     typeof value.createdAt === "string" &&
     isCount(value.reservationCount) &&
