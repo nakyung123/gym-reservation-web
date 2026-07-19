@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterActiveDuplicateCandidates,
   getUserReservationCancellationDeadline,
   isGymClosedOnDate,
   isValidReservationDateValue,
@@ -256,5 +257,74 @@ describe("validateUserReservationCancellation", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("past-time");
+  });
+});
+
+describe("filterActiveDuplicateCandidates", () => {
+  const scope = {
+    userId: "rules-user",
+    gymId: baseGym.id,
+    sport: "배드민턴" as const,
+    date: "2026-05-20",
+  };
+
+  // 좁히기에서 제외되어야 하는 예약들. 각각 조건 하나씩만 어긋난다.
+  const excluded: Reservation[] = [
+    reservationFor({ id: "other-status", status: "cancelled" }),
+    reservationFor({ id: "other-status-used", status: "used" }),
+    reservationFor({ id: "other-user", userId: "someone-else" }),
+    reservationFor({ id: "other-gym", gymId: "gym-other" }),
+    reservationFor({ id: "other-sport", sport: "농구" }),
+    reservationFor({ id: "other-date", date: "2026-05-21" }),
+  ];
+
+  it("time을 제외한 일치 조건으로만 좁힌다", () => {
+    const keep = reservationFor({ id: "keep", time: "11:00" });
+    const result = filterActiveDuplicateCandidates([...excluded, keep], scope);
+
+    expect(result.map((r) => r.id)).toEqual(["keep"]);
+  });
+
+  it("time이 달라도 남긴다 (시간대별 판정은 호출부가 한다)", () => {
+    const t10 = reservationFor({ id: "t10", time: "10:00" });
+    const t11 = reservationFor({ id: "t11", time: "11:00" });
+
+    expect(
+      filterActiveDuplicateCandidates([t10, t11], scope).map((r) => r.id),
+    ).toEqual(["t10", "t11"]);
+  });
+
+  // 핵심 불변식: 좁힌 목록으로 판정해도 전체 목록으로 판정한 것과 결과가 같아야 한다.
+  // 이게 깨지면 예약 폼이 중복 예약을 놓치거나 잘못 막는다.
+  it("좁히기 전후로 validateReservationDraft 결과가 동일하다", () => {
+    const all: Reservation[] = [
+      ...excluded,
+      reservationFor({ id: "active-10", time: "10:00" }),
+    ];
+    const narrowed = filterActiveDuplicateCandidates(all, scope);
+
+    for (const time of baseGym.availableTimes) {
+      const draft: ReservationDraft = { ...draftFor(scope.date), time };
+      const now = new Date("2026-05-01T00:00:00+09:00");
+
+      const full = validateReservationDraft({
+        gym: baseGym,
+        reservations: all,
+        draft,
+        now,
+      });
+      const narrow = validateReservationDraft({
+        gym: baseGym,
+        reservations: narrowed,
+        draft,
+        now,
+      });
+
+      expect(narrow.ok).toBe(full.ok);
+      if (!full.ok && !narrow.ok) {
+        expect(narrow.reason).toBe(full.reason);
+        expect(narrow.reservation?.id).toBe(full.reservation?.id);
+      }
+    }
   });
 });

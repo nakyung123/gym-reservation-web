@@ -35,6 +35,7 @@ import { parsePhone } from "@/lib/user-profile";
 import { formatPhone } from "@/lib/input-format";
 import { resolveReservationFormInitial } from "@/lib/reservation-form-initial";
 import {
+  filterActiveDuplicateCandidates,
   getReservationTimeState,
   isGymClosedOnDate,
   USER_CANCEL_CUTOFF_MINUTES,
@@ -219,6 +220,23 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     ? computeReservationPrice(gym, selectedSport, people)
     : 0;
 
+  // 규칙 판정이 이 목록에서 실제로 보는 것은 findActiveDuplicate뿐이고,
+  // 그 조건은 (userId, gymId, sport, date, time) 완전 일치 + status="reserved"다.
+  // time만 시간대별로 달라지므로 나머지 조건은 여기서 한 번에 좁힌다.
+  //
+  // 좁히지 않으면 시간대 18개 × 전체 예약 N건 = 18N번 비교가 매 재계산마다 발생한다
+  // (누적 예약 2,000건인 사용자면 36,000회). 좁히면 N + 18×소수로 떨어진다.
+  // 제외되는 예약은 원래도 find 조건에 걸릴 수 없어 판정 결과는 동일하다.
+  const duplicateCandidates = useMemo(() => {
+    if (!authSession.ok || !selectedSport) return [];
+    return filterActiveDuplicateCandidates(reservations, {
+      userId: authSession.userId,
+      gymId: gym.id,
+      sport: selectedSport,
+      date: effectiveSelectedDate,
+    });
+  }, [reservations, authSession, gym.id, selectedSport, effectiveSelectedDate]);
+
   const timeStates = useMemo<Map<string, ReservationTimeState>>(() => {
     if (!isDateReady || !authSession.ok || !selectedSport || !selectedDate) {
       return new Map();
@@ -231,7 +249,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
         time,
         getReservationTimeState({
           gym,
-          reservations,
+          reservations: duplicateCandidates,
           draft: {
             userId: authSession.userId,
             gymId: gym.id,
@@ -251,7 +269,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     gym,
     isDateReady,
     price,
-    reservations,
+    duplicateCandidates,
     selectedSport,
     selectedDate,
   ]);

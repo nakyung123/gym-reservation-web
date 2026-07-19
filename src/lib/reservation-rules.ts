@@ -282,6 +282,30 @@ export function getUserReservationCancellationDeadline(
   );
 }
 
+/**
+ * 중복 판정 후보만 남긴다. findActiveDuplicate의 일치 조건에서 `time`만 제외한 것이다.
+ *
+ * 같은 (체육관·종목·날짜)에 대해 여러 시간대를 한 번에 판정할 때, 시간대마다 전체
+ * 예약 목록을 훑으면 (시간대 수 × 예약 수)만큼 비교하게 된다. 이 함수로 먼저 좁히면
+ * 한 번만 훑는다.
+ *
+ * 여기서 제외되는 예약은 `time`이 무엇이든 findActiveDuplicate에 걸릴 수 없으므로
+ * 판정 결과는 좁히기 전과 동일하다. 이 동치성은 테스트로 잠가 둔다.
+ */
+export function filterActiveDuplicateCandidates(
+  reservations: Reservation[],
+  scope: Pick<ReservationDraft, "userId" | "gymId" | "sport" | "date">,
+): Reservation[] {
+  return reservations.filter(
+    (reservation) =>
+      reservation.status === "reserved" &&
+      reservation.userId === scope.userId &&
+      reservation.gymId === scope.gymId &&
+      reservation.sport === scope.sport &&
+      reservation.date === scope.date,
+  );
+}
+
 function findActiveDuplicate(
   reservations: Reservation[],
   draft: ReservationDraft,
