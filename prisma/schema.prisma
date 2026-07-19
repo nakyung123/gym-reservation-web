@@ -104,6 +104,11 @@ model Reservation {
   lock      ReservationLock?
 
   @@index([userId, createdAt(sort: Desc)], map: "idx_res_user_created")
+  // 관리자 예약 목록/일자 개요/매출 집계는 userId 없이 date(+status)로 조회한다.
+  // date는 VARCHAR(10) "YYYY-MM-DD"라 사전식 정렬이 곧 시간순이고, 범위 조회도 이 인덱스를 탄다.
+  @@index([date, status], map: "idx_res_date_status")
+  // 체육관별 필터(gymId 단독 / gymId+date)용.
+  @@index([gymId, date], map: "idx_res_gym_date")
   @@map("reservations")
 }
 
@@ -132,6 +137,8 @@ model ReservationSlot {
 
   @@id([gymId, sport, date, time])
   @@index([gymId, date], map: "idx_res_slots_gym_date")
+  // 일자 개요는 gymId 없이 date 단독으로 조회한다(위 인덱스는 선두 컬럼이 gymId라 못 탄다).
+  @@index([date], map: "idx_res_slots_date")
   @@map("reservation_slots")
 }
 
