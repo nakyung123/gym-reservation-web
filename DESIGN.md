@@ -64,6 +64,10 @@
 - `word-break: keep-all` — 한글을 어절 단위로 줄바꿈한다.
 - `font-feature-settings: "tnum" 1` — 숫자 폭 정렬(시간·금액·잔여석). 표/금액/예약번호는 `tabular-nums`.
 - 예약번호 등 식별자도 본문 폰트(Noto Sans KR) + tabular로 통일한다(별도 monospace로 분리하지 않는다).
+- 관리자 콘솔만 Pretendard를 쓴다(§5). 파일은 `src/app/fonts/PretendardStdVariable.woff2`
+  **한 개**(약 292KB)이고 Variable이라 weight 400~800을 모두 커버한다. Std는 KS X 1001
+  (한글 2,350자) 서브셋이라 그 밖의 희귀 음절은 시스템 폰트로 폴백된다.
+  전체 한글 커버가 필요하면 `pretendard` 패키지의 풀 Variable(약 2MB)로 파일만 교체한다.
 
 ### 실측 스케일 (as-built)
 

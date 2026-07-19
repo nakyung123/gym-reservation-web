@@ -575,6 +575,33 @@ export async function listUserReservations(
   return rows.map(toDomainReservation);
 }
 
+// 예약 생성 시 룰 재검증에 넘길 "중복 후보"만 조회한다.
+//
+// validateReservationDraft가 reservations 배열을 쓰는 곳은 findActiveDuplicate 하나뿐이고,
+// 그 조건은 (userId, gymId, sport, date, time) 완전 일치 + status="reserved"다.
+// 따라서 같은 조건으로 DB에서 먼저 걸러 넘겨도 검증 결과가 동일하다
+// (제외되는 행은 원래도 find 조건에 걸릴 수 없던 행이다).
+//
+// 전 기간 예약을 로드하던 기존 방식과 달리 사용자의 누적 예약 수와 무관하게 비용이 일정하다.
+// 정합성 자체는 ReservationLock의 activeKey UNIQUE가 DB에서 보장하며, 이 조회는
+// 사용자에게 보여줄 기존 예약을 찾기 위한 것이다.
+async function listActiveDuplicateCandidates(
+  userId: string,
+  draft: CreateReservationInput["draft"],
+): Promise<Reservation[]> {
+  const rows = await prisma.reservation.findMany({
+    where: {
+      userId,
+      gymId: draft.gymId,
+      sport: draft.sport,
+      date: draft.date,
+      time: draft.time,
+      status: "reserved",
+    },
+  });
+  return rows.map(toDomainReservation);
+}
+
 export async function getUserReservationById(
   userId: string,
   reservationId: string,
@@ -861,7 +888,7 @@ export async function createReservationInDb(
     };
   }
 
-  const reservationsForUser = await listUserReservations(userId);
+  const duplicateCandidates = await listActiveDuplicateCandidates(userId, draft);
   const fullDraft: ReservationDraft = {
     userId,
     gymId: draft.gymId,
@@ -875,7 +902,7 @@ export async function createReservationInDb(
   // 서버에서 룰 재검증.
   const validation = validateReservationDraft({
     gym,
-    reservations: reservationsForUser,
+    reservations: duplicateCandidates,
     draft: fullDraft,
   });
 
@@ -951,14 +978,14 @@ export async function createReservationInDb(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      const existing = await prisma.reservation.findFirst({
-        where: { activeKey, status: "reserved" },
-      });
+      // activeKey는 (userId, gymId, sport, date, time)의 결합이라 같은 조건으로 조회해도
+      // 결과가 같다. activeKey 컬럼에는 인덱스가 없어 풀스캔이 되므로 위와 같은 조회를 쓴다.
+      const [existing] = await listActiveDuplicateCandidates(userId, draft);
       if (existing) {
         return {
           ok: false,
           status: "duplicate",
-          reservation: toDomainReservation(existing),
+          reservation: existing,
           message: "이미 같은 조건의 예약이 있습니다.",
         };
       }

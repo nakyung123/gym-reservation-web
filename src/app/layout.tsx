@@ -22,14 +22,15 @@ const notoSansKr = Noto_Sans_KR({
 
 // 관리자 콘솔 전용 폰트(Pretendard). 레퍼런스 디자인 기준 폰트로, admin 스코프에서만 쓴다.
 // 고객 화면은 이 변수를 참조하지 않으므로 영향 없다(Noto Sans KR 유지).
+//
+// Std Variable(woff2) 단일 파일로 admin이 쓰는 400~700을 모두 커버한다.
+// weight별 .otf 4종(약 6.4MB) 대신 이 파일 1개(약 292KB)를 둔다.
+// Std는 KS X 1001(한글 2,350자) 서브셋이라 그 밖의 희귀 음절은 시스템 폰트로 폴백된다
+// (글자가 깨지지 않고 서체만 달라진다).
 const pretendard = localFont({
   variable: "--font-pretendard",
-  src: [
-    { path: "./fonts/Pretendard-Regular.otf", weight: "400", style: "normal" },
-    { path: "./fonts/Pretendard-Medium.otf", weight: "500", style: "normal" },
-    { path: "./fonts/Pretendard-SemiBold.otf", weight: "600", style: "normal" },
-    { path: "./fonts/Pretendard-Bold.otf", weight: "700", style: "normal" },
-  ],
+  src: "./fonts/PretendardStdVariable.woff2",
+  weight: "400 800",
   display: "swap",
   preload: false,
 });
