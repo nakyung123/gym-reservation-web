@@ -66,6 +66,46 @@ async function seed(total) {
   await report();
 }
 
+// 특정 사용자 한 명에게 예약을 몰아준다.
+// 마이페이지 목록(GET /api/reservations)은 페이지네이션이 없어 그 사용자의 전 기간
+// 예약을 한 번에 로드한다 → 누적 예약이 많은 "단골"의 체감을 재기 위한 시드.
+async function heavy(userId, total) {
+  const gyms = await prisma.gym.findMany({
+    select: { id: true, sports: { select: { sport: true } } },
+  });
+  const pairs = [];
+  for (const g of gyms) {
+    for (const s of g.sports) pairs.push({ gymId: g.id, sport: s.sport });
+  }
+
+  const BATCH = 2000;
+  let done = 0;
+  while (done < total) {
+    const n = Math.min(BATCH, total - done);
+    const rows = Array.from({ length: n }, (_, k) => {
+      const i = done + k;
+      const p = pairs[i % pairs.length];
+      return {
+        id: `${PREFIX}heavy-${userId}-${i}`,
+        userId,
+        gymId: p.gymId,
+        sport: p.sport,
+        date: dateAt(i % 730),
+        time: TIMES[i % TIMES.length],
+        price: 12000,
+        status: STATUSES[i % STATUSES.length],
+        activeKey: `${PREFIX}heavy-${userId}-${i}-key`,
+        createdAt: new Date(Date.now() - i * 3600000),
+      };
+    });
+    await prisma.reservation.createMany({ data: rows, skipDuplicates: true });
+    done += n;
+    process.stdout.write(`  생성 ${done}/${total}\r`);
+  }
+  console.log("");
+  console.log(`${userId}에게 예약 ${total}건 부여`);
+}
+
 async function clean() {
   // 대량 삭제는 한 번에 하면 락이 길어지므로 나눠서 지운다.
   let total = 0;
@@ -98,10 +138,14 @@ async function report() {
 const mode = process.argv[2];
 try {
   if (mode === "seed") await seed(Number(process.argv[3] || 120000));
+  else if (mode === "heavy")
+    await heavy(process.argv[3] || "k6load-user-0", Number(process.argv[4] || 2000));
   else if (mode === "clean") await clean();
   else if (mode === "count") await report();
   else {
-    console.error("사용법: node seed-bulk.mjs <seed N|clean|count>");
+    console.error(
+      "사용법: node seed-bulk.mjs <seed N|heavy <userId> <N>|clean|count>",
+    );
     process.exitCode = 1;
   }
 } finally {
