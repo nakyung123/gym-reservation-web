@@ -44,19 +44,28 @@ export async function createReservation({
   now?: Date;
   repository?: ReservationRepository;
 }): Promise<CreateReservationResult> {
-  const current = repository.read();
+  // 중복 판정 근거를 전체 예약 스냅샷(read)이 아니라 이 슬롯 범위 조회로 가져온다.
+  //
+  // read()는 저장소를 구독 중인 화면이 있을 때만 채워지는 값이라, 구독자가 없는
+  // 예약 폼 화면에서는 영원히 not-ready였다. 판정에 필요한 건 (체육관·종목·날짜)
+  // 범위의 활성 예약뿐이므로 그것만 직접 조회한다.
+  const scoped = await repository.fetchActiveInScope({
+    gymId: draft.gymId,
+    sport: draft.sport,
+    date: draft.date,
+  });
 
-  if (!current.ok) {
+  if (!scoped.ok) {
     return {
       ok: false,
       status: "rejected",
-      message: current.message,
+      message: scoped.message,
     };
   }
 
   const validation = validateReservationDraft({
     gym,
-    reservations: current.reservations,
+    reservations: scoped.reservations,
     draft,
     now,
   });
