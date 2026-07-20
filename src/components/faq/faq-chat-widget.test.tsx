@@ -13,6 +13,40 @@ import { FaqChatWidget } from "@/components/faq/faq-chat-widget";
 // usePathname()이 null을 반환하므로, 홈에 있는 상황을 시뮬레이션하려면 "/"로 모킹해야 한다.
 vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
 
+// 인증 세션을 직접 제어해 "로그인 주체가 바뀌면 대화가 비워지는가"를 검증한다.
+// (위젯은 루트 레이아웃 상주라 로그아웃해도 언마운트되지 않는다.)
+const { authRef } = vi.hoisted(() => ({
+  authRef: {
+    current: { ok: true, userId: "user-1" } as
+      | { ok: true; userId: string }
+      | { ok: false; reason: string; message: string },
+    listeners: new Set<() => void>(),
+    version: 0,
+  },
+}));
+
+function setAuth(next: typeof authRef.current) {
+  authRef.current = next;
+  authRef.version += 1;
+  authRef.listeners.forEach((listener) => listener());
+}
+
+vi.mock("@/lib/firebase-auth-session", () => ({
+  subscribeFirebaseAuthSession: (listener: () => void) => {
+    authRef.listeners.add(listener);
+    return () => authRef.listeners.delete(listener);
+  },
+  // 스냅샷 문자열이 바뀌어야 useSyncExternalStore가 재렌더한다.
+  getFirebaseAuthSessionSnapshot: () => `snap-${authRef.version}`,
+  getFirebaseAuthSessionServerSnapshot: () => "snap-server",
+  parseFirebaseAuthSessionSnapshot: () => authRef.current,
+}));
+
+// 토큰 획득은 이 테스트의 관심사가 아니다(비로그인 경로로 고정).
+vi.mock("@/lib/firebase-client", () => ({
+  getFirebaseClient: () => ({ auth: { currentUser: null } }),
+}));
+
 // 위젯 문구는 next-intl(Faq 네임스페이스)에서 오므로 ko 메시지로 감싸 렌더한다.
 function renderWidget() {
   return render(
@@ -90,5 +124,55 @@ describe("FaqChatWidget", () => {
       const alert = screen.getByRole("alert");
       expect(alert.textContent).toContain("제한");
     });
+  });
+});
+
+describe("로그인 주체 변경 시 대화 초기화", () => {
+  afterEach(() => {
+    setAuth({ ok: true, userId: "user-1" });
+    cleanup();
+  });
+
+  // 회귀 방지: 이력은 매 요청 서버로 재전송된다. 로그아웃 후에도 남아 있으면
+  // 모델이 이전 사용자의 예약 내역을 도구 호출 없이 그대로 반복한다(공용 PC 유출).
+  it("로그아웃하면 이전 대화가 남지 않는다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(streamOk("2026-08-01 19:00 마포구민체육센터 예약이 있습니다.")),
+    );
+    renderWidget();
+
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "가입은 어떻게 하나요?" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/마포구민체육센터/)).toBeTruthy(),
+    );
+
+    setAuth({ ok: false, reason: "signed-out", message: "로그아웃" });
+
+    await waitFor(() =>
+      expect(screen.queryByText(/마포구민체육센터/)).toBeNull(),
+    );
+  });
+
+  it("다른 계정으로 바뀌어도 이전 대화가 남지 않는다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(streamOk("이전 사용자 예약 내용")));
+    renderWidget();
+
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "가입은 어떻게 하나요?" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/이전 사용자 예약 내용/)).toBeTruthy(),
+    );
+
+    setAuth({ ok: true, userId: "user-2" });
+
+    await waitFor(() =>
+      expect(screen.queryByText(/이전 사용자 예약 내용/)).toBeNull(),
+    );
   });
 });

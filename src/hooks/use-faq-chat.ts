@@ -1,7 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getFirebaseClient } from "@/lib/firebase-client";
+import {
+  getFirebaseAuthSessionServerSnapshot,
+  getFirebaseAuthSessionSnapshot,
+  parseFirebaseAuthSessionSnapshot,
+  subscribeFirebaseAuthSession,
+} from "@/lib/firebase-auth-session";
 
 // FAQ 안내봇 클라이언트 로직. 대화 상태는 클라가 보유하고 요청마다 history를 함께 보낸다
 // (서버는 stateless). 응답은 plain text 스트림이라 청크를 누적해 assistant 메시지를 갱신한다.
@@ -48,6 +54,40 @@ export function useFaqChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<ChatStatus>("idle");
   const [error, setError] = useState<FaqChatError | null>(null);
+
+  // 로그인 주체가 바뀌면 대화를 버린다.
+  //
+  // 위젯은 루트 레이아웃에 상주해 라우트 이동·로그아웃으로 언마운트되지 않고,
+  // send()는 매 요청 이력 전체를 서버로 다시 보낸다. 이력에는 이전 사용자의 예약
+  // 내역이 그대로 들어 있어, 초기화하지 않으면 로그아웃 후에도(공용 PC라면 다음
+  // 사람에게도) 모델이 그 내용을 도구 호출 없이 반복한다.
+  //
+  // "not-ready"(초기화 중)에는 판단하지 않는다. 확정된 주체가 실제로 달라졌을 때만 비운다.
+  const authSnapshot = useSyncExternalStore(
+    subscribeFirebaseAuthSession,
+    getFirebaseAuthSessionSnapshot,
+    getFirebaseAuthSessionServerSnapshot,
+  );
+  const settledIdentity = (() => {
+    const session = parseFirebaseAuthSessionSnapshot(authSnapshot);
+    if (session.ok) return session.userId;
+    return session.reason === "not-ready" ? null : "signed-out";
+  })();
+  const lastIdentityRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (settledIdentity === null) return; // 아직 확정 전
+    if (lastIdentityRef.current === null) {
+      lastIdentityRef.current = settledIdentity; // 첫 확정: 기준만 잡는다
+      return;
+    }
+    if (lastIdentityRef.current === settledIdentity) return;
+
+    lastIdentityRef.current = settledIdentity;
+    setMessages([]);
+    setStatus("idle");
+    setError(null);
+  }, [settledIdentity]);
 
   const send = useCallback(
     async (text: string) => {
