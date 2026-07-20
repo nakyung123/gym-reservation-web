@@ -2,8 +2,10 @@ import {
   EMPTY_RESERVATION_SNAPSHOT,
   createReservationsReadySnapshot,
   findActiveReservationDuplicate,
+  RESERVATION_PAGE_SIZE,
   type ReservationCancelResult,
   type ReservationCreateResult,
+  type ReservationPageResult,
   type ReservationReadResult,
   type ReservationRepository,
 } from "@/lib/reservation-repository";
@@ -131,6 +133,19 @@ async function cancelReservation(
 export const mockReservationRepository: ReservationRepository = {
   read(): ReservationReadResult {
     return { ok: true, reservations };
+  },
+  // 실제 구현(api)은 서버에서 페이지를 잘라 받는다. 결과 형태는 같아야 한다.
+  async fetchPage(page): Promise<ReservationPageResult> {
+    const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+    const sorted = [...reservations].sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    );
+    const start = (safePage - 1) * RESERVATION_PAGE_SIZE;
+    return {
+      ok: true,
+      reservations: sorted.slice(start, start + RESERVATION_PAGE_SIZE),
+      total: sorted.length,
+    };
   },
   // mock은 메모리에 전부 들고 있으므로 같은 조건으로 걸러 주기만 하면 된다.
   // 실제 구현(api)은 서버에서 좁혀 받는다 — 결과는 동일해야 한다.

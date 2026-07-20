@@ -184,6 +184,101 @@ describe("GET /api/reservations", () => {
     expect(response.status).toBe(400);
   });
 
+  it("page를 주면 페이지 단위로 자르고 전체 건수를 함께 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-page-user" });
+    const date = futureDate();
+    // RESERVATION_PAGE_SIZE(10)보다 많은 12건을 만든다.
+    for (let i = 0; i < 12; i += 1) {
+      await prisma.reservation.create({
+        data: {
+          id: `route-page-${i}`,
+          userId: "route-page-user",
+          gymId: TEST_GYM.id,
+          sport: TEST_GYM.sports[0],
+          date,
+          time: "10:00",
+          price: 10000,
+          status: "reserved",
+          activeKey: `route-page-${i}-key`,
+          createdAt: new Date(Date.now() - i * 60000),
+        },
+      });
+    }
+
+    const first = await GET(getRequestWithQuery("page=1"));
+    const firstBody = (await first.json()) as {
+      reservations?: unknown[];
+      total?: number;
+    };
+    expect(first.status).toBe(200);
+    expect(firstBody.reservations).toHaveLength(10);
+    expect(firstBody.total).toBe(12);
+
+    const second = await GET(getRequestWithQuery("page=2"));
+    const secondBody = (await second.json()) as {
+      reservations?: unknown[];
+      total?: number;
+    };
+    expect(second.status).toBe(200);
+    expect(secondBody.reservations).toHaveLength(2);
+    expect(secondBody.total).toBe(12);
+  });
+
+  it("범위를 넘는 page는 마지막 페이지로 클램프한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-clamp-user" });
+    const date = futureDate();
+    for (let i = 0; i < 12; i += 1) {
+      await prisma.reservation.create({
+        data: {
+          id: `route-clamp-${i}`,
+          userId: "route-clamp-user",
+          gymId: TEST_GYM.id,
+          sport: TEST_GYM.sports[0],
+          date,
+          time: "10:00",
+          price: 10000,
+          status: "reserved",
+          activeKey: `route-clamp-${i}-key`,
+          createdAt: new Date(Date.now() - i * 60000),
+        },
+      });
+    }
+
+    // 12건 → 2페이지가 마지막. 99를 요청해도 빈 표가 아니라 마지막 페이지가 온다.
+    const response = await GET(getRequestWithQuery("page=99"));
+    const body = (await response.json()) as {
+      reservations?: unknown[];
+      total?: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.total).toBe(12);
+    expect(body.reservations).toHaveLength(2);
+  });
+
+  it("예약이 하나도 없으면 범위 밖 page도 빈 목록을 준다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-empty-clamp-user" });
+
+    const response = await GET(getRequestWithQuery("page=5"));
+    const body = (await response.json()) as {
+      reservations?: unknown[];
+      total?: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.total).toBe(0);
+    expect(body.reservations).toHaveLength(0);
+  });
+
+  it("page가 1 미만이거나 정수가 아니면 400을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-bad-page-user" });
+
+    expect((await GET(getRequestWithQuery("page=0"))).status).toBe(400);
+    expect((await GET(getRequestWithQuery("page=-1"))).status).toBe(400);
+    expect((await GET(getRequestWithQuery("page=abc"))).status).toBe(400);
+    expect((await GET(getRequestWithQuery("page=1.5"))).status).toBe(400);
+  });
+
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {
     const response = await GET(
       new NextRequest("http://localhost:3000/api/reservations"),

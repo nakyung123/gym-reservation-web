@@ -2,6 +2,7 @@ import {
   EMPTY_RESERVATION_SNAPSHOT,
   findActiveReservationDuplicate,
   parseReservationSnapshot,
+  RESERVATION_PAGE_SIZE,
   type ReservationCreateResult,
   type ReservationCancelResult,
   type ReservationRepository,
@@ -241,6 +242,21 @@ async function cancelReservation(
 
 export const localReservationRepository: ReservationRepository = {
   read: readReservations,
+  // localStorage에 전부 들고 있으므로 읽어서 잘라 준다. 읽기 실패는 그대로 전달한다.
+  async fetchPage(page) {
+    const result = readReservations();
+    if (!result.ok) return result;
+    const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+    const sorted = [...result.reservations].sort((left, right) =>
+      right.createdAt.localeCompare(left.createdAt),
+    );
+    const start = (safePage - 1) * RESERVATION_PAGE_SIZE;
+    return {
+      ok: true,
+      reservations: sorted.slice(start, start + RESERVATION_PAGE_SIZE),
+      total: sorted.length,
+    };
+  },
   // localStorage에 전부 들고 있으므로 읽어서 걸러 준다. 읽기 실패는 그대로 전달한다.
   async fetchActiveInScope(scope) {
     const result = readReservations();

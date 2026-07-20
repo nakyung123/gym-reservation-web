@@ -7,7 +7,10 @@ import {
   isReservationStatus,
   isSport,
 } from "@/lib/domain-constants";
-import { getReservationActiveKey } from "@/lib/reservation-repository";
+import {
+  getReservationActiveKey,
+  RESERVATION_PAGE_SIZE,
+} from "@/lib/reservation-repository";
 import {
   isValidReservationDateValue,
   validateReservationDraft,
@@ -585,6 +588,43 @@ export async function listUserReservations(
     orderBy: { createdAt: "desc" },
   });
   return rows.map(toDomainReservation);
+}
+
+/**
+ * 예약 목록을 페이지 단위로 조회한다(최신순 + 전체 건수).
+ *
+ * listUserReservations가 전 기간 예약을 모두 반환하는 것과 달리, 응답 크기가
+ * RESERVATION_PAGE_SIZE로 고정된다. 누적 예약이 많은 사용자의 마이페이지가
+ * 수백 KB를 받던 문제를 이 경로로 해결한다.
+ */
+export async function listUserReservationsPage(
+  userId: string,
+  { page = 1 }: { page?: number } = {},
+): Promise<{ reservations: Reservation[]; total: number }> {
+  const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1;
+  const selectPage = (target: number) =>
+    prisma.reservation.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      skip: (target - 1) * RESERVATION_PAGE_SIZE,
+      take: RESERVATION_PAGE_SIZE,
+    });
+
+  const [rows, total] = await Promise.all([
+    selectPage(safePage),
+    prisma.reservation.count({ where: { userId } }),
+  ]);
+
+  // 범위를 넘는 page(주소창 직접 수정 등)는 마지막 페이지로 클램프한다.
+  // 빈 표를 돌려주면 페이지네이션 위젯은 마지막 페이지를 가리키는데 표만 비어
+  // 서로 어긋나 보인다. 흔한 경로가 아니므로 이때만 한 번 더 조회한다.
+  const lastPage = Math.max(1, Math.ceil(total / RESERVATION_PAGE_SIZE));
+  if (rows.length === 0 && total > 0 && safePage > lastPage) {
+    const clamped = await selectPage(lastPage);
+    return { reservations: clamped.map(toDomainReservation), total };
+  }
+
+  return { reservations: rows.map(toDomainReservation), total };
 }
 
 // 예약 생성 시 룰 재검증에 넘길 "중복 후보"만 조회한다.

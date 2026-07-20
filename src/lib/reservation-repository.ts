@@ -95,6 +95,21 @@ export type ActiveReservationScope = {
   date: string;
 };
 
+/**
+ * 예약 목록 페이지당 항목 수. 서버(skip/take)와 클라이언트(총 페이지 수 계산)가
+ * 같은 값을 봐야 하므로 여기에 둔다.
+ */
+export const RESERVATION_PAGE_SIZE = 10;
+
+export type ReservationPageResult =
+  | {
+      ok: true;
+      reservations: Reservation[];
+      /** 필터 없이 센 사용자의 전체 예약 수. 총 페이지 계산용. */
+      total: number;
+    }
+  | ReservationRepositoryFailure;
+
 export type ReservationRepository = {
   read(): ReservationReadResult;
   /**
@@ -108,6 +123,16 @@ export type ReservationRepository = {
     scope: ActiveReservationScope,
     signal?: AbortSignal,
   ): Promise<ReservationReadResult>;
+  /**
+   * 예약 목록을 페이지 단위로 조회한다(최신순).
+   *
+   * read()가 전 기간 예약을 한 번에 반환하는 것과 달리, 응답 크기가
+   * RESERVATION_PAGE_SIZE로 고정된다. 목록 화면은 이 경로를 쓴다.
+   */
+  fetchPage(
+    page: number,
+    signal?: AbortSignal,
+  ): Promise<ReservationPageResult>;
   create(reservation: Reservation): Promise<ReservationCreateResult>;
   build(draft: ReservationDraft): Reservation;
   cancel(reservationId: string): Promise<ReservationCancelResult>;

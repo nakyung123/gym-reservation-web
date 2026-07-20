@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   MypageBoard,
@@ -11,9 +11,7 @@ import {
 import { BoardPagination } from "@/components/ui/board-pagination";
 import { ReservationQrModal } from "@/components/reservation/reservation-qr-modal";
 import { reservationDisplayNumber } from "@/components/reservation/reservation-ticket";
-import { parseReservationSnapshot } from "@/lib/reservation-repository";
-import { reservationRepository } from "@/lib/reservation-repository-provider";
-import { usePagination } from "@/hooks/use-pagination";
+import { useReservationsPage } from "@/hooks/use-reservations-page";
 import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
 import { derivePeople } from "./mypage-utils";
 import type { Gym, Reservation } from "@/types/domain";
@@ -24,7 +22,7 @@ const RSV_PILL_CLASS =
 
 /**
  * 예약내역 탭: 보드 표(예약번호/예약일/체육관/종목/상태/예약 상세/QR코드).
- * 예약 데이터는 reservationRepository 스냅샷을 구독해 표시한다.
+ * 예약 데이터는 서버 페이지 조회(useReservationsPage)로 한 페이지씩 받는다.
  * 예약 취소는 예약 상세 페이지에서만 제공한다(목록 상태 칸은 텍스트만).
  */
 export function ReservationsPanel({
@@ -38,26 +36,11 @@ export function ReservationsPanel({
   const tR = useTranslations("Reservation");
   const paginationLabels = useBoardPaginationLabels();
 
-  const snapshot = useSyncExternalStore(
-    reservationRepository.subscribe,
-    reservationRepository.getSnapshot,
-    reservationRepository.getServerSnapshot,
-  );
-  const readResult = useMemo(
-    () => parseReservationSnapshot(snapshot),
-    [snapshot],
-  );
-  const reservations = useMemo(
-    () => (readResult.ok ? readResult.reservations : []),
-    [readResult],
-  );
+  // 서버가 페이지를 잘라 준다(최신순 정렬·전체 건수 포함). 전 기간 예약을 받아
+  // 클라이언트에서 자르던 방식은 누적 예약에 비례해 응답이 커져서 폐기했다.
+  const { reservations: pageItems, totalPages, loadError } =
+    useReservationsPage(page);
   const gymsById = useMemo(() => new Map(gyms.map((g) => [g.id, g])), [gyms]);
-  // 최신 예약이 위로 오도록 생성일 내림차순 정렬.
-  const sorted = useMemo(
-    () =>
-      [...reservations].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [reservations],
-  );
 
   // QR 보기 클릭 시 페이지 이동 없이 띄울 QR 체크인 팝업의 대상 예약.
   // 시간 제한 없이 즉시 열고, 팝업이 10초 카운트다운 후 자동으로 닫힌다(입장 순간 노출).
@@ -67,7 +50,8 @@ export function ReservationsPanel({
     setQrReservation(reservation);
   };
 
-  const { totalPages, currentPage, pageItems } = usePagination(sorted, page);
+  // 서버가 준 총 페이지 수 안으로 현재 페이지를 클램프한다(범위 밖 쿼리 방어).
+  const currentPage = Math.min(Math.max(1, page), totalPages);
 
   // 폭은 그리드(컨테이너) 안에 정확히 들어오도록 비율(%)로 둔다. 7칸 균등(≈1/7).
   const columns: BoardColumn[] = [
@@ -135,6 +119,14 @@ export function ReservationsPanel({
 
   return (
     <section className="w-full">
+      {loadError ? (
+        <div
+          className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error"
+          role="alert"
+        >
+          {loadError}
+        </div>
+      ) : null}
       <MypageBoard
         columns={columns}
         rows={rows}

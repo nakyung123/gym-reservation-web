@@ -19,6 +19,7 @@ import {
   type ActiveReservationScope,
   type ReservationCancelResult,
   type ReservationCreateResult,
+  type ReservationPageResult,
   type ReservationReadResult,
   type ReservationRepository,
   type ReservationRepositoryFailure,
@@ -629,9 +630,76 @@ function subscribeReservations(listener: () => void) {
   };
 }
 
+/**
+ * 목록 화면용 페이지 조회. 스냅샷과 별개 경로이며 스냅샷을 갱신하지 않는다.
+ * 응답 크기가 RESERVATION_PAGE_SIZE로 고정된다.
+ */
+async function fetchPage(
+  page: number,
+  signal?: AbortSignal,
+): Promise<ReservationPageResult> {
+  const token = await getIdToken(
+    "로그인 정보가 없어 예약 목록을 불러올 수 없습니다.",
+  );
+  if (!token.ok) {
+    return token.reason === "auth-required"
+      ? reservationAuthRequired(token.message)
+      : remoteReservationUnavailable(token.message);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`/api/reservations?page=${page}`, {
+      headers: { Authorization: `Bearer ${token.idToken}` },
+      signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      // 다른 페이지로 이동해 취소된 요청. 실패로 보고하지 않는다.
+      return { ok: true, reservations: [], total: 0 };
+    }
+    return remoteReservationUnavailable(
+      "예약 목록을 불러오지 못했습니다. 다시 시도해 주세요.",
+    );
+  }
+
+  if (!response.ok) {
+    const message = await readResponseMessage(
+      response,
+      "예약 목록을 불러오지 못했습니다.",
+    );
+    return response.status === 401 || response.status === 403
+      ? reservationAuthRequired(message)
+      : remoteReservationUnavailable(message);
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return remoteReservationUnavailable(
+      "예약 목록 응답 형식이 올바르지 않습니다.",
+    );
+  }
+
+  const body = payload as { reservations?: unknown; total?: unknown };
+  if (
+    !Array.isArray(body.reservations) ||
+    !body.reservations.every(isReservation) ||
+    typeof body.total !== "number" ||
+    !Number.isInteger(body.total) ||
+    body.total < 0
+  ) {
+    return invalidReservationData();
+  }
+
+  return { ok: true, reservations: body.reservations, total: body.total };
+}
+
 export const apiReservationRepository: ReservationRepository = {
   read,
   fetchActiveInScope,
+  fetchPage,
   create: createReservation,
   build: buildReservation,
   cancel: cancelReservation,

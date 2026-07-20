@@ -3,6 +3,7 @@ import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   createReservationInDb,
   listUserReservations,
+  listUserReservationsPage,
 } from "@/lib/server/db-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import {
@@ -48,6 +49,31 @@ export async function GET(request: NextRequest) {
       { message: "date는 YYYY-MM-DD 형식이어야 합니다." },
       { status: 400 },
     );
+  }
+
+  // page가 오면 페이지 단위로 응답한다(목록 화면). 없으면 기존처럼 전체를 반환한다.
+  const pageParam = request.nextUrl.searchParams.get("page");
+  if (pageParam !== null) {
+    const parsedPage = Number(pageParam);
+    if (!Number.isInteger(parsedPage) || parsedPage < 1) {
+      return Response.json(
+        { message: "page는 1 이상의 정수여야 합니다." },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const result = await listUserReservationsPage(auth.uid, {
+        page: parsedPage,
+      });
+      return Response.json(result);
+    } catch (error) {
+      return serverErrorResponse(
+        "예약 목록을 불러오지 못했습니다.",
+        "Failed to list user reservations page",
+        error,
+      );
+    }
   }
 
   let reservations: Awaited<ReturnType<typeof listUserReservations>>;
