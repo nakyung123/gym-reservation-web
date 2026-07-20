@@ -1,5 +1,9 @@
 import type { NextRequest } from "next/server";
 import { verifyIdTokenFromRequest } from "@/lib/server/auth";
+import {
+  DEMO_ACCOUNT_BLOCKED_MESSAGE,
+  isDemoUser,
+} from "@/lib/server/demo-account";
 import { withdrawAccount } from "@/lib/server/withdrawal-service";
 import { validateWithdrawalInput } from "@/lib/withdrawal";
 
@@ -11,6 +15,14 @@ export async function POST(request: NextRequest) {
   const auth = await verifyIdTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });
+  }
+
+  // 공개 데모 계정은 탈퇴시키지 않는다. 삭제되면 복구가 불가능해 데모 링크가 죽는다.
+  if (isDemoUser(auth.uid)) {
+    return Response.json(
+      { message: DEMO_ACCOUNT_BLOCKED_MESSAGE, reason: "demo-account" },
+      { status: 403 },
+    );
   }
 
   let body: unknown;
