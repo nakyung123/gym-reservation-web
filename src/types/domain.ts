@@ -30,7 +30,7 @@ export type AdminGym = Gym & {
 
 export type ReservationStatus = "reserved" | "cancelled" | "used";
 
-// 결제 수단(포트폴리오 데모). 예약 시 고른 방식만 저장하고 실제 PG 연동은 없다.
+// 결제 수단. 예약 시 고른 방식만 저장하고 실제 PG 연동은 없다.
 export type PaymentMethod = "card" | "easy-pay" | "virtual-account";
 
 export type Reservation = {

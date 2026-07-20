@@ -55,7 +55,7 @@ export const unavailableTimeLabelKeys = {
   "duplicate-active-reservation": "unavailDuplicate",
 } as const;
 
-// 결제 수단(포트폴리오용 목업 — 실제 PG 연동 없음). 하나를 골라야 예약 신청이 활성화된다.
+// 결제 수단(목업 — 실제 PG 연동 없음). 하나를 골라야 예약 신청이 활성화된다.
 // 표시명은 messages의 Reserve.<labelKey>를 폼에서 t()로 해석한다.
 export const PAYMENT_METHODS = [
   { id: "card", labelKey: "paymentMethodCard" },

@@ -363,7 +363,7 @@ $env:PGSSLMODE = $null
 
 ## 9. 데모 데이터 (시연용 seed)
 
-매출/정산 화면을 채우기 위한 **포트폴리오 시연용** 더미 예약 스크립트다(`prisma/seed-demo-reservations.mjs`).
+매출/정산 화면을 채우기 위한 **시연용** 더미 예약 스크립트다(`prisma/seed-demo-reservations.mjs`).
 실제 운영 데이터가 아니므로 운영 DB에서는 **시연 후 반드시 정리**한다.
 
 - 모든 데모 행은 `demo-rev-` prefix로 격리되어 `--clean`이 정확히 그 행만 지운다(실예약은 건드리지 않음).

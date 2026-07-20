@@ -403,7 +403,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     return null;
   }
 
-  // 예약 신청하기 → 이 페이지에서 바로 예약 확정(생성). 포트폴리오용 데모라 실제 결제(PG)는 없다.
+  // 예약 신청하기 → 이 페이지에서 바로 예약 확정(생성). 데모 범위라 실제 결제(PG)는 없다.
   // 성공 시 완료 화면으로 전환하고, 중복/마감/거절은 성공처럼 넘기지 않고 사유를 명시한다.
   const handleReserve = async () => {
     if (isSubmitting) return;
@@ -1027,7 +1027,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
             </ul>
             </CollapsibleSection>
 
-            {/* 결제 수단 — 이 페이지에서 바로 결제(포트폴리오용 목업, 실 PG 없음) */}
+            {/* 결제 수단 — 이 페이지에서 바로 결제(목업, 실 PG 없음) */}
             <CollapsibleSection
               title={t("paymentSectionTitle")}
               open={wizard.openSections.payment}
