@@ -17,6 +17,7 @@ describe("getUserSummary", () => {
       favorites: {
         activeGymCount: 0,
       },
+      reservationCountByGym: {},
     });
   });
 
@@ -97,6 +98,7 @@ describe("getUserSummary", () => {
       favorites: {
         activeGymCount: 1,
       },
+      reservationCountByGym: { [TEST_GYM.id]: 3 },
     });
   });
 
@@ -113,5 +115,52 @@ describe("getUserSummary", () => {
     const summary = await getUserSummary(userId);
 
     expect(summary.favorites.activeGymCount).toBe(0);
+  });
+});
+
+describe("getUserSummary reservationCountByGym", () => {
+  it("시설별 예약 횟수를 상태 무관으로 집계한다", async () => {
+    const userId = "summary-gym-count-user";
+    // 같은 시설에 상태가 다른 예약 3건. 취소·이용완료도 "예약해 본 횟수"에 포함한다.
+    for (const [index, status] of ["reserved", "cancelled", "used"].entries()) {
+      await prisma.reservation.create({
+        data: {
+          id: `${userId}-${index}`,
+          userId,
+          gymId: TEST_GYM.id,
+          sport: TEST_GYM.sports[0],
+          date: futureDate(index + 1),
+          time: "10:00",
+          price: 10000,
+          status,
+          activeKey: `${userId}-${index}-key`,
+        },
+      });
+    }
+
+    const summary = await getUserSummary(userId);
+
+    expect(summary.reservationCountByGym).toEqual({ [TEST_GYM.id]: 3 });
+  });
+
+  it("다른 사용자의 예약은 집계하지 않는다", async () => {
+    const userId = "summary-gym-count-scope-user";
+    await prisma.reservation.create({
+      data: {
+        id: `${userId}-other`,
+        userId: "summary-gym-count-someone-else",
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(1),
+        time: "11:00",
+        price: 10000,
+        status: "reserved",
+        activeKey: `${userId}-other-key`,
+      },
+    });
+
+    const summary = await getUserSummary(userId);
+
+    expect(summary.reservationCountByGym).toEqual({});
   });
 });

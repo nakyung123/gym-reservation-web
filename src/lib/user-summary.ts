@@ -9,10 +9,19 @@ export type UserFavoriteSummary = {
   activeGymCount: number;
 };
 
+/**
+ * 시설별 예약 횟수(gymId → 건수). 상태 무관(취소 포함)이며, 예약이 0건인 시설은 담지 않는다.
+ *
+ * 키 개수는 사용자가 예약해 본 시설 수라 체육관 총수로 상한이 잡힌다(예약 건수와 무관).
+ * 그래서 이 값을 클라이언트가 예약 목록 전체를 받아 집계하지 않고 서버 집계로 받는다.
+ */
+export type UserGymBookingCounts = Record<string, number>;
+
 export type UserSummary = {
   userId: string;
   reservations: UserReservationSummary;
   favorites: UserFavoriteSummary;
+  reservationCountByGym: UserGymBookingCounts;
 };
 
 function isCount(value: unknown): value is number {
@@ -37,6 +46,16 @@ export function isUserReservationSummary(
   );
 }
 
+export function isUserGymBookingCounts(
+  value: unknown,
+): value is UserGymBookingCounts {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.values(value as Record<string, unknown>).every(isCount);
+}
+
 export function isUserSummary(value: unknown): value is UserSummary {
   if (!value || typeof value !== "object") {
     return false;
@@ -50,7 +69,8 @@ export function isUserSummary(value: unknown): value is UserSummary {
     isUserReservationSummary(candidate.reservations) &&
     Boolean(favorites) &&
     typeof favorites === "object" &&
-    isCount(favorites.activeGymCount)
+    isCount(favorites.activeGymCount) &&
+    isUserGymBookingCounts(candidate.reservationCountByGym)
   );
 }
 

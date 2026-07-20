@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   MypageBoard,
@@ -9,8 +9,7 @@ import {
   type BoardRow,
 } from "@/components/mypage/mypage-board";
 import { BoardPagination } from "@/components/ui/board-pagination";
-import { parseReservationSnapshot } from "@/lib/reservation-repository";
-import { reservationRepository } from "@/lib/reservation-repository-provider";
+import { useUserSummary } from "@/hooks/use-user-summary";
 import { usePagination } from "@/hooks/use-pagination";
 import { useBoardPaginationLabels } from "@/hooks/use-board-pagination-labels";
 import type { Gym } from "@/types/domain";
@@ -33,23 +32,16 @@ export function FavoritesPanel({
   const t = useTranslations("Mypage");
   const paginationLabels = useBoardPaginationLabels();
 
-  // 예약횟수 집계용 예약 스냅샷. 예약내역 표와 동일한 저장소를 구독한다.
-  const snapshot = useSyncExternalStore(
-    reservationRepository.subscribe,
-    reservationRepository.getSnapshot,
-    reservationRepository.getServerSnapshot,
-  );
   // 예약횟수 = 그 시설에 낸 예약 건수(상태 무관, 취소 포함).
-  const bookingCountByGym = useMemo(() => {
-    const map = new Map<string, number>();
-    const parsed = parseReservationSnapshot(snapshot);
-    if (parsed.ok) {
-      for (const reservation of parsed.reservations) {
-        map.set(reservation.gymId, (map.get(reservation.gymId) ?? 0) + 1);
-      }
-    }
-    return map;
-  }, [snapshot]);
+  //
+  // 예전에는 예약 목록 스냅샷 전체를 구독해 클라이언트에서 셌다. 그러면 이 표를 그리려고
+  // 사용자의 전 기간 예약을 다 받아야 해서 누적 예약에 비례해 비용이 커진다.
+  // 지금은 서버 집계(GET /api/me)를 받는다 — 응답 크기가 시설 수로 제한된다.
+  const { summary } = useUserSummary();
+  const bookingCountByGym = useMemo(
+    () => summary?.reservationCountByGym ?? {},
+    [summary],
+  );
 
   const favoritedGyms = useMemo(
     () =>
@@ -93,7 +85,7 @@ export function FavoritesPanel({
         {gym.sports.join(", ")}
       </span>,
       <span key="usage" className="tabular-nums text-foreground">
-        {t("favUsageCount", { count: bookingCountByGym.get(gym.id) ?? 0 })}
+        {t("favUsageCount", { count: bookingCountByGym[gym.id] ?? 0 })}
       </span>,
     ],
   }));

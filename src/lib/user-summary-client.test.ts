@@ -21,6 +21,10 @@ const summary: UserSummary = {
   favorites: {
     activeGymCount: 2,
   },
+  reservationCountByGym: {
+    "gym-a": 2,
+    "gym-b": 1,
+  },
 };
 
 function mockCurrentUser(token = "id-token") {
