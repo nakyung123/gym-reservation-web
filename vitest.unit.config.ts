@@ -47,6 +47,8 @@ export default defineConfig({
       "src/lib/server/faq-tools.test.ts",
       "src/app/api/faq-chat/route.test.ts",
       "src/components/faq/faq-chat-widget.test.tsx",
+      // 답변 마크다운(볼드·불릿) 파싱 — 위젯이 평문으로 찍어 별표가 노출되던 회귀 방지.
+      "src/lib/faq-chat-markdown.test.ts",
       // 공지사항 SSOT(정적 데이터) 정렬/조회.
       "src/lib/notices.test.ts",
       // 종목별 인원(정원) SSOT: clamp/검증/합산가 — 순수 함수, DB 무관.

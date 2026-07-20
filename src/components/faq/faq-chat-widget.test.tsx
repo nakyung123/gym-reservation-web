@@ -93,6 +93,44 @@ describe("FaqChatWidget", () => {
     ).toBeTruthy();
   });
 
+  // 배포 확인에서 답변의 "**일시**:" 가 별표째 보였다(위젯이 평문으로 렌더링).
+  // 모델은 마크다운으로 답하므로 렌더링 계층에서 처리해야 한다.
+  it("마크다운 답변을 렌더링해 별표가 화면에 남지 않는다", async () => {
+    const answer = [
+      "현재 예약 내역은 다음과 같습니다:",
+      "",
+      "- **일시**: 2026년 7월 31일 오후 9시",
+      "- **시설**: 일자산제1체육관",
+    ].join("\n");
+    vi.spyOn(global, "fetch").mockResolvedValue(streamOk(answer));
+
+    renderWidget();
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "가입은 어떻게 하나요?" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(dialog.textContent).toContain("일자산제1체육관"),
+    );
+
+    // 별표가 화면 텍스트로 새어나오지 않아야 한다.
+    expect(dialog.textContent).not.toContain("*");
+    // 볼드는 실제 strong 엘리먼트로 렌더된다.
+    const bold = Array.from(dialog.querySelectorAll("strong")).map(
+      (node) => node.textContent,
+    );
+    expect(bold).toContain("일시");
+    expect(bold).toContain("시설");
+    // 불릿은 리스트 항목으로 (예시 질문 목록도 li라서 개수 대신 내용으로 확인).
+    const items = Array.from(dialog.querySelectorAll("li")).map(
+      (node) => node.textContent,
+    );
+    expect(items).toContain("일시: 2026년 7월 31일 오후 9시");
+    expect(items).toContain("시설: 일자산제1체육관");
+  });
+
   it("예시 질문을 누르면 응답 스트림을 렌더한다", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       streamOk("이메일로 가입할 수 있습니다."),

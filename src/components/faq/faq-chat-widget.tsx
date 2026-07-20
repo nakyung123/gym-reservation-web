@@ -6,6 +6,10 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/app-button";
 import { useFaqChat } from "@/hooks/use-faq-chat";
+import {
+  parseChatMarkdown,
+  type InlineSpan,
+} from "@/lib/faq-chat-markdown";
 
 // 전역 FAQ 안내봇 위젯. 우하단 플로팅 버튼 → 패널 토글.
 // flexible foundation: 예시 질문은 데이터 배열, 버튼은 app-button SSOT, 색은 네이비 토큰.
@@ -279,18 +283,62 @@ function ChatBubble({
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
       <div
         className={[
-          "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[14px] leading-relaxed",
+          "max-w-[85%] rounded-2xl px-3 py-2 text-[14px] leading-relaxed",
+          // 사용자 입력은 그대로 보존하고, 안내봇 답변만 마크다운 블록으로 렌더링한다.
           isUser
-            ? "bg-accent text-accent-ink"
+            ? "whitespace-pre-wrap bg-accent text-accent-ink"
             : "border border-line bg-surface-2 text-foreground",
         ].join(" ")}
       >
         {showTyping ? (
           <span className="text-muted">…</span>
-        ) : (
+        ) : isUser ? (
           content
+        ) : (
+          <AssistantContent content={content} />
         )}
       </div>
     </div>
+  );
+}
+
+// 안내봇 답변 렌더링. 모델이 쓰는 볼드·불릿만 처리한다(파서는 lib/faq-chat-markdown).
+function AssistantContent({ content }: { content: string }) {
+  const blocks = parseChatMarkdown(content);
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, blockIndex) =>
+        block.type === "list" ? (
+          <ul key={blockIndex} className="space-y-1 pl-4">
+            {block.items.map((item, itemIndex) => (
+              <li key={itemIndex} className="list-disc">
+                <InlineSpans spans={item} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={blockIndex}>
+            <InlineSpans spans={block.spans} />
+          </p>
+        ),
+      )}
+    </div>
+  );
+}
+
+function InlineSpans({ spans }: { spans: InlineSpan[] }) {
+  return (
+    <>
+      {spans.map((span, index) =>
+        span.bold ? (
+          <strong key={index} className="font-semibold">
+            {span.text}
+          </strong>
+        ) : (
+          <span key={index}>{span.text}</span>
+        ),
+      )}
+    </>
   );
 }
