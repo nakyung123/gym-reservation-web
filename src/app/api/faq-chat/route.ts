@@ -23,15 +23,33 @@ export const dynamic = "force-dynamic";
 // 3) 전역 일당 — IP 수와 무관한 총지출 하드캡(전역 단일 row. 현 규모(50/일, 평균 <1/분)엔
 //    무해하나 고볼륨 시 "all:${shard}" 샤딩 여지). haiku 답변 ≈ $0.006 × 50 ≈ 일 최대 ~$0.3.
 //    (코드 밖 절대 천장은 Anthropic 콘솔 지출 한도 + 선불 크레딧이 별도로 담당.)
-// 도구 호출이 붙으면서 질문 1건이 LLM 왕복 최대 (MAX_TOOL_CALLS + 1)회가 됐다.
-// 같은 지출 천장을 유지하려면 호출 수 캡을 그만큼 낮춰야 한다.
-// 전역 50 → 20으로 내려 최악의 경우(매 질문이 도구를 최대치로 쓰는 경우)에도
-// 기존과 비슷한 일 상한을 유지한다.
-const RATE_LIMITS: RateLimitInput[] = [
+// 도구 호출이 붙어 질문 1건이 LLM 왕복 최대 (MAX_TOOL_CALLS + 1)회가 됐다.
+// 여기서 세는 단위는 "질문"이지 "LLM 호출"이 아니므로, 질문 수만 줄인다고 지출이
+// 줄지 않는다. 실제로 처음 조정(전역 20)은 질문을 2.5배 줄이면서 최악 호출 수는
+// 50 → 80으로 늘려 양쪽 다 손해였다. 그래서 두 축을 함께 잡는다.
+//
+//   호출 상한: MAX_TOOL_CALLS=2 → 질문당 최대 3회(도구 2 + 마무리 1)
+//   질문 상한: 전역 30 → 실사용(질문당 평균 1.5회) 기준 약 45회로 기존 50과 비슷
+//
+// per-IP 일당 15는 정상 사용을 막지 않는 선이다(8은 몇 번 물어보면 하루가 끝났다).
+// 코드 밖 절대 천장은 Anthropic 콘솔 지출 한도 + 선불 크레딧이 계속 담당한다.
+export const RATE_LIMITS: RateLimitInput[] = [
   { scope: "faq-chat:ip", identifier: "", limit: 5, windowMs: 60_000 },
-  { scope: "faq-chat:ip-daily", identifier: "", limit: 8, windowMs: 86_400_000 },
-  { scope: "faq-chat:global", identifier: "all", limit: 20, windowMs: 86_400_000 },
+  { scope: "faq-chat:ip-daily", identifier: "", limit: 15, windowMs: 86_400_000 },
+  { scope: "faq-chat:global", identifier: "all", limit: 30, windowMs: 86_400_000 },
 ];
+
+/**
+ * 하루 LLM 호출 수의 설계 상한. 현재 설정(전역 30 × 질문당 최대 3회)에 맞춰 조여 둔다.
+ *
+ * 질문 수만 보면 비용을 잘못 판단한다 — 도구 루프가 질문 1건을 여러 호출로 늘리기 때문이다.
+ * 전역 질문 한도나 MAX_TOOL_CALLS를 올리면 테스트가 막는다.
+ *
+ * 참고: 도구 도입 전 최악치는 50회(질문 50 × 1회)였다. 지금 최악치 90회는 그보다 높지만,
+ * 실사용은 질문당 평균 1.5회라 약 45회로 이전과 비슷하다. 최악치를 더 낮추려면
+ * 전역 한도가 아니라 MAX_TOOL_CALLS를 줄이는 쪽이 UX 손해가 적다.
+ */
+export const MAX_DAILY_LLM_CALLS = 90;
 
 // 어느 한 단계라도 초과하면 429 응답을 돌려준다. 통과하면 null.
 // checkRateLimit가 throw(DB 다운/secret 부재)하면 그대로 전파해 호출측이 fail-closed(503) 처리한다.

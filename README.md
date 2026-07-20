@@ -1,253 +1,155 @@
-# 공공체육관 예약 웹
+# 서울체육예약 (gym-reservation-web)
 
-서울 공공체육시설을 탐색하고 예약 흐름을 체험할 수 있는 Next.js 기반 웹 애플리케이션입니다.
+집 근처 공공 체육시설을 검색하고 예약하는 웹 서비스. **예약 기능에 더해 운영자용 관리 콘솔과 AI 기반 운영 자동화까지** 직접 설계·구현했습니다.
 
-## 프로젝트 소개
+[![CI](https://github.com/nakyung123/gym-reservation-web/actions/workflows/ci.yml/badge.svg)](https://github.com/nakyung123/gym-reservation-web/actions/workflows/ci.yml)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+![Postgres](https://img.shields.io/badge/Postgres-Prisma_6-336791)
 
-공공체육관 예약 웹은 대학 캡스톤에서 기획했던 공공체육관 예약 앱 아이디어를 웹 환경에 맞게 다시 구현한 프로젝트입니다.
+**배포** → https://gym-reservation-web-95bi.vercel.app
 
-사용자는 서울 공공체육시설 샘플 데이터를 바탕으로 체육관을 검색하고, 종목과 날짜, 시간대를 선택해 예약을 생성할 수 있습니다. 생성된 예약은 실제 시설 예약으로 접수되지 않으며, 예약 흐름과 운영 관리 기능을 검증하기 위한 데이터로 동작합니다.
+> 대학 캡스톤에서 기획했던 공공체육관 예약 앱 아이디어를 웹으로 다시 구현한 개인 프로젝트입니다.
+> 시설 정보는 서울 공공체육시설을 참고한 샘플 데이터이며, 생성된 예약은 실제 시설에 접수되지 않습니다.
 
-현재 저장소는 Postgres(운영: Supabase / 로컬: Docker)와 Prisma 6을 기본 데이터 저장소로 사용하고, Firebase Auth(이메일·Google·카카오·네이버)로 사용자를 식별합니다. 관리자 API는 Firebase ID 토큰의 custom claim `admin: true`로 권한을 확인하며, 관리자 페이지는 별도 Basic Auth로 1차 잠금을 겁니다. 관리자 화면에서는 예약 상태, 시간대별 슬롯, 시설 정보를 관리할 수 있습니다.
+---
 
-## 주요 기능
+## 스크린샷
 
-- 서울 공공체육시설 목록 조회
-- 체육관 이름, 지역구, 종목 기반 검색 및 필터
-- 체육관 상세 정보, 운영시간, 휴관일, 종목별 이용료 확인
-- 즐겨찾기 등록 및 해제
-- Firebase Auth(이메일·Google·카카오·네이버) 통합 로그인과 사용자 식별
-- Firebase App Check(reCAPTCHA v3) 클라이언트 통합
-- 예약 생성, 목록 조회, 상세 조회, 취소
-- 예약 목록과 상세 화면의 모바일 입장권 확인
-- 동일 사용자 기준 중복 활성 예약 방지
-- 시간대별 예약 정원과 마감 상태 관리
-- 관리자 예약 목록, 상세 조회, 이용 완료, 취소 처리
-- 관리자 슬롯 단건 변경과 현재 조회 날짜 기준 일괄 변경
-- 관리자 시설 추가, 수정, 활성/비활성 관리
+| 홈 | 시설 찾기 |
+|---|---|
+| ![홈](docs/images/01-home.png) | ![시설 찾기](docs/images/02-gyms.png) |
+
+<!--
+추가 예정 스크린샷 (촬영 후 아래 주석을 해제하고 표에 삽입)
+  docs/images/03-reserve.png        예약 생성 흐름 (시간대 선택 화면)
+  docs/images/04-admin-revenue.png  관리자 정산 대시보드 (recharts)
+  docs/images/05-qr-ticket.png      QR 모바일 입장권
+  docs/images/06-faq-chat.png       FAQ 안내봇 대화 (내 예약 조회)
+-->
+
+---
+
+## 이 프로젝트에서 다룬 것
+
+### AI · 운영 자동화
+
+- **FAQ 안내봇** — Claude API 기반 스트리밍 챗봇. 큐레이션된 FAQ 위에서 답하고, 로그인 사용자에게는 **내 예약 조회 도구**를 호출해 답변합니다. 도구는 uid를 파라미터로 받지 않아 모델이 남의 예약을 조회할 수 없습니다.
+- **일일 AI 운영 브리핑** — Vercel Cron이 전날 지표를 집계하고, Claude가 자연어 요약·이상치·탈퇴 사유 테마를 구조화 출력으로 붙여 Slack에 보냅니다. PII 스크럽과 프롬프트 인젝션 경계를 두고, API 실패 시 숫자 리포트로 폴백합니다.
+- **Slack 즉시 알림** — 예약 생성·취소를 실시간 통지.
+- **Google Sheets 정산 원장** — 정산 데이터를 스프레드시트로 동기화.
+
+### 사용자 기능
+
+- 체육관 검색·필터(지역·종목·가격), 상세 정보, 즐겨찾기
+- 예약 생성·조회·취소, **QR 모바일 입장권**
+- Firebase Auth 통합 로그인(이메일·Google·카카오·네이버), 이메일 인증, 비밀번호 재설정
+- 1:1 문의, 공지사항 게시판, 이용 안내
+- **한국어·영어 다국어**(next-intl, 쿠키 기반이라 URL 유지)
+
+### 관리자 콘솔
+
+예약·슬롯·시설 관리, **정산 대시보드**(recharts), 고객 관리 + 메모, 문의 관리, 배너 관리, **감사 로그**, **접속 기록**
+
+### 품질·성능
+
+- **테스트 파일 120개** — API 라우트 단위 테스트 + 도메인 규칙 테스트
+- **k6 부하 테스트** — 정원 10팀 슬롯에 200명 동시 요청을 걸어 정합성 검증, 인덱스 성능 측정 ([load-test/](load-test/))
+- DB 인덱스 추가로 관리자·정산 조회 풀스캔 제거(예약 12만건 기준 DB 계층 9.5~310배), 예약 목록 서버 페이지네이션
+
+---
+
+## 기술적 이슈 & 해결
+
+각 항목의 전체 내용(원인 분석 과정, 코드, 커밋)은 **[docs/troubleshooting.md](docs/troubleshooting.md)** 에 있습니다.
+
+| 이슈 | 요약 |
+|---|---|
+| **슬롯 정원 동시성** | 조회 후 생성 사이의 TOCTOU로 정원 초과 가능. 카운터 증가 조건을 `UPDATE` 문 자체에 넣고(`reserved_count < capacity`) 갱신 행 수로 판단. k6로 200명 동시 요청을 걸어 **DB 불변식 4가지**로 검증 |
+| **중복 예약 방지** | 애플리케이션 검사는 동시 요청에 뚫림. `activeKey` UNIQUE 제약으로 DB가 최종 방어선 |
+| **챗봇 세션 격리** | 로그아웃 후에도 이전 사용자 예약이 답변됨. 서버 uid 스코프는 정상이었고 원인은 **클라이언트 대화 이력**. 확정된 로그인 주체 변경 시 이력 초기화 + 회귀 테스트 2건 |
+| **예약 폼 18N 비교** | 시간대 18개마다 전체 예약을 훑어 2,000건 사용자면 36,000회 비교. 후보를 미리 좁혀 `N + 18×소수`로. **동치성 테스트**로 결과 불변 보장 |
+| **인덱스 최적화와 측정** | 관리자 쿼리가 풀스캔. 인덱스 3개 추가 후 예약 12만건 기준 **DB 계층은 9.5~310배** 개선. 그런데 **HTTP는 10%만** 빨라짐 — 응답시간 대부분이 Firebase revoked 토큰 검사 왕복이었음. 계층을 분리해 재지 않았으면 오판할 뻔한 사례 |
+| **AI 브리핑 PII·인젝션** | 탈퇴 사유 자유텍스트가 제3자 API로 나감. 전송 전 스크럽 + 출력 제약 + 데이터/지시 경계 명시 |
+| **LLM 비용 상한** | 공개 데모라 인증이 없음. rate limit 3단(IP 분당 5 / IP 일 8 / **전역 일 20**) + fail-closed + 콘솔 지출 한도 |
+
+---
 
 ## 기술 스택
 
 | 영역 | 기술 |
 |---|---|
-| Framework | Next.js 16 App Router |
-| UI | React 19, Tailwind CSS 4 |
+| Framework | Next.js 16 (App Router) |
+| UI | React 19, Tailwind CSS 4, recharts, qrcode.react |
 | Language | TypeScript |
-| Database | Postgres (운영: Supabase / 로컬: Docker 17) |
-| ORM | Prisma |
-| Auth | Firebase Auth |
-| Test | Vitest |
-| CI | GitHub Actions |
+| Database | Postgres (운영: Supabase / 로컬: Docker) |
+| ORM | Prisma 6 |
+| Auth | Firebase Auth (+ App Check), Firebase Admin |
+| Validation | Zod |
+| i18n | next-intl |
+| AI | Anthropic Claude API (`@anthropic-ai/sdk`) |
+| 외부 연동 | Slack Webhook, Google Sheets API, Supabase Storage |
+| Test | Vitest, Testing Library, k6 |
+| CI/배포 | GitHub Actions, Vercel |
+
+---
 
 ## 실행 방법
 
-### 1. 의존성 설치
-
 ```bash
 npm install
-```
-
-### 2. 환경 변수 설정
-
-`.env.local`에 Firebase 웹 앱 설정과 Postgres 연결 정보를 설정합니다. 실제 값은 저장소에 커밋하지 않습니다. 자세한 항목은 `.env.example` 주석을 참고하세요.
-
-```bash
-# Postgres (운영은 Supabase의 POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING 매핑)
-DATABASE_URL=postgresql://...
-DIRECT_URL=postgresql://...
-
-# Firebase 클라이언트
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
-NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY=
-
-# Firebase Admin (서버 ID 토큰 검증, custom claim 확인)
-GOOGLE_APPLICATION_CREDENTIALS=./secrets/firebase-admin.json
-# 또는 FIREBASE_ADMIN_PROJECT_ID / FIREBASE_ADMIN_CLIENT_EMAIL / FIREBASE_ADMIN_PRIVATE_KEY
-
-# 카카오/네이버 OAuth (서버 전용)
-KAKAO_REST_API_KEY=
-KAKAO_CLIENT_SECRET=
-KAKAO_REDIRECT_URI=http://localhost:3000/api/auth/kakao/callback
-NAVER_CLIENT_ID=
-NAVER_CLIENT_SECRET=
-NAVER_REDIRECT_URI=http://localhost:3000/api/auth/naver/callback
-
-# 데이터 백엔드 (기본 db. mock/local은 시연용)
-NEXT_PUBLIC_GYM_DATA_BACKEND=db
-NEXT_PUBLIC_FAVORITE_DATA_BACKEND=db
-NEXT_PUBLIC_RESERVATION_DATA_BACKEND=db
-
-# 관리자 페이지 Basic Auth와 rate limit HMAC (서버 전용)
-ADMIN_PAGE_USER=
-ADMIN_PAGE_PASSWORD=
-RATE_LIMIT_HMAC_SECRET=
-```
-
-로컬 dev DB는 `docker compose up -d`로 Postgres 컨테이너를 띄운 뒤 위 환경변수를 채웁니다.
-
-### 3. DB 마이그레이션 및 seed
-
-```bash
+docker compose up -d          # 로컬 Postgres
+cp .env.example .env.local    # 값 채우기 (항목 설명은 .env.example 주석 참고)
 npm run db:migrate:deploy
 npm run db:seed
+npm run dev                   # http://localhost:3000
 ```
 
-### 4. 개발 서버 실행
+환경 변수는 [`.env.example`](.env.example)에 항목별 설명이 있습니다. 실제 값은 저장소에 커밋하지 않습니다.
 
-```bash
-npm run dev
-```
+### 관리자 화면
 
-브라우저에서 `http://localhost:3000`을 엽니다.
+`/admin`으로 진입합니다. 접근에는 두 가지가 모두 필요합니다.
 
-### 5. 관리자 화면
+1. `/admin` 페이지의 **Basic Auth** (`ADMIN_PAGE_USER` / `ADMIN_PAGE_PASSWORD`) — 1차 잠금
+2. `/api/admin/*`의 **Firebase custom claim `admin: true`** — 실제 권한
 
-관리자 화면은 `http://localhost:3000/admin`에서 진입합니다.
+claim은 운영자가 Firebase Admin SDK로 사전에 부여합니다. 저장소에는 범용 claim 부여 스크립트를 포함하지 않습니다.
 
-- `/admin/reservations`: 예약 조회, 상세 확인, 이용 완료, 관리자 취소
-- `/admin/reservation-slots`: 날짜, 종목, 시간대별 정원과 마감 상태 단건/일괄 관리
-- `/admin/gyms`: 시설 추가, 수정, 활성/비활성 관리
-
-관리자 API(`/api/admin/*`)는 Firebase ID 토큰의 custom claim `admin: true`가 부여된 계정으로 로그인한 상태에서만 동작합니다. claim은 운영자가 Firebase Admin SDK 또는 별도 운영 도구로 사전에 부여해야 합니다. 이 저장소에는 claim 부여용 범용 스크립트를 포함하지 않습니다.
-
-`/admin` 페이지의 Basic Auth는 API 권한과 별개인 1차 잠금입니다. 자격은 `.env.local` 또는 운영 환경 변수의 `ADMIN_PAGE_USER` / `ADMIN_PAGE_PASSWORD`로 설정합니다.
-
-## 프로젝트 구조
-
-```text
-gym-reservation-web/
-├─ prisma/
-│  ├─ migrations/          # Postgres 스키마 변경 이력
-│  ├─ schema.prisma        # Prisma 모델 정의
-│  └─ seed.mjs             # 체육관 seed 데이터 반영
-├─ src/
-│  ├─ app/                 # Next.js App Router 페이지와 API Route Handler
-│  ├─ components/          # 화면 컴포넌트
-│  ├─ data/                # 체육관 seed/mock 기준 JSON
-│  ├─ hooks/               # 클라이언트 훅
-│  ├─ lib/                 # 도메인 규칙, repository, API client, 서버 로직
-│  └─ types/               # 공통 도메인 타입
-├─ tests/                  # 테스트 환경 설정
-└─ docs/                   # 설계와 운영 문서
-```
-
-## 아키텍처
-
-사용자 화면은 Next.js Server Component에서 체육관 데이터를 조회하고, 예약·즐겨찾기처럼 사용자 세션이 필요한 기능은 Client Component와 API Route Handler를 통해 처리합니다.
-
-```text
-Client UI
-  ├─ Firebase Auth + App Check (이메일/Google/카카오/네이버)
-  ├─ 사용자 예약/즐겨찾기/프로필/탈퇴 API 호출
-  └─ 관리자 API 호출 (Firebase ID token 첨부)
-
-Next.js Route Handler
-  ├─ Firebase ID token 검증 (Firebase Admin)
-  ├─ 관리자 custom claim admin=true 검증
-  ├─ OAuth/admin API rate limit
-  └─ 도메인 서비스 호출
-
-Repository / Service
-  ├─ 예약 규칙 검증
-  ├─ 중복 활성 예약 방지
-  ├─ 슬롯 정원 계산
-  ├─ 회원 탈퇴 multi-step (idempotent retry)
-  └─ Prisma transaction
-
-Postgres (Supabase 운영 / Docker dev)
-  ├─ gyms / gym_sports
-  ├─ favorites
-  ├─ reservations / reservation_locks / reservation_slots
-  ├─ user_profiles
-  ├─ withdrawal_reasons (익명 사유 통계)
-  ├─ oauth_attempts / auth_handover_tickets (카카오·네이버 흐름)
-  └─ rate_limit_buckets (DB 기반 rate limit)
-```
-
-데이터 소스는 repository provider에서 선택합니다. 기본값은 `db`(Postgres)이며 `mock`/`local` 어댑터는 시연/dev 보조용입니다. 옛 환경 변수 `NEXT_PUBLIC_*_DATA_SOURCE`는 폐기됐고 살아 있으면 명시적으로 throw합니다.
-
-Supabase 운영 DB는 주요 public 테이블에 RLS를 활성화하고 정책을 두지 않는 deny-default 방식을 사용합니다. 앱 서버의 Prisma 연결은 서버 전용 경계에서만 사용하며, 브라우저는 Supabase 클라이언트로 DB에 직접 접근하지 않습니다.
-
-## 기술적 이슈 & 해결
-
-### 중복 예약 방지
-
-같은 사용자가 같은 체육관, 종목, 날짜, 시간대에 활성 예약을 중복 생성하지 못하도록 `reservation_locks` 테이블을 둡니다. 예약 생성은 Prisma transaction 안에서 슬롯 카운터 증가, 예약 생성, lock 생성을 함께 처리합니다.
-
-### 슬롯 정원 경쟁 상태
-
-동시에 여러 예약이 들어와도 정원을 초과하지 않도록 Postgres 조건부 update를 사용합니다. `reserved_count < capacity` 조건을 만족할 때만 카운터를 증가시키고, 실패하면 예약을 생성하지 않습니다. raw SQL의 `date`/`time` 컬럼은 Postgres 예약어라 큰따옴표로 escape합니다.
-
-### 예약 취소 정책
-
-사용자 취소는 이용 시작 2시간 전까지만 허용합니다. 취소가 성공하면 예약 상태를 `cancelled`로 바꾸고, 활성 lock을 제거하며, 슬롯 예약 카운터를 감소시킵니다.
-
-### 관리자 시설 관리와 공개 목록 분리
-
-관리자는 비활성 시설도 조회하고 수정할 수 있어야 하지만, 사용자 공개 목록에는 운영 중인 시설만 노출되어야 합니다. 이를 위해 `gyms.is_active`를 추가하고, 공개 repository와 관리자 repository를 분리했습니다.
-
-### 관리자 슬롯 변경 검증
-
-관리자 슬롯 변경은 단건 저장과 일괄 저장 모두 같은 서버 검증을 통과해야 합니다. 존재하지 않는 시설·종목 조합, 변경 대상 시설 불일치, 예약 인원보다 낮은 정원, 허용 범위를 벗어난 정원은 저장하지 않고 명시적인 오류를 반환합니다.
-
-### 관리자 API 인증과 rate limit
-
-관리자 페이지(`/admin`)는 Basic Auth로 1차 잠금을 걸고, 관리자 API(`/api/admin/*`)는 Firebase ID 토큰의 custom claim `admin: true`를 서버에서 검증합니다. 이전의 공유 시크릿 기반 `x-admin-token` / `ADMIN_API_TOKEN` 방식은 사용하지 않습니다.
-
-OAuth 시작·callback·token·finalize 흐름과 관리자 API, 관리자 페이지는 DB 기반 rate limit을 통과해야 합니다. 식별자는 `RATE_LIMIT_HMAC_SECRET`으로 HMAC 해시해 저장하며, 원문 IP·ticket·token 값은 저장하지 않습니다.
-
-### 서버 오류 응답
-
-API 서버 오류는 사용자에게 generic 메시지로 응답하고, 내부 오류의 원문 message/stack은 응답에 포함하지 않습니다. 서버 로그에는 오류 타입, 이름, whitelist된 오류 코드처럼 안전한 진단 정보만 남깁니다.
-
-## 성능 개선
-
-- 체육관 목록과 상세 화면은 Server Component에서 데이터를 조회해 초기 렌더링에 필요한 클라이언트 JavaScript를 줄였습니다.
-- `/gyms/[id]`, `/reserve/[gymId]`는 현재 활성 체육관 목록을 기준으로 정적 경로를 생성합니다.
-- 예약 가능 시간대는 시설의 `availableTimes`와 저장된 `reservation_slots`를 조합해 필요한 날짜·종목 범위만 조회합니다.
-- 관리자 화면은 목록 조회와 저장 요청을 분리해 필요한 시점에만 API를 호출합니다.
-- Firebase App Check는 site key가 있는 브라우저 환경에서만 초기화되며, Firebase SDK가 App Check 토큰을 자동으로 첨부합니다.
+---
 
 ## 테스트
 
 ```bash
 npx tsc --noEmit --pretty false
 npm run lint
-npm run test:unit
-npm run test
-npm run build
+npm run test:unit    # DB 없이 도는 서브셋
+npm run test         # 전체 (테스트 DB 필요)
 ```
 
-테스트 DB는 `.env.test.local`의 `DATABASE_URL`을 사용합니다. 테스트 환경 설정은 운영 DB 오작동을 막기 위해 URL에 `gym_reservation_test`가 포함되지 않으면 즉시 실패하도록 구성되어 있습니다.
+테스트 DB는 `.env.test.local`의 `DATABASE_URL`을 쓰며, URL에 `gym_reservation_test`가 포함되지 않으면 **즉시 실패**하도록 막아 뒀습니다(운영 DB 오작동 방지).
 
-주요 테스트 범위:
+부하 테스트 실행 방법은 [`load-test/README.md`](load-test/README.md)에 있습니다.
 
-- 예약 생성과 lock 생성
-- 중복 활성 예약 차단
-- 슬롯 정원 초과 차단
-- 관리자 슬롯 마감
-- 관리자 슬롯 단건/일괄 변경 검증
-- 예약 취소와 lock 해제
-- 이용 완료 처리
-- 관리자 예약 조회
-- 사용자 예약 상세 조회
-- 관리자 운영 요약 집계
-- 관리자 시설 추가, 수정, 비활성화 정책
-- 관리자 custom claim 인증
-- OAuth/admin API rate limit
-- 서버 오류 응답의 원문 메시지 비노출
+---
 
-## 향후 개선 계획
+## 문서
 
-- 관리자 시설 관리 UX 개선
+| 문서 | 내용 |
+|---|---|
+| [아키텍처](docs/architecture.md) | 계층 구성, 인증·권한, rate limit, 보안 경계, 자동화 파이프라인 |
+| [트러블슈팅](docs/troubleshooting.md) | 실제로 부딪힌 문제 7건의 원인 분석과 해결 |
+| [운영 런북](docs/ops-runbook.md) | 배포·장애 대응 절차 |
+| [데이터 모델](docs/data-model.md) | 테이블·관계 정의 |
+| [결제 설계](docs/payment-design.md) | 결제 도입 시 서버 기준 금액 검증 설계 |
+| [제품 개요](docs/product-brief.md) | 기획 배경과 범위 |
+| [부하 테스트](load-test/README.md) | k6 하네스 사용법 |
+
+---
+
+## 향후 계획
+
+- 결제 연동 (설계는 [payment-design.md](docs/payment-design.md)에 정리)
+- 예약 알림 (FCM 또는 이메일)
+- 공휴일 데이터 기반 휴관일 자동 계산
 - 여러 날짜 선택 기반 슬롯 일괄 관리
-- 공휴일 데이터 기반 휴관일 계산
-- 내 정보와 설정 화면 확장
-- 소모임 기능 검토
-- 예약 알림 기능 검토 (FCM 또는 이메일)
-- 결제 도입 시 서버 기준 금액 검증과 결제 상태 도메인 설계

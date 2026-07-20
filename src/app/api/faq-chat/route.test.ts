@@ -24,7 +24,12 @@ vi.mock("@/lib/server/rate-limit", async (importActual) => {
 });
 
 import { type NextRequest } from "next/server";
-import { POST } from "@/app/api/faq-chat/route";
+import {
+  MAX_DAILY_LLM_CALLS,
+  POST,
+  RATE_LIMITS,
+} from "@/app/api/faq-chat/route";
+import { MAX_TOOL_CALLS } from "@/lib/server/faq-tools";
 
 const OK = { ok: true as const, remaining: 9, resetAt: new Date() };
 const LIMITED = {
@@ -153,5 +158,42 @@ describe("POST /api/faq-chat", () => {
     });
     const response = await POST(makeRequest(VALID_BODY));
     expect(response.status).toBeGreaterThanOrEqual(500);
+  });
+});
+
+describe("비용 상한 설계", () => {
+  // 회귀 방지: 처음 도구를 붙일 때 "질문 수를 줄였으니 지출도 줄었다"고 잘못 계산해
+  // 전역 20 × 최대 4회 = 80 호출로, 이전(50 호출)보다 오히려 늘렸었다.
+  // 질문 한도와 도구 상한은 함께 봐야 한다.
+  it("전역 질문 한도 × 질문당 최대 호출이 하루 예산을 넘지 않는다", () => {
+    const global = RATE_LIMITS.find(
+      (limit) => limit.scope === "faq-chat:global",
+    );
+    expect(global).toBeDefined();
+
+    const maxCallsPerQuestion = MAX_TOOL_CALLS + 1; // 도구 루프 + 마무리 1회
+    expect(global!.limit * maxCallsPerQuestion).toBeLessThanOrEqual(
+      MAX_DAILY_LLM_CALLS,
+    );
+  });
+
+  it("per-IP 일당 한도가 전역 한도를 혼자 소진하지 못한다", () => {
+    const perIpDaily = RATE_LIMITS.find(
+      (limit) => limit.scope === "faq-chat:ip-daily",
+    );
+    const global = RATE_LIMITS.find(
+      (limit) => limit.scope === "faq-chat:global",
+    );
+
+    // 한 IP가 전역 예산을 통째로 먹으면 다른 사용자가 봇을 못 쓴다.
+    expect(perIpDaily!.limit).toBeLessThan(global!.limit);
+  });
+
+  it("정상 사용을 막지 않을 만큼의 per-IP 일당은 확보한다", () => {
+    const perIpDaily = RATE_LIMITS.find(
+      (limit) => limit.scope === "faq-chat:ip-daily",
+    );
+    // 8로 낮췄더니 몇 번 물어보는 것만으로 하루가 끝나 실사용이 막혔다.
+    expect(perIpDaily!.limit).toBeGreaterThanOrEqual(10);
   });
 });
