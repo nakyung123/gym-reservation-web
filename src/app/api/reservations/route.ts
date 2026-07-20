@@ -10,6 +10,7 @@ import {
   isReservationStatus,
   isSport,
 } from "@/lib/domain-constants";
+import { isValidReservationDateValue } from "@/lib/reservation-rules";
 import { parsePhone } from "@/lib/user-profile";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { notifyReservationEvent } from "@/lib/server/reservation-notify";
@@ -30,10 +31,32 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 슬롯 단위 필터(선택). 예약 폼이 (체육관·종목·날짜) 범위의 활성 예약만 받을 때 쓴다.
+  // 셋 다 선택적이며, 미지정이면 기존처럼 전체 목록을 반환한다.
+  const gymId = request.nextUrl.searchParams.get("gymId");
+  const sport = request.nextUrl.searchParams.get("sport");
+  const date = request.nextUrl.searchParams.get("date");
+
+  if (sport !== null && !isSport(sport)) {
+    return Response.json(
+      { message: "sport 값이 올바르지 않습니다." },
+      { status: 400 },
+    );
+  }
+  if (date !== null && !isValidReservationDateValue(date)) {
+    return Response.json(
+      { message: "date는 YYYY-MM-DD 형식이어야 합니다." },
+      { status: 400 },
+    );
+  }
+
   let reservations: Awaited<ReturnType<typeof listUserReservations>>;
   try {
     reservations = await listUserReservations(auth.uid, {
       status: status ?? undefined,
+      gymId: gymId ?? undefined,
+      sport: sport ?? undefined,
+      date: date ?? undefined,
     });
   } catch (error) {
     return serverErrorResponse(

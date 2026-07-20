@@ -619,3 +619,111 @@ describe("apiReservationRepository", () => {
     });
   });
 });
+
+describe("apiReservationRepository.fetchActiveInScope", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    resetRepositoryState();
+  });
+
+  const scope = {
+    gymId: reservation.gymId,
+    sport: reservation.sport,
+    date: reservation.date,
+  };
+
+  it("활성 예약만 요청하도록 쿼리를 구성하고 결과를 반환한다", async () => {
+    mockCurrentUser();
+    const fetchMock = mockFetch(
+      new Response(JSON.stringify({ reservations: [reservation] }), {
+        status: 200,
+      }),
+    );
+
+    const result = await apiReservationRepository.fetchActiveInScope(scope);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.reservations).toEqual([reservation]);
+
+    // 전체 목록이 아니라 슬롯 범위만 요청해야 한다.
+    const url = new URL(
+      String(fetchMock.mock.calls[0]?.[0]),
+      "http://localhost",
+    );
+    expect(url.pathname).toBe("/api/reservations");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      status: "reserved",
+      gymId: scope.gymId,
+      sport: scope.sport,
+      date: scope.date,
+    });
+  });
+
+  it("로그인 정보가 없으면 auth-required로 응답한다", async () => {
+    getFirebaseClient.mockReturnValue({ auth: { currentUser: null } });
+    const fetchMock = mockFetch(new Response("{}", { status: 200 }));
+
+    const result = await apiReservationRepository.fetchActiveInScope(scope);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("auth-required");
+    // 토큰이 없으면 서버를 부르지 않는다.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("401 응답은 auth-required로 변환한다", async () => {
+    mockCurrentUser();
+    mockFetch(
+      new Response(JSON.stringify({ message: "만료된 토큰" }), { status: 401 }),
+    );
+
+    const result = await apiReservationRepository.fetchActiveInScope(scope);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("auth-required");
+  });
+
+  it("응답 형식이 예약 배열이 아니면 invalid-storage-data로 응답한다", async () => {
+    mockCurrentUser();
+    mockFetch(
+      new Response(JSON.stringify({ reservations: [{ id: 1 }] }), {
+        status: 200,
+      }),
+    );
+
+    const result = await apiReservationRepository.fetchActiveInScope(scope);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("invalid-storage-data");
+  });
+
+  it("요청이 취소되면 실패로 보고하지 않는다", async () => {
+    mockCurrentUser();
+    const abortError = new DOMException("aborted", "AbortError");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abortError));
+
+    const result = await apiReservationRepository.fetchActiveInScope(scope);
+
+    // 다른 날짜/종목으로 이동해 취소된 경우다. 화면에 오류를 띄우면 안 된다.
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.reservations).toEqual([]);
+  });
+
+  it("토큰 조회 자체가 실패하면 remote-unavailable로 응답한다", async () => {
+    mockCurrentUserTokenError();
+    const fetchMock = mockFetch(new Response("{}", { status: 200 }));
+
+    const result = await apiReservationRepository.fetchActiveInScope(scope);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("remote-unavailable");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

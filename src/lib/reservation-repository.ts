@@ -2,6 +2,7 @@ import type {
   Reservation,
   ReservationDraft,
   ReservationSlotAvailability,
+  Sport,
 } from "@/types/domain";
 
 export const EMPTY_RESERVATION_SNAPSHOT = "[]";
@@ -87,8 +88,26 @@ export type ReservationCancelResult =
       reason: ReservationRepositoryFailureReason;
     };
 
+/** 활성 예약 조회 범위. 예약 폼의 중복 판정이 보는 단위와 같다. */
+export type ActiveReservationScope = {
+  gymId: string;
+  sport: Sport;
+  date: string;
+};
+
 export type ReservationRepository = {
   read(): ReservationReadResult;
+  /**
+   * 특정 (체육관·종목·날짜)의 활성 예약만 조회한다.
+   *
+   * read()가 사용자의 전 기간 예약을 반환하는 것과 달리, 이건 결과 크기가
+   * 그 슬롯 묶음(시간대 수)으로 제한된다. 예약 폼은 중복 판정에만 예약 목록이
+   * 필요하므로 전체 목록을 구독하지 않고 이 경로를 쓴다.
+   */
+  fetchActiveInScope(
+    scope: ActiveReservationScope,
+    signal?: AbortSignal,
+  ): Promise<ReservationReadResult>;
   create(reservation: Reservation): Promise<ReservationCreateResult>;
   build(draft: ReservationDraft): Reservation;
   cancel(reservationId: string): Promise<ReservationCancelResult>;

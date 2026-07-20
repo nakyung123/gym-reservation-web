@@ -132,6 +132,20 @@ export const mockReservationRepository: ReservationRepository = {
   read(): ReservationReadResult {
     return { ok: true, reservations };
   },
+  // mock은 메모리에 전부 들고 있으므로 같은 조건으로 걸러 주기만 하면 된다.
+  // 실제 구현(api)은 서버에서 좁혀 받는다 — 결과는 동일해야 한다.
+  async fetchActiveInScope(scope): Promise<ReservationReadResult> {
+    return {
+      ok: true,
+      reservations: reservations.filter(
+        (reservation) =>
+          reservation.status === "reserved" &&
+          reservation.gymId === scope.gymId &&
+          reservation.sport === scope.sport &&
+          reservation.date === scope.date,
+      ),
+    };
+  },
   create: createReservation,
   build: buildReservation,
   cancel: cancelReservation,

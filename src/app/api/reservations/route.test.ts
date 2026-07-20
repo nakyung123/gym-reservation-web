@@ -38,6 +38,12 @@ function getRequest(idToken = "test-id-token") {
   });
 }
 
+function getRequestWithQuery(query: string, idToken = "test-id-token") {
+  return new NextRequest(`http://localhost:3000/api/reservations?${query}`, {
+    headers: authHeaders(idToken),
+  });
+}
+
 function postRequest(body: unknown, idToken = "test-id-token") {
   return new NextRequest("http://localhost:3000/api/reservations", {
     method: "POST",
@@ -97,6 +103,85 @@ describe("GET /api/reservations", () => {
         userId: "route-user-a",
       }),
     ]);
+  });
+
+  // 예약 폼이 쓰는 슬롯 단위 필터. 전체 목록을 받지 않고 판정에 필요한 범위만 받는다.
+  it("gymId·sport·date 필터로 해당 범위의 예약만 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-filter-user" });
+    const date = futureDate();
+    const otherDate = futureDate(5);
+
+    const target = await createReservationInDb({
+      userId: "route-filter-user",
+      draft: { gymId: TEST_GYM.id, sport: "배드민턴", date, time: "10:00" },
+      gym: TEST_GYM,
+    });
+    const otherDay = await createReservationInDb({
+      userId: "route-filter-user",
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: "배드민턴",
+        date: otherDate,
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+    });
+    expect(target.ok).toBe(true);
+    expect(otherDay.ok).toBe(true);
+    if (!target.ok || !otherDay.ok) return;
+
+    const response = await GET(
+      getRequestWithQuery(
+        `status=reserved&gymId=${TEST_GYM.id}&sport=${encodeURIComponent("배드민턴")}&date=${date}`,
+      ),
+    );
+    const body = (await response.json()) as {
+      reservations?: Array<{ id?: unknown }>;
+    };
+
+    expect(response.status).toBe(200);
+    // 다른 날짜 예약은 제외된다.
+    expect(body.reservations).toEqual([
+      expect.objectContaining({ id: target.reservation.id }),
+    ]);
+  });
+
+  it("필터 없이 호출하면 기존처럼 전체 목록을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-nofilter-user" });
+    const date = futureDate();
+    const first = await createReservationInDb({
+      userId: "route-nofilter-user",
+      draft: { gymId: TEST_GYM.id, sport: "배드민턴", date, time: "10:00" },
+      gym: TEST_GYM,
+    });
+    const second = await createReservationInDb({
+      userId: "route-nofilter-user",
+      draft: { gymId: TEST_GYM.id, sport: "배드민턴", date, time: "11:00" },
+      gym: TEST_GYM,
+    });
+    expect(first.ok && second.ok).toBe(true);
+
+    const response = await GET(getRequest());
+    const body = (await response.json()) as { reservations?: unknown[] };
+
+    expect(response.status).toBe(200);
+    expect(body.reservations).toHaveLength(2);
+  });
+
+  it("sport 값이 올바르지 않으면 400을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-bad-sport-user" });
+
+    const response = await GET(getRequestWithQuery("sport=수영구"));
+
+    expect(response.status).toBe(400);
+  });
+
+  it("date 형식이 올바르지 않으면 400을 반환한다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "route-bad-date-user" });
+
+    const response = await GET(getRequestWithQuery("date=2026-13-45"));
+
+    expect(response.status).toBe(400);
   });
 
   it("Authorization 헤더가 없으면 401을 반환한다", async () => {

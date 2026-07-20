@@ -13,6 +13,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useCurrentMinuteValue } from "@/hooks/use-current-minute";
+import { useActiveReservations } from "@/hooks/use-active-reservations";
 import { useReservationSlots } from "@/hooks/use-reservation-slots";
 import { useReservationProfile } from "@/hooks/use-reservation-profile";
 import {
@@ -41,8 +42,6 @@ import {
   USER_CANCEL_CUTOFF_MINUTES,
   type ReservationTimeState,
 } from "@/lib/reservation-rules";
-import { reservationRepository } from "@/lib/reservation-repository-provider";
-import { parseReservationSnapshot } from "@/lib/reservation-repository";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { ReservationCalendar } from "@/components/reservation/reservation-calendar";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -136,25 +135,12 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     getFirebaseAuthSessionSnapshot,
     getFirebaseAuthSessionServerSnapshot,
   );
-  const reservationSnapshot = useSyncExternalStore(
-    reservationRepository.subscribe,
-    reservationRepository.getSnapshot,
-    reservationRepository.getServerSnapshot,
-  );
   const currentMinuteValue = useCurrentMinuteValue();
-  const reservationReadResult = useMemo(
-    () => parseReservationSnapshot(reservationSnapshot),
-    [reservationSnapshot],
-  );
   const authSession = useMemo(
     () => parseFirebaseAuthSessionSnapshot(authSessionSnapshot),
     [authSessionSnapshot],
   );
   const reservationUserId = authSession.ok ? authSession.userId : "";
-  const reservations = useMemo(
-    () => (reservationReadResult.ok ? reservationReadResult.reservations : []),
-    [reservationReadResult],
-  );
 
   // 오늘 날짜(YYYY-MM-DD)와 예약 가능 마지막 날짜(오늘 +2개월).
   const todayValue = currentMinuteValue ? currentMinuteValue.slice(0, 10) : "";
@@ -220,22 +206,37 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     ? computeReservationPrice(gym, selectedSport, people)
     : 0;
 
-  // 규칙 판정이 이 목록에서 실제로 보는 것은 findActiveDuplicate뿐이고,
-  // 그 조건은 (userId, gymId, sport, date, time) 완전 일치 + status="reserved"다.
-  // time만 시간대별로 달라지므로 나머지 조건은 여기서 한 번에 좁힌다.
-  //
-  // 좁히지 않으면 시간대 18개 × 전체 예약 N건 = 18N번 비교가 매 재계산마다 발생한다
-  // (누적 예약 2,000건인 사용자면 36,000회). 좁히면 N + 18×소수로 떨어진다.
-  // 제외되는 예약은 원래도 find 조건에 걸릴 수 없어 판정 결과는 동일하다.
+  // 중복 판정에 쓸 활성 예약. 사용자의 전 기간 예약 목록을 구독하지 않고
+  // (체육관·종목·날짜) 범위만 조회한다 — 결과 크기가 그 슬롯 묶음으로 제한된다.
+  const {
+    reservations: scopedReservations,
+    loadError: activeLoadError,
+    pending: activePending,
+  } = useActiveReservations({
+    gymId: gym.id,
+    sport: selectedSport,
+    date: effectiveSelectedDate,
+    enabled: isDateReady && authSession.ok && Boolean(selectedSport),
+  });
+
+  // 조회 범위와 판정 조건이 갈라지지 않도록 SSOT 술어를 한 번 더 적용한다.
+  // findActiveDuplicate가 보는 조건에서 time만 시간대별로 달라지므로,
+  // 나머지를 여기서 좁혀 두면 시간대마다 목록을 다시 훑지 않는다.
   const duplicateCandidates = useMemo(() => {
     if (!authSession.ok || !selectedSport) return [];
-    return filterActiveDuplicateCandidates(reservations, {
+    return filterActiveDuplicateCandidates(scopedReservations, {
       userId: authSession.userId,
       gymId: gym.id,
       sport: selectedSport,
       date: effectiveSelectedDate,
     });
-  }, [reservations, authSession, gym.id, selectedSport, effectiveSelectedDate]);
+  }, [
+    scopedReservations,
+    authSession,
+    gym.id,
+    selectedSport,
+    effectiveSelectedDate,
+  ]);
 
   const timeStates = useMemo<Map<string, ReservationTimeState>>(() => {
     if (!isDateReady || !authSession.ok || !selectedSport || !selectedDate) {
@@ -289,9 +290,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const hasReservationNotice = noticeReservation !== null;
   const timeSelectionDisabledReason = !authSession.ok
     ? authSession.message
-    : reservationReadResult.ok
-      ? null
-      : reservationReadResult.message;
+    : activeLoadError;
   const firstAvailableTime = useMemo(() => {
     if (!isDateReady || timeSelectionDisabledReason || hasReservationNotice) {
       return null;
@@ -340,8 +339,7 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     : selectedTimeStateCandidate;
   const selectedSlot = slotsLookup?.get(effectiveSelectedTime) ?? null;
   const isReservationDataLoading =
-    (!authSession.ok && authSession.reason === "not-ready") ||
-    (!reservationReadResult.ok && reservationReadResult.reason === "not-ready");
+    (!authSession.ok && authSession.reason === "not-ready") || activePending;
   const submitDisabled: {
     message: string;
     tone: "pending" | "blocked";
@@ -352,15 +350,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
       }
       : !isDateReady
         ? { message: t("datePreparing"), tone: "pending" }
-        : !reservationReadResult.ok
-          ? {
-              message: reservationReadResult.message,
-              tone:
-                reservationReadResult.reason === "not-ready"
-                  ? "pending"
-                  : "blocked",
-            }
-          : !selectedTimeState.available
+        : activeLoadError
+          ? { message: activeLoadError, tone: "blocked" }
+          : activePending
+            ? { message: t("datePreparing"), tone: "pending" }
+            : !selectedTimeState.available
             ? { message: selectedTimeState.message, tone: "blocked" }
             : slotsFetchError
               ? { message: slotsFetchError, tone: "blocked" }

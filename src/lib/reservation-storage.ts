@@ -241,6 +241,21 @@ async function cancelReservation(
 
 export const localReservationRepository: ReservationRepository = {
   read: readReservations,
+  // localStorage에 전부 들고 있으므로 읽어서 걸러 준다. 읽기 실패는 그대로 전달한다.
+  async fetchActiveInScope(scope) {
+    const result = readReservations();
+    if (!result.ok) return result;
+    return {
+      ok: true,
+      reservations: result.reservations.filter(
+        (reservation) =>
+          reservation.status === "reserved" &&
+          reservation.gymId === scope.gymId &&
+          reservation.sport === scope.sport &&
+          reservation.date === scope.date,
+      ),
+    };
+  },
   create: createReservation,
   build: buildReservation,
   cancel: cancelReservation,

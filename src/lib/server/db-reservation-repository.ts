@@ -561,14 +561,26 @@ export async function updateReservationSlotPolicies({
   }
 }
 
+export type ListUserReservationsInput = {
+  status?: ReservationStatus;
+  // 슬롯 단위 조회용 선택 필터. 예약 폼이 (체육관·종목·날짜) 범위의 활성 예약만
+  // 받아 중복 판정에 쓴다. 미지정이면 기존처럼 전체를 반환한다.
+  gymId?: string;
+  sport?: Sport;
+  date?: string;
+};
+
 export async function listUserReservations(
   userId: string,
-  input: { status?: ReservationStatus } = {},
+  input: ListUserReservationsInput = {},
 ): Promise<Reservation[]> {
   const rows = await prisma.reservation.findMany({
     where: {
       userId,
       ...(input.status === undefined ? {} : { status: input.status }),
+      ...(input.gymId === undefined ? {} : { gymId: input.gymId }),
+      ...(input.sport === undefined ? {} : { sport: input.sport }),
+      ...(input.date === undefined ? {} : { date: input.date }),
     },
     orderBy: { createdAt: "desc" },
   });

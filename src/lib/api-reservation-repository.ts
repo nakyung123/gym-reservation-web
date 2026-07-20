@@ -9,17 +9,21 @@ import {
   createReservationsFailedSnapshot,
   createReservationsLoadingSnapshot,
   createReservationsReadySnapshot,
+  invalidReservationData,
   isReservation,
   LOADING_RESERVATION_SNAPSHOT,
   parseReservationSnapshot,
   remoteReservationUnavailable,
   reservationAuthRequired,
   reservationsNotReady,
+  type ActiveReservationScope,
   type ReservationCancelResult,
   type ReservationCreateResult,
+  type ReservationReadResult,
   type ReservationRepository,
   type ReservationRepositoryFailure,
 } from "@/lib/reservation-repository";
+import { isAbortError } from "@/lib/async-error";
 import { isReservationSlotAvailability } from "@/lib/reservation-slot-availability";
 import type { Reservation, ReservationDraft } from "@/types/domain";
 
@@ -538,6 +542,76 @@ function read() {
   return parseReservationSnapshot(currentSnapshot);
 }
 
+/**
+ * (체육관·종목·날짜) 범위의 활성 예약만 서버에서 조회한다.
+ *
+ * 전체 목록 스냅샷과 별개 경로다. 스냅샷은 사용자의 누적 예약에 비례해 커지지만
+ * 이 조회는 해당 슬롯 묶음(시간대 수)으로 결과가 제한된다.
+ * 스냅샷을 갱신하지 않으므로 목록 화면 상태에 영향을 주지 않는다.
+ */
+async function fetchActiveInScope(
+  scope: ActiveReservationScope,
+  signal?: AbortSignal,
+): Promise<ReservationReadResult> {
+  const token = await getIdToken(
+    "로그인 정보가 없어 예약 정보를 확인할 수 없습니다.",
+  );
+  if (!token.ok) {
+    return token.reason === "auth-required"
+      ? reservationAuthRequired(token.message)
+      : remoteReservationUnavailable(token.message);
+  }
+
+  const query = new URLSearchParams({
+    status: "reserved",
+    gymId: scope.gymId,
+    sport: scope.sport,
+    date: scope.date,
+  });
+
+  let response: Response;
+  try {
+    response = await fetch(`/api/reservations?${query.toString()}`, {
+      headers: { Authorization: `Bearer ${token.idToken}` },
+      signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      // 다른 날짜/종목으로 이동해 취소된 요청. 실패로 보고하지 않는다.
+      return { ok: true, reservations: [] };
+    }
+    return remoteReservationUnavailable(
+      "예약 정보를 불러오지 못했습니다. 다시 시도해 주세요.",
+    );
+  }
+
+  if (!response.ok) {
+    const message = await readResponseMessage(
+      response,
+      "예약 정보를 불러오지 못했습니다.",
+    );
+    return response.status === 401 || response.status === 403
+      ? reservationAuthRequired(message)
+      : remoteReservationUnavailable(message);
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return remoteReservationUnavailable(
+      "예약 정보 응답 형식이 올바르지 않습니다.",
+    );
+  }
+
+  const reservations = (payload as { reservations?: unknown })?.reservations;
+  if (!Array.isArray(reservations) || !reservations.every(isReservation)) {
+    return invalidReservationData();
+  }
+
+  return { ok: true, reservations };
+}
+
 function subscribeReservations(listener: () => void) {
   listeners.add(listener);
   ensureAuthSubscription();
@@ -557,6 +631,7 @@ function subscribeReservations(listener: () => void) {
 
 export const apiReservationRepository: ReservationRepository = {
   read,
+  fetchActiveInScope,
   create: createReservation,
   build: buildReservation,
   cancel: cancelReservation,
