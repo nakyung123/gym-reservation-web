@@ -1,6 +1,11 @@
 import { type NextRequest } from "next/server";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
-import { sanitizeFaqMessages, streamFaqAnswer } from "@/lib/server/faq-bot";
+import { verifyIdTokenFromRequest } from "@/lib/server/auth";
+import {
+  sanitizeFaqMessages,
+  streamFaqAnswer,
+  type FaqTextStream,
+} from "@/lib/server/faq-bot";
 import {
   checkRateLimit,
   extractClientIp,
@@ -18,10 +23,14 @@ export const dynamic = "force-dynamic";
 // 3) 전역 일당 — IP 수와 무관한 총지출 하드캡(전역 단일 row. 현 규모(50/일, 평균 <1/분)엔
 //    무해하나 고볼륨 시 "all:${shard}" 샤딩 여지). haiku 답변 ≈ $0.006 × 50 ≈ 일 최대 ~$0.3.
 //    (코드 밖 절대 천장은 Anthropic 콘솔 지출 한도 + 선불 크레딧이 별도로 담당.)
+// 도구 호출이 붙으면서 질문 1건이 LLM 왕복 최대 (MAX_TOOL_CALLS + 1)회가 됐다.
+// 같은 지출 천장을 유지하려면 호출 수 캡을 그만큼 낮춰야 한다.
+// 전역 50 → 20으로 내려 최악의 경우(매 질문이 도구를 최대치로 쓰는 경우)에도
+// 기존과 비슷한 일 상한을 유지한다.
 const RATE_LIMITS: RateLimitInput[] = [
-  { scope: "faq-chat:ip", identifier: "", limit: 10, windowMs: 60_000 },
-  { scope: "faq-chat:ip-daily", identifier: "", limit: 15, windowMs: 86_400_000 },
-  { scope: "faq-chat:global", identifier: "all", limit: 50, windowMs: 86_400_000 },
+  { scope: "faq-chat:ip", identifier: "", limit: 5, windowMs: 60_000 },
+  { scope: "faq-chat:ip-daily", identifier: "", limit: 8, windowMs: 86_400_000 },
+  { scope: "faq-chat:global", identifier: "all", limit: 20, windowMs: 86_400_000 },
 ];
 
 // 어느 한 단계라도 초과하면 429 응답을 돌려준다. 통과하면 null.
@@ -69,11 +78,22 @@ export async function POST(request: NextRequest) {
     return limited;
   }
 
-  let sdkStream: ReturnType<typeof streamFaqAnswer>;
+  // 선택적 인증. Authorization 헤더가 있고 유효하면 그 uid로 조회 도구를 제공한다.
+  // 없거나 유효하지 않으면 비로그인으로 취급해 기존 동작(FAQ만)을 그대로 유지한다 —
+  // 이 엔드포인트는 비로그인 접근이 본질이므로 인증 실패를 401로 막지 않는다.
+  //
+  // uid는 여기서만 정해진다. 도구는 대상 사용자를 파라미터로 받지 않는다(faq-tools.ts).
+  let userId: string | null = null;
+  if (request.headers.get("authorization")) {
+    const auth = await verifyIdTokenFromRequest(request);
+    userId = auth.ok ? auth.uid : null;
+  }
+
+  let textStream: FaqTextStream;
   try {
-    sdkStream = streamFaqAnswer(sanitized.messages);
+    textStream = await streamFaqAnswer(sanitized.messages, { userId });
   } catch (error) {
-    // 키 부재 등 시작 자체 실패는 스트림 전이라 명시 에러로 응답한다.
+    // 키 부재·도구 루프 실패 등 스트림 시작 전 오류는 명시 에러로 응답한다.
     return serverErrorResponse(
       "문의 도우미를 사용할 수 없습니다.",
       "[faq-chat] failed to start stream",
@@ -87,13 +107,8 @@ export async function POST(request: NextRequest) {
   const readable = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const event of sdkStream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
+        for await (const chunk of textStream) {
+          controller.enqueue(encoder.encode(chunk));
         }
       } catch (error) {
         console.error("[faq-chat] stream interrupted", error);

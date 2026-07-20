@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { getFirebaseClient } from "@/lib/firebase-client";
 
 // FAQ 안내봇 클라이언트 로직. 대화 상태는 클라가 보유하고 요청마다 history를 함께 보낸다
 // (서버는 stateless). 응답은 plain text 스트림이라 청크를 누적해 assistant 메시지를 갱신한다.
@@ -19,6 +20,22 @@ export type FaqChatError =
   | { kind: "network" };
 
 const ENDPOINT = "/api/faq-chat";
+
+/**
+ * 로그인 상태면 ID 토큰을, 아니면 null을 준다.
+ *
+ * FAQ 봇은 비로그인에서도 동작하는 게 정상이라 실패를 오류로 올리지 않는다.
+ * 토큰이 없으면 서버가 예약 도구 없이 답한다.
+ */
+async function getFaqIdToken(): Promise<string | null> {
+  try {
+    const { auth } = getFirebaseClient();
+    if (!auth.currentUser) return null;
+    return await auth.currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
 
 function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -64,9 +81,17 @@ export function useFaqChat() {
         setMessages((prev) => prev.filter((message) => message.id !== assistantId));
 
       try {
+        // 로그인 상태면 ID 토큰을 함께 보낸다. 서버는 이 토큰의 uid로만 예약을 조회하며,
+        // 없으면 예약 도구 없이 FAQ만 답한다(비로그인 접근이 막히지 않는다).
+        // 토큰 획득 실패는 치명적이지 않으므로 조용히 비로그인으로 진행한다.
+        const idToken = await getFaqIdToken();
+
         const response = await fetch(ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
           body: JSON.stringify({ messages: payload }),
         });
 

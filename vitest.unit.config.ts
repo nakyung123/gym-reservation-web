@@ -43,6 +43,8 @@ export default defineConfig({
       // FAQ 안내봇(Phase 5): 입력 캡/system 구성/키 가드(faq-bot), 3단 rate limit·fail-closed(route),
       // 위젯 상태 전이(jsdom). SDK·rate-limit·fetch 모킹으로 DB/네트워크 없이 검증.
       "src/lib/server/faq-bot.test.ts",
+      // 조회 도구의 보안 불변식(대상 uid를 모델이 못 고름·쓰기 도구 없음)과 실패 처리.
+      "src/lib/server/faq-tools.test.ts",
       "src/app/api/faq-chat/route.test.ts",
       "src/components/faq/faq-chat-widget.test.tsx",
       // 공지사항 SSOT(정적 데이터) 정렬/조회.

@@ -1,6 +1,12 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { buildFaqKnowledgeText } from "@/lib/server/faq-knowledge";
+import {
+  FAQ_TOOLS,
+  MAX_TOOL_CALLS,
+  runFaqTool,
+  type FaqToolContext,
+} from "@/lib/server/faq-tools";
 
 // FAQ 안내봇 서버 모듈. 큐레이트된 FAQ 지식(SSOT, faq-knowledge.ts)을 system에 주입하고
 // 그 안에서만 답하게 한다. 도구·DB조회·RAG 없음. 응답은 스트리밍 텍스트.
@@ -110,24 +116,116 @@ function getClient(): Anthropic {
 // prefix는 4096토큰이라 FAQ 지식이 그보다 작으면 캐시는 silent하게 미적용된다(에러 아님 —
 // usage.cache_read_input_tokens로 실측 확인). 비용 천장은 route의 rate limit이 책임지므로
 // 캐시 적중 여부와 무관하게 안전하다.
-export function streamFaqAnswer(messages: FaqMessage[]) {
+//
+// context.userId가 있으면 조회 전용 도구를 함께 제공한다. 도구는 userId를 파라미터로
+// 받지 않으므로(faq-tools.ts) 모델이 대상을 고를 수 없다.
+//
+// **system 프롬프트에는 사용자 정보를 넣지 않는다.** 넣으면 요청마다 prefix가 달라져
+// 캐싱이 깨진다. 사용자 데이터는 tool_result로만 들어온다.
+export async function streamFaqAnswer(
+  messages: FaqMessage[],
+  context: FaqToolContext = { userId: null },
+) {
   const client = getClient();
-  return client.messages.stream(
+  const canUseTools = context.userId !== null;
+
+  const system: Anthropic.TextBlockParam[] = [
     {
-      model: FAQ_MODEL,
-      max_tokens: MAX_TOKENS,
-      system: [
-        {
-          type: "text",
-          text: buildFaqSystemPrompt(),
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: messages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      type: "text",
+      text: buildFaqSystemPrompt(),
+      cache_control: { type: "ephemeral" },
     },
-    { timeout: TIMEOUT_MS },
+  ];
+
+  const conversation: Anthropic.MessageParam[] = messages.map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
+
+  if (!canUseTools) {
+    // 도구 없이 바로 스트리밍(기존 동작과 동일).
+    return textChunksFromStream(
+      client.messages.stream(
+        { model: FAQ_MODEL, max_tokens: MAX_TOKENS, system, messages: conversation },
+        { timeout: TIMEOUT_MS },
+      ),
+    );
+  }
+
+  // 도구 루프. 모델이 도구를 요청하면 실행해 결과를 넣고 다시 묻는다.
+  //
+  // 도구가 필요 없으면 그 응답의 텍스트를 그대로 쓴다. 여기서 다시 stream을 부르면
+  // 같은 답을 두 번 생성해 비용이 두 배가 된다.
+  //
+  // MAX_TOOL_CALLS를 넘으면 도구를 빼고 한 번 더 물어 마무리한다(무한 호출 차단).
+  let toolCallsUsed = 0;
+
+  while (toolCallsUsed < MAX_TOOL_CALLS) {
+    const response = await client.messages.create(
+      {
+        model: FAQ_MODEL,
+        max_tokens: MAX_TOKENS,
+        system,
+        messages: conversation,
+        tools: FAQ_TOOLS,
+      },
+      { timeout: TIMEOUT_MS },
+    );
+
+    const toolUses = response.content.filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
+    );
+
+    if (toolUses.length === 0) {
+      return textChunksFromMessage(response);
+    }
+
+    conversation.push({ role: "assistant", content: response.content });
+
+    const results: Anthropic.ToolResultBlockParam[] = [];
+    for (const toolUse of toolUses) {
+      toolCallsUsed += 1;
+      results.push(
+        await runFaqTool(
+          { id: toolUse.id, name: toolUse.name, input: toolUse.input },
+          context,
+        ),
+      );
+    }
+    conversation.push({ role: "user", content: results });
+  }
+
+  return textChunksFromStream(
+    client.messages.stream(
+      { model: FAQ_MODEL, max_tokens: MAX_TOKENS, system, messages: conversation },
+      { timeout: TIMEOUT_MS },
+    ),
   );
+}
+
+/** 라우트가 소비하는 경계 타입. SDK 이벤트 모양을 라우트로 흘리지 않는다. */
+export type FaqTextStream = AsyncIterable<string>;
+
+async function* textChunksFromStream(
+  stream: ReturnType<Anthropic["messages"]["stream"]>,
+): AsyncGenerator<string> {
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      yield event.delta.text;
+    }
+  }
+}
+
+// 도구 루프에서 이미 완성된 응답. 한 덩어리로 내보낸다(재생성 없음).
+async function* textChunksFromMessage(
+  message: Anthropic.Message,
+): AsyncGenerator<string> {
+  for (const block of message.content) {
+    if (block.type === "text") {
+      yield block.text;
+    }
+  }
 }

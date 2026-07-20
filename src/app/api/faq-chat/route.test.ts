@@ -4,10 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // 실제 구현을 써서 라우트의 검증·3단 rate limit·fail-closed·스트림 브릿지를 검증한다.
 // vi.mock은 hoist되므로 팩토리가 참조하는 mock 함수도 vi.hoisted로 함께 hoist한다.
 // vitest.unit.config.ts include 대상.
-const { streamFaqAnswer, checkRateLimit } = vi.hoisted(() => ({
-  streamFaqAnswer: vi.fn(),
-  checkRateLimit: vi.fn(),
-}));
+const { streamFaqAnswer, checkRateLimit, verifyIdTokenFromRequest } = vi.hoisted(
+  () => ({
+    streamFaqAnswer: vi.fn(),
+    checkRateLimit: vi.fn(),
+    verifyIdTokenFromRequest: vi.fn(),
+  }),
+);
+
+vi.mock("@/lib/server/auth", () => ({ verifyIdTokenFromRequest }));
 
 vi.mock("@/lib/server/faq-bot", async (importActual) => {
   const actual = await importActual<typeof import("@/lib/server/faq-bot")>();
@@ -28,17 +33,23 @@ const LIMITED = {
   resetAt: new Date(),
 };
 
-function makeRequest(body: unknown): NextRequest {
+function makeRequest(body: unknown, idToken?: string): NextRequest {
   return new Request("http://localhost/api/faq-chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-forwarded-for": "1.2.3.4" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-forwarded-for": "1.2.3.4",
+      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   }) as unknown as NextRequest;
 }
 
+// streamFaqAnswer는 SDK 이벤트가 아니라 텍스트 청크를 내는 경계로 바뀌었다.
+// 라우트는 청크를 그대로 바이트로 흘린다.
 function makeStream(text: string) {
   return (async function* () {
-    yield { type: "content_block_delta", delta: { type: "text_delta", text } };
+    yield text;
   })();
 }
 
@@ -50,6 +61,41 @@ describe("POST /api/faq-chat", () => {
     streamFaqAnswer.mockReturnValue(makeStream("이메일로 가입할 수 있습니다."));
   });
   afterEach(() => vi.clearAllMocks());
+
+  it("Authorization이 없으면 토큰 검증 없이 비로그인으로 처리한다", async () => {
+    await POST(makeRequest(VALID_BODY));
+
+    expect(verifyIdTokenFromRequest).not.toHaveBeenCalled();
+    expect(streamFaqAnswer).toHaveBeenCalledWith(expect.anything(), {
+      userId: null,
+    });
+  });
+
+  it("유효한 토큰이면 그 uid를 도구 컨텍스트로 넘긴다", async () => {
+    verifyIdTokenFromRequest.mockResolvedValue({ ok: true, uid: "user-42" });
+
+    await POST(makeRequest(VALID_BODY, "good-token"));
+
+    expect(streamFaqAnswer).toHaveBeenCalledWith(expect.anything(), {
+      userId: "user-42",
+    });
+  });
+
+  // FAQ는 비로그인 접근이 본질이라, 토큰이 썩었다고 401로 막으면 안 된다.
+  it("토큰이 유효하지 않아도 401이 아니라 비로그인으로 답한다", async () => {
+    verifyIdTokenFromRequest.mockResolvedValue({
+      ok: false,
+      status: 401,
+      message: "만료된 토큰",
+    });
+
+    const response = await POST(makeRequest(VALID_BODY, "expired-token"));
+
+    expect(response.status).toBe(200);
+    expect(streamFaqAnswer).toHaveBeenCalledWith(expect.anything(), {
+      userId: null,
+    });
+  });
 
   it("정상 요청은 3단 rate limit을 통과하고 200 텍스트 스트림을 준다", async () => {
     const response = await POST(makeRequest(VALID_BODY));
