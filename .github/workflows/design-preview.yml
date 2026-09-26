@@ -1,0 +1,57 @@
+name: Design preview
+
+# DESIGN.md를 색·글꼴·컴포넌트로 그린 미리보기 페이지를 GitHub Pages에 올린다.
+# 주소: https://<owner>.github.io/<repo>/ (관리자: design-admin.html)
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - DESIGN.md
+      - DESIGN-admin.md
+      - scripts/design-preview.mjs
+      - .github/workflows/design-preview.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # 외부 의존성이 없는 스크립트라 npm 설치 없이 바로 실행한다.
+      - name: Generate preview
+        run: node scripts/design-preview.mjs DESIGN.md DESIGN-admin.md --out _site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

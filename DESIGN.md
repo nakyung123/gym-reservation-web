@@ -127,6 +127,8 @@ components:
 
 # 서울체육예약 DESIGN.md
 
+> **미리보기**: [nakyung123.github.io/gym-reservation-web](https://nakyung123.github.io/gym-reservation-web/) — 토큰을 색·글꼴·컴포넌트로 그려 보여준다. 이 파일을 `main`에 푸시하면 자동으로 갱신된다.
+
 토큰(위 front matter)이 규범값이고, 본문은 그 쓰임과 이유를 설명한다. 구현은 `src/app/globals.css`와 `src/components/ui/`에 있다.
 현재 코드와 토큰의 차이는 [`docs/design-audit.md`](docs/design-audit.md)에 실측으로 기록돼 있다.
 **관리자 콘솔(`/admin/*`)은 별도 디자인 시스템이다. [`DESIGN-admin.md`](DESIGN-admin.md)를 본다.**

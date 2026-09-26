@@ -98,6 +98,8 @@ components:
 
 # 서울체육예약 관리자 콘솔 DESIGN
 
+> **미리보기**: [nakyung123.github.io/gym-reservation-web/design-admin.html](https://nakyung123.github.io/gym-reservation-web/design-admin.html) — 토큰을 색·글꼴·컴포넌트로 그려 보여준다. 이 파일을 `main`에 푸시하면 자동으로 갱신된다.
+
 `/admin/*` 화면의 디자인 시스템이다. 고객·인증 화면은 [`DESIGN.md`](DESIGN.md)를 본다.
 토큰(위 front matter)이 규범값이고, 구현은 `src/app/globals.css`의 `.admin-console` 블록과 `src/components/admin/`에 있다.
 

@@ -51,3 +51,7 @@ next-env.d.ts
 # load-test 산출물 (Firebase ID 토큰 / 대상 슬롯) — 커밋 금지
 load-test/tokens.json
 load-test/target.json
+
+# DESIGN.md 미리보기 생성물(scripts/design-preview.mjs), Playwright MCP 스크린샷
+/_site/
+/.playwright-mcp/
