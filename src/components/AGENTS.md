@@ -96,7 +96,7 @@ import는 절대경로 `@/components/<폴더>/<파일>`을 쓴다.
 - 상태 표현 컴포넌트(뱃지, 상태 메시지)의 색상/문구 변경
 - 반응형 레이아웃 변경
 
-Claude 환경에서 `/browse` 스킬(gstack)을 사용할 수 있으면 우선 사용한다. 그렇지 않으면 사용자에게 확인을 요청한다. `mcp__claude-in-chrome__*` 도구는 사용하지 않는다.
+Claude 환경에서는 Playwright MCP(`mcp__playwright__*`, 헤드리스)를 사용하고, 끝나면 `browser_close`로 닫는다(gstack `/browse`는 사용자가 직접 호출할 때만). 사용할 수 없으면 사용자에게 확인을 요청한다. `mcp__claude-in-chrome__*` 도구는 사용하지 않는다.
 
 ## Local Golden Rules
 

@@ -109,7 +109,7 @@ API 계약을 사용하는 client helper를 수정한 경우:
 빌드/DB 영향이 있는 변경 또는 화면 검증이 필요한 경우:
 
 - AGENTS.md § "검증"의 빌드·DB 규칙을 따른다.
-- 브라우저 확인이 필요하고 Claude 환경에서 `/browse` 스킬(gstack)을 사용할 수 있으면 우선 사용한다.
+- 브라우저 확인이 필요하면 Playwright MCP(`mcp__playwright__*`, 헤드리스)를 사용하고, 끝나면 `browser_close`로 닫는다. gstack `/browse`와 이를 내부에서 쓰는 gstack 스킬(/qa, /design-review 등)은 사용자가 직접 호출할 때만 쓴다.
 - 해당 도구를 사용할 수 없거나 사용자 환경에서만 확인 가능한 경우, 사용자에게 브라우저 확인을 요청한다.
 - `mcp__claude-in-chrome__*` 도구는 사용하지 않는다.
 
