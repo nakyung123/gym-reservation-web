@@ -1,244 +1,362 @@
-# DESIGN.md — 공공체육관 디자인 시스템
+---
+version: alpha
+name: 서울체육예약
+description: "공공 체육시설 예약 서비스. 옅은 회청색 캔버스 위에 흰 카드를 놓고 네이비 한 색을 점처럼 쓰는 공공기관 신뢰형 인터페이스다. 큰 글자와 게시판형 목록으로 전 연령(특히 중장년)이 읽기 쉽게 하고, 히어로 일러스트·시설 사진·마스코트로 딱딱함을 덜어낸다. 고객 화면(네이비)과 인증 화면(무채색) 두 표면으로 나뉘며, 관리자 콘솔은 DESIGN-admin.md에 따로 정의한다."
 
-이 문서는 공공체육관 예약 서비스의 **디자인 단일 기준점(SSOT)**이다.
-구현 토큰은 [`src/app/globals.css`](src/app/globals.css)의 `:root` / `@theme inline` 블록에 있고,
-이 문서는 그 토큰의 **의미·사용 규칙·변경 방법**을 정의한다. 값이 바뀌면 두 곳을 같이 갱신한다.
+colors:
+  # 고객 화면 — 구현: src/app/globals.css :root
+  primary: "#2745b3"
+  primary-hover: "#1e3690"
+  primary-strong: "#1e3a8a"
+  primary-tint: "#eef1fb"
+  on-primary: "#ffffff"
+  canvas: "#f8fafc"
+  surface: "#ffffff"
+  surface-soft: "#f1f5f9"
+  ink: "#1f2937"
+  ink-strong: "#020618"
+  muted: "#475569"
+  subtle: "#94a3b8"
+  hairline: "#e2e8f0"
+  hairline-strong: "#cbd5e1"
+  success: "#15803d"
+  warning: "#b45309"
+  error: "#dc2626"
+  error-tint: "#fce9e9"
+  inverse-canvas: "#0f172b"
+  inverse-ink: "#ffffff"
+  inverse-muted: "#90a1b9"
+  # 인증 화면(/login, /signup, /reset-password)
+  auth-primary: "#121212"
+  auth-ink: "#252525"
+  auth-accent: "#2563eb"
+  auth-hairline: "#d0d0d0"
+  auth-placeholder: "#9b9b9b"
 
-## 1. 디자인 방향
+typography:
+  display:       { fontFamily: Noto Sans KR, fontSize: 46px, fontWeight: 800, lineHeight: 1.26, letterSpacing: -0.025em }
+  page-title:    { fontFamily: Noto Sans KR, fontSize: 32px, fontWeight: 700, lineHeight: 1.6 }
+  section-title: { fontFamily: Noto Sans KR, fontSize: 31px, fontWeight: 800, lineHeight: 1.6, letterSpacing: -0.02em }
+  tab:           { fontFamily: Noto Sans KR, fontSize: 22px, fontWeight: 700, lineHeight: 1.6 }
+  price:         { fontFamily: Noto Sans KR, fontSize: 21px, fontWeight: 800, lineHeight: 1.6, fontFeature: '"tnum" 1' }
+  title-md:      { fontFamily: Noto Sans KR, fontSize: 20px, fontWeight: 700, lineHeight: 1.6 }
+  card-title:    { fontFamily: Noto Sans KR, fontSize: 19.5px, fontWeight: 700, lineHeight: 1.6 }
+  table-head:    { fontFamily: Noto Sans KR, fontSize: 18px, fontWeight: 700, lineHeight: 1.6 }
+  body-lg:       { fontFamily: Noto Sans KR, fontSize: 18px, fontWeight: 400, lineHeight: 1.6 }
+  nav:           { fontFamily: Noto Sans KR, fontSize: 17px, fontWeight: 700, lineHeight: 1.6 }
+  body:          { fontFamily: Noto Sans KR, fontSize: 16.5px, fontWeight: 400, lineHeight: 1.6, fontFeature: '"tnum" 1' }
+  button:        { fontFamily: Noto Sans KR, fontSize: 15.5px, fontWeight: 700, lineHeight: 1.6 }
+  body-md:       { fontFamily: Noto Sans KR, fontSize: 15px, fontWeight: 400, lineHeight: 1.65 }
+  body-sm:       { fontFamily: Noto Sans KR, fontSize: 14.5px, fontWeight: 400, lineHeight: 1.6 }
+  label-lg:      { fontFamily: Noto Sans KR, fontSize: 14px, fontWeight: 600, lineHeight: 1.6 }
+  eyebrow:       { fontFamily: Noto Sans KR, fontSize: 13.5px, fontWeight: 700, lineHeight: 1.6, letterSpacing: 0.06em }
+  label-md:      { fontFamily: Noto Sans KR, fontSize: 13px, fontWeight: 600, lineHeight: 1.6 }
+  caption:       { fontFamily: Noto Sans KR, fontSize: 13px, fontWeight: 400, lineHeight: 1.6 }
+  label-sm:      { fontFamily: Noto Sans KR, fontSize: 12.5px, fontWeight: 700, lineHeight: 1.6 }
+  auth-title:    { fontFamily: Noto Sans KR, fontSize: 23px, fontWeight: 700, lineHeight: 1.3 }
+  auth-button:   { fontFamily: Noto Sans KR, fontSize: 18px, fontWeight: 500, lineHeight: 1.6 }
 
-**공공·의료 신뢰형.**
-생활체육(전 연령, 특히 중장년 포함)을 위한 예약 서비스이므로 "깔끔하고 믿을 수 있는 공공 서비스" 인상을 최우선으로 한다.
+rounded:
+  xs: 3px
+  sm: 6px
+  md: 8px
+  control: 10px
+  lg: 12px
+  xl: 16px
+  feature: 20px
+  full: 9999px
 
-핵심 원칙 4가지:
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 32px
+  2xl: 48px
+  board-gap: 60px
+  section: 72px
+  header: 76px
+  container: 1440px
+  gutter: 32px
+  gutter-mobile: 20px
+  card-columns: 3
 
-1. **무채 캔버스가 90%.** 흰색/아주 옅은 회색이 화면 대부분을 차지한다. 색으로 화면을 채우지 않는다.
-2. **대표색은 단 하나(네이비), 점처럼 쓴다.** 버튼·로고·선택 상태·핵심 강조에만. 배경을 액센트 틴트로 도배하지 않는다. (이게 "AI 데모 느낌"을 만드는 가장 큰 원인이었다.)
-3. **이모지 금지.** 아이콘은 전부 단색 라인 SVG로 직접 구현한다. 어떤 화면에서도 이모지를 쓰지 않는다.
-4. **명확성 우선.** 상단 유틸 메뉴 등은 아이콘 only가 아니라 텍스트 라벨을 기본으로 한다(공공 톤 + 중장년 가독).
+components:
+  header:                 { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.nav}", height: 76px }
+  divider:                { backgroundColor: "{colors.hairline}", height: 1px }
+  breadcrumb-separator:   { textColor: "{colors.hairline-strong}", typography: "{typography.caption}" }
+  helper-warning:         { backgroundColor: "{colors.surface}", textColor: "{colors.warning}", typography: "{typography.label-lg}" }
+  footer:                 { backgroundColor: "{colors.inverse-canvas}", textColor: "{colors.inverse-muted}", typography: "{typography.body-sm}", padding: 44px 32px 30px }
+  button-primary:         { backgroundColor: "{colors.primary}", textColor: "{colors.on-primary}", typography: "{typography.button}", rounded: "{rounded.full}", height: 44px, padding: 0 19px }
+  button-primary-hover:   { backgroundColor: "{colors.primary-hover}", textColor: "{colors.on-primary}" }
+  button-primary-lg:      { backgroundColor: "{colors.primary}", textColor: "{colors.on-primary}", typography: "{typography.button}", rounded: "{rounded.full}", height: 48px, padding: 0 28px }
+  button-outline:         { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.button}", rounded: "{rounded.full}", height: 44px, padding: 0 19px }
+  button-outline-hover:   { backgroundColor: "{colors.surface}", textColor: "{colors.primary-strong}" }
+  button-danger:          { backgroundColor: "{colors.error}", textColor: "{colors.on-primary}", typography: "{typography.button}", rounded: "{rounded.full}", height: 44px, padding: 0 19px }
+  input-field:            { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.body-md}", rounded: "{rounded.control}", height: 48px, padding: 0 14px }
+  input-field-disabled:   { backgroundColor: "{colors.surface-soft}", textColor: "{colors.subtle}" }
+  field-label:            { textColor: "{colors.ink}", typography: "{typography.label-sm}" }
+  filter-panel:           { backgroundColor: "{colors.surface}", rounded: "{rounded.xl}", padding: 24px }
+  toggle-chip:            { backgroundColor: "{colors.surface}", textColor: "{colors.muted}", typography: "{typography.label-lg}", rounded: "{rounded.full}", height: 40px, padding: 0 12px }
+  toggle-chip-active:     { backgroundColor: "{colors.primary-tint}", textColor: "{colors.primary-strong}" }
+  card:                   { backgroundColor: "{colors.surface}", textColor: "{colors.ink-strong}", typography: "{typography.card-title}", rounded: "{rounded.lg}", padding: 20px }
+  chip:                   { backgroundColor: "{colors.surface-soft}", textColor: "{colors.muted}", typography: "{typography.label-md}", rounded: "{rounded.sm}", padding: 5px 11px }
+  badge-available:        { backgroundColor: "{colors.surface}", textColor: "{colors.success}", typography: "{typography.label-sm}", rounded: "{rounded.full}", padding: 5px 11px }
+  status-reserved:        { backgroundColor: "{colors.primary-tint}", textColor: "{colors.primary-strong}", typography: "{typography.label-sm}", rounded: "{rounded.full}" }
+  status-cancelled:       { backgroundColor: "{colors.error-tint}", textColor: "{colors.error}", typography: "{typography.label-sm}", rounded: "{rounded.full}" }
+  status-used:            { backgroundColor: "{colors.surface-soft}", textColor: "{colors.muted}", typography: "{typography.label-sm}", rounded: "{rounded.full}" }
+  tab:                    { backgroundColor: "{colors.canvas}", textColor: "{colors.muted}", typography: "{typography.tab}", padding: 16px 0 }
+  tab-active:             { backgroundColor: "{colors.canvas}", textColor: "{colors.primary-strong}", typography: "{typography.tab}", padding: 16px 0 }
+  board-table-header:     { backgroundColor: "{colors.surface-soft}", textColor: "{colors.ink}", typography: "{typography.table-head}", height: 72px }
+  board-table-row:        { backgroundColor: "{colors.canvas}", textColor: "{colors.ink}", typography: "{typography.body-lg}", height: 72px }
+  board-table-row-pinned: { backgroundColor: "{colors.primary-tint}", textColor: "{colors.ink}" }
+  search-bar:             { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.body}", rounded: "{rounded.full}", height: 68px, width: 646px }
+  pagination-item:        { backgroundColor: "{colors.canvas}", textColor: "{colors.muted}", typography: "{typography.label-lg}", rounded: "{rounded.md}", size: 40px }
+  pagination-item-active: { backgroundColor: "{colors.primary}", textColor: "{colors.on-primary}", typography: "{typography.label-lg}", rounded: "{rounded.md}", size: 40px }
+  time-slot:              { backgroundColor: "{colors.surface}", textColor: "{colors.ink}", typography: "{typography.label-lg}", rounded: "{rounded.sm}", height: 56px }
+  time-slot-selected:     { backgroundColor: "{colors.primary}", textColor: "{colors.on-primary}" }
+  time-slot-disabled:     { backgroundColor: "{colors.surface-soft}", textColor: "{colors.subtle}" }
+  collapsible-section:    { backgroundColor: "{colors.surface}", textColor: "{colors.ink-strong}", typography: "{typography.title-md}", rounded: "{rounded.xl}", padding: 24px 32px }
+  alert-modal:            { backgroundColor: "{colors.surface}", textColor: "{colors.ink-strong}", typography: "{typography.title-md}", rounded: "{rounded.xl}", width: 312px, padding: 28px 24px }
+  auth-input:             { backgroundColor: "{colors.surface}", textColor: "{colors.auth-ink}", rounded: "{rounded.xs}", height: 50px, padding: 0 12px }
+  auth-input-placeholder: { textColor: "{colors.auth-placeholder}" }
+  auth-step-connector:    { textColor: "{colors.auth-hairline}" }
+  auth-button-primary:    { backgroundColor: "{colors.auth-primary}", textColor: "{colors.on-primary}", typography: "{typography.auth-button}", rounded: "{rounded.xs}", height: 60px }
+  auth-button-secondary:  { backgroundColor: "{colors.auth-accent}", textColor: "{colors.on-primary}", typography: "{typography.auth-button}", rounded: "{rounded.xs}", height: 60px }
+---
 
-## 2. 색 (Color)
+# 서울체육예약 DESIGN.md
 
-구현: `globals.css`의 `:root` + `@theme inline`. Tailwind 유틸로 `bg-accent`, `text-accent-strong`, `bg-surface`, `border-app` 등이 노출된다.
-기존 `slate/sky/amber` 기본 팔레트는 **덮어쓰지 않는다**.
+토큰(위 front matter)이 규범값이고, 본문은 그 쓰임과 이유를 설명한다. 구현은 `src/app/globals.css`와 `src/components/ui/`에 있다.
+현재 코드와 토큰의 차이는 [`docs/design-audit.md`](docs/design-audit.md)에 실측으로 기록돼 있다.
+**관리자 콘솔(`/admin/*`)은 별도 디자인 시스템이다. [`DESIGN-admin.md`](DESIGN-admin.md)를 본다.**
 
-> **중립 회색은 `text-slate-*`(950/800/600/500 등) 직접 사용이 정상이다.** 토큰 미적용이 아니라 의도된 선택이며,
-> 이를 `text-muted`/`text-foreground`로 일괄 치환할 필요는 없다(`src/components/AGENTS.md` § Tailwind 패턴과 동일 기준).
-> 토큰화가 반드시 필요한 것은 **대표색·보더·상태색**이다: `bg-accent` / `border-line` / `text-error` 등.
+## Overview
 
-### 중립 (캔버스)
-| 토큰 | 값 | 용도 |
+서울체육예약은 집 근처 공공 체육시설을 찾고 예약하는 서비스다. 사용자는 전 연령이고, 특히 중장년이 많다.
+그래서 첫인상은 **깔끔하고 믿을 수 있는 공공 서비스**여야 한다. 화려함보다 명확함, 밀도보다 여백을 택한다.
+
+화면의 90%는 무채색이다. 옅은 회청색 캔버스(`{colors.canvas}`) 위에 흰 카드와 패널이 놓이고, 대표색 네이비(`{colors.primary}`)는
+버튼·선택 상태·제목 강조에만 점처럼 쓴다. 글자는 크게 쓴다. 본문 기본이 16.5px, 게시판 표가 18px, 탭이 22px이다.
+목록형 화면은 공공기관 게시판 문법(굵은 상단선, 회색 헤더, 세로 구분선)을 따른다.
+딱딱함은 이미지로 덜어낸다. 홈 히어로는 배드민턴 코트 일러스트, 시설 카드는 실사진, 로그인과 챗 위젯에는 마스코트가 있다.
+
+| 표면 | 범위 | 인상 | 대표색 · 폰트 |
+|---|---|---|---|
+| 고객 화면 | 홈·시설·예약·마이페이지·공지·FAQ | 공공 포털, 넓은 여백, 큰 글자 | 네이비 · Noto Sans KR |
+| 인증 화면 | 로그인·회원가입·비밀번호 찾기 | 모바일 앱형 단일 컬럼 | 검정 + 블루 · Noto Sans KR |
+
+**Key Characteristics:**
+- 무채 캔버스 + 대표색 하나. 배경을 네이비 틴트로 도배하지 않는다. 틴트는 "선택·강조" 의미가 있을 때만 쓴다.
+- 텍스트 버튼은 전부 알약형이다(인증 화면 제외). 사각 버튼은 쓰지 않는다.
+- 이모지 없음. 아이콘은 전부 인라인 라인 SVG.
+- 상단 유틸은 아이콘 대신 텍스트 라벨(`로그인 | 회원가입 | KR`).
+- 그림자는 떠 있는 요소(카드·팝오버·모달)에만 옅게. 패널·표·입력칸은 1px 하이라인으로 구분한다.
+- 목록은 게시판 표, 페이지는 표준 셸(breadcrumb → 제목 → 부제 → 본문)로 통일한다.
+
+## Colors
+
+### 고객 화면
+- **Navy** (`{colors.primary}`): 솔리드 버튼, 활성 페이지 번호, 선택된 시간·날짜, 탭 밑줄. 항상 흰 글씨(`{colors.on-primary}`)와 짝.
+- **Deep Navy** (`{colors.primary-strong}`): 흰 배경 위의 네이비 글자. 히어로 제목, 활성 탭, eyebrow, 링크 hover.
+- **Navy Tint** (`{colors.primary-tint}`): 선택·강조 배경. 주요공지 행, FAQ 답변, 활성 토글, 예약 합계 바.
+- **Canvas · Surface · Surface Soft**: 페이지 배경 · 카드와 패널 · 표 헤더와 태그와 비활성 상태.
+- **Ink · Ink Strong · Muted · Subtle**: 본문 · 큰 제목과 카드 제목 · 부제와 설명 · 플레이스홀더와 단위.
+- **Hairline · Hairline Strong**: 카드와 표의 보더 · 입력칸과 토글의 보더.
+- **Success · Warning · Error**: 예약 가능 · 경고 · 실패와 취소. 배경은 10% 틴트(`{colors.error-tint}`), 보더는 30% 틴트로 쓴다.
+- **Inverse**: 푸터 전용 다크 네이비(`{colors.inverse-canvas}`)와 그 위 글자.
+
+**2톤 규칙.** 솔리드 배경 + 흰 글씨는 `primary`, 흰 배경 위 작은 글자·아이콘은 더 진한 `primary-strong`. 대표색을 바꿀 때 이 분리를 지켜야 대비가 유지된다.
+
+### 인증 화면
+- 인증은 검정(`{colors.auth-primary}`) 주 버튼과 블루(`{colors.auth-accent}`) 보조 버튼을 쓰는 무채 팔레트다. 소셜 로그인 원(카카오 `#FEE500`, 네이버 `#03C75A` 등)은 브랜드 색 예외.
+
+### 토큰과 코드 연결
+| 토큰 | CSS 변수 (`globals.css`) | Tailwind 유틸 |
 |---|---|---|
-| `--background` | `#F8FAFC` | 페이지 배경 |
-| `--surface` | `#FFFFFF` | 카드·패널 |
-| `--surface-2` | `#F1F5F9` | 옅은 채움(태그·아이콘 박스) |
-| `--border-base` | `#E2E8F0` | 기본 보더 |
-| `--border-strong` | `#CBD5E1` | 강한 보더·구분선 |
-| `--foreground` | `#1F2937` | 본문 텍스트(순흑 아님) |
-| `--muted` | `#475569` | 보조 텍스트 |
-| `--subtle` | `#94A3B8` | 약한 텍스트·플레이스홀더 |
+| `primary` · `primary-hover` · `primary-strong` · `primary-tint` · `on-primary` | `--accent` · `--accent-hover` · `--accent-strong` · `--accent-tint` · `--accent-ink` | `bg-accent` · `hover:bg-accent-hover` · `text-accent-strong` · `bg-accent-tint` · `text-accent-ink` |
+| `canvas` · `surface` · `surface-soft` | `--background` · `--surface` · `--surface-2` | `bg-background` · `bg-surface` · `bg-surface-2` |
+| `ink` · `muted` · `subtle` | `--foreground` · `--muted` · `--subtle` | `text-foreground` · `text-muted` · `text-subtle` |
+| `hairline` · `hairline-strong` | `--border-base` · `--border-strong` | `border-line` · `border-line-strong` |
+| `success` · `warning` · `error` (+ 틴트) | `--success` · `--warning` · `--error` | `text-error` · `bg-error/10` · `border-error/30` |
+| `ink-strong` · `inverse-*` | Tailwind 기본 팔레트 | `text-slate-950` · `bg-slate-900` · `text-slate-400` |
 
-### 대표색 (네이비) — **색 변경 시 이 5줄만 교체**
-| 토큰 | 값 | 용도 |
+## Typography
+
+- **Noto Sans KR** (`next/font/google`, 400·500·700·800): 고객·인증 화면. 예약번호·금액도 이 폰트 + tabular 숫자.
+- 전역 body: 16.5px · 줄간격 1.6 · `word-break: keep-all` · `font-feature-settings: "tnum" 1`.
+
+| 토큰 | 크기 · 굵기 | 쓰임 |
 |---|---|---|
-| `--accent` | `#2745B3` | 솔리드 배경 + 흰글씨 (버튼/선택 슬롯/티켓 헤더/로고) |
-| `--accent-hover` | `#1E3690` | hover |
-| `--accent-strong` | `#1E3A8A` | **흰 배경 위** 텍스트/아이콘/eyebrow |
-| `--accent-tint` | `#EEF1FB` | 옅은 배경(선택·호버·배지) |
-| `--accent-ink` | `#FFFFFF` | 솔리드 위 글씨 |
+| `display` | 46px · 800 (모바일 34px) | 홈 히어로 제목 (`primary-strong`) |
+| `page-title` | 32px · 700 (모바일 28px) | 모든 페이지 h1 |
+| `section-title` | 31px · 800 | 홈 섹션 제목 |
+| `tab` | 22px · 700, 비활성 500 (모바일 18px) | 탭 |
+| `price` | 21px · 800 · tabular | 가격 숫자 (`원` 15px/700, 단위 13.5px `subtle` 뒤따름) |
+| `title-md` | 20px · 700 | 접이식 섹션·알림 모달 제목 |
+| `card-title` | 19.5px · 700 | 시설 카드 제목 |
+| `table-head` · `body-lg` | 18px · 700 / 400 | 게시판 헤더 / 게시판 셀·공지 제목 |
+| `nav` | 17px · 700 | GNB |
+| `body` | 16.5px · 400 | 기본 본문 |
+| `button` | 15.5px · 700 | 버튼 |
+| `body-md` | 15px · 400 · 줄간격 1.65 | 페이지 부제, 입력칸, 드롭다운 옵션 |
+| `body-sm` | 14.5px · 400 | 주소, 푸터, 헤더 유틸(600) |
+| `label-lg` | 14px · 600 | 토글, 페이지 번호, 시간 슬롯 |
+| `eyebrow` | 13.5px · 700 · +0.06em | 영문 대문자 섹션 라벨(`GUIDE`, `FACILITIES`) |
+| `label-md` · `caption` | 13px · 600 / 400 | 종목 태그 / breadcrumb |
+| `label-sm` | 12.5px · 700 | 필드 라벨, 배지 |
 
-> **2톤 규칙.** 솔리드 위 흰글씨에는 `--accent`, 흰 배경 위 작은 텍스트/아이콘에는 진한 `--accent-strong`을 쓴다.
-> 색을 밝은 계열(예: 민트)로 바꿀 때 이 분리를 지키지 않으면 흰글씨 대비가 깨진다.
-> 흰글씨 솔리드 버튼은 대비 4.5:1(작은 글씨) / 3:1(큰 글씨)을 기준으로 검토한다.
+인증 화면은 `auth-title`(23px/700)과 `auth-button`(18px/500)을 쓴다.
 
-### 상태색
-| 토큰 | 값 | 용도 |
+**원칙**
+- 굵기는 400·500·700·800 네 가지뿐이다(로딩한 굵기). 800은 `display`·`section-title`·`price`·로고에만.
+- 큰 제목만 자간을 줄이고(-0.02~-0.025em), 영문 eyebrow는 벌린다(+0.06em). 본문은 0.
+- 글자를 작게 줄여 밀도를 올리지 않는다. 15px 미만은 라벨·캡션·보조 정보에만 쓴다.
+
+## Layout
+
+- **컨테이너**: 최대 `{spacing.container}`(1440px), 좌우 `{spacing.gutter}`(32px), 모바일 `{spacing.gutter-mobile}`(20px).
+- **페이지 셸**: 상하 48px(모바일 40px) → breadcrumb(`caption`) → 16px → h1(`page-title`) → 8px → 부제(`body-md`, `muted`) → 32~36px → 본문.
+- **섹션 리듬**: 홈 섹션 상하 `{spacing.section}`(72px), 섹션 제목 묶음 아래 30px. 게시판 페이지는 부제·검색바·표 사이 `{spacing.board-gap}`(60px), 탭과 본문 사이 72px.
+- **그리드**: 시설 카드 1→2→`{spacing.card-columns}`열(간격 24px), 안내 카드 1→2→4열(20px), 필터 `1fr 1fr 1.3fr auto`.
+- **좁은 컬럼**: 예약하기·예약 상세 1200px(본문 + 우측 요약 378px, sticky), 회원정보 폼 800px, 달력 752px, 인증 520px(내용 480px).
+- **크롬**: 헤더 `{spacing.header}`(76px) sticky(홈만 투명에서 시작해 스크롤·hover 시 솔리드), 푸터는 다크 네이비.
+
+## Elevation & Depth
+
+| 단계 | 처리 | 쓰임 |
 |---|---|---|
-| `--success` | `#15803D` | 예약 가능·완료 |
-| `--warning` | `#B45309` | 주의(취소 정책 등) |
-| `--error` | `#DC2626` | 실패·마감 |
+| 0 평면 | 그림자·보더 없음 | 히어로, 예약 흐름의 흰 카드, 섹션 배경 |
+| 1 하이라인 | 1px `{colors.hairline}` 보더 | 필터 패널, 게시판 표, 입력칸, 안내 카드 |
+| 2 카드 | `0 1px 3px rgba(15,23,42,.06)` → hover `0 4px 16px rgba(15,23,42,.09)` | 시설 카드 |
+| 3 팝오버 | `0 8px 24px rgba(15,23,42,.12)` | 드롭다운, 메가메뉴, 언어 메뉴 |
+| 4 모달 | `shadow-xl` + 검정 40~50% 딤 | 알림 모달, QR 모달, 챗 창 |
 
-## 3. 타이포그래피
+깊이는 그림자보다 **캔버스(회청) 위 흰 표면**으로 만든다. 그라디언트는 히어로 가독성 베일과 사진 대체 이미지에만 쓴다.
 
-- **본문 폰트: Noto Sans KR** (`next/font/google`, weight 400/500/700/800, `--font-noto-sans-kr`).
-  한국 공공·기관 사이트의 사실상 표준이라 신뢰형 방향에 맞다. `body`에서 Arial을 대체했다.
-- `word-break: keep-all` — 한글을 어절 단위로 줄바꿈한다.
-- `font-feature-settings: "tnum" 1` — 숫자 폭 정렬(시간·금액·잔여석). 표/금액/예약번호는 `tabular-nums`.
-- 예약번호 등 식별자도 본문 폰트(Noto Sans KR) + tabular로 통일한다(별도 monospace로 분리하지 않는다).
-- 관리자 콘솔만 Pretendard를 쓴다(§5). 파일은 `src/app/fonts/PretendardStdVariable.woff2`
-  **한 개**(약 292KB)이고 Variable이라 weight 400~800을 모두 커버한다. Std는 KS X 1001
-  (한글 2,350자) 서브셋이라 그 밖의 희귀 음절은 시스템 폰트로 폴백된다.
-  전체 한글 커버가 필요하면 `pretendard` 패키지의 풀 Variable(약 2MB)로 파일만 교체한다.
+## Shapes
 
-### 실측 스케일 (as-built)
-
-아래는 **구현된 화면에서 실제로 쓰는 값**이다. 새 화면은 추정하지 말고 이 표를 따른다.
-
-| 역할 | 값 | 사용처 |
+| 토큰 | 값 | 쓰임 |
 |---|---|---|
-| 페이지 h1 | `text-[28px]` → `sm:text-[32px]`, bold | 공지·마이페이지·시설찾기 등 모든 페이지 제목 |
-| 게시판 섹션 h2 | `text-[34px]` bold | 문의 게시판 "문의 게시판" |
-| 탭 라벨 | `text-[18px]` → `sm:text-[22px]` | 마이페이지·FAQ 탭 |
-| 표 헤더 | `text-[18px]` bold | 게시판 `thead` |
-| 표 셀 | `text-[16px]`~`text-[18px]` | 게시판 `td` |
-| 본문·부제·설명 | `text-[15px]` | 페이지 부제, 드롭다운 옵션 |
-| 폼 필드 라벨 | `text-[12.5px]` bold | 시설찾기 필터 라벨 |
-| 보조·breadcrumb | `text-[13px]` | breadcrumb, 힌트 |
+| `{rounded.xs}` | 3px | 인증 화면 입력칸·버튼 |
+| `{rounded.sm}` | 6px | 태그, 시간 슬롯, 달력 날짜 |
+| `{rounded.md}` | 8px | 드롭다운 목록, 페이지 번호 |
+| `{rounded.control}` | 10px | 필터·검색 입력칸 |
+| `{rounded.lg}` | 12px | 카드, 선택 목록 항목 |
+| `{rounded.xl}` | 16px | 패널, 접이식 섹션, 모달, 상세 사진 |
+| `{rounded.feature}` | 20px | 홈 행사 카드, 이용안내 이미지 |
+| `{rounded.full}` | 9999px | **모든 텍스트 버튼**, 정렬 토글, 검색바, 배지, 원형 아이콘 버튼 |
 
-위계만 지키면 되는 게 아니라 **이 값 자체가 기준**이다. 히어로(홈)만 예외적으로 더 큰 값을 쓴다.
+- **아이콘**: 인라인 라인 SVG, stroke 1.4~2.4, 끝과 모서리 round, 주로 16·18·20·24px. 예외는 홈 "이렇게 이용하세요"의 듀오톤 아이콘 4개뿐이다.
+- **이미지**: 시설 썸네일 높이 176px, 상세 사진 4:3, 이용안내 3:2, 모두 `object-cover`. 사진이 없으면 `primary-tint → surface-soft` 그라데이션 + 건물 아이콘.
+- **로고**: 이미지가 아닌 텍스트 워드마크 `서울체육예약` + 우상단 ㄱ자 마크, 800, `#2745B3`.
 
-## 4. 모양 · 레이아웃 · 모션
+## Components
 
-| 토큰 | 값 | 비고 |
+### Buttons
+- `button-primary` · `button-outline` · `button-danger`, 큰 버전 `button-primary-lg`. 구현은 `ui/app-button`의 `Button`·`ButtonLink` 하나뿐이다.
+- outline 보더는 `hairline-strong`, hover 시 보더가 `primary`로 바뀐다. focus는 2px `primary` 링 + 2px 간격. disabled는 투명도 60%.
+- **모양은 알약형 하나다.** 기본·아웃라인·위험·큰 버튼, 정렬 토글까지 모든 텍스트 버튼은 `{rounded.full}`이다. 사각은 인증 화면(3px)과, 버튼이 아닌 선택 칸(시간 슬롯·달력 날짜·페이지 번호)에만 남긴다.
+- 높이는 `button-primary` 44px, `button-primary-lg` 48px 두 가지를 기본으로 한다. 페이지 하단에 단독으로 놓이는 마무리 버튼(시설 상세 `예약하기` 등)은 큰 버전을 쓴다.
+
+### Inputs & Filters
+- `input-field`: 보더 `hairline-strong`, focus 시 보더 `primary` + `primary` 20% 링, 라벨(`field-label`)과 칸 사이 6px.
+- 네이티브 `<select>`는 쓰지 않는다. `ui/select-menu`: 목록은 흰 배경·`md` 모서리·3단계 그림자, 옵션 15px, 선택 옵션은 `primary-strong` 600.
+- `filter-panel`: 하이라인 보더, 그림자 없음. 아래 하이라인 구분선 뒤에 우측 정렬 `toggle-chip`(보더 `hairline-strong`, 활성 시 보더 `primary`).
+
+### Cards, Chips & Status
+- `card`(시설 카드): 하이라인 + 2단계 그림자. 썸네일 → 본문 20px: 제목 → 주소(`body-sm`, 핀 아이콘) → `chip` 목록(간격 7px) → 구분선 → `price` + `button-primary`(좌우 32px). 썸네일 좌상단에 `badge-available`.
+- 안내 카드(홈 "이렇게 이용하세요"): 카드와 같은 모양이지만 그림자·hover가 없다(클릭 불가).
+- `status-reserved` · `status-cancelled` · `status-used`: 예약 상태 표현의 기준은 `reservation/reservation-ticket.tsx`의 `reservationStatusBadgeStyles`다. 같은 상태는 어느 화면에서나 같은 배지.
+
+### Navigation
+- `header`: 로고(24px) → 44px → GNB(`nav`, 좌우 20px) → 우측 유틸(`body-sm` 600, 13px 세로 구분선). GNB hover는 글자 `primary-strong` + 하단 3px `primary` 밑줄. `시설 찾기`는 hover 메가메뉴(400px, 3단계 그림자).
+- breadcrumb: `caption`, 구분자 `/`는 `hairline-strong`, 현재 위치는 600 `ink`.
+- `footer`: 다크 네이비, 컬럼 제목 15.5px/700, 고객센터 전화 23px/800.
+
+### Boards (목록형 화면)
+- `tab` · `tab-active`: 균등 분할 그리드. 활성은 2px `primary` 밑줄 + 700. 탭 줄 아래 1px 하이라인은 화면 끝까지 늘인다.
+- 게시판 표: 상단 2px `ink`(80%) 선 → `board-table-header` → `board-table-row`(하이라인 행 구분, 셀 사이 세로 하이라인, hover `surface-soft`). 주요공지는 `board-table-row-pinned` + `primary` 알약 배지.
+- `search-bar`: 2px 검정 보더 알약 + 48px 원형 검정 버튼 + 좌측 필드 드롭다운(전체/제목/내용).
+- `pagination-item`: 하이라인 보더, 처음·이전·다음·끝은 chevron. 게시판 아래 여백 80px / 56px.
+
+### Reservation
+- `collapsible-section`: 보더 없는 흰 카드 + 우측 chevron. 안의 선택 목록 항목은 `lg` 모서리·하이라인 보더, 선택 시 `primary` 보더 + `primary-tint`.
+- `time-slot`: 4열·16px 간격, 기본 보더 `hairline-strong`. 선택 `time-slot-selected`, 마감·지난 시간 `time-slot-disabled`(취소선 없음), 내 예약과 겹치는 시간은 `primary-tint` + `primary-strong`.
+- 달력 날짜 칸: 56px·`sm` 모서리, 선택 `primary`, 일요일 `error`, 선택 불가 `subtle`.
+- 우측 요약: 흰 `xl` 카드, 제목 24px/700, 합계 바 54px `primary-tint`.
+
+### Feedback
+- `alert-modal`: 모든 단순 알림의 기준(`ui/alert-modal`). 딤 검정 40%, 제목 "알림" + 메시지 16px, 버튼은 텍스트형(확인 `primary-strong`).
+- 오류 박스: `error-tint` 배경 + `error` 30% 보더 + `error` 글자 600, `role="alert"`.
+- 빈 상태: 점선 `hairline-strong` 카드에 "왜 비었는지 + 다음 행동"을 함께 둔다.
+
+### Auth
+- 520px 단일 컬럼: 61px 상단 바 → 마스코트 160px → 제목(`auth-title`) → `auth-input`(보더 `auth-hairline`, 플레이스홀더 `auth-placeholder`, 칸 사이 13px) → `auth-button-primary` → `auth-button-secondary` → 80px 원형 소셜 로그인 4개.
+- **색은 지금 스타일을 유지한다.** 검정 주 버튼(`auth-primary`) + 블루 보조색(`auth-accent`). 블루는 흰 글씨 대비 기준(4.5:1)을 넘도록 `#2563EB`로 정했다(기존 `#3B82F6`은 3.68:1). 인증 화면은 사이트 안의 별도 스타일이라 고객 화면의 네이비·알약형 규칙을 적용하지 않는다.
+
+## Do's and Don'ts
+
+### Do
+- `primary`는 한 화면의 핵심 행동과 선택 상태에만 쓴다.
+- 버튼·드롭다운·페이지네이션·알림은 `src/components/ui/`의 부품을 쓴다.
+- 목록은 게시판 표 패턴으로, 페이지는 표준 셸로 만든다.
+- 흰 배경 위 네이비 글자는 `primary-strong`, 솔리드 위 흰 글자는 `primary`와 짝지운다.
+- 오류와 빈 상태에는 이유와 다음 행동을 함께 둔다.
+- 새 색·크기가 필요하면 먼저 이 파일과 `globals.css`에 토큰을 추가한 뒤 쓴다.
+
+### Don't
+- 사각 텍스트 버튼을 만들지 않는다(인증 화면 제외).
+- 이모지를 쓰지 않는다.
+- 컴포넌트에 hex 값을 직접 쓰지 않는다.
+- 패널·표·입력칸에 그림자를 주지 않는다.
+- 네이티브 `<select>`를 쓰지 않는다.
+- 같은 상태(예약 완료·취소·이용 완료, 오류)를 화면마다 다른 색·문구로 표현하지 않는다.
+- 고객 화면 규격과 관리자 콘솔 규격(`DESIGN-admin.md`)을 섞지 않는다.
+
+## Responsive Behavior
+
+| 구간 | 폭 | 바뀌는 것 |
 |---|---|---|
-| `--r-sm` | `6px` | 태그·작은 요소 |
-| `--r` | `8px` | 버튼·인풋·슬롯 |
-| `--r-lg` | `12px` | 카드·패널 |
-| `--container-max` | `1440px` | 본문 최대 폭(양옆 여백 과다 방지) |
-| `--container-pad` | `32px` | 좌우 패딩 |
+| mobile | 640px 미만 | 좌우 20px, 1열, 제목 축소(`display` 34px, `page-title` 28px, `tab` 18px), 필터 세로 쌓기, 푸터 2열 |
+| sm | 640px 이상 | 좌우 32px, 카드 2열, 제목 원래 크기 |
+| lg | 1024px 이상 | GNB 표시(미만은 44px 햄버거), 카드 3열·안내 카드 4열 |
+| xl | 1280px 이상 | 홈 행사 섹션 2단(사진 패널 + 캐러셀) |
 
-- 전환: `0.25s ease` 기준의 차분한 모션.
+- **터치 대상**: 모바일 메뉴 행·푸터 링크 44px 이상, 입력칸 48px.
+- **접힘**: GNB → 전체 폭 드로어, 예약 2단 → 1단, 게시판 표는 최소 폭 560px에서 가로 스크롤.
 
-### 실측 radius (as-built)
+## Iteration Guide
 
-CSS 변수 `--r*`는 남아 있지만, 화면은 실제로 **Tailwind 유틸 값**을 쓴다. 요소별로 아래를 따른다.
+1. 새 화면은 먼저 고객 화면인지 인증 화면인지 정한다. 관리자 화면이면 [`DESIGN-admin.md`](DESIGN-admin.md)를 본다.
+2. 컴포넌트는 토큰 이름으로 부르고, 아래 구현 위치를 쓴다.
 
-| 요소 | 실제 값 | 클래스 |
-|---|---|---|
-| 버튼(기본) | 8px | `rounded-lg` (`app-button` SSOT) |
-| 토글 버튼(정렬·필터) | 6px | `rounded-md` |
-| 폼 컨트롤(input·select) | 10px | `rounded-[10px]` |
-| 드롭다운 목록·페이지네이션 | 8px | `rounded-lg` |
-| 카드(시설·퀵액션·빈 상태) | 12px | `rounded-xl` |
-| 패널(필터·검색 박스) | 16px | `rounded-2xl` |
-| 검색바 | 알약 | `rounded-full` + `border-2` |
-| 게시판 액션 버튼(글쓰기) | 알약 | `rounded-[30px]` |
-| 배지 | 알약 | `rounded-full` / `rounded-[25px]` |
-
-> 페이지 컨테이너는 `mx-auto w-full max-w-[1440px] px-5 py-9 sm:px-8 sm:py-10`이 표준이다.
-
-### 그림자 (as-built)
-
-**그림자는 카드에만 쓴다. 패널·표·컨트롤에는 쓰지 않는다.**
-
-| 요소 | 값 |
+| 컴포넌트 | 구현 |
 |---|---|
-| 카드(기본) | `shadow-[0_1px_3px_rgba(15,23,42,0.06)]` |
-| 카드(hover) | `shadow-[0_4px_16px_rgba(15,23,42,0.09)]` |
-| 드롭다운 팝오버 | `shadow-[0_8px_24px_rgba(15,23,42,0.12)]` |
+| `button-*` | `src/components/ui/app-button.tsx` (variant · size) |
+| 드롭다운 | `ui/select-menu.tsx` |
+| `pagination-item` | `ui/board-pagination.tsx` |
+| `search-bar` | `home/search-bar.tsx` |
+| `alert-modal` · `collapsible-section` | `ui/alert-modal.tsx` · `ui/collapsible-section.tsx` |
+| `status-*` | `reservation/reservation-ticket.tsx` |
+| `card` · `chip` · `badge-available` | `gym/facility-card.tsx` · `gym/gym-card.tsx` |
 
-## 5. 컴포넌트 패턴
+3. 색은 Colors의 "토큰과 코드 연결" 표대로 Tailwind 유틸로 쓴다.
+4. 값을 바꿀 때는 front matter와 `globals.css`를 함께 고친다.
+5. 상태 변형은 본문에 묻지 말고 `-hover` · `-active` · `-selected` · `-disabled` 항목으로 추가한다.
+6. 고친 뒤 `npx -p @google/design.md designmd lint DESIGN.md`로 끊긴 참조·안 쓰는 토큰·대비를 검사한다. 오류 0건을 유지하고, 새 경고가 생기면 원인을 적는다.
+   (Windows에서는 `npx @google/design.md lint`가 출력 없이 실패한다. 같은 패키지의 다른 실행 이름 `designmd`를 쓴다.)
 
-- **헤더**: 흰 배경 + 로고 + 가로 메인 내비(메가메뉴) + 우측 유틸(텍스트 + 세로 구분선: `마이페이지 | 회원가입 | KR`). 상단 다크 유틸바는 두지 않는다.
-- **내비 hover**: 메뉴 글자 밑 짧은 액센트 밑줄 하나만. 메가메뉴 상단의 긴 라인은 쓰지 않는다.
-- **히어로**: 실사진(그레이스케일 + 네이비 베일로 텍스트 가독 확보) + 헤드라인/서브카피. 히어로 안에 큰 CTA 버튼을 넣지 않고, 아래 퀵액션 카드가 행동을 유도한다.
-- **퀵액션 카드**: 라인아이콘 + 제목 + 한 줄 설명. hover 시 **배경을 `--accent`로, 글자·아이콘을 흰색으로** 전환.
-- **시설 카드**: 썸네일 + 상태 배지 + 이름 + 위치 + 종목 태그 + 가격 + `예약하기` 버튼(좌우 넉넉한 패딩). 가격은 `12,000 원 / 2시간`처럼 숫자와 단위를 한 칸 띄운다.
-- **시간대 슬롯**: 잔여(흰 배경+보더) / 선택됨(`--accent` 채움+흰글씨) / 마감(`--surface-2`, 흐린 텍스트, **취소선 없음**).
-- **예약 티켓**: `--accent` 헤더(흰글씨) + 정보 행(tabular) + 예약번호. 2열 레이아웃에서 우측 컬럼을 꽉 채워 옆 여백이 비지 않게 한다.
-- **배지**: 예약완료(accent-tint) / 이용완료(surface-2) / 취소됨(error). 작은 led 점 + 라벨.
-- **알림(alert)**: 좌측 컬러 보더(accent/warning/error) + 흰 배경.
+## Known Gaps
 
-### 재사용 프리미티브 (SSOT — 새로 만들지 말고 이걸 쓴다)
-
-`src/components/ui/`에 구현돼 있다. 같은 룩을 인라인으로 다시 만들지 않는다.
-
-| 컴포넌트 | 규격 |
-|---|---|
-| `app-button` (`Button`/`ButtonLink`) | base `rounded-lg font-bold` + `focus-visible:ring-2 ring-accent ring-offset-2` + `disabled:opacity-60`. variant: primary `bg-accent text-accent-ink hover:bg-accent-hover` / outline `border-line-strong bg-white hover:border-accent hover:text-accent-strong` / ghost `text-muted hover:bg-surface-2` / danger `bg-error text-white` / danger-outline `border-error/30 text-error`. size(고객): sm `h-9 px-[14px] 14.5px` · md `h-11 px-[19px] 15.5px` · lg `h-12 px-7 16.5px`. size(관리자 콘솔): console `h-9 px-3.5 13px` · xs `h-7 rounded-md px-2.5 12px` |
-| `select-menu` | 네이티브 `<select>` 금지. chevron + 목록 `rounded-lg border-line bg-white py-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.12)]`, 옵션 `px-4 py-2.5 text-[15px]`, 선택 `font-semibold text-accent-strong` |
-| `board-pagination` | `size-10 rounded-lg border-line`, 활성 `bg-accent text-white`. 여백은 `spacing`: board(기본) `mt-20 mb-14` / compact(콘솔) `py-3` |
-| `search-bar` | 알약 `rounded-full border-2`. default: `h-[60px] border-foreground` + 원형 accent 버튼 `size-10`. board(공지·FAQ·문의): `h-[68px] border-black` + 원형 black 버튼 `size-12` |
-
-### 페이지 셸
-
-- 컨테이너 `mx-auto w-full max-w-[1440px] px-5 py-9 sm:px-8 sm:py-10`
-- breadcrumb `text-[13px] text-muted` (구분자 `text-line-strong`, 현재 위치 `font-semibold text-foreground`)
-- h1 → 부제(`mt-2 text-[15px] leading-relaxed text-muted`)
-
-### 탭 내비
-
-`grid` 등분, 각 탭 `-mb-px border-b-2 py-4 text-center`.
-활성 `border-accent font-bold text-accent-strong` / 비활성 `border-transparent font-medium text-muted hover:text-foreground`.
-
-### 필터 패널 · 폼 컨트롤
-
-- 패널 `rounded-2xl border border-line bg-white p-5 sm:p-6` — **그림자 없음**(그림자는 카드에만 쓴다).
-- 컨트롤 `h-12 rounded-[10px] border border-line-strong bg-white px-3.5 text-[15px]`
-  + `focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20` + `disabled:cursor-not-allowed disabled:bg-surface-2`
-- 필드 라벨 `text-[12.5px] font-bold text-foreground`, 필드 래퍼 `flex flex-col gap-1.5`
-- 토글 버튼(정렬·필터) `h-10 rounded-md border px-3 text-sm font-semibold`,
-  활성 `border-accent bg-accent-tint text-accent-strong` / 비활성 `border-line-strong bg-white text-muted`
-
-### 게시판 표 (목록형 화면의 표준)
-
-- 표 상단 굵은 선 `border-t-2 border-foreground/80`
-- `thead` `bg-surface-2 border-b border-line text-[18px] font-bold text-foreground`, `th` 높이 `h-[72px]`
-- 셀 세로 구분 `border-l border-line`, 행 `border-b border-line hover:bg-surface-2`
-- 숫자·날짜는 `tabular-nums text-muted`
-- 빈 상태(표 안) `h-[120px] text-center text-[16px] text-muted`
-- 빈 상태(카드) `rounded-xl border border-dashed border-line-strong bg-white p-10 text-center`
-
-### 상태 배지
-
-`reservation/reservation-ticket.tsx`의 `reservationStatusBadgeStyles`가 SSOT다.
-예약중 `bg-accent-tint text-accent-strong` / 취소 `bg-error/10 text-error` / 이용완료 `bg-surface-2 text-muted`.
-
-### 관리자 콘솔 (별도 디자인 언어)
-
-**관리자 콘솔은 위 §5의 고객 화면 패턴을 따르지 않는다.** 고객 화면은 *읽는* 화면(넓은 여백·큰 타이포·게시판 표)이고,
-콘솔은 *조작하는* 화면이다. 같은 규격을 쓰면 한 화면에 절반밖에 안 들어오고, 관리자가 고객 페이지에 있는 것처럼 느낀다.
-
-**공유하는 것 (고객 화면에서 그대로 가져옴)**
-- `globals.css` 색 토큰 전부 — 브랜드 네이비 `--accent`, 상태색, 중립
-- `Noto Sans KR`, `tabular-nums`
-- `ui/app-button`, `ui/select-menu`, `ui/board-pagination` (크기만 콘솔 사이즈로)
-- 예약 상태 배지 의미(§ 상태 배지)
-
-**다른 것 (콘솔 고유)**
-
-| 항목 | 고객 화면 | 관리자 콘솔 |
-|---|---|---|
-| 셸 | GNB + 푸터 + `max-w-[1440px]` 중앙정렬 | **전역 chrome 없음**(`site-chrome`의 `BARE_PREFIXES`) + 좌측 고정 사이드바 `w-57` + 상단바 `h-14` + 캔버스 `bg-surface-2`, 본문 전체 폭 |
-| 페이지 제목 | h1 `28→32px` | 상단바 h1 `17px` |
-| 본문 | `15px` | `13.5px` |
-| 패널 | `rounded-2xl` `p-5 sm:p-6`, 제목 `19px` | `rounded-xl` `p-4 sm:p-5`, 제목 `15px` |
-| 표 | 굵은 상단선 + 세로 구분선, 헤더 `18px/h-[72px]` | 카드 안 데이터 표(세로 구분선 없음), 헤더 `12px/h-[42px]` · 셀 `13.5px/h-12` |
-| 컨트롤 | `h-12` `rounded-[10px]` `15px` | `h-9` `rounded-lg` `13px` |
-| 필드 라벨 | `12.5px` | `11.5px` |
-| 버튼 | `md`(h-11) / `lg`(h-12) | `console`(h-9, 기본) / `xs`(h-7, 표 안 인라인 액션) |
-| 사이드바 활성 메뉴 | — | `bg-accent text-accent-ink`(솔리드). 토글·필터의 선택(`accent-tint`)과 위계를 구분한다 |
-
-**SSOT 파일**
-
-| 파일 | 역할 |
-|---|---|
-| `admin/admin-ui.tsx` | 패널·표·컨트롤·토글의 규격. 화면마다 다시 정의하지 않는다 |
-| `admin/admin-nav-items.ts` | 메뉴(그룹·아이콘 키). 사이드바가 이 배열만 본다 |
-| `admin/admin-nav-icons.tsx` | 메뉴 아이콘 SVG |
-| `admin/admin-shell.tsx` | 사이드바 + 상단바 + 캔버스. 각 화면은 **본문만** 렌더한다 |
-| `admin/admin-auth-gate.tsx` | Basic Auth 다음 단계인 Firebase 로그인 + `admin` 클레임 게이트 |
-
-**대시보드 원칙**: 표시하는 숫자는 서버가 실제로 주는 값만 쓴다.
-목표 대비 달성률·전일 대비 증감처럼 근거 API가 없는 지표는 **넣지 않는다**(추정치를 실측처럼 보이게 하지 않는다).
-
-## 6. 변경 방법 (유연성)
-
-이 프로젝트는 마무리까지 디자인·버튼 크기·기능이 계속 바뀐다. 그래서 **토큰만 바꾸면 전체가 따라오도록** 설계했다.
-
-- **대표색 교체**: `globals.css`의 `--accent*` 5줄만 수정. (네이비 → 민트/그린/슬레이트 등) 단 §2 "2톤 규칙"과 대비 기준을 확인한다.
-- **모서리/여백**: `--r*`, `--container-*` 수정.
-- **폰트 교체**: `layout.tsx`의 `Noto_Sans_KR` 교체 + `globals.css`의 `--font-noto-sans-kr` 참조 갱신.
-- 컴포넌트는 하드코딩 색 대신 위 토큰(또는 노출된 `bg-accent` 등 유틸)을 사용한다. 새 색/모양을 컴포넌트에 직접 박지 않는다(SSOT 분산 금지).
-
-## 7. 적용 현황
-
-- [x] 토대: `globals.css` 토큰 + `layout.tsx` 폰트(Noto Sans KR) — **완료**
-- [x] 고객 화면(홈 / 시설 목록·상세 / 예약 흐름 / 마이페이지 / 공지·FAQ·문의 / 헤더·푸터) — **완료**
-- [x] 관리자 콘솔(대시보드 + 9화면) — **완료**. 백오피스 셸(사이드바·상단바·캔버스) + 콘솔 밀도 프리미티브
-- [ ] 히어로 실사진 에셋(통제 가능한 위치에 호스팅) — 추후
-
-> 관리자 콘솔은 고객 화면의 "축소판"이 아니라 **별도 디자인 언어**다(§5 관리자 콘솔). 색·폰트 토큰만 공유한다.
-> i18n은 관리자 콘솔에 적용하지 않는다(운영자 전용, 국문 고정 — 의도된 범위 제외).
-> 다만 **다국어(i18n)는 관리자 범위 밖**이라 국문 하드코딩을 유지한다.
-
-> 시각 기준 시안: `design-preview-gym-v6.html`(작업 디렉터리 외부, Downloads). 정적 시안이며 실제 데이터·라우팅은 없다.
+- **결정은 반영했고 코드는 아직이다(2026-09-26 결정).**
+  - 버튼 알약형: `ui/app-button`은 관리자 화면과 함께 쓰므로 고객용 크기(sm·md·lg)만 `rounded-full`로 바꾸고 관리자용(`console`·`xs`)은 그대로 둔다. 화면 안에서 직접 만든 사각 버튼 약 20곳(히어로·404·모달·빈 상태·예약 단계 확인·예약 상세·정렬 토글 등)도 바꿔야 한다. 이미 알약형인 버튼은 높이가 40·48·52·56·60px로 흩어져 있어 44·48px로 맞춘다.
+  - 인증 블루: 코드는 아직 `#3B82F6`이다(로그인·회원가입 화면).
+- **대비 경고(lint)**. 아래 토큰은 현재 화면값 그대로 두고 기록만 한다.
+  - `status-cancelled` 4.13:1: 취소 배지 글자. `error`보다 한 단계 진한 글자색(예: `#b91c1c`)을 쓰면 해소된다.
+  - `input-field-disabled` · `time-slot-disabled` 2.34:1: 비활성 요소는 WCAG 대비 기준의 예외라 의도된 값이다. 경고는 계속 남는다.
+- **토큰과 코드가 아직 완전히 일치하지 않는다.** 하드코딩 hex(인증 화면·홈 행사 섹션·게시글 상세), `app-button` 밖에서 다시 정의한 버튼 약 10곳, 예약 흐름의 `slate` 보더 등이 남아 있다. 전체 목록은 [`docs/design-audit.md`](docs/design-audit.md) §12.
+- **값이 두 곳에 있다.** 이 파일(규범)과 `globals.css`(구현). 이 파일에서 `@theme`을 생성하도록 바꾸는 것은 관리자 콘솔의 변수 덮어쓰기(`.admin-console`)와 충돌하지 않는지 확인한 뒤 결정한다.
+- **보더 색·그림자·모션**은 규격의 컴포넌트 속성에 없어서 본문 설명으로만 적었다.
+- **홈 행사·대회 섹션**(사진 패널·캐러셀·20px 카드)은 한 번만 쓰는 구성이라 토큰으로 만들지 않았다. 값은 audit §8.3.
+- 다크 모드는 없다.
