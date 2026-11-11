@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import koMessages from "../../../messages/ko.json";
 import { FaqChatWidget } from "@/components/faq/faq-chat-widget";
@@ -212,5 +212,56 @@ describe("로그인 주체 변경 시 대화 초기화", () => {
     await waitFor(() =>
       expect(screen.queryByText(/이전 사용자 예약 내용/)).toBeNull(),
     );
+  });
+
+  // 회귀 방지(전송 내용): 유출 경로는 화면이 아니라 서버로 다시 보내는 이력이었다.
+  // 화면 검사만으로는 이력이 요청에 실리는지 알 수 없으므로, 주체가 바뀐 뒤
+  // 첫 요청 body의 messages에 새 질문 하나만 들어 있는지 직접 본다.
+  function sentMessages(fetchMock: ReturnType<typeof vi.fn>, callIndex: number) {
+    const init = fetchMock.mock.calls[callIndex][1] as RequestInit;
+    const body = JSON.parse(String(init.body)) as {
+      messages: { role: string; content: string }[];
+    };
+    return body.messages;
+  }
+
+  async function expectNextRequestHasOnlyNewQuestion(next: typeof authRef.current) {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(streamOk("2026-08-01 19:00 마포구민체육센터 예약이 있습니다."))
+      .mockResolvedValueOnce(streamOk("새 답변"));
+    vi.stubGlobal("fetch", fetchMock);
+    renderWidget();
+
+    fireEvent.click(screen.getByRole("button", { name: "채팅 상담 열기" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "가입은 어떻게 하나요?" }),
+    );
+    const input = screen.getByRole("textbox", { name: "질문 입력" }) as HTMLInputElement;
+    await waitFor(() =>
+      expect(screen.getByText(/마포구민체육센터/)).toBeTruthy(),
+    );
+    // 첫 답변 스트림이 끝나야(입력창 활성) 다음 질문을 보낼 수 있다.
+    await waitFor(() => expect(input.disabled).toBe(false));
+
+    act(() => setAuth(next));
+
+    fireEvent.change(input, { target: { value: "새 질문" } });
+    fireEvent.click(screen.getByRole("button", { name: "전송" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(sentMessages(fetchMock, 1)).toEqual([{ role: "user", content: "새 질문" }]);
+  }
+
+  it("로그아웃 후 첫 요청에 이전 대화가 실리지 않는다", async () => {
+    await expectNextRequestHasOnlyNewQuestion({
+      ok: false,
+      reason: "signed-out",
+      message: "로그아웃",
+    });
+  });
+
+  it("다른 계정으로 바뀐 뒤 첫 요청에 이전 대화가 실리지 않는다", async () => {
+    await expectNextRequestHasOnlyNewQuestion({ ok: true, userId: "user-2" });
   });
 });
