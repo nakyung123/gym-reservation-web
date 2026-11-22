@@ -608,3 +608,21 @@
 - `npm run test` 전체(`C:/` 경로, 21:25:02~21:26:54): Test Files 129 passed, Tests 1244 passed.
 - `SKIP_ADMIN_ENV_CHECK=1 npm run build` exit 0.
 - 확인 안 함: 로컬 dev 서버가 실제로 사용자 환경 변수 webhook 으로 보내는지, 브라우저 화면, 운영 DB.
+
+## 운영 DB 마이그레이션 (2026-11-22)
+
+- 되돌리기 리허설(test DB, 로컬 Docker `gym_reservation_test`):
+  1. `prisma migrate status` → "Database schema is up to date!" (19 migrations)
+  2. 되돌리기 SQL 실행(`prisma db execute`): `DROP TABLE IF EXISTS "payments";` +
+     `DELETE FROM "_prisma_migrations" WHERE "migration_name" = '20261121120000_add_payments';` → "Script executed successfully."
+  3. status → "Following migration have not yet been applied: 20261121120000_add_payments"
+  4. `npm run db:test:migrate` → "Applying migration `20261121120000_add_payments`", "All migrations have been successfully applied."
+  5. status → up to date. 결제·탈퇴 테스트 2 files / 83 tests 통과.
+- 운영 되돌리기: 코드를 먼저 되돌려 배포한 뒤(`git revert`) 위 되돌리기 SQL 을 운영에 실행한다. 순서가 바뀌면 예약 취소·탈퇴·예약 상세가 500.
+- 운영 적용: 사용자가 PowerShell 에서 운영 주소를 직접 넣고 `npm run db:migrate:prod` 실행(주소는 Claude 가 보지 않음).
+  적용 전 `prisma migrate status` 로 대기 중인 마이그레이션이 이것 하나인지 본다.
+- 운영 적용 결과(2026-11-22 21:58, Claude 가 `.env.production.local` 로 실행, 값·호스트는 출력하지 않음):
+  - 적용 전 status: 미적용 `20261121120000_add_payments` 하나뿐.
+  - `prisma migrate deploy`: "All migrations have been successfully applied." exit 0.
+  - 적용 뒤 status: "Database schema is up to date!"
+  - 읽기 전용 조회: payments 행 0, RLS 켜짐 true, 인덱스 6(기본키 + 마이그레이션의 5개).
