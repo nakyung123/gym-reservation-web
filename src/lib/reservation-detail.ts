@@ -34,7 +34,15 @@ export function getReservationEntryCode(reservation: Pick<Reservation, "id">) {
 
 export function createUserReservationDetail(
   reservation: Reservation,
-  { now = new Date() }: { now?: Date } = {},
+  {
+    now = new Date(),
+    refundPending = false,
+  }: {
+    now?: Date;
+    // 결제가 환불 대기(refund_pending)다. 마감 전에 시작한 취소의 환불이 실패해 남은 것이라,
+    // 취소 마감이 지났어도 같은 멱등키로 다시 취소할 수 있다(서버 cancelReservationInDb 와 같은 규칙).
+    refundPending?: boolean;
+  } = {},
 ): UserReservationDetail {
   if (reservation.status !== "reserved") {
     return {
@@ -49,6 +57,17 @@ export function createUserReservationDetail(
 
   const deadline = getUserReservationCancellationDeadline(reservation);
   const validation = validateUserReservationCancellation({ reservation, now });
+
+  if (refundPending) {
+    return {
+      cancellation: {
+        canCancel: true,
+        deadline: deadline ? deadline.toISOString() : null,
+        reason: null,
+        message: null,
+      },
+    };
+  }
 
   return {
     cancellation: {

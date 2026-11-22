@@ -5,6 +5,7 @@ import { verifyIdTokenFromRequest } from "@/lib/server/auth";
 import {
   cancelReservationInDb,
   getUserReservationDetailById,
+  hasPendingRefund,
 } from "@/lib/server/db-reservation-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
 import { notifyReservationEvent } from "@/lib/server/reservation-notify";
@@ -21,8 +22,10 @@ export async function GET(request: NextRequest, ctx: Context) {
 
   const { reservationId } = await ctx.params;
   let record: Awaited<ReturnType<typeof getUserReservationDetailById>>;
+  let refundPending = false;
   try {
     record = await getUserReservationDetailById(auth.uid, reservationId);
+    if (record) refundPending = await hasPendingRefund(record.reservation.id);
   } catch (error) {
     return serverErrorResponse(
       "예약 상세를 불러오지 못했습니다.",
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest, ctx: Context) {
 
   return Response.json({
     reservation: record.reservation,
-    detail: createUserReservationDetail(record.reservation),
+    detail: createUserReservationDetail(record.reservation, { refundPending }),
     gym: record.gym,
   });
 }
@@ -99,6 +102,13 @@ export async function DELETE(request: NextRequest, ctx: Context) {
   }
   if (result.status === "auth-required") {
     return Response.json({ message: result.message }, { status: 403 });
+  }
+  if (result.status === "refund-failed") {
+    // 결제된 예약의 환불이 실패했다. 예약은 그대로이며, 같은 요청을 다시 보내면 같은 멱등키로 재시도된다.
+    return Response.json(
+      { status: result.status, message: result.message },
+      { status: 502 },
+    );
   }
   return Response.json(
     {

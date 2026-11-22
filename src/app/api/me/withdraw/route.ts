@@ -42,7 +42,10 @@ export async function POST(request: NextRequest) {
 
   const result = await withdrawAccount(auth.uid, validation.input);
   if (!result.ok) {
-    if (result.reason === "active-reservation") {
+    if (
+      result.reason === "active-reservation" ||
+      result.reason === "active-payment"
+    ) {
       return Response.json(
         { message: result.message, reason: result.reason },
         { status: 409 },

@@ -1,5 +1,5 @@
 import "server-only";
-import { Prisma } from "@prisma/client";
+import { Prisma, type Payment } from "@prisma/client";
 import { prisma } from "@/lib/server/prisma-client";
 import {
   DEMO_RESERVATION_ID_PREFIX,
@@ -23,6 +23,11 @@ import {
 import { ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT } from "@/lib/admin/admin-reservation-slot-policy";
 import type { AdminReservationTrendPoint } from "@/lib/admin/admin-overview-client";
 import { toDomainGym } from "@/lib/server/db-gym-mapper";
+import { getPaymentProviderByName } from "@/lib/server/payment/payment-config";
+import {
+  refundPaymentBeforeCancel,
+  type ResolvePaymentProvider,
+} from "@/lib/server/payment/payment-refund";
 import type {
   Gym,
   PaymentMethod,
@@ -43,7 +48,7 @@ type ReservationSlotRow = Prisma.ReservationSlotGetPayload<
 type ReservationRowWithGym = Prisma.ReservationGetPayload<{
   include: { gym: { include: { sports: true } } };
 }>;
-type ReservationSlotKey = {
+export type ReservationSlotKey = {
   gymId: string;
   sport: Sport;
   date: string;
@@ -53,7 +58,7 @@ type ReservationSlotKey = {
 export const RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT =
   ADMIN_RESERVATION_SLOT_BULK_TARGET_LIMIT;
 
-class ReservationSlotFullError extends Error {
+export class ReservationSlotFullError extends Error {
   constructor(readonly key: ReservationSlotKey) {
     super("reservation-slot-full");
   }
@@ -67,7 +72,7 @@ class ReservationSlotPolicyConflictError extends Error {
   }
 }
 
-function toDomainReservation(row: ReservationRow): Reservation {
+export function toDomainReservation(row: ReservationRow): Reservation {
   if (!isReservationStatus(row.status)) {
     throw new Error(
       `예약 ${row.id}의 status가 알 수 없는 값입니다: ${row.status}`,
@@ -95,7 +100,7 @@ function toDomainReservation(row: ReservationRow): Reservation {
   };
 }
 
-function newReservationId(): string {
+export function newReservationId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
@@ -141,7 +146,7 @@ async function ensureReservationSlot(
   });
 }
 
-async function reserveSlot(
+export async function reserveSlot(
   tx: Prisma.TransactionClient,
   key: ReservationSlotKey,
 ): Promise<void> {
@@ -168,7 +173,7 @@ async function reserveSlot(
   }
 }
 
-async function releaseSlot(
+export async function releaseSlot(
   tx: Prisma.TransactionClient,
   key: ReservationSlotKey,
 ): Promise<void> {
@@ -183,15 +188,115 @@ async function releaseSlot(
   });
 }
 
+function paymentSlotKey(payment: Payment): ReservationSlotKey {
+  if (!isSport(payment.sport)) {
+    throw new Error(`결제 ${payment.id}의 sport가 알 수 없는 값입니다: ${payment.sport}`);
+  }
+  return {
+    gymId: payment.gymId,
+    sport: payment.sport,
+    date: payment.date,
+    time: payment.time,
+  };
+}
+
+// 결제를 끝 상태로 닫고 선점한 정원을 돌려준다. from 상태일 때만 바뀐다(중복 반환 방지).
+export async function closePaymentAndReleaseSlot(
+  paymentId: string,
+  from: "pending" | "confirming",
+  to: "failed" | "expired" | "refunded",
+  reason: string,
+): Promise<boolean> {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!current) return false;
+    const changed = await tx.payment.updateMany({
+      where: { id: paymentId, status: from },
+      data: {
+        status: to,
+        holdKey: null,
+        failureReason: reason.slice(0, 200),
+        ...(to === "refunded" ? { refundedAt: new Date() } : {}),
+      },
+    });
+    if (changed.count === 1) {
+      await releaseSlot(tx, paymentSlotKey(current));
+      return true;
+    }
+    return false;
+  });
+}
+
+// 만료 정리 범위. 정원을 읽는 쪽이 자기가 볼 슬롯(또는 사용자)의 만료 선점만 먼저 푼다.
+// 범위가 없으면 전체에서 오래된 순으로 limit건을 푼다(prepare·정리 cron).
+export type StalePaymentScope =
+  | { gymId: string; sport: string; dates: readonly string[] }
+  | { userId: string };
+
+// 결제창을 닫고 떠난 선점(pending, 만료 시각 지남)을 expired로 닫고 정원을 돌려준다.
+// 슬롯 정원(reservedCount)에 선점이 포함되므로, 정원을 읽거나 검사하기 전에 부른다.
+export async function expireStalePayments({
+  now,
+  limit,
+  scope,
+}: {
+  now: Date;
+  limit: number;
+  scope?: StalePaymentScope;
+}): Promise<number> {
+  const scopeWhere: Prisma.PaymentWhereInput = !scope
+    ? {}
+    : "userId" in scope
+      ? { userId: scope.userId }
+      : { gymId: scope.gymId, sport: scope.sport, date: { in: [...scope.dates] } };
+  const stale = await prisma.payment.findMany({
+    where: { status: "pending", expiresAt: { lte: now }, ...scopeWhere },
+    orderBy: { expiresAt: "asc" },
+    take: limit,
+    select: { id: true },
+  });
+  let expired = 0;
+  for (const { id } of stale) {
+    if (await closePaymentAndReleaseSlot(id, "pending", "expired", "hold-expired")) {
+      expired += 1;
+    }
+  }
+  return expired;
+}
+
+// 정원을 읽기 전에 그 범위의 만료 선점을 푼다. 정리가 실패해도 본 요청은 진행한다
+// (정리 대상은 다음 요청이나 정리 cron이 다시 처리한다). 실패는 로그로 남긴다.
+export async function expireStalePaymentsBeforeRead(
+  scope: StalePaymentScope,
+  now: Date,
+  label: string,
+): Promise<void> {
+  try {
+    await expireStalePayments({ now, limit: 50, scope });
+  } catch (error) {
+    console.error(`[${label}] 만료 선점 정리 실패`, {
+      name: error instanceof Error ? error.name : typeof error,
+    });
+  }
+}
+
 export async function listReservationSlotAvailabilities({
   gym,
   sport,
   date,
+  now = new Date(),
 }: {
   gym: Gym;
   sport: Sport;
   date: string;
+  now?: Date;
 }): Promise<ReservationSlotAvailability[]> {
+  // 결제창을 닫고 떠난 선점이 정원을 계속 잡고 있지 않게, 보여 줄 슬롯의 만료 선점을 먼저 푼다.
+  await expireStalePaymentsBeforeRead(
+    { gymId: gym.id, sport, dates: [date] },
+    now,
+    "reservation slots",
+  );
   const rows = await prisma.reservationSlot.findMany({
     where: {
       gymId: gym.id,
@@ -218,6 +323,7 @@ export type UpdateReservationSlotPolicyInput = ReservationSlotKey & {
   gym: Gym;
   capacity?: number;
   isClosed?: boolean;
+  now?: Date;
 };
 
 export type UpdateReservationSlotPolicyOutput =
@@ -287,6 +393,7 @@ export async function updateReservationSlotPolicy({
   gym,
   capacity,
   isClosed,
+  now = new Date(),
   ...key
 }: UpdateReservationSlotPolicyInput): Promise<UpdateReservationSlotPolicyOutput> {
   const validationError = validateSlotPolicyChange({
@@ -313,6 +420,13 @@ export async function updateReservationSlotPolicy({
       message: "선택한 시간은 이 체육관의 예약 가능 시간이 아닙니다.",
     };
   }
+
+  // 만료 선점이 정원 축소를 막지 않게 먼저 푼다.
+  await expireStalePaymentsBeforeRead(
+    { gymId: key.gymId, sport: key.sport, dates: [key.date] },
+    now,
+    "admin slot policy",
+  );
 
   return prisma.$transaction(async (tx) => {
     const current = await tx.reservationSlot.findUnique({
@@ -381,6 +495,7 @@ export type UpdateReservationSlotPoliciesInput = {
   times: string[];
   capacity?: number;
   isClosed?: boolean;
+  now?: Date;
 };
 
 export type UpdateReservationSlotPoliciesOutput =
@@ -404,6 +519,7 @@ export async function updateReservationSlotPolicies({
   times,
   capacity,
   isClosed,
+  now = new Date(),
 }: UpdateReservationSlotPoliciesInput): Promise<UpdateReservationSlotPoliciesOutput> {
   const validationError = validateSlotPolicyChange({
     gym,
@@ -450,6 +566,13 @@ export async function updateReservationSlotPolicies({
       message: `한 번에 변경할 수 있는 슬롯은 최대 ${RESERVATION_SLOT_BULK_POLICY_TARGET_LIMIT}개입니다.`,
     };
   }
+
+  // 만료 선점이 정원 축소를 막지 않게 먼저 푼다.
+  await expireStalePaymentsBeforeRead(
+    { gymId, sport, dates: uniqueDates },
+    now,
+    "admin slot policies",
+  );
 
   const keys = uniqueDates.flatMap((date) =>
     uniqueTimes.map((time) => ({
@@ -637,7 +760,7 @@ export async function listUserReservationsPage(
 // 전 기간 예약을 로드하던 기존 방식과 달리 사용자의 누적 예약 수와 무관하게 비용이 일정하다.
 // 정합성 자체는 ReservationLock의 activeKey UNIQUE가 DB에서 보장하며, 이 조회는
 // 사용자에게 보여줄 기존 예약을 찾기 위한 것이다.
-async function listActiveDuplicateCandidates(
+export async function listActiveDuplicateCandidates(
   userId: string,
   draft: CreateReservationInput["draft"],
 ): Promise<Reservation[]> {
@@ -677,6 +800,15 @@ function toUserReservationDetailRecord(
     reservation: toDomainReservation(row),
     gym: toDomainGym(row.gym),
   };
+}
+
+// 예약에 연결된 결제가 환불 대기인지. 예약 상세가 마감 뒤 재취소 버튼을 보일지 정할 때 쓴다.
+export async function hasPendingRefund(reservationId: string): Promise<boolean> {
+  return (
+    (await prisma.payment.count({
+      where: { reservationId, status: "refund_pending" },
+    })) > 0
+  );
 }
 
 export async function getUserReservationDetailById(
@@ -926,17 +1058,31 @@ export type CreateReservationOutput =
     }
   | { ok: false; status: "rejected"; message: string };
 
-export async function createReservationInDb(
+export type ValidatedReservationCreation = {
+  fullDraft: ReservationDraft;
+  activeKey: string;
+  slotKey: ReservationSlotKey;
+};
+
+// 예약 생성 전 서버 검증(인원·규칙·중복). 결제 없는 즉시 예약과 결제 준비(prepare)가 함께 쓴다.
+// DB를 바꾸지 않는다.
+export async function validateReservationCreation(
   input: CreateReservationInput,
-): Promise<CreateReservationOutput> {
+): Promise<
+  | { ok: true; value: ValidatedReservationCreation }
+  | { ok: false; output: Exclude<CreateReservationOutput, { ok: true }> }
+> {
   const { userId, draft, gym } = input;
 
   // 인원 범위 검증은 트랜잭션 진입 전 early reject (새 중간 상태 없음).
   if (!isValidPeople(draft.sport, draft.people)) {
     return {
       ok: false,
-      status: "rejected",
-      message: "이용 인원이 올바르지 않습니다.",
+      output: {
+        ok: false,
+        status: "rejected",
+        message: "이용 인원이 올바르지 않습니다.",
+      },
     };
   }
 
@@ -965,22 +1111,64 @@ export async function createReservationInDb(
     ) {
       return {
         ok: false,
-        status: "duplicate",
-        reservation: validation.reservation,
-        message: validation.message,
+        output: {
+          ok: false,
+          status: "duplicate",
+          reservation: validation.reservation,
+          message: validation.message,
+        },
       };
     }
-    return { ok: false, status: "rejected", message: validation.message };
+    return {
+      ok: false,
+      output: { ok: false, status: "rejected", message: validation.message },
+    };
   }
 
-  const reservationId = newReservationId();
-  const activeKey = getReservationActiveKey(fullDraft);
-  const slotKey: ReservationSlotKey = {
-    gymId: draft.gymId,
-    sport: draft.sport,
-    date: draft.date,
-    time: draft.time,
+  return {
+    ok: true,
+    value: {
+      fullDraft,
+      activeKey: getReservationActiveKey(fullDraft),
+      slotKey: {
+        gymId: draft.gymId,
+        sport: draft.sport,
+        date: draft.date,
+        time: draft.time,
+      },
+    },
   };
+}
+
+// 정원 초과·마감으로 슬롯 선점이 거부됐을 때의 응답. 즉시 예약과 결제 준비가 같은 문구를 쓴다.
+export async function buildSlotFullOutput(
+  key: ReservationSlotKey,
+): Promise<Extract<CreateReservationOutput, { status: "full" }>> {
+  const slot = await prisma.reservationSlot.findUnique({
+    where: { gymId_sport_date_time: key },
+  });
+  return {
+    ok: false,
+    status: "full",
+    slot: toSlotAvailability(key, slot),
+    message:
+      slot?.isClosed === true
+        ? "선택한 시간대는 운영자에 의해 마감되었습니다."
+        : "선택한 시간대의 예약 정원이 마감되었습니다.",
+  };
+}
+
+export async function createReservationInDb(
+  input: CreateReservationInput,
+): Promise<CreateReservationOutput> {
+  const { userId, draft } = input;
+
+  const validated = await validateReservationCreation(input);
+  if (!validated.ok) {
+    return validated.output;
+  }
+  const { fullDraft, activeKey, slotKey } = validated.value;
+  const reservationId = newReservationId();
 
   try {
     const created = await prisma.$transaction(async (tx) => {
@@ -1011,19 +1199,7 @@ export async function createReservationInDb(
     return { ok: true, reservation: toDomainReservation(created) };
   } catch (error) {
     if (error instanceof ReservationSlotFullError) {
-      const slot = await prisma.reservationSlot.findUnique({
-        where: { gymId_sport_date_time: error.key },
-      });
-
-      return {
-        ok: false,
-        status: "full",
-        slot: toSlotAvailability(error.key, slot),
-        message:
-          slot?.isClosed === true
-            ? "선택한 시간대는 운영자에 의해 마감되었습니다."
-            : "선택한 시간대의 예약 정원이 마감되었습니다.",
-      };
+      return buildSlotFullOutput(error.key);
     }
 
     if (
@@ -1055,9 +1231,11 @@ export type CancelReservationOutput =
     }
   | {
       ok: false;
-      status: "not-found" | "not-cancellable" | "auth-required";
+      // refund-failed: 결제된 예약인데 PG 환불이 실패했다. 예약은 그대로 남아 있다.
+      status: "not-found" | "not-cancellable" | "auth-required" | "refund-failed";
       reservation?: Reservation;
       message: string;
+      refunded?: true;
     };
 
 type CancelAuthorizedReservationOutput =
@@ -1069,13 +1247,37 @@ type CancelAuthorizedReservationOutput =
     }
   | {
       ok: false;
-      status: "not-found" | "not-cancellable";
+      status: "not-found" | "not-cancellable" | "refund-failed";
       reservation?: Reservation;
       message: string;
+      // 예약은 이용 완료라 취소하지 않았지만 결제 환불은 끝냈다(돈이 움직였다). 관리자 감사 기록에 쓴다.
+      refunded?: true;
     };
+
+export type CancelReservationOptions = {
+  // 테스트가 가짜 PG를 넣을 때 쓴다. 기본은 결제 기록의 provider 이름으로 고른다.
+  resolvePaymentProvider?: ResolvePaymentProvider;
+};
+
+const REFUNDED_BUT_NOT_CANCELLED_MESSAGE =
+  "이미 이용 완료된 예약이라 취소하지 않았습니다. 결제는 환불되었습니다.";
+
+// PG 환불이 끝난 결제(refund_pending)를 refunded로 닫는다. 결제가 없거나 이미 닫혔으면 아무것도 바꾸지 않는다.
+async function markRefundPendingPaymentRefunded(
+  client: Prisma.TransactionClient,
+  reservationId: string,
+) {
+  await client.payment.updateMany({
+    where: { reservationId, status: "refund_pending" },
+    data: { status: "refunded", refundedAt: new Date() },
+  });
+}
 
 async function cancelAuthorizedReservation(
   target: ReservationRow,
+  {
+    resolvePaymentProvider = getPaymentProviderByName,
+  }: CancelReservationOptions = {},
 ): Promise<CancelAuthorizedReservationOutput> {
   const domainTarget = toDomainReservation(target);
 
@@ -1089,12 +1291,63 @@ async function cancelAuthorizedReservation(
   }
 
   if (target.status !== "reserved") {
+    // 취소 요청과 이용 완료 처리가 겹치면 예약은 이용 완료인데 결제가 환불 대기로 남을 수 있다.
+    // 같은 멱등키로 환불을 끝내고 결제를 닫는다(돈이 돌아간 상태에 기록을 맞춘다). 예약은 그대로 둔다.
+    const pendingRefund = await prisma.payment.findUnique({
+      where: { reservationId: target.id },
+    });
+    if (pendingRefund?.status === "refund_pending") {
+      const refund = await refundPaymentBeforeCancel(
+        pendingRefund,
+        resolvePaymentProvider,
+      );
+      if (!refund.ok) {
+        return {
+          ok: false,
+          status: "refund-failed",
+          reservation: domainTarget,
+          message: refund.message,
+        };
+      }
+      await markRefundPendingPaymentRefunded(prisma, target.id);
+      return {
+        ok: false,
+        status: "not-cancellable",
+        reservation: domainTarget,
+        message: REFUNDED_BUT_NOT_CANCELLED_MESSAGE,
+        refunded: true,
+      };
+    }
     return {
       ok: false,
       status: "not-cancellable",
       reservation: domainTarget,
       message: "예약 완료 상태의 예약만 취소할 수 있습니다.",
     };
+  }
+
+  // 결제된 예약이면 환불을 먼저 끝낸다. 환불이 실패하면 예약을 취소하지 않는다.
+  const payment = await prisma.payment.findUnique({
+    where: { reservationId: target.id },
+  });
+  let refundedAtProvider = false;
+  if (
+    payment &&
+    (payment.status === "paid" || payment.status === "refund_pending")
+  ) {
+    const refund = await refundPaymentBeforeCancel(
+      payment,
+      resolvePaymentProvider,
+    );
+    if (!refund.ok) {
+      return {
+        ok: false,
+        status: "refund-failed",
+        reservation: domainTarget,
+        message: refund.message,
+      };
+    }
+    refundedAtProvider = true;
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -1113,11 +1366,20 @@ async function cancelAuthorizedReservation(
           reservation: null,
         } as const;
       }
-      return {
-        status: latest.status === "cancelled" ? "unchanged" : "not-cancellable",
-        reservation: latest,
-      } as const;
+      if (latest.status === "cancelled") {
+        return { status: "unchanged", reservation: latest } as const;
+      }
+      if (refundedAtProvider) {
+        // PG 환불 뒤 예약 취소 전에 예약이 이용 완료로 바뀌었다. 돈은 이미 돌아갔으므로 결제를 닫는다.
+        await markRefundPendingPaymentRefunded(tx, target.id);
+        return { status: "refunded-not-cancellable", reservation: latest } as const;
+      }
+      return { status: "not-cancellable", reservation: latest } as const;
     }
+
+    // 환불이 끝난 결제를 예약 취소와 같은 트랜잭션에서 refunded로 닫는다.
+    // 결제 없는 예약이면 대상 행이 없어 아무것도 바뀌지 않는다.
+    await markRefundPendingPaymentRefunded(tx, target.id);
 
     await tx.reservationLock.deleteMany({
       where: { activeKey: target.activeKey },
@@ -1149,6 +1411,15 @@ async function cancelAuthorizedReservation(
   }
 
   const reservation = toDomainReservation(result.reservation);
+  if (result.status === "refunded-not-cancellable") {
+    return {
+      ok: false,
+      status: "not-cancellable",
+      reservation,
+      message: REFUNDED_BUT_NOT_CANCELLED_MESSAGE,
+      refunded: true,
+    };
+  }
   if (result.status === "not-cancellable") {
     return {
       ok: false,
@@ -1172,7 +1443,7 @@ async function cancelAuthorizedReservation(
 export async function cancelReservationInDb(
   userId: string,
   reservationId: string,
-  { now = new Date() }: { now?: Date } = {},
+  { now = new Date(), ...options }: { now?: Date } & CancelReservationOptions = {},
 ): Promise<CancelReservationOutput> {
   const target = await prisma.reservation.findUnique({
     where: { id: reservationId },
@@ -1200,7 +1471,11 @@ export async function cancelReservationInDb(
       now,
     });
 
-    if (!cancellationRule.ok) {
+    // 결제가 환불 대기면 마감 전에 시작한 취소의 환불이 실패해 남은 것이다. 새 취소가 아니라
+    // 같은 멱등키로 그 취소를 끝내는 것이므로, 취소 마감이 지났어도 막지 않는다.
+    const refundInProgress = !cancellationRule.ok && (await hasPendingRefund(target.id));
+
+    if (!cancellationRule.ok && !refundInProgress) {
       return {
         ok: false,
         status: "not-cancellable",
@@ -1210,7 +1485,7 @@ export async function cancelReservationInDb(
     }
   }
 
-  return cancelAuthorizedReservation(target);
+  return cancelAuthorizedReservation(target, options);
 }
 
 export type CancelReservationAsAdminOutput =
@@ -1222,13 +1497,16 @@ export type CancelReservationAsAdminOutput =
     }
   | {
       ok: false;
-      status: "not-found" | "not-cancellable";
+      status: "not-found" | "not-cancellable" | "refund-failed";
       reservation?: Reservation;
       message: string;
+      // 예약은 이용 완료라 취소하지 않았지만 결제 환불은 끝냈다(돈이 움직였다). 관리자 감사 기록에 쓴다.
+      refunded?: true;
     };
 
 export async function cancelReservationAsAdminInDb(
   reservationId: string,
+  options: CancelReservationOptions = {},
 ): Promise<CancelReservationAsAdminOutput> {
   const target = await prisma.reservation.findUnique({
     where: { id: reservationId },
@@ -1242,7 +1520,7 @@ export async function cancelReservationAsAdminInDb(
     };
   }
 
-  return cancelAuthorizedReservation(target);
+  return cancelAuthorizedReservation(target, options);
 }
 
 export type MarkReservationUsedOutput =
@@ -1291,6 +1569,22 @@ export async function markReservationUsedInDb(
       status: "not-usable",
       reservation: domainTarget,
       message: "예약 완료 상태의 예약만 이용 완료 처리할 수 있습니다.",
+    };
+  }
+
+  // 환불 중인 예약을 이용 완료로 바꾸면 취소가 끝나지 못해 결제가 환불 대기로 남는다.
+  // 이 확인과 이용 완료 처리 사이에 환불이 시작되는 경합은 취소 쪽(cancelAuthorizedReservation)이
+  // 환불을 끝내고 결제를 닫아 처리한다.
+  const refunding = await prisma.payment.findFirst({
+    where: { reservationId, status: "refund_pending" },
+    select: { id: true },
+  });
+  if (refunding) {
+    return {
+      ok: false,
+      status: "not-usable",
+      reservation: domainTarget,
+      message: "환불 처리 중인 예약이라 이용 완료로 바꿀 수 없습니다. 환불이 끝나면 예약이 취소됩니다.",
     };
   }
 

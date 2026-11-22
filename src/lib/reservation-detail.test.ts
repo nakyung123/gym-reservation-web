@@ -49,6 +49,19 @@ describe("reservation detail helpers", () => {
     expect(detail.cancellation.message).toContain("전까지만 취소");
   });
 
+  it("환불 대기 중인 결제가 있으면 취소 마감이 지나도 다시 취소할 수 있다", () => {
+    const detail = createUserReservationDetail(reservation, {
+      now: new Date("2026-05-20T08:01:00+09:00"),
+      refundPending: true,
+    });
+
+    expect(detail.cancellation).toMatchObject({
+      canCancel: true,
+      reason: null,
+      message: null,
+    });
+  });
+
   it("marks inactive reservations as not cancellable", () => {
     const detail = createUserReservationDetail({
       ...reservation,

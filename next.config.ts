@@ -21,13 +21,13 @@ const cspReportOnly = [
   "font-src 'self' data:",
   // Tailwind/Next가 인라인 <style>을 주입하므로 style은 'unsafe-inline'이 필요하다.
   "style-src 'self' 'unsafe-inline'",
-  // script는 아직 nonce 미배선이라 'unsafe-inline' 포함. reCAPTCHA(App Check) 스크립트 origin 허용.
-  "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com",
-  // Firebase Auth/App Check + Supabase 클라이언트 연결 origin.
+  // script는 아직 nonce 미배선이라 'unsafe-inline' 포함. reCAPTCHA(App Check)·토스 결제 SDK 스크립트 origin 허용.
+  "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://js.tosspayments.com",
+  // Firebase Auth/App Check + Supabase + 토스 결제 SDK 클라이언트 연결 origin.
   // (카카오/네이버 OAuth는 서버사이드 fetch + top-level redirect라 connect-src 불필요.)
-  "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com https://*.supabase.co",
-  // reCAPTCHA 위젯 iframe.
-  "frame-src 'self' https://www.google.com",
+  "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com https://*.supabase.co https://*.tosspayments.com",
+  // reCAPTCHA 위젯 iframe + 토스 결제창 iframe.
+  "frame-src 'self' https://www.google.com https://*.tosspayments.com",
 ].join("; ");
 
 // 즉시 enforce해도 안전한 헤더(앱 origin에 의존하지 않음).

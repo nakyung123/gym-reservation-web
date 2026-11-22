@@ -111,13 +111,39 @@ export async function PATCH(
   }
 
   if (!result.ok) {
+    // 예약은 이용 완료라 취소하지 않았지만 결제 환불은 끝냈다. 돈이 움직였으므로 감사 기록을 남긴다.
+    if ("refunded" in result && result.refunded && result.reservation) {
+      await safeRecordAuditLog({
+        adminUid: auth.uid,
+        action: AUDIT_ACTIONS.reservationRefund,
+        targetType: "reservation",
+        targetId: result.reservation.id,
+        summary: `결제 환불 처리, 예약은 이용 완료라 취소 안 함 (${result.reservation.gymId}/${result.reservation.sport} ${result.reservation.date} ${result.reservation.time})`,
+        metadata: {
+          reservationUserId: result.reservation.userId,
+          gymId: result.reservation.gymId,
+          sport: result.reservation.sport,
+          date: result.reservation.date,
+          time: result.reservation.time,
+          toStatus: result.reservation.status,
+        },
+      });
+    }
     return Response.json(
       {
         status: result.status,
         reservation: result.reservation,
         message: result.message,
       },
-      { status: result.status === "not-found" ? 404 : 409 },
+      {
+        // refund-failed: 결제된 예약의 PG 환불이 실패해 예약을 취소하지 않았다(외부 의존 실패).
+        status:
+          result.status === "not-found"
+            ? 404
+            : result.status === "refund-failed"
+              ? 502
+              : 409,
+      },
     );
   }
 

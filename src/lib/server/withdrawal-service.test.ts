@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { withdrawAccount } from "@/lib/server/withdrawal-service";
 import { createReservationInDb } from "@/lib/server/db-reservation-repository";
+import {
+  failPaymentInDb,
+  preparePaymentInDb,
+} from "@/lib/server/db-payment-repository";
 import { ensureUserProfile } from "@/lib/server/db-user-profile-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
@@ -51,6 +55,158 @@ describe("withdrawAccount", () => {
     await expect(prisma.reservation.count({ where: { userId } })).resolves.toBe(1);
     expect(deleteUser).not.toHaveBeenCalled();
     await expect(prisma.withdrawalReason.count()).resolves.toBe(0);
+  });
+
+  it("결제 진행 중(정원 선점)이면 active-payment 사유로 실패하고 결제 기록을 지우지 않는다", async () => {
+    const userId = "withdraw-user-paying";
+    const prepared = await preparePaymentInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "10:00",
+      },
+      gym: TEST_GYM,
+      provider: "toss",
+    });
+    expect(prepared.ok).toBe(true);
+
+    await expect(
+      withdrawAccount(userId, { category: "기타", detail: null }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "active-payment",
+      message: "진행 중인 결제가 있어 탈퇴할 수 없습니다. 15분 뒤 다시 시도해 주세요.",
+    });
+    await expect(prisma.payment.count({ where: { userId } })).resolves.toBe(1);
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("돈이 나갔는데 자동 환불이 실패한 결제가 있으면 탈퇴를 막고 기록을 남긴다", async () => {
+    const userId = "withdraw-user-manual-refund";
+    const prepared = await preparePaymentInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "12:00",
+      },
+      gym: TEST_GYM,
+      provider: "toss",
+    });
+    if (!prepared.ok) throw new Error("prepare 실패");
+    // 결제는 닫혔지만(failed) 늦게 온 PG 승인을 환불하지 못한 상태. 사람이 이 기록으로 환불한다.
+    await prisma.payment.update({
+      where: { id: prepared.payment.orderId },
+      data: {
+        status: "failed",
+        holdKey: null,
+        failureReason: "late-approval-refund-failed:NETWORK_ERROR",
+      },
+    });
+    deleteUser.mockResolvedValue(undefined);
+
+    await expect(
+      withdrawAccount(userId, { category: "기타", detail: null }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: "active-payment",
+      message:
+        "처리가 끝나지 않은 결제가 있어 탈퇴할 수 없습니다. 잠시 뒤 다시 시도하거나 고객센터로 문의해 주세요.",
+    });
+    await expect(prisma.payment.count({ where: { userId } })).resolves.toBe(1);
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("수동 환불 사유가 남아 있어도 사람이 환불을 마쳐 refunded 가 된 결제는 탈퇴를 막지 않는다", async () => {
+    const userId = "withdraw-user-manual-refund-done";
+    const prepared = await preparePaymentInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "12:00",
+      },
+      gym: TEST_GYM,
+      provider: "toss",
+    });
+    if (!prepared.ok) throw new Error("prepare 실패");
+    await prisma.payment.update({
+      where: { id: prepared.payment.orderId },
+      data: {
+        status: "refunded",
+        holdKey: null,
+        failureReason: "late-approval-refund-failed:NETWORK_ERROR",
+      },
+    });
+    deleteUser.mockResolvedValue(undefined);
+
+    await expect(
+      withdrawAccount(userId, { category: "기타", detail: null }),
+    ).resolves.toEqual({ ok: true });
+    await expect(prisma.payment.count({ where: { userId } })).resolves.toBe(0);
+  });
+
+  it("결제창을 닫고 떠나 만료된 선점만 있으면 그 선점을 풀고 탈퇴를 허용한다", async () => {
+    const userId = "withdraw-user-expired-hold";
+    const prepared = await preparePaymentInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "14:00",
+      },
+      gym: TEST_GYM,
+      provider: "toss",
+      // 16분 전에 결제창을 열었다(선점 15분 만료).
+      now: new Date(Date.now() - 16 * 60 * 1000),
+    });
+    if (!prepared.ok) throw new Error("prepare 실패");
+    deleteUser.mockResolvedValue(undefined);
+
+    await expect(
+      withdrawAccount(userId, { category: "기타", detail: null }),
+    ).resolves.toEqual({ ok: true });
+    await expect(prisma.payment.count({ where: { userId } })).resolves.toBe(0);
+    // 선점한 정원도 돌아왔다.
+    const slot = await prisma.reservationSlot.findUnique({
+      where: {
+        gymId_sport_date_time: {
+          gymId: TEST_GYM.id,
+          sport: TEST_GYM.sports[0],
+          date: futureDate(),
+          time: "14:00",
+        },
+      },
+    });
+    expect(slot?.reservedCount ?? 0).toBe(0);
+  });
+
+  it("끝난 결제 기록은 탈퇴할 때 함께 지운다", async () => {
+    const userId = "withdraw-user-paid-history";
+    const prepared = await preparePaymentInDb({
+      userId,
+      draft: {
+        gymId: TEST_GYM.id,
+        sport: TEST_GYM.sports[0],
+        date: futureDate(),
+        time: "11:00",
+      },
+      gym: TEST_GYM,
+      provider: "toss",
+    });
+    if (!prepared.ok) throw new Error("prepare 실패");
+    await failPaymentInDb({ userId, orderId: prepared.payment.orderId, code: "PAY_PROCESS_CANCELED" });
+    deleteUser.mockResolvedValue(undefined);
+
+    await expect(
+      withdrawAccount(userId, { category: "기타", detail: null }),
+    ).resolves.toEqual({ ok: true });
+    await expect(prisma.payment.count({ where: { userId } })).resolves.toBe(0);
   });
 
   it("성공 경로에서 DB를 정리하고 Auth 삭제 후 사유를 1회 기록한다", async () => {

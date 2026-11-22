@@ -5,16 +5,12 @@ import {
   listUserReservations,
   listUserReservationsPage,
 } from "@/lib/server/db-reservation-repository";
-import { gymRepository } from "@/lib/gym-repository-provider";
-import {
-  isPaymentMethod,
-  isReservationStatus,
-  isSport,
-} from "@/lib/domain-constants";
+import { isReservationStatus, isSport } from "@/lib/domain-constants";
 import { isValidReservationDateValue } from "@/lib/reservation-rules";
-import { parsePhone } from "@/lib/user-profile";
 import { serverErrorResponse } from "@/lib/server/api-error-response";
 import { notifyReservationEvent } from "@/lib/server/reservation-notify";
+import { getPaymentMode } from "@/lib/server/payment/payment-config";
+import { parseCreateReservationRequest } from "@/lib/server/reservation-create-request";
 
 export const dynamic = "force-dynamic";
 
@@ -94,103 +90,45 @@ export async function GET(request: NextRequest) {
   return Response.json({ reservations });
 }
 
-type CreateBody = {
-  gymId?: unknown;
-  sport?: unknown;
-  date?: unknown;
-  time?: unknown;
-  people?: unknown;
-  paymentMethod?: unknown;
-  phone?: unknown;
-};
-
 export async function POST(request: NextRequest) {
   const auth = await verifyIdTokenFromRequest(request);
   if (!auth.ok) {
     return Response.json({ message: auth.message }, { status: auth.status });
   }
 
-  let body: CreateBody;
+  // 결제 모드에서는 결제 없이 예약을 만들 수 없다(결제 우회 차단).
+  // 예약은 /api/payments/prepare → 결제창 → /api/payments/confirm 경로로만 만들어진다.
+  let paymentMode: ReturnType<typeof getPaymentMode>;
   try {
-    body = (await request.json()) as CreateBody;
-  } catch {
-    return Response.json(
-      { message: "요청 본문이 JSON 형식이 아닙니다." },
-      { status: 400 },
-    );
-  }
-
-  if (
-    typeof body.gymId !== "string" ||
-    !isSport(body.sport) ||
-    typeof body.date !== "string" ||
-    typeof body.time !== "string"
-  ) {
-    return Response.json(
-      { message: "요청 본문이 올바르지 않습니다." },
-      { status: 400 },
-    );
-  }
-
-  // people은 전송용 transient(미전송 시 서버가 1로 처리). 보낸 경우 number만 허용하고,
-  // 범위 검증(정원 초과·비정수)은 createReservationInDb의 isValidPeople이 422로 reject한다.
-  if (body.people !== undefined && typeof body.people !== "number") {
-    return Response.json(
-      { message: "이용 인원이 올바르지 않습니다." },
-      { status: 400 },
-    );
-  }
-  const people = body.people;
-
-  // paymentMethod는 선택적(미전송 시 null). 보낸 경우 알려진 결제 수단만 허용한다.
-  if (body.paymentMethod !== undefined && !isPaymentMethod(body.paymentMethod)) {
-    return Response.json(
-      { message: "결제 수단이 올바르지 않습니다." },
-      { status: 400 },
-    );
-  }
-  const paymentMethod = isPaymentMethod(body.paymentMethod)
-    ? body.paymentMethod
-    : null;
-
-  // phone은 선택적(미전송/빈 문자열은 null 저장). 보낸 경우 프로필 연락처와 같은
-  // 형식 규칙(parsePhone SSOT)으로 검증한다.
-  const phoneParsed = parsePhone(body.phone ?? null);
-  if (!phoneParsed.ok) {
-    return Response.json({ message: phoneParsed.message }, { status: 400 });
-  }
-  const phone = phoneParsed.value;
-
-  let gym: Awaited<ReturnType<typeof gymRepository.findById>>;
-  try {
-    gym = await gymRepository.findById(body.gymId);
+    paymentMode = getPaymentMode();
   } catch (error) {
     return serverErrorResponse(
-      "체육관 정보를 불러오지 못했습니다.",
-      "Failed to fetch gym for reservation creation",
+      "결제 설정을 확인하지 못했습니다.",
+      "Invalid payment mode configuration",
       error,
     );
   }
-  if (!gym) {
+  if (paymentMode !== "none") {
     return Response.json(
-      { message: "체육관 정보를 찾을 수 없습니다." },
-      { status: 404 },
+      {
+        status: "payment-required",
+        message: "결제를 거쳐야 예약할 수 있습니다. 예약 화면에서 다시 진행해 주세요.",
+      },
+      { status: 409 },
     );
   }
+
+  const parsed = await parseCreateReservationRequest(request);
+  if (!parsed.ok) {
+    return parsed.response;
+  }
+  const { draft, gym } = parsed.value;
 
   let result: Awaited<ReturnType<typeof createReservationInDb>>;
   try {
     result = await createReservationInDb({
       userId: auth.uid,
-      draft: {
-        gymId: body.gymId,
-        sport: body.sport,
-        date: body.date,
-        time: body.time,
-        people,
-        paymentMethod,
-        phone,
-      },
+      draft,
       gym,
     });
   } catch (error) {

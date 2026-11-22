@@ -7,8 +7,10 @@ import { fileURLToPath } from "node:url";
 // beforeEach에서 테스트 DB(gym_reservation_test)에 접근한다. 따라서 DB가
 // 떠 있어야만 어떤 테스트도 돌릴 수 있다.
 //
-// 이 설정은 setup-db / setup-env를 모두 스킵해 DB 미기동 환경에서도 단위 테스트만
-// 빠르게 돌릴 수 있게 한다. 기존 vitest.config.ts와 npm run test 정책은 그대로다.
+// 이 설정은 setup-db를 스킵해 DB 미기동 환경에서도 단위 테스트만 빠르게 돌릴 수 있게 한다.
+// setup-env는 거친다. 셸에서 물려받은 외부 서비스 값(Slack webhook 등)을 지워 테스트가 실제로
+// 외부에 요청을 보내지 않게 하기 위해서다(prisma client는 import하지 않는다).
+// 기존 vitest.config.ts와 npm run test 정책은 그대로다.
 //
 // 새 unit 테스트를 추가할 때는 include 목록을 명시적으로 확장한다.
 // 잘못된 파일이 자동 매치돼 DB 의존을 끌고 오는 일을 막기 위해서다.
@@ -16,6 +18,7 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   test: {
     environment: "node",
+    setupFiles: ["./tests/setup-env.ts"],
     include: [
       "src/lib/server/admin-page-auth.test.ts",
       "src/lib/server/admin-auth.test.ts",
@@ -61,6 +64,8 @@ export default defineConfig({
       // dedup 통과·검증. checkRateLimit·repository 모킹으로 DB/네트워크 없이 검증.
       "src/app/api/voc/route.test.ts",
       "src/app/api/voc/[id]/verify/route.test.ts",
+      // 테스트 실행 중 외부 서비스 값이 지워지는지(tests/setup-env.ts) — 이 설정도 setup-env 를 거치므로 함께 검사한다.
+      "tests/external-env-guard.test.ts",
     ],
   },
   resolve: {

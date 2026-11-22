@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/server/prisma-client";
 import { getAdminAuth } from "@/lib/server/firebase-admin";
+import { expireStalePaymentsBeforeRead } from "@/lib/server/db-reservation-repository";
 import type { WithdrawalInput } from "@/lib/withdrawal";
 
 // 회원 탈퇴 처리 service.
@@ -14,6 +15,7 @@ import type { WithdrawalInput } from "@/lib/withdrawal";
 export type WithdrawAccountResult =
   | { ok: true }
   | { ok: false; reason: "active-reservation"; message: string }
+  | { ok: false; reason: "active-payment"; message: string }
   | { ok: false; reason: "auth-delete-failed"; message: string }
   | { ok: false; reason: "error"; message: string };
 
@@ -21,6 +23,13 @@ export type WithdrawAccountResult =
 class ActiveReservationExistsError extends Error {
   constructor() {
     super("active-reservation-exists");
+  }
+}
+
+class ActivePaymentExistsError extends Error {
+  // true: 결제창 진행 중(pending)인 선점만 있다. 15분 안에 만료 정리로 풀린다.
+  constructor(readonly onlyHolds: boolean) {
+    super("active-payment-exists");
   }
 }
 
@@ -38,6 +47,10 @@ export async function withdrawAccount(
   // userId 스코프라 익명(userId=null) 글은 영향받지 않는다.
   // 사유 기록은 일부러 이 트랜잭션에 포함하지 않는다 — Auth 삭제 실패 후 재시도 시
   // 같은 사유가 중복 기록되지 않도록 Auth 성공 후에 1회만 기록한다(아래 4번).
+  // 결제창을 닫고 떠난 선점(만료된 pending)이 탈퇴를 막지 않게 먼저 푼다. 정리가 실패해도
+  // 아래 검사가 그대로 막으므로 안전한 쪽으로 남는다.
+  await expireStalePaymentsBeforeRead({ userId }, new Date(), "withdrawal");
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.reservation.deleteMany({
@@ -49,12 +62,46 @@ export async function withdrawAccount(
       if (activeReservationCount > 0) {
         throw new ActiveReservationExistsError();
       }
+      // 결제 진행 중(정원 선점·승인 중·환불 대기)인 건이 있으면 탈퇴를 막는다.
+      // 지우면 선점한 정원이 반환되지 않거나 PG 쪽 결제와 기록이 어긋난다.
+      // 돈은 나갔는데 자동 환불이 실패해 사람이 환불해야 하는 결제(late-approval-refund-failed)도 막는다.
+      // 지우면 수동 환불할 근거가 DB에 남지 않는다. 닫힌 상태(failed·expired)일 때만 본다.
+      // 사람이 환불을 마쳐 refunded 로 바꾼 결제는 막지 않는다(승인 재요청의 수동 환불 안내와 같은 기준).
+      const blockingPayments = await tx.payment.findMany({
+        where: {
+          userId,
+          OR: [
+            { status: { in: ["pending", "confirming", "refund_pending"] } },
+            {
+              status: { in: ["failed", "expired"] },
+              failureReason: { startsWith: "late-approval-refund-failed" },
+            },
+          ],
+        },
+        select: { status: true, failureReason: true },
+      });
+      if (blockingPayments.length > 0) {
+        // pending(결제창 진행 중)만 있으면 15분 안에 만료 정리로 풀린다. 그 밖은 결과 확인이나 문의가 필요하다.
+        // 수동 환불 사유가 붙은 결제는 위 조건상 failed·expired 라 여기서 pending 으로 세지 않는다.
+        const onlyHolds = blockingPayments.every((payment) => payment.status === "pending");
+        throw new ActivePaymentExistsError(onlyHolds);
+      }
+      await tx.payment.deleteMany({ where: { userId } });
       await tx.favorite.deleteMany({ where: { userId } });
       await tx.inquiry.deleteMany({ where: { userId } });
       await tx.vocPost.deleteMany({ where: { userId } });
       await tx.userProfile.deleteMany({ where: { userId } });
     });
   } catch (error) {
+    if (error instanceof ActivePaymentExistsError) {
+      return {
+        ok: false,
+        reason: "active-payment",
+        message: error.onlyHolds
+          ? "진행 중인 결제가 있어 탈퇴할 수 없습니다. 15분 뒤 다시 시도해 주세요."
+          : "처리가 끝나지 않은 결제가 있어 탈퇴할 수 없습니다. 잠시 뒤 다시 시도하거나 고객센터로 문의해 주세요.",
+      };
+    }
     if (error instanceof ActiveReservationExistsError) {
       return {
         ok: false,

@@ -1,18 +1,76 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET } from "@/app/api/reservations/[reservationId]/route";
+import {
+  confirmPaymentInDb,
+  preparePaymentInDb,
+} from "@/lib/server/db-payment-repository";
 import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
+import {
+  createFakePaymentProvider,
+  UNKNOWN_FAILURE,
+  type FakePaymentProvider,
+} from "@tests/fake-payment-provider";
 
-const { verifyIdToken, notifyReservationEvent } = vi.hoisted(() => ({
+const { verifyIdToken, notifyReservationEvent, fakeHolder } = vi.hoisted(() => ({
   verifyIdToken: vi.fn(),
   notifyReservationEvent: vi.fn(),
+  fakeHolder: { current: null as FakePaymentProvider | null },
 }));
 
 vi.mock("@/lib/server/firebase-admin", () => ({
   getAdminAuth: () => ({ verifyIdToken }),
 }));
+
+// 결제된 예약의 환불은 실제 토스 대신 가짜 PG로 보낸다. 결제 없는 예약 취소는 이 함수를 부르지 않는다.
+vi.mock("@/lib/server/payment/payment-config", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/server/payment/payment-config")>();
+  return {
+    ...actual,
+    getPaymentProviderByName: () => {
+      if (!fakeHolder.current) throw new Error("가짜 PG가 준비되지 않았다");
+      return fakeHolder.current;
+    },
+  };
+});
+
+// 결제(가짜 PG 승인)를 거쳐 만든 예약.
+async function createPaidReservation(userId: string, fake: FakePaymentProvider) {
+  return createPaidReservationAt(userId, fake, "10:00");
+}
+
+async function createPaidReservationAt(
+  userId: string,
+  fake: FakePaymentProvider,
+  time: string,
+) {
+  const prepared = await preparePaymentInDb({
+    userId,
+    draft: {
+      gymId: TEST_GYM.id,
+      sport: "배드민턴",
+      date: futureDate(),
+      time,
+      paymentMethod: "card",
+      phone: null,
+    },
+    gym: TEST_GYM,
+    provider: "toss",
+  });
+  if (!prepared.ok) throw new Error(`prepare 실패: ${prepared.status}`);
+  const confirmed = await confirmPaymentInDb({
+    userId,
+    orderId: prepared.payment.orderId,
+    paymentKey: `pk_${prepared.payment.orderId}`,
+    amount: prepared.payment.amount,
+    provider: fake,
+  });
+  if (!confirmed.ok) throw new Error(`confirm 실패: ${confirmed.status}`);
+  return { orderId: prepared.payment.orderId, reservation: confirmed.reservation };
+}
 
 vi.mock("@/lib/server/reservation-notify", () => ({ notifyReservationEvent }));
 
@@ -464,6 +522,90 @@ describe("DELETE /api/reservations/[reservationId]", () => {
       expect(await prisma.reservationLock.count()).toBe(1);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("결제된 예약의 환불이 실패하면 502이고 예약을 취소하지 않는다. 다시 취소하면 환불 후 취소된다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "paid-cancel-route-user" });
+    const fake = createFakePaymentProvider();
+    fakeHolder.current = fake;
+    try {
+      const { orderId, reservation } = await createPaidReservation(
+        "paid-cancel-route-user",
+        fake,
+      );
+      fake.nextCancel = UNKNOWN_FAILURE;
+
+      const failed = await DELETE(
+        requestFor(reservation.id, "test-id-token", "DELETE"),
+        contextFor(reservation.id),
+      );
+      const failedBody = (await failed.json()) as { status?: unknown; message?: unknown };
+
+      expect(failed.status).toBe(502);
+      expect(failedBody.status).toBe("refund-failed");
+      expect(typeof failedBody.message).toBe("string");
+      expect(
+        (await prisma.reservation.findUniqueOrThrow({ where: { id: reservation.id } })).status,
+      ).toBe("reserved");
+      expect(
+        (await prisma.payment.findUniqueOrThrow({ where: { id: orderId } })).status,
+      ).toBe("refund_pending");
+
+      const retried = await DELETE(
+        requestFor(reservation.id, "test-id-token", "DELETE"),
+        contextFor(reservation.id),
+      );
+      expect(retried.status).toBe(200);
+      expect(
+        (await prisma.payment.findUniqueOrThrow({ where: { id: orderId } })).status,
+      ).toBe("refunded");
+    } finally {
+      fakeHolder.current = null;
+    }
+  });
+
+  it("환불이 실패해 환불 대기로 남은 결제된 예약은 취소 마감이 지나도 상세에서 취소할 수 있게 내려준다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "refund-pending-detail-user" });
+    const fake = createFakePaymentProvider();
+    fakeHolder.current = fake;
+    try {
+      const { reservation } = await createPaidReservation("refund-pending-detail-user", fake);
+      fake.nextCancel = UNKNOWN_FAILURE;
+      await DELETE(
+        requestFor(reservation.id, "test-id-token", "DELETE"),
+        contextFor(reservation.id),
+      );
+      const { reservation: other } = await createPaidReservationAt(
+        "refund-pending-detail-user",
+        fake,
+        "11:00",
+      );
+
+      // 09:30 으로 시계를 옮긴다. 10:00(마감 08:00)·11:00(마감 09:00) 예약 모두 취소 마감이 지났다.
+      // DB 호출을 막지 않게 Date 만 바꾼다.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date(`${futureDate()}T09:30:00+09:00`));
+
+        const pending = await GET(requestFor(reservation.id), contextFor(reservation.id));
+        const pendingBody = (await pending.json()) as {
+          detail?: { cancellation?: { canCancel?: unknown } };
+        };
+        expect(pending.status).toBe(200);
+        expect(pendingBody.detail?.cancellation?.canCancel).toBe(true);
+
+        // 환불이 시작되지 않은 결제된 예약은 지금처럼 마감 뒤 취소할 수 없다.
+        const paid = await GET(requestFor(other.id), contextFor(other.id));
+        const paidBody = (await paid.json()) as {
+          detail?: { cancellation?: { canCancel?: unknown } };
+        };
+        expect(paidBody.detail?.cancellation?.canCancel).toBe(false);
+      } finally {
+        vi.useRealTimers();
+      }
+    } finally {
+      fakeHolder.current = null;
     }
   });
 

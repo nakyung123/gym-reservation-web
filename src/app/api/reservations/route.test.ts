@@ -325,6 +325,29 @@ describe("POST /api/reservations", () => {
     vi.restoreAllMocks();
   });
 
+  it("결제 모드(PAYMENT_PROVIDER=toss)에서는 결제 없이 예약을 만들지 않고 409 payment-required를 돌려준다", async () => {
+    verifyIdToken.mockResolvedValue({ uid: "create-route-user" });
+    vi.stubEnv("PAYMENT_PROVIDER", "toss");
+    try {
+      const response = await POST(
+        postRequest({
+          gymId: TEST_GYM.id,
+          sport: "배드민턴",
+          date: futureDate(),
+          time: "10:00",
+        }),
+      );
+      const body = (await response.json()) as { status?: unknown };
+
+      expect(response.status).toBe(409);
+      expect(body.status).toBe("payment-required");
+      expect(await prisma.reservation.count()).toBe(0);
+      expect(await prisma.reservationSlot.count()).toBe(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("올바른 요청이면 예약을 생성하고 슬롯 카운터를 증가시킨다", async () => {
     verifyIdToken.mockResolvedValue({ uid: "create-route-user" });
     const date = futureDate();

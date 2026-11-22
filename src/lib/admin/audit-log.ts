@@ -6,6 +6,8 @@
 export const AUDIT_ACTIONS = {
   reservationCancel: "reservation.cancel",
   reservationUse: "reservation.use",
+  // 예약은 이용 완료라 취소하지 않았지만 결제 환불을 끝낸 경우.
+  reservationRefund: "reservation.refund",
   gymCreate: "gym.create",
   gymUpdate: "gym.update",
   slotUpdate: "slot.update",
@@ -23,6 +25,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 export const AUDIT_ACTION_LABEL: Record<string, string> = {
   [AUDIT_ACTIONS.reservationCancel]: "예약 취소",
   [AUDIT_ACTIONS.reservationUse]: "예약 이용 완료",
+  [AUDIT_ACTIONS.reservationRefund]: "결제 환불",
   [AUDIT_ACTIONS.gymCreate]: "시설 생성",
   [AUDIT_ACTIONS.gymUpdate]: "시설 수정",
   [AUDIT_ACTIONS.slotUpdate]: "슬롯 변경",

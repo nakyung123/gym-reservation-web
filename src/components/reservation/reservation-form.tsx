@@ -32,6 +32,12 @@ import {
   computeReservationPrice,
 } from "@/lib/sport-capacity";
 import { createReservation } from "@/lib/reservation-service";
+import {
+  failPayment,
+  openTossCheckout,
+  preparePayment,
+} from "@/lib/payment-client";
+import type { PublicPaymentConfig } from "@/lib/payment";
 import { parsePhone } from "@/lib/user-profile";
 import { formatPhone } from "@/lib/input-format";
 import { resolveReservationFormInitial } from "@/lib/reservation-form-initial";
@@ -65,9 +71,11 @@ import type { Gym, PaymentMethod, Reservation, Sport } from "@/types/domain";
 
 type ReservationFormProps = {
   gym: Gym;
+  // 서버(page)가 PAYMENT_PROVIDER로 정해 내려준다. none이면 결제 없이 바로 예약한다.
+  payment: PublicPaymentConfig;
 };
 
-export function ReservationForm({ gym }: ReservationFormProps) {
+export function ReservationForm({ gym, payment }: ReservationFormProps) {
   const t = useTranslations("Reserve");
   // /reserve/[gymId]?sport=&date=&time= 쿼리를 폼 초기 상태에 반영한다.
   // 형식 검증과 sport/time 허용 여부는 resolveReservationFormInitial이 SSOT.
@@ -115,6 +123,11 @@ export function ReservationForm({ gym }: ReservationFormProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
     null,
   );
+  // 결제 모드에서는 가상계좌를 뺀다(입금이 비동기라 이 흐름에서 다루지 않고, 테스트 키로도 시험할 수 없다).
+  const paymentOptions =
+    payment.mode === "toss"
+      ? PAYMENT_METHODS.filter((option) => option.id !== "virtual-account")
+      : PAYMENT_METHODS;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [completed, setCompleted] = useState<Reservation | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -403,7 +416,8 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     return null;
   }
 
-  // 예약 신청하기 → 이 페이지에서 바로 예약 확정(생성). 데모 범위라 실제 결제(PG)는 없다.
+  // 예약 신청하기. 결제 모드(toss)면 결제를 준비하고 결제창으로 넘긴다. 결제가 꺼져 있으면(none)
+  // 이 페이지에서 바로 예약을 확정(생성)한다.
   // 성공 시 완료 화면으로 전환하고, 중복/마감/거절은 성공처럼 넘기지 않고 사유를 명시한다.
   const handleReserve = async () => {
     if (isSubmitting) return;
@@ -430,6 +444,50 @@ export function ReservationForm({ gym }: ReservationFormProps) {
     }
     setIsSubmitting(true);
     setSubmitError(null);
+
+    // 결제 모드: 서버가 정원을 선점하고 금액을 정한 뒤 토스 결제창을 띄운다.
+    // 결제 결과는 /reserve/payment/success·fail 화면이 이어서 처리한다(redirect).
+    if (payment.mode === "toss") {
+      try {
+        const prepared = await preparePayment({
+          gymId: gym.id,
+          sport: selectedSport,
+          date: selectedDate,
+          time: effectiveSelectedTime,
+          people,
+          paymentMethod,
+          phone: phoneParsed.value,
+        });
+        if (!prepared.ok) {
+          setSubmitError(prepared.message);
+          return;
+        }
+        const opened = await openTossCheckout({
+          clientKey: payment.clientKey,
+          payment: prepared.payment,
+        });
+        if (!opened.ok) {
+          // 결제창을 못 열었거나 사용자가 닫았다. 선점한 정원을 바로 돌려준다.
+          const failed = await failPayment({
+            orderId: prepared.payment.orderId,
+            code: opened.code,
+          });
+          const canceled =
+            opened.code === "USER_CANCEL" || opened.code === "PAY_PROCESS_CANCELED";
+          setSubmitError(
+            failed.ok
+              ? t(canceled ? "paymentCanceled" : "paymentCheckoutFailed")
+              : failed.message,
+          );
+        }
+      } catch {
+        setSubmitError(t("submitFailed"));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     try {
       const result = await createReservation({
         gym,
@@ -1047,8 +1105,13 @@ export function ReservationForm({ gym }: ReservationFormProps) {
               <p className="mt-4 text-[14px] text-slate-500">
                 {t("paymentChoose")}
               </p>
+              {payment.mode === "toss" ? (
+                <p className="mt-2 text-[14px] text-slate-500" role="note">
+                  {t("paymentTestModeNotice")}
+                </p>
+              ) : null}
               <ul className="mt-3 flex flex-col gap-2">
-                {PAYMENT_METHODS.map((option) => {
+                {paymentOptions.map((option) => {
                   const active = paymentMethod === option.id;
                   return (
                     <li key={option.id}>

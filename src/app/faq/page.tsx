@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { BoardPagination } from "@/components/ui/board-pagination";
 import { SearchBar } from "@/components/home/search-bar";
 import { VocBoard } from "@/components/voc/voc-board";
-import { FAQ_KNOWLEDGE } from "@/lib/server/faq-knowledge";
+import { getFaqKnowledge } from "@/lib/server/faq-knowledge";
 import { listVocPosts } from "@/lib/server/db-voc-repository";
 import { gymRepository } from "@/lib/gym-repository-provider";
 
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 const PER_PAGE = 5;
 
-// FAQ_KNOWLEDGE의 7개 카테고리를 4개 탭으로 묶는다(데이터는 그대로, 화면 그룹핑만).
+// FAQ 지식(getFaqKnowledge)의 7개 카테고리를 4개 탭으로 묶는다(데이터는 그대로, 화면 그룹핑만).
 const TAB_GROUPS: { key: string; label: string; categories: string[] }[] = [
   { key: "signup", label: "가입·계정", categories: ["가입 / 계정"] },
   {
@@ -97,6 +97,7 @@ export default async function FaqPage({
 
   // 검색어가 없으면 활성 탭의 카테고리만, 검색어가 있으면 FAQ 전체에서 찾는다
   // (다른 탭에 있는 답을 0건으로 놓치지 않게). 전체 검색 결과에는 탭 라벨 배지를 붙인다.
+  const faqKnowledge = getFaqKnowledge();
   const entryMatches = (entry: { q: string; a: string }) => {
     if (field === "title") return entry.q.includes(query);
     if (field === "content") return entry.a.includes(query);
@@ -105,7 +106,7 @@ export default async function FaqPage({
   const matched: { entry: { q: string; a: string }; groupLabel: string | null }[] =
     query
       ? TAB_GROUPS.flatMap((group) =>
-          FAQ_KNOWLEDGE.filter((category) =>
+          faqKnowledge.filter((category) =>
             group.categories.includes(category.title),
           ).flatMap((category) =>
             category.entries
@@ -113,7 +114,7 @@ export default async function FaqPage({
               .map((entry) => ({ entry, groupLabel: group.label })),
           ),
         )
-      : FAQ_KNOWLEDGE.filter((category) =>
+      : faqKnowledge.filter((category) =>
           activeGroup.categories.includes(category.title),
         )
           .flatMap((category) => category.entries)

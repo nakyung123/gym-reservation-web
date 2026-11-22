@@ -33,6 +33,7 @@ import {
   type FaqMessage,
 } from "@/lib/server/faq-bot";
 import { MAX_TOOL_CALLS } from "@/lib/server/faq-tools";
+import { buildFaqKnowledgeText } from "@/lib/server/faq-knowledge";
 
 describe("sanitizeFaqMessages", () => {
   it("user/assistant 외 role과 빈/비문자 content를 제거한다", () => {
@@ -99,11 +100,26 @@ describe("buildFaqSystemPrompt", () => {
     expect(prompt).toContain("QR 체크인"); // 체크인
     // 취소 시한: USER_CANCEL_CUTOFF_MINUTES=120 → 2시간 (SSOT에서 파생)
     expect(prompt).toContain("이용 시작 2시간 전까지");
-    // 결제/환불 데모 정직성
+    // 결제/환불 정직성: 결제 모드 none(테스트 기본)에서는 준비 중으로 안내한다.
     expect(prompt).toContain("준비 중");
+    expect(prompt).toContain("실제 돈이 나가는 것처럼 말하지 마세요");
     // 인젝션 경계 가드
     expect(prompt).toContain("데이터");
     expect(prompt).toContain("<faq>");
+  });
+});
+
+describe("결제 모드별 FAQ 결제·환불 답변", () => {
+  it("toss 모드에서는 테스트 결제와 취소 시 자동 환불을 안내하고, 준비 중이라고 하지 않는다", () => {
+    const text = buildFaqKnowledgeText("toss");
+    expect(text).toContain("테스트 결제");
+    expect(text).toContain("실제 돈은 나가지 않습니다");
+    expect(text).toContain("자동으로 취소(환불)");
+    expect(text).not.toContain("준비 중");
+  });
+
+  it("none 모드에서는 결제가 준비 중이라고 안내한다", () => {
+    expect(buildFaqKnowledgeText("none")).toContain("준비 중");
   });
 });
 

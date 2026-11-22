@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { ReservationForm } from "@/components/reservation/reservation-form";
 import { gymRepository } from "@/lib/gym-repository-provider";
+import { getPublicPaymentConfig } from "@/lib/server/payment/payment-config";
 
 type ReservePageProps = {
   params: Promise<{
@@ -37,7 +38,7 @@ export default async function ReservePage({ params }: ReservePageProps) {
           </div>
         }
       >
-        <ReservationForm gym={gym} />
+        <ReservationForm gym={gym} payment={getPublicPaymentConfig()} />
       </Suspense>
     </main>
   );

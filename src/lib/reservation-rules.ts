@@ -231,6 +231,14 @@ export function isGymClosedOnDate(gym: Gym, dateValue: string) {
   return gym.closedDays.some((rule) => isClosedDayRuleMatch(parsed, rule));
 }
 
+// 예약 시작 시각(KST 기준 date·time)을 절대 시각으로 돌려준다. 형식이 틀리면 null.
+export function getReservationStartInstant(
+  dateValue: string,
+  timeValue: string,
+): Date | null {
+  return parseReservationDateTime(dateValue, timeValue)?.instant ?? null;
+}
+
 export function validateUserReservationCancellation({
   reservation,
   now = new Date(),

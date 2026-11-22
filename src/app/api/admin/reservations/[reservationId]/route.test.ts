@@ -2,13 +2,66 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, PATCH } from "@/app/api/admin/reservations/[reservationId]/route";
 import { verifyAdminTokenFromRequest } from "@/lib/server/admin-auth";
+import {
+  confirmPaymentInDb,
+  preparePaymentInDb,
+} from "@/lib/server/db-payment-repository";
 import { createReservationInDb } from "@/lib/server/db-reservation-repository";
 import { prisma } from "@/lib/server/prisma-client";
 import { TEST_GYM, futureDate } from "@tests/setup-db";
+import {
+  createFakePaymentProvider,
+  UNKNOWN_FAILURE,
+  type FakePaymentProvider,
+} from "@tests/fake-payment-provider";
+
+const { fakeHolder } = vi.hoisted(() => ({
+  fakeHolder: { current: null as FakePaymentProvider | null },
+}));
 
 vi.mock("@/lib/server/admin-auth", () => ({
   verifyAdminTokenFromRequest: vi.fn(),
 }));
+
+// 결제된 예약의 환불은 실제 토스 대신 가짜 PG로 보낸다. 결제 없는 예약은 이 함수를 부르지 않는다.
+vi.mock("@/lib/server/payment/payment-config", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/server/payment/payment-config")>();
+  return {
+    ...actual,
+    getPaymentProviderByName: () => {
+      if (!fakeHolder.current) throw new Error("가짜 PG가 준비되지 않았다");
+      return fakeHolder.current;
+    },
+  };
+});
+
+// 결제(가짜 PG 승인)를 거쳐 만든 예약.
+async function createPaidReservation(userId: string, fake: FakePaymentProvider) {
+  const prepared = await preparePaymentInDb({
+    userId,
+    draft: {
+      gymId: TEST_GYM.id,
+      sport: "배드민턴",
+      date: futureDate(),
+      time: "10:00",
+      paymentMethod: "card",
+      phone: null,
+    },
+    gym: TEST_GYM,
+    provider: "toss",
+  });
+  if (!prepared.ok) throw new Error(`prepare 실패: ${prepared.status}`);
+  const confirmed = await confirmPaymentInDb({
+    userId,
+    orderId: prepared.payment.orderId,
+    paymentKey: `pk_${prepared.payment.orderId}`,
+    amount: prepared.payment.amount,
+    provider: fake,
+  });
+  if (!confirmed.ok) throw new Error(`confirm 실패: ${confirmed.status}`);
+  return { orderId: prepared.payment.orderId, reservation: confirmed.reservation };
+}
 
 const ADMIN_BEARER = "Bearer admin-test-id-token";
 
@@ -505,6 +558,82 @@ describe("PATCH /api/admin/reservations/[reservationId]", () => {
         time: "10:00",
       }),
     ).resolves.toBe(0);
+  });
+
+  it("결제된 예약의 환불이 실패하면 502이고 예약을 취소하지 않는다", async () => {
+    const fake = createFakePaymentProvider();
+    fakeHolder.current = fake;
+    try {
+      const { orderId, reservation } = await createPaidReservation("admin-paid-cancel-user", fake);
+      fake.nextCancel = UNKNOWN_FAILURE;
+
+      const response = await PATCH(
+        patchRequestFor(reservation.id, "cancelled"),
+        contextFor(reservation.id),
+      );
+      const body = (await response.json()) as { status?: unknown };
+
+      expect(response.status).toBe(502);
+      expect(body.status).toBe("refund-failed");
+      expect(
+        (await prisma.reservation.findUniqueOrThrow({ where: { id: reservation.id } })).status,
+      ).toBe("reserved");
+      expect(
+        (await prisma.payment.findUniqueOrThrow({ where: { id: orderId } })).status,
+      ).toBe("refund_pending");
+    } finally {
+      fakeHolder.current = null;
+    }
+  });
+
+  it("환불 대기 중인 예약을 이용 완료로 바꾸면 409와 안내 문구를 돌려주고 바꾸지 않는다", async () => {
+    const fake = createFakePaymentProvider();
+    fakeHolder.current = fake;
+    try {
+      const { reservation } = await createPaidReservation("admin-refunding-use-user", fake);
+      fake.nextCancel = UNKNOWN_FAILURE;
+      await PATCH(patchRequestFor(reservation.id, "cancelled"), contextFor(reservation.id));
+
+      const response = await PATCH(
+        patchRequestFor(reservation.id, "used"),
+        contextFor(reservation.id),
+      );
+      const body = (await response.json()) as { status?: unknown; message?: unknown };
+
+      expect(response.status).toBe(409);
+      expect(body.status).toBe("not-usable");
+      expect(body.message).toContain("환불 처리 중");
+      expect(
+        (await prisma.reservation.findUniqueOrThrow({ where: { id: reservation.id } })).status,
+      ).toBe("reserved");
+    } finally {
+      fakeHolder.current = null;
+    }
+  });
+
+  it("환불만 끝나고 예약은 이용 완료라 취소하지 않은 경우에도 결제 환불 감사 기록을 남긴다", async () => {
+    const fake = createFakePaymentProvider();
+    fakeHolder.current = fake;
+    try {
+      const { orderId, reservation } = await createPaidReservation("admin-refund-audit-user", fake);
+      // 취소 요청과 이용 완료 처리가 겹쳐 생긴 상태(결제는 환불 대기, 예약은 이용 완료)를 만든다.
+      await prisma.payment.update({ where: { id: orderId }, data: { status: "refund_pending" } });
+      await prisma.reservation.update({ where: { id: reservation.id }, data: { status: "used" } });
+
+      const response = await PATCH(
+        patchRequestFor(reservation.id, "cancelled"),
+        contextFor(reservation.id),
+      );
+
+      expect(response.status).toBe(409);
+      expect(
+        (await prisma.payment.findUniqueOrThrow({ where: { id: orderId } })).status,
+      ).toBe("refunded");
+      const logs = await prisma.auditLog.findMany({ where: { targetId: reservation.id } });
+      expect(logs.map((log) => log.action)).toEqual(["reservation.refund"]);
+    } finally {
+      fakeHolder.current = null;
+    }
   });
 
   it("cancelling a used reservation returns 409 and keeps it used", async () => {

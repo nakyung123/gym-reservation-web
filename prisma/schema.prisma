@@ -142,6 +142,44 @@ model ReservationSlot {
   @@map("reservation_slots")
 }
 
+// 결제(토스페이먼츠 테스트 모드). 예약 상태(reserved/cancelled/used)와 분리된 축이다.
+// id는 PG에 보내는 orderId로 그대로 쓴다(영문·숫자·-·_ 6~64자).
+// status: pending(결제창 진행, 슬롯 정원 1 선점) -> confirming(승인 요청 중) -> paid
+//         | failed | expired, paid -> refund_pending -> refunded.
+// holdKey: pending/confirming 동안만 예약 activeKey와 같은 값. UNIQUE라 같은 사용자의 같은 슬롯
+//          중복 결제를 DB가 막는다. 결제가 끝나면(성공·실패·만료) null로 비워 다음 시도를 허용한다.
+// 결제 중인 hold도 reservation_slots.reserved_count에 포함된다(만료·실패 시 반환).
+// 상세 설계: docs/payment-design.md, docs/payment-implementation-plan.md
+model Payment {
+  id                 String    @id @db.VarChar(64)
+  userId             String    @map("user_id") @db.VarChar(64)
+  gymId              String    @map("gym_id") @db.VarChar(64)
+  sport              String    @db.VarChar(20)
+  date               String    @db.VarChar(10)
+  time               String    @db.VarChar(5)
+  people             Int
+  phone              String?   @db.VarChar(20)
+  paymentMethod      String?   @map("payment_method") @db.VarChar(20)
+  amount             Int
+  orderName          String    @map("order_name") @db.VarChar(100)
+  status             String    @db.VarChar(20)
+  provider           String    @db.VarChar(20)
+  providerPaymentKey String?   @unique @map("provider_payment_key") @db.VarChar(200)
+  holdKey            String?   @unique @map("hold_key") @db.VarChar(255)
+  reservationId      String?   @unique @map("reservation_id") @db.VarChar(64)
+  failureReason      String?   @map("failure_reason") @db.VarChar(200)
+  expiresAt          DateTime  @map("expires_at") @db.Timestamp(3)
+  paidAt             DateTime? @map("paid_at") @db.Timestamp(3)
+  refundedAt         DateTime? @map("refunded_at") @db.Timestamp(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(3)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamp(3)
+
+  // 만료 정리·재처리 대상 조회(status + 시각).
+  @@index([status, expiresAt], map: "idx_payment_status_expires")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_payment_user_created")
+  @@map("payments")
+}
+
 // 회원 탈퇴 시 익명으로 수집하는 사유 통계. uid는 보관하지 않는다 (탈퇴 즉시 식별자 폐기).
 // detail은 자유 텍스트(최대 300자 클라이언트 제한, 컬럼은 여유 둠).
 model WithdrawalReason {

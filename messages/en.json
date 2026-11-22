@@ -69,7 +69,7 @@
     "facilitiesSubtitle": "Public sports facilities available to book now.",
     "facilitiesEmpty": "No facilities to show right now. Please check back later.",
     "reservationTitle": "Pick a Time & Confirm",
-    "reservationHold": "Your selected time is held for 10 minutes. Please complete payment within the time limit.",
+    "reservationHold": "Your selected time is held for 15 minutes. Please complete payment within the time limit.",
     "reservationPrev": "Back",
     "reservationProceed": "Proceed to Book",
     "cardAvailable": "Available",
@@ -490,7 +490,10 @@
     "calToday": "Today",
     "calUnavailable": "Unavailable",
     "calClosedDay": "Closed",
-    "calDayAria": "{year}-{month}-{day}"
+    "calDayAria": "{year}-{month}-{day}",
+    "paymentTestModeNotice": "This is a test payment. No real money is charged even when the payment window opens.",
+    "paymentCanceled": "Payment was canceled. The reservation was not made.",
+    "paymentCheckoutFailed": "Could not open the payment window. Please try again shortly."
   },
   "Reservations": {
     "eyebrow": "My Reservations",
@@ -783,5 +786,20 @@
     "description": "The address may be incorrect or the page has been removed. Use the buttons below to continue.",
     "homeCta": "Go Home",
     "gymsCta": "Find Facilities"
+  },
+  "Payment": {
+    "successTitle": "Payment confirmation",
+    "confirming": "Confirming your payment and reservation.",
+    "invalidResult": "The payment result is invalid. Please check My Reservations.",
+    "retry": "Try again",
+    "checkAgain": "Check again",
+    "goReservations": "My reservations",
+    "canceledTitle": "Payment canceled",
+    "failedTitle": "Payment failed",
+    "closing": "Closing the payment.",
+    "canceledMessage": "Payment was canceled. The reservation was not made.",
+    "failedMessage": "Payment failed, so the reservation was not made. (Error code: {code})",
+    "retryReservation": "Reserve again",
+    "goGyms": "Find facilities"
   }
 }

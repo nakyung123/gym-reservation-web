@@ -69,7 +69,7 @@
     "facilitiesSubtitle": "현재 예약 가능한 공공 체육시설입니다.",
     "facilitiesEmpty": "현재 표시할 체육시설이 없습니다. 잠시 후 다시 확인해 주세요.",
     "reservationTitle": "시간대 선택 & 예약 확인",
-    "reservationHold": "선택한 시간대는 10분간 임시 보관됩니다. 시간 내 결제를 완료해 주세요.",
+    "reservationHold": "선택한 시간대는 15분간 임시 보관됩니다. 시간 내 결제를 완료해 주세요.",
     "reservationPrev": "이전",
     "reservationProceed": "예약 진행하기",
     "cardAvailable": "예약 가능",
@@ -490,7 +490,10 @@
     "calToday": "오늘",
     "calUnavailable": "예약불가",
     "calClosedDay": "휴관일",
-    "calDayAria": "{year}년 {month}월 {day}일"
+    "calDayAria": "{year}년 {month}월 {day}일",
+    "paymentTestModeNotice": "테스트 결제입니다. 결제창이 열려도 실제 돈은 나가지 않습니다.",
+    "paymentCanceled": "결제를 취소했습니다. 예약은 진행되지 않았습니다.",
+    "paymentCheckoutFailed": "결제창을 열지 못했습니다. 잠시 후 다시 시도해 주세요."
   },
   "Reservations": {
     "eyebrow": "내 예약",
@@ -783,5 +786,20 @@
     "description": "주소가 잘못되었거나 삭제된 페이지입니다. 아래 버튼으로 이동해 주세요.",
     "homeCta": "홈으로",
     "gymsCta": "시설 찾기"
+  },
+  "Payment": {
+    "successTitle": "결제 확인",
+    "confirming": "결제를 확인하고 예약을 확정하고 있습니다.",
+    "invalidResult": "결제 결과 정보가 올바르지 않습니다. 내 예약에서 예약 여부를 확인해 주세요.",
+    "retry": "다시 시도",
+    "checkAgain": "결과 다시 확인",
+    "goReservations": "내 예약 보기",
+    "canceledTitle": "결제 취소",
+    "failedTitle": "결제 실패",
+    "closing": "결제 상태를 정리하고 있습니다.",
+    "canceledMessage": "결제를 취소했습니다. 예약은 진행되지 않았습니다.",
+    "failedMessage": "결제에 실패해 예약이 진행되지 않았습니다. (오류 코드: {code})",
+    "retryReservation": "다시 예약하기",
+    "goGyms": "시설 찾기"
   }
 }
